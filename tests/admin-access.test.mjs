@@ -5,13 +5,7 @@ import path from "node:path";
 import Module from "node:module";
 import ts from "typescript";
 
-// Exercise the real route, session verification, role guard and input validators.
-// Only the external Supabase transport and Next's cookie jar are substituted.
-const originalFetch = globalThis.fetch;
-const previousUrl = process.env.SUPABASE_URL,
-  previousKey = process.env.SUPABASE_ANON_KEY;
-process.env.SUPABASE_URL = "https://zenvio.invalid";
-process.env.SUPABASE_ANON_KEY = "test-public-key";
+// Exercise the real admin routes with only the authentication library and SQL transport substituted.
 let token = null,
   role = "member",
   requests = [];
@@ -39,7 +33,19 @@ function load(relative) {
   const standard = mod.require.bind(mod);
   mod.require = (id) =>
     id === "next/headers"
-      ? { cookies: async () => jar }
+      ? { headers: async () => new Headers() }
+      : id === "./auth"
+        ? { getAuth: () => ({api:{getSession:async()=> token ? {user:{id:token,email:"owner@example.com",role:"master_admin"}} : null}}) }
+      : id === "./db"
+        ? {databaseConfigured:()=>true}
+      : id === "./postgres-backend"
+        ? {postgresBackend:async(path,options)=>{
+            requests.push({path,options});
+            if(path.endsWith("current_platform_role"))return role;
+            if(path.endsWith("admin_overview"))return {accounts:[],total:0};
+            if(path.endsWith("admin_event_status"))return null;
+            throw new Error("Unexpected SQL operation");
+          }}
       : id === "@/lib/admin"
         ? load("src/lib/admin.ts")
         : id === "@/lib/server" || id === "./server"
@@ -53,37 +59,7 @@ beforeEach(() => {
   token = null;
   role = "member";
   requests = [];
-  globalThis.fetch = async (url, options) => {
-    const pathname = new URL(url).pathname;
-    requests.push({ path: pathname, options });
-    if (pathname === "/auth/v1/user")
-      return Response.json({
-        id: "11111111-1111-4111-8111-111111111111",
-        email: "owner@example.com",
-        user_metadata: { role: "master_admin" },
-      });
-    if (pathname === "/rest/v1/rpc/current_platform_role")
-      return Response.json(role);
-    if (pathname === "/rest/v1/rpc/admin_overview")
-      return Response.json({
-        accounts: [],
-        total: 0,
-        page: 0,
-        page_size: 25,
-        totals: { accounts: 0 },
-      });
-    if (pathname === "/rest/v1/rpc/admin_event_status")
-      return Response.json(null);
-    throw new Error("Unexpected external request");
-  };
-});
-after(() => {
-  globalThis.fetch = originalFetch;
-  if (previousUrl === undefined) delete process.env.SUPABASE_URL;
-  else process.env.SUPABASE_URL = previousUrl;
-  if (previousKey === undefined) delete process.env.SUPABASE_ANON_KEY;
-  else process.env.SUPABASE_ANON_KEY = previousKey;
-});
+ });
 function request(method = "GET", data, origin = "https://zenvio.example") {
   const r = new Request("https://zenvio.example/api/admin", {
     method,
@@ -107,7 +83,7 @@ test("member metadata cannot forge the database master-admin role", async () => 
   assert.equal(r.status, 403);
   assert.deepEqual(
     requests.map((r) => r.path),
-    ["/auth/v1/user", "/rest/v1/rpc/current_platform_role"],
+    ["/rest/v1/rpc/current_platform_role"],
   );
 });
 test("a verified session and current database role allow admin reads", async () => {

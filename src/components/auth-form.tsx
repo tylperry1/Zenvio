@@ -11,8 +11,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     [accounts, setAccounts] = useState<boolean | null>(null);
   useEffect(() => {
     if (mode === "reset") {
-      const params = new URLSearchParams(window.location.hash.slice(1));
-      setToken(params.get("access_token") || "");
+      const params = new URLSearchParams(window.location.search);
+      setToken(params.get("token") || "");
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, [mode]);

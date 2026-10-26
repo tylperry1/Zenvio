@@ -27,7 +27,7 @@ export default function Page() {
       <h2>Service providers and storage</h2>
       <p>
         The website is hosted on Vercel. Configured account services use
-        Supabase for authentication and database storage. These providers
+        Neon Postgres for database storage and Better Auth for account authentication. These providers
         process information to deliver the service. Zenvio does not currently
         use advertising cookies or third-party analytics.
       </p>

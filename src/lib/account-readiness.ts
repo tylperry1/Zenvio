@@ -7,7 +7,7 @@ export async function accountReadiness() {
       method: "POST",
       body: "{}",
     });
-    if (version !== 3) return false;
+    if (version !== 4) return false;
     await backend("/rest/v1/rpc/public_event", {
       method: "POST",
       body: JSON.stringify({
