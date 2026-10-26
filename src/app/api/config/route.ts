@@ -1,7 +1,7 @@
-import { configured } from "@/lib/server";
+import { accountReadiness } from "@/lib/account-readiness";
 export async function GET() {
   return Response.json(
-    { accounts: configured() },
+    { accounts: await accountReadiness() },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

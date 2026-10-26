@@ -417,6 +417,12 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </button>
         </div>
         <div className="sidebar-bottom">
+          {!demo && data.platformRole === "master_admin" && (
+            <Link className="sidebar-item" href="/admin">
+              <Icon name="shield" size={19} />
+              Master admin
+            </Link>
+          )}
           <button
             className={`sidebar-item ${view === "Settings" ? "active" : ""}`}
             onClick={() => navigate("Settings")}

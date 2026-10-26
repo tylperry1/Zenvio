@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { platformRole } from "@/lib/admin";
 import {
   backend,
   body,
@@ -21,6 +22,8 @@ export async function POST(request: NextRequest) {
       try {
         const { token } = await session();
         await backend("/auth/v1/logout", { method: "POST" }, token);
+      } catch {
+        // Local sign-out must still complete when a remote session has expired.
       } finally {
         await clearSession();
       }
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
       });
       if (data.access_token) {
         await saveSession(data);
-        return Response.json({ ok: true });
+        return Response.json({ ok: true, redirectTo: "/app" });
       }
       return Response.json({
         message: "Check your email to confirm your account, then sign in.",
@@ -74,7 +77,11 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(credentials),
     });
     await saveSession(data);
-    return Response.json({ ok: true });
+    const role = await platformRole(data.access_token);
+    return Response.json({
+      ok: true,
+      redirectTo: role === "master_admin" ? "/admin" : "/app",
+    });
   } catch (error) {
     return failure(error);
   }

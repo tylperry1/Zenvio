@@ -10,8 +10,10 @@ Use Node 22 or 24. Run `npm install`, copy `.env.example` to `.env.local`, then 
 
 ## Enable real accounts and bookings
 
+For the full setup and verified master-admin assignment, follow [the account setup guide](docs/account-setup.md).
+
 1. Create a **dedicated** Supabase project. Do not reuse an unrelated application's database.
-2. Run the SQL files in `supabase/migrations/` in numeric order in its SQL editor. The initial migration creates tables, RLS policies, user provisioning, conflict prevention, and narrow public booking functions. The second migration sets the approved cobalt default for new event types without updating existing records. Existing auth users are not automatically backfilled; run these migrations before registration.
+2. Run the SQL files in `supabase/migrations/` in numeric order in its SQL editor. The initial migration creates tables, RLS policies, user provisioning, conflict prevention, and narrow public booking functions. The second migration sets the approved cobalt default for new event types without updating existing records. The third creates protected master-admin roles and audited booking-link controls. Existing auth users are not automatically backfilled; run these migrations before registration.
 3. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to the Vercel project's production environment. These are the project URL and public anon/publishable key, **not** a service-role key. No service-role key is needed.
 4. Set the Supabase Auth site URL to the actual production origin, and allow `<origin>/reset-password` in redirect URLs. Email confirmation should be enabled. Configure production SMTP and appropriate auth rate limits/CAPTCHA before broad promotion. Default Supabase email delivery is restricted and is not a production email service.
 5. Redeploy. Create and confirm a test account, sign in, set a personal booking slug and timezone, create an event, and set weekly hours. Use another browser to reserve an appointment and verify it appears in the owner's workspace. Check two concurrent attempts at the same slot: only one should succeed. Test cancellation and password reset.

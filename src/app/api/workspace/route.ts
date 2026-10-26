@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { platformRole } from "@/lib/admin";
 import {
   backend,
   body,
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { token, user } = await session();
-    const [profiles, events, availability, bookings, contacts] =
+    const [profiles, events, availability, bookings, contacts, role] =
       await Promise.all([
         backend(`/rest/v1/profiles?id=eq.${user.id}&select=*`, {}, token),
         backend(
@@ -39,6 +40,7 @@ export async function GET() {
           {},
           token,
         ),
+        platformRole(token),
       ]);
     if (!profiles[0])
       throw new ApiError(
@@ -46,7 +48,14 @@ export async function GET() {
         503,
       );
     return Response.json(
-      { profile: profiles[0], events, availability, bookings, contacts },
+      {
+        profile: profiles[0],
+        events,
+        availability,
+        bookings,
+        contacts,
+        platformRole: role,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
