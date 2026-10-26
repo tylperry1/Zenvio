@@ -15,7 +15,8 @@ const functions: Record<string, {
     public_event: { args: ["host_slug", "event_slug"] }, public_slots: { args: ["host_slug", "event_slug", "day_date"] },
     reserve_booking: { args: ["host_slug", "event_slug", "slot_start", "visitor_name", "visitor_email", "visitor_notes"], scalar: true },
     cancel_booking: { args: ["cancellation_token"], scalar: true }, account_schema_version: { args: [], scalar: true },
-    current_platform_role: { args: [], scalar: true, private: true }, admin_overview: { args: ["page_number", "search_query", "page_size"], scalar: true, private: true },
+    current_platform_role: { args: [], scalar: true, private: true },
+    admin_insights: { args: [], scalar: true, private: true }, admin_overview: { args: ["page_number", "search_query", "page_size"], scalar: true, private: true },
     admin_account_detail: { args: ["account_id"], scalar: true, private: true }, admin_event_status: { args: ["target_event", "enabled", "reason"], scalar: true, private: true },
     admin_audit: { args: ["page_number", "page_size"], scalar: true, private: true }
 };

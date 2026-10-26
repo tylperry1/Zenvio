@@ -27,6 +27,12 @@ try {
  const owner=await auth({action:'sign-in',email:accounts.owner,password:secret});
  assert.equal(owner.status,200,JSON.stringify(owner.data));assert.equal(owner.data.redirectTo,'/admin');assert(owner.cookie);
  assert.equal((await request('/api/admin',{cookie:owner.cookie})).status,200);
+ const insights=await request('/api/admin?view=insights',{cookie:owner.cookie});
+ assert.equal(insights.status,200,JSON.stringify(insights.data));
+ assert.equal(insights.data.daily.length,14);
+ assert.equal(insights.data.metrics.new_accounts_30d,1);
+ assert.equal(insights.data.services.account_email,false);
+
  const member=await auth({action:'sign-up',email:accounts.member,name:'Member',password:secret});
  assert.equal(member.status,200,JSON.stringify(member.data));assert(member.cookie);
  const workspace=await request('/api/workspace',{cookie:member.cookie});
@@ -56,9 +62,16 @@ try {
  assert(booking.cancel_token);
  const saved=await request('/api/workspace',{cookie:member.cookie});
  assert.equal(saved.data.bookings.length,1);assert.equal(saved.data.contacts.length,1);
+ const bookedInsights=await request('/api/admin?view=insights',{cookie:owner.cookie});
+ assert.equal(bookedInsights.data.metrics.confirmed_bookings,1);
+ assert.equal(bookedInsights.data.daily.reduce((sum,d)=>sum+Number(d.bookings),0),1);
+
  assert(!JSON.stringify(saved.data).includes(booking.cancel_token));
  assert.equal((await request('/api/cancel',{method:'POST',data:{token:booking.cancel_token}})).status,200);
  assert.equal((await db.query('select status from bookings where id=$1',[booking.id])).rows[0].status,'cancelled');
+ const cancelledInsights=await request('/api/admin?view=insights',{cookie:owner.cookie});
+ assert.equal(cancelledInsights.data.metrics.cancelled_bookings,1);
+
  const adminChange={action:'event-status',eventId:event.id,active:false,reason:'Integration test pause'};
  assert.equal((await request('/api/admin',{method:'POST',cookie:owner.cookie,data:adminChange})).status,200);
  assert.equal((await request(`/api/book?${qs}`)).status,404);

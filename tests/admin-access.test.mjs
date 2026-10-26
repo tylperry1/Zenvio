@@ -34,14 +34,15 @@ function load(relative) {
   mod.require = (id) =>
     id === "next/headers"
       ? { headers: async () => new Headers() }
-      : id === "./auth"
-        ? { getAuth: () => ({api:{getSession:async()=> token ? {user:{id:token,email:"owner@example.com",role:"master_admin"}} : null}}) }
+      : id === "./auth" || id === "@/lib/auth"
+        ? { mailConfigured: () => false, getAuth: () => ({api:{getSession:async()=> token ? {user:{id:token,email:"owner@example.com",role:"master_admin"}} : null}}) }
       : id === "./db"
         ? {databaseConfigured:()=>true}
       : id === "./postgres-backend"
         ? {postgresBackend:async(path,options)=>{
             requests.push({path,options});
             if(path.endsWith("current_platform_role"))return role;
+            if(path.endsWith("admin_insights"))return {daily:[],metrics:{},generated_at:"2026-10-26T00:00:00Z"};
             if(path.endsWith("admin_overview"))return {accounts:[],total:0};
             if(path.endsWith("admin_event_status"))return null;
             throw new Error("Unexpected SQL operation");
@@ -69,7 +70,7 @@ function request(method = "GET", data, origin = "https://zenvio.example") {
     },
     ...(data ? { body: JSON.stringify(data) } : {}),
   });
-  Object.defineProperty(r, "nextUrl", { value: new URL(r.url) });
+  Object.defineProperty(r, "nextUrl", { value: new URL(r.url), configurable:true });
   return r;
 }
 test("anonymous visitors receive 401 before any account query", async () => {
@@ -149,4 +150,23 @@ test("authorized changes forward only validated audit parameters", async () => {
     enabled: false,
     reason: "Owner requested a temporary pause.",
   });
+});
+
+test("platform insights are denied to members before any analytics query", async () => {
+  token="valid-member";
+  const req=request(); Object.defineProperty(req,"nextUrl",{value:new URL("https://zenvio.example/api/admin?view=insights"),configurable:true});
+  const r=await route.GET(req);
+  assert.equal(r.status,403);
+  assert(!requests.some(r=>r.path.endsWith("admin_insights")));
+});
+test("master-admin insights return metrics and configuration without secrets", async () => {
+  token="valid-admin"; role="master_admin";
+  const r=request(); Object.defineProperty(r,"nextUrl",{value:new URL("https://zenvio.example/api/admin?view=insights"),configurable:true});
+  const response=await route.GET(r);
+  assert.equal(response.status,200);
+  const data=await response.json();
+  assert.deepEqual(data.daily,[]);
+  assert.deepEqual(data.services,{database:true,authentication:true,account_email:false});
+  assert(!JSON.stringify(data).includes("DATABASE_URL"));
+  assert.equal(response.headers.get("cache-control"),"no-store");
 });

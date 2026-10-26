@@ -1,376 +1,42 @@
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
+import { MarketingPreview } from "@/components/marketing-preview";
+import "./marketing.css";
+const features = [
+    ["link", "A link worth sharing.", "Give every meeting a clear starting point. Create different event types, set their length, and share a personal booking page."],
+    ["clock", "Time on your terms.", "Set weekly hours, choose your timezone, and add a buffer after meetings. Guests choose from the times you make available."],
+    ["users", "Keep the connection.", "Every booking brings the details together. Find your contacts, keep notes, and see the appointments that started the conversation."],
+];
+const faqs = [
+    ["What can I do with Zenvio today?", "Create an account, set your weekly availability, publish booking links, and manage appointments and contacts. Guests can book a time, download a calendar invitation, and cancel through their private link."],
+    ["Do guests need an account to book?", "No. Share your booking page and guests can choose a time and enter their details without creating an account."],
+    ["Does Zenvio connect to Google or Outlook calendars?", "Calendar sync is planned. Today, Zenvio checks conflicts with other Zenvio appointments and offers downloadable calendar invitations. It does not check your external calendar."],
+    ["Can I take payments or send automatic reminders?", "Payments and automated appointment emails are planned upgrades. They are not included in the current release. Hosts currently share meeting links and reminders themselves."],
+    ["Can I try it before creating an account?", "Yes. The interactive demo lets you explore the workspace and booking flow using sample data stored in your browser. Demo bookings are not real appointments."],
+];
 export default function Home() {
-  return (
-    <>
-      <header className="marketing-nav">
-        <Link href="/" aria-label="Zenvio home">
-          <Logo />
-        </Link>
-        <nav aria-label="Main navigation">
-          <a href="#features">Why Zenvio</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#pricing">Pricing</a>
-        </nav>
-        <div className="nav-actions">
-          <Link href="/sign-in" className="nav-login">
-            Log in
-          </Link>
-          <Link href="/sign-up" className="button primary small">
-            Get started <Icon name="arrow" size={16} />
-          </Link>
-        </div>
-      </header>
-      <main>
-        <section className="hero">
-          <div className="hero-copy">
-            <span className="pill">
-              <span className="live-dot" /> Less back-and-forth. More
-              possibility.
-            </span>
-            <h1>
-              Good things,
-              <br />
-              <span>on the calendar.</span>
-            </h1>
-            <p>
-              Share a booking link, set your availability, and keep appointments
-              and client details together. A clear next step for every
-              conversation.
-            </p>
-            <div className="hero-buttons">
-              <Link href="/sign-up" className="button primary">
-                Find your flow <Icon name="arrow" size={18} />
-              </Link>
-              <Link href="/demo" className="button text-button">
-                <span className="play-circle">▶</span> Take a look around
-              </Link>
-            </div>
-            <div className="hero-footnote">
-              <Icon name="check" size={15} /> Free to get started <span>·</span>{" "}
-              No credit card needed
-            </div>
-          </div>
-          <div
-            className="hero-visual"
-            aria-label="Illustrative demo workspace with sample appointments"
-          >
-            <div className="orbit orbit-one" />
-            <div className="orbit orbit-two" />
-            <div className="little-flower">✳</div>
-            <div className="product-window">
-              <div className="window-bar">
-                <div>
-                  <i />
-                  <i />
-                  <i />
-                </div>
-                <span>
-                  <Icon name="shield" size={10} /> Your time, in good hands
-                </span>
-              </div>
-              <div className="product-content">
-                <aside className="mini-sidebar">
-                  <Logo compact />
-                  <div className="mini-user">
-                    <span className="avatar">JD</span>
-                    <div>
-                      Jamie Davis<small>Personal workspace</small>
-                    </div>
-                  </div>
-                  {[
-                    ["grid", "Overview"],
-                    ["calendar", "Event types"],
-                    ["clock", "Availability"],
-                    ["users", "Contacts"],
-                  ].map(([i, t]) => (
-                    <div
-                      key={t}
-                      className={`mini-nav ${t === "Overview" ? "selected" : ""}`}
-                    >
-                      <Icon name={i} size={14} />
-                      {t}
-                    </div>
-                  ))}
-                  <div className="mini-sidebar-bottom">
-                    <Icon name="leaf" size={15} /> A little more breathing room.
-                  </div>
-                </aside>
-                <div className="mini-main">
-                  <span className="mini-label">SAMPLE WORKSPACE</span>
-                  <h3>
-                    A good day to connect <span>☀</span>
-                  </h3>
-                  <p>Here’s what’s coming up for you.</p>
-                  <div className="mini-stats">
-                    <div>
-                      Example appointments
-                      <b>
-                        3 <span>sample</span>
-                      </b>
-                    </div>
-                    <div>
-                      Scheduled time
-                      <b>
-                        1.5<span> hrs</span>
-                      </b>
-                    </div>
-                  </div>
-                  <div className="mini-heading">
-                    Your booking links<span>View all →</span>
-                  </div>
-                  <div className="mini-event">
-                    <div className="mini-event-top">
-                      <span className="event-line" />
-                      <span className="mini-badge">1-on-1</span>
-                    </div>
-                    <h4>Let’s get to know each other</h4>
-                    <p>
-                      <Icon name="clock" size={11} /> 30 min <span>·</span>{" "}
-                      <Icon name="video" size={12} /> Video call
-                    </p>
-                    <div>
-                      <span>
-                        <Icon name="link" size={12} /> Copy link
-                      </span>
-                      <span>↗</span>
-                    </div>
-                  </div>
-                  <div className="mini-heading">
-                    Next on your calendar<span>Today</span>
-                  </div>
-                  <div className="mini-meeting">
-                    <div>
-                      10:30<small>AM</small>
-                    </div>
-                    <span />
-                    <section>
-                      <b>Discovery call</b>
-                      <p>Alex Morgan · 30 minutes</p>
-                    </section>
-                    <Icon name="video" size={16} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="floating-booking">
-              <span className="success-icon">
-                <Icon name="check" size={20} />
-              </span>
-              <div>
-                <b>And just like that, you’re booked.</b>
-                <p>Discovery call · Tuesday, 10:30 AM</p>
-              </div>
-              <span className="tiny-spark">✧</span>
-            </div>
-            <div className="visual-note">
-              More connection.
-              <br />
-              <em>Less coordination.</em>
-              <svg
-                width="60"
-                height="42"
-                viewBox="0 0 60 42"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M5 5q40 2 40 27m-8-5 9 8 6-10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            </div>
-          </div>
-        </section>
-        <section className="audience-strip">
-          <p>MADE FOR PEOPLE WHO MAKE THINGS HAPPEN</p>
-          <div>
-            <span>
-              <Icon name="spark" /> Independent minds
-            </span>
-            <span>
-              <Icon name="users" /> Growing businesses
-            </span>
-            <span>
-              <Icon name="leaf" /> Thoughtful teams
-            </span>
-            <span>
-              <Icon name="globe" /> Wherever you work
-            </span>
-          </div>
-        </section>
-        <section className="section features" id="features">
-          <div className="section-heading">
-            <p className="eyebrow">A LITTLE LESS ADMIN. A LOT MORE YOU.</p>
-            <h2>
-              Your day, with room
-              <br />
-              for the good stuff.
-            </h2>
-            <p>
-              Everything you need to turn “when are you free?”
-              <br />
-              into “looking forward to it.”
-            </p>
-          </div>
-          <div className="feature-grid">
-            {[
-              [
-                "link",
-                "One link. Endless possibilities.",
-                "Set your availability, share your link, and let people pick a time that works. The back-and-forth ends here.",
-              ],
-              [
-                "clock",
-                "A calendar that respects you.",
-                "Build a weekly routine, leave breathing room between meetings, and keep your time in your timezone.",
-              ],
-              [
-                "users",
-                "Remember the person.",
-                "Keep contacts, conversation notes, and appointment history together. Better relationships start with the little things.",
-              ],
-            ].map(([icon, title, copy], i) => (
-              <article className="feature-card" key={title}>
-                <span className={`feature-icon tone-${i}`}>
-                  <Icon name={icon} size={24} />
-                </span>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-                <Link href="/demo">
-                  Explore the workspace <Icon name="arrow" size={16} />
-                </Link>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="how-section" id="how-it-works">
-          <div>
-            <p className="eyebrow">FROM HELLO TO SEE YOU THEN</p>
-            <h2>
-              Three little steps.
-              <br />
-              One less thing to do.
-            </h2>
-            <Link href="/sign-up" className="button primary">
-              Let’s get you set up <Icon name="arrow" size={17} />
-            </Link>
-          </div>
-          <ol>
-            {[
-              [
-                "Make it yours",
-                "Choose your meeting length, set your weekly hours, and add a personal touch.",
-              ],
-              [
-                "Put your link out there",
-                "Share it in a message, your email signature, or wherever your next conversation starts.",
-              ],
-              [
-                "Show up for what matters",
-                "Your guests pick a time. Zenvio keeps the details and your contacts together.",
-              ],
-            ].map(([title, copy], i) => (
-              <li key={title}>
-                <span>0{i + 1}</span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{copy}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-        <section className="section pricing" id="pricing">
-          <p className="eyebrow">START SMALL. MAKE SPACE TO GROW.</p>
-          <h2>
-            Good scheduling.
-            <br />A simple starting point.
-          </h2>
-          <div className="pricing-grid">
-            <article className="price-card">
-              <span className="pill">THE ESSENTIALS</span>
-              <h3>Free</h3>
-              <p>A calmer way to manage your time.</p>
-              <div className="price">
-                $0<span> / month</span>
-              </div>
-              <Link href="/sign-up" className="button primary">
-                Start your workspace <Icon name="arrow" size={17} />
-              </Link>
-              <ul>
-                {[
-                  "Personal booking page",
-                  "Multiple event types",
-                  "Weekly availability & buffers",
-                  "Appointment dashboard",
-                  "Contacts & conversation notes",
-                  "Downloadable calendar invitations",
-                ].map((t) => (
-                  <li key={t}>
-                    <Icon name="check" size={17} />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </article>
-            <article className="price-card future">
-              <span className="pill">ON THE HORIZON</span>
-              <h3>Room to grow</h3>
-              <p>More ways to connect your business.</p>
-              <div className="future-label">
-                Good things take a little time.
-              </div>
-              <div className="planned-grid">
-                {[
-                  ["calendar", "Calendar sync"],
-                  ["users", "Team scheduling"],
-                  ["mail", "Email reminders"],
-                  ["shield", "Paid bookings"],
-                ].map(([i, t]) => (
-                  <div key={t}>
-                    <Icon name={i} />
-                    <b>{t}</b>
-                    <small>Planned</small>
-                  </div>
-                ))}
-              </div>
-              <p className="muted">
-                These upgrades are planned and aren’t included in the current
-                release. Pricing will be shared when they’re ready.
-              </p>
-            </article>
-          </div>
-        </section>
-        <section className="final-cta">
-          <span className="cta-flower">✳</span>
-          <p className="eyebrow">
-            YOUR NEXT CHAPTER STARTS WITH A CONVERSATION
-          </p>
-          <h2>
-            Your next conversation.
-            <br />
-            One clear next step.
-          </h2>
-          <Link href="/sign-up" className="button on-dark">
-            Find your flow <Icon name="arrow" size={18} />
-          </Link>
-          <p>Less back-and-forth. More possibility.</p>
-        </section>
-      </main>
-      <footer className="footer">
-        <Link href="/">
-          <Logo />
-        </Link>
-        <p>Good things, on the calendar.</p>
-        <nav aria-label="Footer">
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/demo">Explore Zenvio</Link>
-        </nav>
-        <small>© {new Date().getFullYear()} Zenvio</small>
-      </footer>
-    </>
-  );
+    return <div className="marketing-v3">
+    <a className="mk-skip" href="#main-content">Skip to content</a>
+    <header className="mk-nav mk-container">
+      <Link href="/" aria-label="Zenvio home"><Logo /></Link>
+      <nav className="mk-desktop-nav" aria-label="Main navigation"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="#questions">FAQs</a></nav>
+      <div className="mk-nav-actions"><Link href="/sign-in" className="mk-login">Log in</Link><Link href="/sign-up" className="button primary small">Get started free <Icon name="arrow" size={15}/></Link></div>
+      <details className="mk-mobile-menu"><summary aria-label="Open navigation"><Icon name="menu"/></summary><nav aria-label="Mobile navigation"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="#questions">FAQs</a><Link href="/sign-in">Log in</Link></nav></details>
+    </header>
+    <main id="main-content">
+      <section className="mk-hero mk-container">
+        <div className="mk-hero-copy"><span className="mk-eyebrow"><span /> CLEAR & CONNECTED</span><h1>Good things,<br /><span>on the calendar.</span></h1><p className="mk-lead">Less back-and-forth.<br />More possibility.</p><p className="mk-hero-description">Meet your next client. Start the next project. Make time for the conversations that move you forward—with scheduling and contacts in one place.</p><div className="mk-hero-actions"><Link href="/sign-up" className="button primary">Create your free workspace <Icon name="arrow" size={18}/></Link><Link href="/demo" className="mk-demo-link"><span><Icon name="grid" size={16}/></span> Explore the demo</Link></div><p className="mk-fine"><Icon name="check" size={14}/> Free to start <span>·</span> No credit card needed</p><div className="mk-hero-bottom"><span className="mk-monogram"><Logo compact/></span><p>A little less coordinating.<br /><b>A little more connecting.</b></p></div></div>
+        <div className="mk-hero-product"><div className="mk-product-halo"/><MarketingPreview /><div className="mk-product-caption"><span className="mk-caption-icon"><Icon name="check" size={18}/></span><div><b>From “when works?” to “see you then.”</b><span>Your next step, all in one place.</span></div><Icon name="spark" size={22}/></div></div>
+      </section>
+      <section className="mk-usecases"><div className="mk-container"><p>FOR WORK THAT STARTS WITH A CONVERSATION</p><div>{[["users", "Consultants & coaches"], ["grid", "Independent professionals"], ["calendar", "Client-facing businesses"], ["globe", "Work from anywhere"]].map(([icon, label]) => <span key={label}><Icon name={icon} size={19}/>{label}</span>)}</div></div></section>
+      <section className="mk-product-section mk-container" id="product"><div className="mk-section-heading"><div><p className="mk-eyebrow">ONE CLEAR WORKSPACE</p><h2>The meeting is just<br />the beginning.</h2></div><p>Bring your schedule and your relationships together. Zenvio handles the details, so you can focus on what happens next.</p></div><div className="mk-feature-grid">{features.map(([icon, title, copy], i) => <article key={title}><span className="mk-feature-number">0{i + 1}</span><span className="mk-feature-icon"><Icon name={icon} size={25}/></span><h3>{title}</h3><p>{copy}</p><Link href="/demo">See it in action <Icon name="arrow" size={16}/></Link></article>)}</div>
+        <div className="mk-booking-feature"><div className="mk-booking-example" aria-label="Illustrative booking page"><div className="mk-example-profile"><span>JD</span><small>JAMIE DAVIS · SAMPLE HOST</small><h3>A good time to connect.</h3><p>Discovery call</p><div><Icon name="clock" size={15}/> 30 minutes</div><div><Icon name="globe" size={15}/> Your local timezone</div></div><div className="mk-example-times"><span>AN EXAMPLE OF YOUR BOOKING PAGE</span><h4>Find your moment.</h4><div className="mk-mini-week">{["M", "T", "W", "T", "F"].map((d, i) => <div key={i}><small>{d}</small><b className={i === 2 ? "selected" : ""}>{12 + i}</b></div>)}</div><div className="mk-time-chips"><span>9:00 AM</span><span>10:30 AM</span><span>1:00 PM</span><span>2:30 PM</span></div><small>Illustration only · not live availability</small></div></div><div className="mk-booking-copy"><span className="mk-eyebrow">SIMPLE FOR YOU. EASY FOR THEM.</span><h2>One link.<br />A clear invitation.</h2><p>No guest account. No scheduling puzzle. Just an easy way for someone to choose a time and take the next step.</p><ul><li><Icon name="check" size={17}/> Personal booking pages for each meeting type</li><li><Icon name="check" size={17}/> Timezone-aware time selection</li><li><Icon name="check" size={17}/> Private cancellation links</li></ul><Link href="/book/demo/discovery-call" className="button secondary">Try a sample booking <Icon name="arrow" size={17}/></Link></div></div>
+      </section>
+      <section className="mk-how" id="how-it-works"><div className="mk-container"><div className="mk-how-heading"><p className="mk-eyebrow">MAKE SPACE FOR WHAT’S NEXT</p><h2>A small setup.<br />A better way to meet.</h2><Link href="/sign-up" className="button on-dark">Let’s get you set up <Icon name="arrow" size={17}/></Link></div><ol>{[["Make it yours", "Choose a meeting length, add your location, and decide when you’re available."], ["Share your link", "Drop it in a message, an email signature, or anywhere a conversation starts."], ["Keep it all together", "Guests pick a time. You manage the appointment and the relationship from your workspace."]].map(([title, copy], i) => <li key={title}><span>0{i + 1}</span><div><h3>{title}</h3><p>{copy}</p></div></li>)}</ol></div></section>
+      <section className="mk-pricing mk-container" id="pricing"><div className="mk-section-heading"><div><p className="mk-eyebrow">A SIMPLE PLACE TO START</p><h2>Start free.<br />Make room to grow.</h2></div><p>The essentials for your first conversation—and the ones that follow. No credit card. No complicated starting point.</p></div><div className="mk-pricing-card"><div className="mk-price-summary"><span className="mk-label">ZENVIO ESSENTIALS</span><h3>Your personal workspace.</h3><div className="mk-price">$0<span>/ month</span></div><p>For people building their next thing.</p><Link href="/sign-up" className="button primary">Get started free <Icon name="arrow" size={18}/></Link></div><div className="mk-included"><h4>Everything you need to get the conversation going.</h4><ul>{["Personal booking pages", "Multiple event types", "Weekly hours & meeting buffers", "Timezone-aware scheduling", "Appointment management", "Contacts & conversation notes", "Calendar invitation downloads", "Guest cancellation links"].map(text => <li key={text}><Icon name="check" size={17}/>{text}</li>)}</ul><p><b>Up next:</b> calendar sync, team scheduling, automatic reminders, and paid bookings. These are planned upgrades, not included features.</p></div></div></section>
+      <section className="mk-faq mk-container" id="questions"><div><p className="mk-eyebrow">A LITTLE CLARITY</p><h2>Good questions.<br />Clear answers.</h2><p>Here’s what to expect from Zenvio today.</p><Link href="/demo" className="mk-text-link">Take a look around <Icon name="arrow" size={17}/></Link></div><div className="mk-faq-list">{faqs.map(([q, a]) => <details key={q}><summary>{q}<span><Icon name="plus" size={18}/></span></summary><p>{a}</p></details>)}</div></section>
+      <section className="mk-final mk-container"><div><p className="mk-eyebrow">LESS BACK-AND-FORTH. MORE POSSIBILITY.</p><h2>Your next good thing<br />starts with a conversation.</h2><p>Give it a place on the calendar.</p></div><Link href="/sign-up" className="button on-dark">Find your flow <Icon name="arrow" size={18}/></Link></section>
+    </main>
+    <footer className="mk-footer mk-container"><div><Link href="/" aria-label="Zenvio home"><Logo /></Link><p>Good things, on the calendar.</p></div><nav aria-label="Footer"><a href="#product">Product</a><Link href="/demo">Demo</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav><span>© {new Date().getFullYear()} Zenvio</span></footer>
+  </div>;
 }
