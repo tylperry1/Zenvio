@@ -27,7 +27,7 @@ export function demoData(): WorkspaceData {
         duration: 30,
         buffer: 15,
         location: "Video call — link to be shared by your host",
-        color: "#27684f",
+        color: "#365CFF",
         active: true,
       },
       {
@@ -40,7 +40,7 @@ export function demoData(): WorkspaceData {
         duration: 15,
         buffer: 15,
         location: "Phone call",
-        color: "#b98346",
+        color: "#087C96",
         active: true,
       },
       {
@@ -53,7 +53,7 @@ export function demoData(): WorkspaceData {
         duration: 60,
         buffer: 15,
         location: "Phone call",
-        color: "#7e78ac",
+        color: "#7655C7",
         active: false,
       },
     ],

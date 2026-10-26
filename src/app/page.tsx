@@ -25,35 +25,18 @@ export default function Home() {
         <section className="hero">
           <div className="hero-copy">
             <span className="pill">
-              <span className="live-dot" /> LESS BACK-AND-FORTH. MORE
-              POSSIBILITY.
+              <span className="live-dot" /> Less back-and-forth. More
+              possibility.
             </span>
             <h1>
-              Good things
+              Good things,
               <br />
-              start with
-              <br />
-              <em>a little time.</em>
-              <svg
-                className="hero-underline"
-                width="325"
-                height="14"
-                viewBox="0 0 325 14"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 10Q152-5 322 7"
-                  stroke="#bfd4a5"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
+              <span>on the calendar.</span>
             </h1>
             <p>
-              Make space for the conversations that move you forward. Simple
-              scheduling, thoughtful client management, and a little more
-              breathing room.
+              Share a booking link, set your availability, and keep appointments
+              and client details together. A clear next step for every
+              conversation.
             </p>
             <div className="hero-buttons">
               <Link href="/sign-up" className="button primary">
@@ -70,7 +53,7 @@ export default function Home() {
           </div>
           <div
             className="hero-visual"
-            aria-label="Preview of the Zenvio scheduling experience"
+            aria-label="Illustrative demo workspace with sample appointments"
           >
             <div className="orbit orbit-one" />
             <div className="orbit orbit-two" />
@@ -88,7 +71,7 @@ export default function Home() {
               </div>
               <div className="product-content">
                 <aside className="mini-sidebar">
-                  <Logo />
+                  <Logo compact />
                   <div className="mini-user">
                     <span className="avatar">JD</span>
                     <div>
@@ -114,22 +97,22 @@ export default function Home() {
                   </div>
                 </aside>
                 <div className="mini-main">
-                  <span className="mini-label">YOUR WORKSPACE</span>
+                  <span className="mini-label">SAMPLE WORKSPACE</span>
                   <h3>
                     A good day to connect <span>☀</span>
                   </h3>
                   <p>Here’s what’s coming up for you.</p>
                   <div className="mini-stats">
                     <div>
-                      Meetings this week
+                      Example appointments
                       <b>
-                        12 <span>↗ 3</span>
+                        3 <span>sample</span>
                       </b>
                     </div>
                     <div>
-                      Time well spent
+                      Scheduled time
                       <b>
-                        6<span> hrs</span>
+                        1.5<span> hrs</span>
                       </b>
                     </div>
                   </div>
@@ -366,21 +349,21 @@ export default function Home() {
             YOUR NEXT CHAPTER STARTS WITH A CONVERSATION
           </p>
           <h2>
-            Make time.
+            Your next conversation.
             <br />
-            <em>Make something happen.</em>
+            One clear next step.
           </h2>
-          <Link href="/sign-up" className="button cream">
+          <Link href="/sign-up" className="button on-dark">
             Find your flow <Icon name="arrow" size={18} />
           </Link>
-          <p>Less busywork. More possibility.</p>
+          <p>Less back-and-forth. More possibility.</p>
         </section>
       </main>
       <footer className="footer">
         <Link href="/">
           <Logo />
         </Link>
-        <p>A little more time for what matters.</p>
+        <p>Good things, on the calendar.</p>
         <nav aria-label="Footer">
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>

@@ -254,7 +254,7 @@ export function BookingPage({
         <Link href="/">
           <Logo />
         </Link>
-        <span>GOOD THINGS START WITH A LITTLE TIME.</span>
+        <span>GOOD THINGS, ON THE CALENDAR.</span>
       </header>
       {demo && (
         <div className="booking-demo-notice">
@@ -377,7 +377,7 @@ export function BookingPage({
             <p className="booking-description">{event.description}</p>
             {event.bio && <p className="booking-bio">{event.bio}</p>}
             <div className="host-footer">
-              <Icon name="leaf" size={17} /> A little more connection.
+              <Icon name="link" size={17} /> A little more connection.
             </div>
           </aside>
           {details ? (
@@ -629,7 +629,7 @@ export function BookingPage({
                         </div>
                       ) : (
                         <div className="slots-empty">
-                          <Icon name="leaf" size={27} />
+                          <Icon name="link" size={27} />
                           <p>No open times this day.</p>
                           <small>
                             Try another date. A good time is worth finding.

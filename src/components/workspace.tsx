@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
 import { Logo, Icon } from "./icons";
 import { Modal } from "./modal";
@@ -1053,7 +1054,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         </main>
         <footer className="workspace-footer">
           <span>
-            <Icon name="leaf" size={14} /> A little more time for what matters.
+            <Icon name="link" size={14} /> Good things, on the calendar.
           </span>
           <span>
             Made with a little intention. <Link href="/privacy">Privacy</Link>
@@ -1315,7 +1316,7 @@ function EventEditor({
   const [title, setTitle] = useState(event?.title || ""),
     [slug, setSlug] = useState(event?.slug || ""),
     [slugTouched, setSlugTouched] = useState(Boolean(event)),
-    [color, setColor] = useState(event?.color || "#27684f");
+    [color, setColor] = useState(event?.color || DEFAULT_EVENT_COLOR);
   return (
     <form
       className="stack-form"
@@ -1422,20 +1423,18 @@ function EventEditor({
       </label>
       <fieldset className="color-picker">
         <legend>A personal touch</legend>
-        {["#27684f", "#b98346", "#7e78ac", "#4c7f9b", "#bb6b73", "#636e5c"].map(
-          (c) => (
-            <button
-              type="button"
-              key={c}
-              aria-label={`Choose ${c}`}
-              aria-pressed={color === c}
-              style={{ background: c }}
-              onClick={() => setColor(c)}
-            >
-              {color === c && <Icon name="check" size={16} />}
-            </button>
-          ),
-        )}
+        {EVENT_COLORS.map((c) => (
+          <button
+            type="button"
+            key={c}
+            aria-label={`Choose ${c}`}
+            aria-pressed={color === c}
+            style={{ background: c }}
+            onClick={() => setColor(c)}
+          >
+            {color === c && <Icon name="check" size={16} />}
+          </button>
+        ))}
       </fieldset>
       <button className="button primary full" disabled={busy}>
         {busy ? "Saving…" : event ? "Save changes" : "Create event type"}
@@ -1600,7 +1599,7 @@ function AvailabilityEditor({
           </button>
         </div>
         <div className="soft-note">
-          <Icon name="leaf" size={24} />
+          <Icon name="link" size={24} />
           <h3>Leave a little breathing room.</h3>
           <p>
             Add buffers to each event type to leave space between conversations.

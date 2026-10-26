@@ -132,21 +132,33 @@ export function Icon({
     </svg>
   );
 }
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({
+  light = false,
+  compact = false,
+}: {
+  light?: boolean;
+  compact?: boolean;
+}) {
   return (
-    <span className={`logo ${light ? "logo-light" : ""}`}>
-      <span className="logo-mark">
-        <svg
-          width="23"
-          height="23"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path d="M5 5h14v4L9 15h10v4H5v-4l10-6H5V5Z" fill="currentColor" />
-        </svg>
-      </span>
-      zenvio<span className="logo-dot">.</span>
+    <span
+      className={`logo ${light ? "logo-light" : ""} ${compact ? "logo-compact" : ""}`}
+    >
+      {/* Brand SVGs are outlined artwork, not text or an approximation of the mark. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={
+          compact
+            ? light
+              ? "/brand/zenvio-symbol-reversed.svg"
+              : "/brand/zenvio-symbol.svg"
+            : light
+              ? "/brand/zenvio-reversed.svg"
+              : "/brand/zenvio-primary.svg"
+        }
+        alt="Zenvio"
+        width={compact ? 100 : 450}
+        height={compact ? 100 : 110}
+      />
     </span>
   );
 }

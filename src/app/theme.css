@@ -1,0 +1,40 @@
+/* Zenvio / Clear & Connected. Approved Option 2 palette. */
+:root {
+  --brand-cobalt: #365cff;
+  --brand-midnight: #151b38;
+  --brand-pale-blue: #dce5ff;
+  --brand-symbol-accent: #a8b8ff;
+  --brand-cloud: #f7f9ff;
+  --brand-white: #ffffff;
+
+  --action-primary: var(--brand-cobalt);
+  --action-hover: #2948d6;
+  --action-selected: var(--brand-pale-blue);
+  --text-primary: var(--brand-midnight);
+  --text-secondary: #515c78;
+  --text-muted: #626d88;
+  --text-inverse: var(--brand-white);
+  --text-on-dark: var(--brand-pale-blue);
+  --surface-page: var(--brand-cloud);
+  --surface-card: var(--brand-white);
+  --surface-subtle: #eef2ff;
+  --surface-dark: var(--brand-midnight);
+  --accent-soft: var(--brand-pale-blue);
+  --border: #d5ddf0;
+  --border-strong: #8191b9;
+  --focus-ring: var(--brand-cobalt);
+  --shadow: 0 4px 18px #151b3809;
+  --shadow-color: #151b380d;
+  --overlay: #151b3866;
+  --font-family: Arial, Helvetica, sans-serif;
+
+  --success: #21663f;
+  --success-surface: #eef8f1;
+  --success-border: #a5cdb0;
+  --warning: #805000;
+  --warning-surface: #fff7e6;
+  --warning-border: #ddbd77;
+  --error: #a52c33;
+  --error-surface: #fff1f2;
+  --error-border: #dda0a5;
+}

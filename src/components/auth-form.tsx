@@ -70,13 +70,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
         <div>
           <span className="auth-flower">✳</span>
           <h1>
-            More connection.
+            Good things,
             <br />
-            <em>Less coordination.</em>
+            on the calendar.
           </h1>
-          <p>Your next good conversation is just a little time away.</p>
+          <p>Less back-and-forth. More possibility.</p>
         </div>
-        <small>THE THOUGHTFUL WAY TO SCHEDULE</small>
+        <small>CLEAR & CONNECTED</small>
       </aside>
       <section className="auth-main">
         <Link className="auth-back" href="/">
