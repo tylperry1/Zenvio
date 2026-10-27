@@ -1,1 +1,12 @@
-{ "framework": "nextjs", "regions": ["iad1"] }
+{
+  "framework": "nextjs",
+  "regions": [
+    "iad1"
+  ],
+  "crons": [
+    {
+      "path": "/api/calendars/google/retry",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

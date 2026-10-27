@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { GoogleCalendarConnection } from "./google-calendar-connection";
 import { useEffect, useState } from "react";
 export function CalendarConnections() {
   const [token, setToken] = useState(""),
@@ -45,65 +46,69 @@ export function CalendarConnections() {
       <main style={{ maxWidth: 800, margin: "auto", padding: 32 }}>
         <Link href="/app">← Workspace</Link>
         <h1>Calendar connections</h1>
-        <h2>Your bookings, on your calendar.</h2>
-        <p>
-          Subscribe to your private Zenvio feed in Google Calendar, Outlook, or
-          Apple Calendar. New and cancelled appointments appear when your
-          calendar refreshes the feed.
-        </p>
-        <p>
-          This is one-way sync from Zenvio. Events on external calendars do not
-          block availability yet. Refresh timing is controlled by your calendar
-          provider.
-        </p>
-        {message && <p role="status">{message}</p>}
-        {token ? (
-          <>
-            <label>
-              Private calendar URL
-              <input
-                readOnly
-                value={url}
-                style={{ width: "100%", padding: 12 }}
-              />
-            </label>
-            <p>
-              Anyone with this link can view appointment titles, times, and
-              locations. Keep it private.
-            </p>
-            <button
-              onClick={() =>
-                navigator.clipboard
-                  .writeText(url)
-                  .then(() => setMessage("Calendar URL copied."))
-                  .catch(() => setMessage("Copy the URL above."))
-              }
-            >
-              Copy URL
+        <GoogleCalendarConnection />
+        <section>
+          <h2>Calendar subscription feed</h2>
+          <p>
+            Subscribe to your private Zenvio feed in Google Calendar, Outlook,
+            or Apple Calendar. New and cancelled appointments appear when your
+            calendar refreshes the feed.
+          </p>
+          <p>
+            This feed is one-way from Zenvio. It does not check external
+            conflicts. Use the direct Google connection above for busy-time
+            conflict checks. Your calendar provider controls feed refresh
+            timing.
+          </p>
+          {message && <p role="status">{message}</p>}
+          {token ? (
+            <>
+              <label>
+                Private calendar URL
+                <input
+                  readOnly
+                  value={url}
+                  style={{ width: "100%", padding: 12 }}
+                />
+              </label>
+              <p>
+                Anyone with this link can view appointment titles, times, and
+                locations. Keep it private.
+              </p>
+              <button
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(url)
+                    .then(() => setMessage("Calendar URL copied."))
+                    .catch(() => setMessage("Copy the URL above."))
+                }
+              >
+                Copy URL
+              </button>
+              <button disabled={busy} onClick={() => void action("rotate")}>
+                Replace private link
+              </button>
+              <button disabled={busy} onClick={() => void action("disconnect")}>
+                Disconnect feed
+              </button>
+              <ol>
+                <li>Copy your private calendar URL.</li>
+                <li>
+                  In Google Calendar choose Other calendars → From URL. In
+                  Outlook choose Add calendar → Subscribe from web.
+                </li>
+                <li>
+                  Paste the URL and subscribe. Replacing or disconnecting the
+                  link stops future refreshes from that URL.
+                </li>
+              </ol>
+            </>
+          ) : (
+            <button disabled={busy} onClick={() => void action("connect")}>
+              Create private calendar feed
             </button>
-            <button disabled={busy} onClick={() => void action("rotate")}>
-              Replace private link
-            </button>
-            <button disabled={busy} onClick={() => void action("disconnect")}>
-              Disconnect feed
-            </button>
-            <ol>
-              <li>Copy your private calendar URL.</li>
-              <li>
-                In Google Calendar choose Other calendars → From URL. In Outlook
-                choose Add calendar → Subscribe from web.
-              </li>
-              <li>
-                Paste the URL and subscribe. Replacing or disconnecting the link
-                stops future refreshes from that URL.
-              </li>
-            </ol>
-          </>
-        ) : (
-          <button disabled={busy} onClick={() => void action("connect")}>
-            Create private calendar feed
-          </button>
-        )}
+          )}
+        </section>
       </main>
     </div>
   );

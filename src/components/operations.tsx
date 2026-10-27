@@ -356,10 +356,45 @@ export function Operations({ initialView }: { initialView?: string }) {
                   ))}
                   <p>
                     Calendar feed subscriptions are available in workspace
-                    settings. Direct Google and Microsoft OAuth sync is still
-                    being prepared; these credentials do not activate two-way
-                    sync.
+                    settings. Google Calendar uses the OAuth client credentials
+                    here. Microsoft OAuth is still being prepared.
                   </p>
+                  <div className="google-admin-setup">
+                    <h3>Google Calendar setup</h3>
+                    <ol>
+                      <li>
+                        Enable the Google Calendar API in your Google Cloud
+                        project.
+                      </li>
+                      <li>
+                        Configure the OAuth consent screen for Zenvio and create
+                        a Web application OAuth client.
+                      </li>
+                      <li>
+                        Register{" "}
+                        <code>
+                          https://gozenvio.com/api/calendars/google/callback
+                        </code>{" "}
+                        as an authorized redirect URI, then save the client ID
+                        and secret here.
+                      </li>
+                      <li>
+                        In Testing mode, add your Google account as a test user.
+                        Public access may require Google app verification.
+                      </li>
+                      <li>
+                        Open Dashboard → Settings → Calendar connections and
+                        connect your Google account.
+                      </li>
+                    </ol>
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Google Cloud credentials ↗
+                    </a>
+                  </div>
                   <p>
                     Stripe webhook URL: <code>/api/billing/webhook</code>.
                   </p>

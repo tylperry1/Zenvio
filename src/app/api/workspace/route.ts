@@ -1,3 +1,4 @@
+import { runGoogleJobs } from "@/lib/google-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
     const { token, user } = await session();
     const input = await body(request);
     after(() => deliverBookingEmails());
+    after(() => runGoogleJobs(token).then(() => {}));
     const write = async (path: string, data: unknown, method = "POST") =>
       backend(
         `/rest/v1/${path}`,

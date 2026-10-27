@@ -10,7 +10,8 @@ export const integrationFields = {
   AUTH_EMAIL_FROM: "Verified sender email",
   STRIPE_SECRET_KEY: "Stripe secret key",
   STRIPE_WEBHOOK_SECRET: "Stripe subscription webhook signing secret",
-  STRIPE_MARKETPLACE_WEBHOOK_SECRET: "Stripe marketplace webhook signing secret",
+  STRIPE_MARKETPLACE_WEBHOOK_SECRET:
+    "Stripe marketplace webhook signing secret",
   GOOGLE_CLIENT_ID: "Google OAuth client ID",
   GOOGLE_CLIENT_SECRET: "Google OAuth client secret",
   MICROSOFT_CLIENT_ID: "Microsoft OAuth client ID",
@@ -28,7 +29,18 @@ export async function integrationValue(name: IntegrationKey) {
     [name],
   );
   if (!rows[0]) return process.env[name] || "";
-  const [iv, tag, data] = rows[0].ciphertext.split(".");
+  return unsealSecret(rows[0].ciphertext);
+}
+export function sealSecret(value: string) {
+  const iv = randomBytes(12),
+    cipher = createCipheriv("aes-256-gcm", key(), iv);
+  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return [iv, cipher.getAuthTag(), data]
+    .map((x) => x.toString("base64"))
+    .join(".");
+}
+export function unsealSecret(ciphertext: string) {
+  const [iv, tag, data] = ciphertext.split(".");
   const decipher = createDecipheriv(
     "aes-256-gcm",
     key(),
@@ -45,12 +57,7 @@ export async function saveIntegration(
   value: string,
   actor: string,
 ) {
-  const iv = randomBytes(12),
-    cipher = createCipheriv("aes-256-gcm", key(), iv);
-  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  const ciphertext = [iv, cipher.getAuthTag(), data]
-    .map((x) => x.toString("base64"))
-    .join(".");
+  const ciphertext = sealSecret(value);
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");

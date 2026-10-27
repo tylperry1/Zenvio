@@ -174,6 +174,12 @@ try {
  assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:{action:'settings',checkoutEnabled:true}})).status,409);
  const professionalHealth=await request('/api/admin/operations',{cookie:owner.cookie});assert(professionalHealth.data.healthDetails.migrationCount>=10);
  console.log('PASS: admin supplier creation/editing, provider readiness, private supplier access, origin checks, and detailed system health.');
+ assert.equal((await request('/api/calendars/google')).status,401);
+ const googleReady=await request('/api/calendars/google',{cookie:member.cookie});assert.equal(googleReady.status,200);assert.equal(googleReady.data.configured,false);assert.equal(googleReady.data.connection,null);assert.equal(googleReady.data.jobs.pending,0);
+ assert.equal((await request('/api/calendars/google',{method:'POST',cookie:member.cookie,originHeader:'https://untrusted.example',data:{action:'connect'}})).status,403);
+ assert.equal((await request('/api/calendars/google',{method:'POST',cookie:member.cookie,data:{action:'connect'}})).status,503);
+ assert.equal((await request('/api/calendars/google',{method:'POST',cookie:member.cookie,data:{action:'settings',checkConflicts:true,syncEvents:true}})).status,409);
+ assert.equal((await request('/api/calendars/google/retry')).status,401);
  const hashed=(await db.query('select password from account')).rows;assert(hashed.every(x=>x.password && x.password!==secret));
  await db.query('update private.platform_roles set enabled=false');
  assert.equal((await request('/api/admin',{cookie:owner.cookie})).status,403);

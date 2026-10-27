@@ -1,3 +1,4 @@
+import { runGoogleJobsForCancellation } from "@/lib/google-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
@@ -13,6 +14,7 @@ export async function POST(request: NextRequest) {
       }),
     });
     after(() => deliverBookingEmails());
+    after(() => runGoogleJobsForCancellation(String(input.token)));
     return Response.json({ ok: true });
   } catch (error) {
     return failure(error);
