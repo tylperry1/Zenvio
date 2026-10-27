@@ -7,6 +7,7 @@ import {
   unsealSecret,
 } from "./platform-settings";
 import { ApiError } from "./server";
+import { calendarIssue, type CalendarIssue } from "./google-calendar-errors";
 const scopes = [
   "openid",
   "email",
@@ -118,9 +119,18 @@ export async function finishGoogleConnection(
   const c = await getPool().connect();
   try {
     await c.query("BEGIN");
-    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["google-accounts:" + userId]);
-    const existingAccounts = await c.query("SELECT count(*)::int AS count FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub<>$2", [userId, identity.sub]);
-    if (existingAccounts.rows[0].count >= 5) throw new ApiError("You can connect up to five Google accounts. Disconnect one before adding another.", 409);
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+      "google-accounts:" + userId,
+    ]);
+    const existingAccounts = await c.query(
+      "SELECT count(*)::int AS count FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub<>$2",
+      [userId, identity.sub],
+    );
+    if (existingAccounts.rows[0].count >= 5)
+      throw new ApiError(
+        "You can connect up to five Google accounts. Disconnect one before adding another.",
+        409,
+      );
     await c.query(
       "INSERT INTO private.google_calendar_connections(user_id,account_sub,account_email,access_ciphertext,refresh_ciphertext,expires_at,scope) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id,account_sub) DO UPDATE SET account_email=$3,access_ciphertext=$4,refresh_ciphertext=$5,expires_at=$6,scope=$7,status='connected',last_sync_at=NULL,last_error=NULL,updated_at=now()",
       [
@@ -137,7 +147,10 @@ export async function finishGoogleConnection(
       "INSERT INTO private.google_calendar_jobs(booking_id,user_id) SELECT id,user_id FROM public.bookings WHERE user_id=$1 AND status='confirmed' AND ends_at>now() ON CONFLICT(booking_id) DO UPDATE SET attempts=0,not_before=now(),last_error=NULL,revision=private.google_calendar_jobs.revision+1",
       [userId],
     );
-    await c.query("UPDATE private.google_calendar_jobs SET attempts=0,not_before=now() WHERE user_id=$1", [userId]);
+    await c.query(
+      "UPDATE private.google_calendar_jobs SET attempts=0,not_before=now() WHERE user_id=$1",
+      [userId],
+    );
     await c.query(
       "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'google_calendar_connected',$2)",
       [userId, JSON.stringify({ accountEmail: identity.email })],
@@ -150,7 +163,11 @@ export async function finishGoogleConnection(
     c.release();
   }
 }
-async function access(userId: string, expectedAccount?: string) {
+async function access(
+  userId: string,
+  expectedAccount?: string,
+  forceRefresh = false,
+) {
   const c = await getPool().connect();
   try {
     await c.query("BEGIN");
@@ -166,7 +183,10 @@ async function access(userId: string, expectedAccount?: string) {
         409,
       );
     let token = unsealSecret(row.access_ciphertext);
-    if (new Date(row.expires_at).getTime() < Date.now() + 60000) {
+    if (
+      forceRefresh ||
+      new Date(row.expires_at).getTime() < Date.now() + 60000
+    ) {
       const oauth = await oauthClient();
       oauth.setCredentials({
         refresh_token: unsealSecret(row.refresh_ciphertext),
@@ -226,18 +246,29 @@ async function googleRequest(
       "The connected Google account changed. Retry synchronization.",
       409,
     );
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/${path}`,
-    {
+  let response = await fetch(`https://www.googleapis.com/calendar/v3/${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(12000),
+    cache: "no-store",
+  });
+  // A token can be invalidated before its stored expiry. Refresh once before
+  // treating the account as disconnected; retry the identical idempotent request.
+  if (response.status === 401) {
+    const fresh = await access(userId, accountSub, true);
+    response = await fetch(`https://www.googleapis.com/calendar/v3/${path}`, {
       ...options,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${fresh.token}`,
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(12000),
       cache: "no-store",
-    },
-  );
+    });
+  }
   if (response.status === 401) {
     await getPool().query(
       "UPDATE private.google_calendar_connections SET status='reconnect_required',last_error='Reconnect Google Calendar to restore access.' WHERE user_id=$1 AND account_sub=$2",
@@ -257,6 +288,122 @@ export function overlapsBusy(
       Date.parse(end) > Date.parse(b.start),
   );
 }
+class AvailabilityFailure extends Error {
+  constructor(public issue: CalendarIssue) {
+    super(issue.message);
+  }
+}
+async function readGoogleBusy(
+  userId: string,
+  accountSub: string,
+  start: string,
+  end: string,
+) {
+  try {
+    const { response } = await googleRequest(
+      userId,
+      "freeBusy",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          timeMin: start,
+          timeMax: end,
+          items: [{ id: "primary" }],
+        }),
+      },
+      accountSub,
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new AvailabilityFailure(calendarIssue(response.status, data));
+    const calendars = Object.values(data.calendars || {}) as {
+      errors?: { reason?: string }[];
+      busy?: { start: string; end: string }[];
+    }[];
+    const primary =
+      data.calendars?.primary || (calendars.length === 1 ? calendars[0] : null);
+    if (primary?.errors?.length) {
+      const reasons = primary.errors.map((e: { reason?: string }) => e.reason);
+      const status = reasons.includes("notFound")
+        ? 404
+        : reasons.includes("forbidden")
+          ? 403
+          : 503;
+      throw new AvailabilityFailure(
+        calendarIssue(status, { error: { errors: primary.errors } }),
+      );
+    }
+    if (
+      !primary ||
+      !Array.isArray(primary.busy) ||
+      !primary.busy.every(
+        (b: { start: string; end: string }) =>
+          Number.isFinite(Date.parse(b.start)) &&
+          Number.isFinite(Date.parse(b.end)) &&
+          Date.parse(b.end) > Date.parse(b.start),
+      )
+    )
+      throw new AvailabilityFailure(calendarIssue(503));
+    await getPool().query(
+      "UPDATE private.google_calendar_connections SET last_error=NULL WHERE user_id=$1 AND account_sub=$2",
+      [userId, accountSub],
+    );
+    return primary.busy as { start: string; end: string }[];
+  } catch (error) {
+    const issue =
+      error instanceof AvailabilityFailure
+        ? error.issue
+        : error instanceof ApiError && error.status === 409
+          ? calendarIssue(401)
+          : calendarIssue(503);
+    await getPool()
+      .query(
+        "UPDATE private.google_calendar_connections SET last_error=$3 WHERE user_id=$1 AND account_sub=$2",
+        [userId, accountSub, issue.message],
+      )
+      .catch(() => {});
+    // Log only allowlisted diagnostics; never provider bodies, tokens, event data or email.
+    console.warn("Google Calendar availability check failed", {
+      code: issue.code,
+      status: issue.status,
+    });
+    throw new AvailabilityFailure(issue);
+  }
+}
+export async function checkGoogleConnection(
+  userId: string,
+  accountSub: string,
+) {
+  const owned = await getPool().query(
+    "SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2",
+    [userId, accountSub],
+  );
+  if (!owned.rowCount) throw new ApiError("Google account not found.", 404);
+  const start = new Date(),
+    end = new Date(start.getTime() + 86400000);
+  try {
+    await readGoogleBusy(
+      userId,
+      accountSub,
+      start.toISOString(),
+      end.toISOString(),
+    );
+    return {
+      ok: true,
+      checkedAt: new Date().toISOString(),
+      message:
+        "Google Calendar availability access is working for this account.",
+    };
+  } catch (error) {
+    if (error instanceof AvailabilityFailure)
+      return {
+        ok: false,
+        code: error.issue.code,
+        message: error.issue.message,
+      };
+    throw error;
+  }
+}
 export async function googleBusyForHost(
   host: string,
   start: string,
@@ -269,16 +416,14 @@ export async function googleBusyForHost(
   const combined: { start: string; end: string }[] = [];
   for (const row of rows) {
     try {
-      const { response } = await googleRequest(row.id, "freeBusy", { method: "POST", body: JSON.stringify({ timeMin: start, timeMax: end, items: [{ id: "primary" }] }) }, row.account_sub);
-      if (!response.ok) throw Error("Calendar unavailable");
-      const data = await response.json();
-      const calendars = Object.values(data.calendars || {}) as { errors?: unknown[]; busy?: { start: string; end: string }[] }[];
-      const primary = data.calendars?.primary || (calendars.length === 1 ? calendars[0] : null);
-      if (!primary || primary.errors?.length || !Array.isArray(primary.busy) || !primary.busy.every((b: { start: string; end: string }) => Number.isFinite(Date.parse(b.start)) && Number.isFinite(Date.parse(b.end)) && Date.parse(b.end) > Date.parse(b.start))) throw Error("Calendar unavailable");
-      combined.push(...primary.busy);
+      combined.push(
+        ...(await readGoogleBusy(row.id, row.account_sub, start, end)),
+      );
     } catch {
-      await getPool().query("UPDATE private.google_calendar_connections SET last_error='Google Calendar availability could not be checked. Review calendar access and permissions.' WHERE user_id=$1 AND account_sub=$2", [row.id, row.account_sub]).catch(() => {});
-      throw new ApiError("Calendar availability is temporarily unavailable. Please try again later.", 503);
+      throw new ApiError(
+        "Calendar availability is temporarily unavailable. Please try again later.",
+        503,
+      );
     }
   }
   return combined;
@@ -301,89 +446,96 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
       );
       if (!rows.length) throw Error("Disconnected");
       for (const job of rows) {
-      const { rows: mapped } = await getPool().query(
-        "SELECT event_id FROM private.google_calendar_events WHERE user_id=$1 AND account_sub=$2 AND booking_id=$3",
-        [job.user_id, job.account_sub, job.id],
-      );
-      const eventId = mapped[0]?.event_id || "a" + job.id.replaceAll("-", ""),
-        endpoint = `calendars/primary/events/${eventId}`;
-      if (job.status === "cancelled") {
-        if (mapped[0]) {
-          const { response } = await googleRequest(
-            job.user_id,
-            endpoint + "?sendUpdates=none",
-            { method: "DELETE" },
-            job.account_sub,
-          );
-          if (!response.ok && ![404, 410].includes(response.status))
-            throw Error("Sync failed");
-        }
-      } else {
-        const payload = {
-          id: eventId,
-          summary: job.title,
-          visibility: "private",
-          location: job.location,
-          description: `Zenvio appointment\nGuest: ${job.guest_name}\nEmail: ${job.guest_email}\nManage this appointment in Zenvio.`,
-          start: { dateTime: new Date(job.starts_at).toISOString() },
-          end: { dateTime: new Date(job.ends_at).toISOString() },
-          extendedProperties: {
-            private: { zenvioBookingId: job.id, zenvioOwnerId: job.user_id },
-          },
-        };
-        let { response } = await googleRequest(
-          job.user_id,
-          "calendars/primary/events?sendUpdates=none",
-          { method: "POST", body: JSON.stringify(payload) },
-          job.account_sub,
+        const { rows: mapped } = await getPool().query(
+          "SELECT event_id FROM private.google_calendar_events WHERE user_id=$1 AND account_sub=$2 AND booking_id=$3",
+          [job.user_id, job.account_sub, job.id],
         );
-        if (response.status === 409) {
-          const existing = await googleRequest(
-            job.user_id,
-            endpoint,
-            {},
-            job.account_sub,
-          );
-          if (!existing.response.ok) throw Error("Sync failed");
-          const found = await existing.response.json();
-          if (
-            found.extendedProperties?.private?.zenvioBookingId !== job.id ||
-            found.extendedProperties?.private?.zenvioOwnerId !== job.user_id
-          )
-            throw Error("Event ownership mismatch");
-          const { id: _, ...update } = payload;
-          response = (
-            await googleRequest(
+        const eventId = mapped[0]?.event_id || "a" + job.id.replaceAll("-", ""),
+          endpoint = `calendars/primary/events/${eventId}`;
+        if (job.status === "cancelled") {
+          if (mapped[0]) {
+            const { response } = await googleRequest(
               job.user_id,
               endpoint + "?sendUpdates=none",
-              { method: "PATCH", body: JSON.stringify(update) },
+              { method: "DELETE" },
               job.account_sub,
+            );
+            if (!response.ok && ![404, 410].includes(response.status))
+              throw Error("Sync failed");
+          }
+        } else {
+          const payload = {
+            id: eventId,
+            summary: job.title,
+            visibility: "private",
+            location: job.location,
+            description: `Zenvio appointment\nGuest: ${job.guest_name}\nEmail: ${job.guest_email}\nManage this appointment in Zenvio.`,
+            start: { dateTime: new Date(job.starts_at).toISOString() },
+            end: { dateTime: new Date(job.ends_at).toISOString() },
+            extendedProperties: {
+              private: { zenvioBookingId: job.id, zenvioOwnerId: job.user_id },
+            },
+          };
+          let { response } = await googleRequest(
+            job.user_id,
+            "calendars/primary/events?sendUpdates=none",
+            { method: "POST", body: JSON.stringify(payload) },
+            job.account_sub,
+          );
+          if (response.status === 409) {
+            const existing = await googleRequest(
+              job.user_id,
+              endpoint,
+              {},
+              job.account_sub,
+            );
+            if (!existing.response.ok) throw Error("Sync failed");
+            const found = await existing.response.json();
+            if (
+              found.extendedProperties?.private?.zenvioBookingId !== job.id ||
+              found.extendedProperties?.private?.zenvioOwnerId !== job.user_id
             )
-          ).response;
+              throw Error("Event ownership mismatch");
+            const { id: _, ...update } = payload;
+            response = (
+              await googleRequest(
+                job.user_id,
+                endpoint + "?sendUpdates=none",
+                { method: "PATCH", body: JSON.stringify(update) },
+                job.account_sub,
+              )
+            ).response;
+          }
+          if (!response.ok) throw Error("Sync failed");
         }
-        if (!response.ok) throw Error("Sync failed");
+        const c = await getPool().connect();
+        try {
+          await c.query("BEGIN");
+          await c.query(
+            "INSERT INTO private.google_calendar_events(user_id,account_sub,booking_id,event_id,status) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,account_sub,booking_id) DO UPDATE SET status=$5,synced_at=now()",
+            [job.user_id, job.account_sub, job.id, eventId, job.status],
+          );
+          await c.query(
+            "UPDATE private.google_calendar_connections SET last_sync_at=now(),last_error=NULL WHERE user_id=$1 AND account_sub=$2",
+            [job.user_id, job.account_sub],
+          );
+          await c.query("COMMIT");
+        } catch (e) {
+          await c.query("ROLLBACK");
+          throw e;
+        } finally {
+          c.release();
+        }
       }
-      const c = await getPool().connect();
-      try {
-        await c.query("BEGIN");
-        await c.query(
-          "INSERT INTO private.google_calendar_events(user_id,account_sub,booking_id,event_id,status) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,account_sub,booking_id) DO UPDATE SET status=$5,synced_at=now()",
-          [job.user_id, job.account_sub, job.id, eventId, job.status],
+      const deleted = await getPool().query(
+        "DELETE FROM private.google_calendar_jobs WHERE booking_id=$1 AND claim_token=$2 AND revision=$3 RETURNING booking_id",
+        [claimed.booking_id, claim, claimed.revision],
+      );
+      if (!deleted.rows.length)
+        await getPool().query(
+          "UPDATE private.google_calendar_jobs SET locked_until=NULL,claim_token=NULL WHERE booking_id=$1 AND claim_token=$2",
+          [claimed.booking_id, claim],
         );
-        await c.query(
-          "UPDATE private.google_calendar_connections SET last_sync_at=now(),last_error=NULL WHERE user_id=$1 AND account_sub=$2",
-          [job.user_id, job.account_sub],
-        );
-        await c.query("COMMIT");
-      } catch (e) {
-        await c.query("ROLLBACK");
-        throw e;
-      } finally {
-        c.release();
-      }
-      }
-      const deleted = await getPool().query("DELETE FROM private.google_calendar_jobs WHERE booking_id=$1 AND claim_token=$2 AND revision=$3 RETURNING booking_id", [claimed.booking_id, claim, claimed.revision]);
-      if (!deleted.rows.length) await getPool().query("UPDATE private.google_calendar_jobs SET locked_until=NULL,claim_token=NULL WHERE booking_id=$1 AND claim_token=$2", [claimed.booking_id, claim]);
       completed++;
     } catch {
       await getPool().query(
@@ -425,7 +577,10 @@ export async function disconnectGoogle(userId: string, accountSub?: string) {
       "DELETE FROM private.google_calendar_oauth WHERE user_id=$1",
       [userId],
     );
-    await c.query("DELETE FROM private.google_calendar_jobs WHERE user_id=$1 AND NOT EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND sync_events)", [userId]);
+    await c.query(
+      "DELETE FROM private.google_calendar_jobs WHERE user_id=$1 AND NOT EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND sync_events)",
+      [userId],
+    );
     await c.query(
       "INSERT INTO private.operation_log(actor_id,action) VALUES($1,'google_calendar_disconnected')",
       [userId],

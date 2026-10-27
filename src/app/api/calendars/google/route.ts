@@ -3,12 +3,20 @@ import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import {
   beginGoogleConnection,
+  checkGoogleConnection,
   disconnectGoogle,
   googleConfigured,
   googleRedirect,
   runGoogleJobs,
 } from "@/lib/google-calendar";
-import { session, sameOrigin, body, failure, ApiError, string } from "@/lib/server";
+import {
+  session,
+  sameOrigin,
+  body,
+  failure,
+  ApiError,
+  string,
+} from "@/lib/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 export async function GET(request: NextRequest) {
@@ -47,11 +55,26 @@ export async function POST(request: NextRequest) {
       return Response.json({
         url: await beginGoogleConnection(token, request.nextUrl.origin),
       });
+    if (input.action === "check") {
+      return Response.json(
+        await checkGoogleConnection(
+          token,
+          string(input.accountSub, "Google account", 255),
+        ),
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (input.action === "disconnect") {
       const account = string(input.accountSub, "Google account", 255);
-      const owned = await getPool().query("SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2", [token, account]);
+      const owned = await getPool().query(
+        "SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2",
+        [token, account],
+      );
       if (!owned.rowCount) throw new ApiError("Google account not found.", 404);
-      return Response.json({ ok: true, ...(await disconnectGoogle(token, account)) });
+      return Response.json({
+        ok: true,
+        ...(await disconnectGoogle(token, account)),
+      });
     }
     if (input.action === "settings") {
       if (
@@ -59,10 +82,16 @@ export async function POST(request: NextRequest) {
         typeof input.syncEvents !== "boolean"
       )
         throw new ApiError("Invalid calendar settings.");
-      let account: string | null = input.accountSub ? string(input.accountSub, "Google account", 255) : null;
+      let account: string | null = input.accountSub
+        ? string(input.accountSub, "Google account", 255)
+        : null;
       if (!account) {
-        const owned = await getPool().query("SELECT account_sub FROM private.google_calendar_connections WHERE user_id=$1", [token]);
-        if (owned.rows.length !== 1) throw new ApiError("Choose a connected Google account first.", 409);
+        const owned = await getPool().query(
+          "SELECT account_sub FROM private.google_calendar_connections WHERE user_id=$1",
+          [token],
+        );
+        if (owned.rows.length !== 1)
+          throw new ApiError("Choose a connected Google account first.", 409);
         account = owned.rows[0].account_sub;
       }
       const r = await getPool().query(
