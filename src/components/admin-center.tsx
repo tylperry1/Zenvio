@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Icon, Logo } from "./icons";
 import { Modal } from "./modal";
 import { AdminNavigation } from "./admin-navigation";
+import { AdminUserActions } from "./admin-user-actions";
 type Account = {
   id: string;
   name: string;
@@ -909,6 +910,13 @@ export function AdminCenter({
         >
           <section className="admin-account-detail">
             <p>{detail.email}</p>
+            <AdminUserActions key={`${detail.id}:${detail.email}:${detail.name}:${detail.timezone}`} account={detail}
+              onUpdated={() => {
+                setDetail(null); setMessage("User updated successfully."); setRevision(r => r + 1);
+              }}
+              onDeleted={() => {
+                setDetail(null); setMessage("User deleted successfully."); setRevision(r => r + 1);
+              }} />
             <dl>
               <div>
                 <dt>Booking address</dt>

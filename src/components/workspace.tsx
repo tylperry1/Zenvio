@@ -1,5 +1,6 @@
 "use client";
 import { ProfilePhoto } from "./profile-photo";
+import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
@@ -45,6 +46,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [busy, setBusy] = useState(false),
     [menu, setMenu] = useState(false);
   const [deleting, setDeleting] = useState<EventType | null>(null);
+  const [creatingAppointment, setCreatingAppointment] = useState(false);
   const [editing, setEditing] = useState<EventType | true | null>(null),
     [contactModal, setContactModal] = useState(false),
     [selectedBooking, setSelectedBooking] = useState<Booking | null>(null),
@@ -600,6 +602,10 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               >
                 <Icon name="plus" size={17} /> New event type
               </button>
+            ) : view === "Bookings" && !demo ? (
+              <button className="button primary small" onClick={() => setCreatingAppointment(true)}>
+                <Icon name="plus" size={17} /> Create appointment
+              </button>
             ) : view === "Contacts" ? (
               <button
                 className="button primary small"
@@ -1132,6 +1138,15 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <Icon name="close" size={15} />
           </button>
         </div>
+      )}
+      {creatingAppointment && data && (
+        <CreateAppointment data={data} busy={busy}
+          onClose={() => { if (!busy) setCreatingAppointment(false); }}
+          onSave={async (values) => {
+            const success = await mutate({ action: "create-appointment", ...values }, d => d, "Appointment created successfully.");
+            if (success) { setCreatingAppointment(false); setFilter("upcoming"); setSelectedDay(null); }
+            return success;
+          }} />
       )}
       {deleting && (
         <Modal
