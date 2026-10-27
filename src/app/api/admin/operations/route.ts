@@ -51,9 +51,25 @@ export async function GET() {
     const { rows: users } = await getPool().query(
       'SELECT id,name,email,"emailVerified","createdAt" FROM public."user" ORDER BY "createdAt" DESC LIMIT 100',
     );
+    const { rows: migrations } = await getPool().query(
+      "SELECT name,applied_at FROM private.schema_migrations ORDER BY name DESC",
+    );
+    const { rows: queue } = await getPool().query(
+      "SELECT min(created_at) FILTER(WHERE sent_at IS NULL) AS oldest_pending,max(sent_at) AS last_sent FROM private.email_outbox",
+    );
     return Response.json(
       {
         health,
+        healthDetails: {
+          checkedAt: new Date().toISOString(),
+          nodeVersion: process.version,
+          environment: process.env.VERCEL_ENV || "development",
+          migrationCount: migrations.length,
+          lastMigration: migrations[0]?.name || null,
+          lastMigrationAt: migrations[0]?.applied_at || null,
+          oldestPendingEmail: queue[0]?.oldest_pending,
+          lastEmailSent: queue[0]?.last_sent,
+        },
         integrations,
         pricing: await pricing(),
         subscriptions,

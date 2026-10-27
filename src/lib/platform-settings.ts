@@ -9,13 +9,12 @@ export const integrationFields = {
   RESEND_API_KEY: "Resend API key",
   AUTH_EMAIL_FROM: "Verified sender email",
   STRIPE_SECRET_KEY: "Stripe secret key",
-  STRIPE_WEBHOOK_SECRET: "Stripe webhook signing secret",
+  STRIPE_WEBHOOK_SECRET: "Stripe subscription webhook signing secret",
+  STRIPE_MARKETPLACE_WEBHOOK_SECRET: "Stripe marketplace webhook signing secret",
   GOOGLE_CLIENT_ID: "Google OAuth client ID",
   GOOGLE_CLIENT_SECRET: "Google OAuth client secret",
   MICROSOFT_CLIENT_ID: "Microsoft OAuth client ID",
   MICROSOFT_CLIENT_SECRET: "Microsoft OAuth client secret",
-  SHOPIFY_STORE_DOMAIN: "Shopify store domain",
-  SHOPIFY_STOREFRONT_TOKEN: "Shopify Storefront access token",
 } as const;
 export type IntegrationKey = keyof typeof integrationFields;
 function key() {

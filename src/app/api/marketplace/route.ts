@@ -1,15 +1,47 @@
 import { NextRequest } from "next/server";
-import { storefront } from "@/lib/marketplace";
-import { session, sameOrigin, body, failure, ApiError } from "@/lib/server";
+import { getPool } from "@/lib/db";
+import {
+  cartLines,
+  createMarketCheckout,
+  marketSettings,
+  productColumns,
+} from "@/lib/marketplace";
+import {
+  session,
+  sameOrigin,
+  body,
+  failure,
+  integer,
+  string,
+} from "@/lib/server";
 export const dynamic = "force-dynamic";
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await session();
-    const data = await storefront(
-      `query { products(first:50,query:"tag:zenvio-branding") { nodes { id title description tags featuredImage { url altText } variants(first:20) { nodes { id title availableForSale price { amount currencyCode } } } } } }`,
+    const q = request.nextUrl.searchParams,
+      page = integer(Number(q.get("page") || 0), "page", 0, 10000),
+      search = string(q.get("search") || "", "search", 100, 0),
+      category = string(q.get("category") || "", "category", 100, 0);
+    const { rows } = await getPool().query(
+      `SELECT ${productColumns} FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2) ORDER BY created_at DESC,id LIMIT 50 OFFSET $3`,
+      ["%" + search + "%", category, page * 50],
     );
+    const { rows: counts } = await getPool().query(
+      "SELECT count(*)::int AS total FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2)",
+      ["%" + search + "%", category],
+    );
+    const { rows: categories } = await getPool().query(
+      "SELECT DISTINCT category FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) ORDER BY category",
+    );
+    const settings = await marketSettings();
     return Response.json(
-      { products: data.products.nodes },
+      {
+        products: rows,
+        categories: categories.map((r) => r.category),
+        total: counts[0].total,
+        page,
+        checkoutReady: settings.checkoutEnabled && settings.paymentConfigured,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
@@ -19,38 +51,20 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    await session();
-    const input = await body(request);
-    if (
-      !/^gid:\/\/shopify\/ProductVariant\/\d+$/.test(String(input.variant)) ||
-      typeof input.quantity !== "number" ||
-      !Number.isInteger(input.quantity) ||
-      input.quantity < 1 ||
-      input.quantity > 1000
-    )
-      throw new ApiError("Select a product and quantity between 1 and 1,000.");
-    const allowed = await storefront(
-      `query { products(first:50,query:"tag:zenvio-branding") { nodes { variants(first:20) { nodes { id availableForSale } } } } }`,
-    );
-    if (
-      !allowed.products.nodes.some((p: any) =>
-        p.variants.nodes.some(
-          (v: any) => v.id === input.variant && v.availableForSale,
-        ),
-      )
-    )
-      throw new ApiError("This product is not available.");
-    const data = await storefront(
-      `mutation($input:CartInput!) { cartCreate(input:$input) { cart { checkoutUrl } userErrors { message } } }`,
-      {
-        input: {
-          lines: [{ merchandiseId: input.variant, quantity: input.quantity }],
+    const { user } = await session(),
+      input = await body(request);
+    cartLines(input.lines);
+    return Response.json(
+      await createMarketCheckout(
+        {
+          lines: input.lines,
+          businessName: input.businessName,
+          instructions: input.instructions,
         },
-      },
+        { id: user.id, email: user.email, name: user.name },
+        process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
+      ),
     );
-    if (!data.cartCreate.cart?.checkoutUrl || data.cartCreate.userErrors.length)
-      throw new ApiError("The store could not create your cart.", 502);
-    return Response.json({ url: data.cartCreate.cart.checkoutUrl });
   } catch (e) {
     return failure(e);
   }

@@ -1,0 +1,73 @@
+import { NextRequest } from "next/server";
+import { getPool } from "@/lib/db";
+import { marketOrderDetail, applyMarketPayment } from "@/lib/marketplace";
+import { stripeClient } from "@/lib/billing";
+import {
+  session,
+  sameOrigin,
+  body,
+  failure,
+  uuid,
+  integer,
+  ApiError,
+} from "@/lib/server";
+export const dynamic = "force-dynamic";
+export async function GET(request: NextRequest) {
+  try {
+    const { token } = await session();
+    const id = request.nextUrl.searchParams.get("order");
+    if (id)
+      return Response.json(await marketOrderDetail(uuid(id), token), {
+        headers: { "Cache-Control": "no-store" },
+      });
+    const page = integer(
+      Number(request.nextUrl.searchParams.get("page") || 0),
+      "page",
+      0,
+      10000,
+    );
+    const { rows } = await getPool().query(
+      "SELECT id,status,payment_status,total_cents,created_at,updated_at FROM private.marketplace_orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 25 OFFSET $2",
+      [token, page * 25],
+    );
+    return Response.json(
+      { orders: rows, page },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (e) {
+    return failure(e);
+  }
+}
+export async function POST(request: NextRequest) {
+  try {
+    sameOrigin(request);
+    const { token } = await session(),
+      input = await body(request);
+    if (input.action !== "refresh" && input.action !== "resume")
+      throw new ApiError("Invalid order action.");
+    const id = uuid(input.orderId);
+    const { rows } = await getPool().query(
+      "SELECT stripe_session_id FROM private.marketplace_orders WHERE id=$1 AND user_id=$2",
+      [id, token],
+    );
+    if (!rows[0]) throw new ApiError("Order not found.", 404);
+    if (rows[0].stripe_session_id) {
+      const stripe = await stripeClient(),
+        s = await stripe.checkout.sessions.retrieve(rows[0].stripe_session_id);
+      if (
+        input.action === "resume" &&
+        s.status === "open" &&
+        s.payment_status !== "paid" &&
+        s.url
+      )
+        return Response.json({ url: s.url });
+      await applyMarketPayment(
+        s,
+        `reconcile:${s.id}:${s.status}:${s.payment_status}`,
+      );
+    }
+    return Response.json(await marketOrderDetail(id, token));
+  } catch (e) {
+    return failure(e);
+  }
+}

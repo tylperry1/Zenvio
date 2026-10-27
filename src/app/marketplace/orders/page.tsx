@@ -1,0 +1,1 @@
+import {requirePageSession} from '@/lib/page-session';import {MarketplaceOrders} from '@/components/marketplace-orders';export const dynamic='force-dynamic';export default async function Page(){await requirePageSession();return <MarketplaceOrders/>;}

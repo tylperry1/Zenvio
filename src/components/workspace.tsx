@@ -418,6 +418,11 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               )}
             </button>
           ))}
+          {!demo && (
+            <Link className="sidebar-item" href="/marketplace">
+              <Icon name="grid" size={19} /> Marketing marketplace
+            </Link>
+          )}
         </nav>
         <div className="sidebar-note">
           <span>✳</span>
@@ -435,7 +440,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           {!demo && data.platformRole === "master_admin" && (
             <Link className="sidebar-item" href="/admin">
               <Icon name="shield" size={19} />
-              Master admin
+              Back to admin panel
             </Link>
           )}
           <button
@@ -484,6 +489,16 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         />
       )}
       <div className="workspace-main">
+        {!demo && data.platformRole === "master_admin" && (
+          <div className="workspace-admin-banner">
+            <span>
+              <Icon name="shield" size={15} /> Master admin · Dashboard view
+            </span>
+            <Link href="/admin">
+              Return to admin panel <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        )}
         <header className="workspace-topbar">
           <div>
             <button
@@ -498,6 +513,12 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <b>{view}</b>
           </div>
           <div>
+            {!demo && (
+              <Link className="workspace-shop-link" href="/marketplace">
+                <Icon name="grid" size={15} />
+                <span>Marketplace</span>
+              </Link>
+            )}
             <Link
               className="workspace-profile-link"
               href={`/book/${data.profile.slug}`}
