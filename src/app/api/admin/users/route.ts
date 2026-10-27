@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         if (input.confirmation !== account.email) throw new ApiError("Type the user's email exactly to confirm deletion.");
         const orders = await client.query("SELECT 1 FROM private.marketplace_orders WHERE user_id=$1 LIMIT 1", [id]);
         if (orders.rowCount) throw new ApiError("This user has marketplace order history and cannot be permanently deleted. Keep the account to preserve its orders.", 409);
-        const documents = await client.query("SELECT 1 FROM private.signing_documents WHERE user_id=$1 LIMIT 1", [id]);
+        const documents = await client.query("SELECT 1 FROM private.signing_documents WHERE user_id=$1 UNION ALL SELECT 1 FROM private.signature_envelopes WHERE user_id=$1 LIMIT 1", [id]);
         if (documents.rowCount) throw new ApiError("This user has document signing records and cannot be permanently deleted. Keep the account to preserve its agreements.", 409);
         const billing = await client.query("SELECT 1 FROM private.subscriptions WHERE user_id=$1 AND (customer_id IS NOT NULL OR subscription_id IS NOT NULL)", [id]);
         if (billing.rowCount) throw new ApiError("This user has billing records and cannot be permanently deleted. Manage the subscription in Billing first; billing history must be retained.", 409);

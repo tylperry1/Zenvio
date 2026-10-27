@@ -57,11 +57,12 @@ export default function Page() {
       </p>
       <h2>Documents and electronic signatures</h2>
       <p>
-        When you create an agreement, we store its text, recipient name and
-        email, any linked appointment, and a hash of the document. Opening and
+        When you create an agreement, we store its text or uploaded PDF, recipient names and
+        email addresses, assigned fields and responses, any linked appointment, and a hash of the document. Opening and
         signing a private document records view and signing timestamps, the
         typed signature, consent, and a receipt hash. The sender and people
-        possessing the private signing link can access the document. Link
+        possessing a private signing link can access the original document. All recipients
+        can download the completed PDF with every signature and its signing record. Link
         possession and a typed name do not independently verify email ownership
         or government identity. Keep signing links private. Unsigned links
         expire after 14 days; signed documents and signing records are retained

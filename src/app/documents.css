@@ -1,0 +1,485 @@
+.envelopes-page main {
+  max-width: 1360px !important;
+  padding: 36px !important;
+}
+.envelope-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.envelope-heading h1 {
+  font-size: clamp(26px, 3vw, 38px);
+  letter-spacing: -1.3px;
+  margin: 12px 0;
+}
+.envelope-heading p {
+  color: #63708a;
+  line-height: 1.6;
+}
+.envelope-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #e2e6ef;
+  margin: 28px 0;
+}
+.envelope-tabs button {
+  background: transparent;
+  color: #64718b;
+  border-radius: 0;
+  padding: 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+}
+.envelope-tabs button.active {
+  color: #3455ef;
+  border-bottom-color: #4263eb;
+}
+.envelope-card {
+  border: 1px solid #e2e6ef;
+  background: white;
+  border-radius: 16px;
+  padding: 28px;
+  margin: 20px 0;
+}
+.envelope-card h2 {
+  font-size: 20px;
+}
+.envelope-card p {
+  color: #63708a;
+  line-height: 1.6;
+}
+.envelope-notice {
+  padding: 16px;
+  background: #edf8f2;
+  border: 1px solid #b8e5ca;
+  border-radius: 10px;
+  color: #1c6543;
+}
+.envelope-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 28px 0;
+}
+.envelope-stats > div {
+  border: 1px solid #e2e6ef;
+  background: white;
+  padding: 24px;
+  border-radius: 14px;
+}
+.envelope-stats span {
+  display: block;
+  font-size: 13px;
+  color: #68768d;
+}
+.envelope-stats strong {
+  display: block;
+  font-size: 32px;
+  margin-top: 14px;
+}
+.envelope-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.envelope-table-row {
+  display: grid !important;
+  grid-template-columns: 44px 1fr auto 120px;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 22px 4px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #edf0f6 !important;
+  background: white !important;
+  color: #1b2946 !important;
+  border-radius: 0 !important;
+}
+.envelope-table-row:hover {
+  background: #f6f8ff !important;
+}
+.envelope-table-row strong {
+  display: block;
+  font-size: 15px;
+}
+.envelope-table-row small {
+  display: block;
+  color: #6b7990;
+  font-size: 12px;
+  margin-top: 7px;
+}
+.envelope-file-icon {
+  background: #edf1ff;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #4560d9;
+  padding: 15px 7px;
+}
+.envelope-table-row > span:last-child {
+  font-size: 12px;
+  color: #6a7690;
+}
+.status-completed {
+  background: #e6f8ec !important;
+  color: #247247 !important;
+}
+.status-draft {
+  background: #f0f2f6 !important;
+  color: #647086 !important;
+}
+.recipient-editor {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  border: 1px solid #e6eaf2;
+  border-radius: 12px;
+  padding: 16px;
+}
+.recipient-editor > span,
+.recipient-progress > span {
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.recipient-editor label {
+  flex: 1;
+}
+.recipient-editor > span {
+  align-self: center;
+}
+.pdf-upload {
+  padding: 25px;
+  background: #f8faff;
+  border: 1px dashed #a6b7ed;
+  border-radius: 12px;
+}
+.pdf-upload input {
+  border: 0 !important;
+  background: transparent !important;
+}
+.envelope-editor {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 24px;
+  align-items: flex-start;
+  margin: 24px 0;
+}
+.envelope-tools {
+  position: sticky;
+  top: 20px;
+  background: white;
+  padding: 22px;
+  border: 1px solid #e2e6ef;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+.envelope-tools h2,
+.envelope-tools h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.envelope-tools p,
+.envelope-tools small {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #63708a;
+}
+.envelope-tools label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.envelope-tools input,
+.envelope-tools select {
+  width: 100%;
+  padding: 10px;
+  min-width: 0;
+  border: 1px solid #dce3ef;
+  border-radius: 7px;
+}
+.envelope-tools .document-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.envelope-tools .document-checkbox input {
+  width: auto;
+}
+.field-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.field-tools button {
+  background: #f7f9fc;
+  border: 1px solid #dde4f0;
+  color: #4f5e77;
+  text-transform: capitalize;
+  padding: 12px;
+  font-size: 12px;
+}
+.field-tools button.active {
+  background: #eef2ff;
+  border-color: #4263eb;
+  color: #3454df;
+}
+.field-properties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  border-top: 1px solid #e4e8f0;
+  padding-top: 14px;
+}
+.field-properties h4,
+.field-properties > label:first-of-type,
+.field-properties button {
+  grid-column: 1/-1;
+}
+.pdf-pages {
+  background: #e9edf4;
+  padding: 24px;
+  border-radius: 14px;
+  min-width: 0;
+}
+.pdf-page {
+  position: relative;
+  background: white;
+  width: 100%;
+  margin-bottom: 28px;
+  box-shadow: 0 3px 14px #14284314;
+  cursor: crosshair;
+}
+.pdf-page canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.pdf-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pdf-field {
+  position: absolute;
+  pointer-events: auto;
+  background: #fff1b9e8 !important;
+  border: 1.5px solid #e0b234 !important;
+  color: #554510 !important;
+  border-radius: 3px !important;
+  padding: 2px !important;
+  font-size: clamp(7px, 1vw, 12px) !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+.pdf-field.selected {
+  outline: 3px solid #4263eb;
+  outline-offset: 2px;
+}
+.pdf-page-number {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  color: #66748c;
+  font-size: 10px;
+}
+.recipient-progress {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-bottom: 1px solid #edf0f6;
+  padding-bottom: 16px;
+}
+.recipient-progress small,
+.recipient-progress b {
+  display: block;
+  word-break: break-word;
+}
+.recipient-progress b {
+  font-size: 11px;
+  margin-top: 7px;
+  text-transform: capitalize;
+  color: #3f5fdc;
+}
+.envelope-event {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid #edf0f6;
+  padding: 14px 0;
+  font-size: 13px;
+}
+.envelope-event strong {
+  text-transform: capitalize;
+  min-width: 100px;
+}
+.envelope-event time {
+  margin-left: auto;
+  color: #718099;
+}
+.share-recipient {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #e9edf4;
+}
+.share-recipient strong {
+  min-width: 160px;
+}
+.share-recipient small {
+  display: block;
+  font-size: 12px;
+  color: #68758c;
+}
+.share-recipient input {
+  flex: 1;
+  min-width: 0;
+}
+.envelope-sign-page {
+  background: #f3f5fa;
+  min-height: 100vh;
+}
+.envelope-sign-header {
+  height: 80px;
+  background: white;
+  border-bottom: 1px solid #e1e6f0;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 20px 4vw;
+}
+.envelope-sign-header > span {
+  font-size: 12px;
+  color: #6a7890;
+}
+.envelope-sign-header button {
+  margin-left: auto;
+}
+.envelope-sign-page main {
+  max-width: 1280px;
+  margin: auto;
+  padding: 36px;
+}
+.signer-editor {
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+.signing-field {
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.signing-field.filled {
+  background: transparent !important;
+  border: 0 !important;
+  color: #172643 !important;
+}
+.legacy-document-nav {
+  padding: 25px 5vw 0;
+  background: #f7f9fc;
+}
+@media (max-width: 800px) {
+  .envelopes-page main,
+  .envelope-sign-page main {
+    padding: 20px !important;
+  }
+  .envelope-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .envelope-editor,
+  .signer-editor {
+    grid-template-columns: 1fr;
+  }
+  .envelope-tools {
+    position: static;
+    max-height: none;
+  }
+  .envelope-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .envelope-stats > div {
+    padding: 16px;
+  }
+  .envelope-card {
+    padding: 18px;
+  }
+  .recipient-editor,
+  .share-recipient {
+    flex-wrap: wrap;
+  }
+  .recipient-editor label {
+    min-width: 150px;
+  }
+  .share-recipient input {
+    flex-basis: 100%;
+  }
+  .envelope-table-row {
+    grid-template-columns: 32px 1fr auto;
+    gap: 10px;
+  }
+  .envelope-table-row > span:last-child {
+    grid-column: 2/-1;
+  }
+  .pdf-pages {
+    padding: 12px;
+  }
+  .envelope-event {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .envelope-sign-header > span {
+    display: none;
+  }
+  .envelope-sign-header {
+    padding: 16px;
+  }
+  .envelope-sign-header button {
+    font-size: 11px;
+    padding: 10px;
+  }
+}
+
+.pdf-field {
+  touch-action: none;
+}
+.pdf-field:focus-visible {
+  outline: 3px solid #4263eb;
+  outline-offset: 2px;
+}
+
+.envelope-sign-header > .logo {
+  display: inline-flex;
+  width: 125px;
+  flex-shrink: 0;
+}
+.envelope-sign-header > .logo img {
+  width: 125px;
+  height: auto;
+}
+.envelope-sign-page .envelope-tools button {
+  margin: 0;
+  width: 100%;
+  font-size: 13px;
+}
+.envelope-sign-page .envelope-tools .signature-preview {
+  overflow-wrap: anywhere;
+}

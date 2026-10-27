@@ -23,9 +23,10 @@ export default function Page() {
         interrupted. Optional Google Calendar connections check primary-calendar
         busy times and export Zenvio appointments. Automated reminders and team
         scheduling remain planned features. Document signing currently supports
-        text agreements, one recipient, private links, typed signatures, and
-        downloadable text records. PDF field placement and independent signer
-        identity verification are not provided in this release.
+        text agreements and PDF envelopes with assigned fields, up to ten recipients,
+        private links, typed signatures, and downloadable signing records.
+        Signing links are shared manually. Independent signer identity verification,
+        automatic email invitations, and sequential signing are not provided.
       </p>
       <h2>Free accounts</h2>
       <p>
