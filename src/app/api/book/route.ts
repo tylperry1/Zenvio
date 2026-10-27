@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const start = string(input.starts_at, "appointment time", 40);
     if (!Number.isFinite(Date.parse(start)))
       throw new ApiError("Please choose a valid appointment time.");
-    const result = await backend("/rest/v1/rpc/reserve_booking", {
+    const result = await backend("/rest/v1/rpc/reserve_booking_details", {
       method: "POST",
       body: JSON.stringify({
         host_slug: slug(input.host),
@@ -66,6 +66,9 @@ export async function POST(request: NextRequest) {
         visitor_name: string(input.name, "name", 100, 2),
         visitor_email: email(input.email),
         visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
+        visitor_phone: string(input.phone ?? "", "phone number", 40, 0),
+        visitor_company: string(input.company ?? "", "company", 100, 0),
+        visitor_purpose: string(input.purpose ?? "", "meeting purpose", 500, 0),
       }),
     });
     after(() => deliverBookingEmails());

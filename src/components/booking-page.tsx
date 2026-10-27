@@ -1,4 +1,5 @@
 "use client";
+import { PublicPhoto } from "./profile-photo";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
@@ -19,6 +20,7 @@ export function BookingPage({
   eventSlug: string;
 }) {
   const demo = host === "demo";
+  const [guestDraft, setGuestDraft] = useState<Record<string, string>>({});
   const [event, setEvent] = useState<PublicEvent | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -161,6 +163,9 @@ export function BookingPage({
           event_id: type.id,
           guest_name: name,
           guest_email: email,
+          guest_phone: String(f.get("phone") || ""),
+          guest_company: String(f.get("company") || ""),
+          meeting_purpose: String(f.get("purpose") || ""),
           notes,
           starts_at: selectedTime,
           ends_at,
@@ -197,6 +202,9 @@ export function BookingPage({
             name,
             email,
             notes,
+            phone: f.get("phone"),
+            company: f.get("company"),
+            purpose: f.get("purpose"),
             website: f.get("website"),
           }),
         });
@@ -369,7 +377,9 @@ export function BookingPage({
           className={`booking-card ${details ? "booking-details-mode" : ""}`}
         >
           <aside className="booking-host">
-            <span className="avatar host-avatar">{initials(event.host)}</span>
+            <span className="avatar host-avatar">
+              <PublicPhoto host={host} name={event.host} />
+            </span>
             <p className="host-name">{event.host}</p>
             <h1>{event.title}</h1>
             <div className="booking-host-meta">
@@ -399,7 +409,15 @@ export function BookingPage({
               >
                 ← Choose another time
               </button>
-              <h2>A little about you.</h2>
+              <div className="booking-form-steps" aria-label="Booking progress">
+                <span>1 · Choose a time</span>
+                <b aria-current="step">2 · Your details</b>
+              </div>
+              <h2>Your appointment details.</h2>
+              <p className="booking-form-intro">
+                Tell {event.host.split(" ")[0]} a little about yourself. Only
+                your name and email are required.
+              </p>
               <div className="selected-slot">
                 <Icon name="calendar" size={19} />
                 <div>
@@ -412,15 +430,40 @@ export function BookingPage({
                     })}
                   </b>
                   <span>
-                    {time(selectedTime)} · {zone.replaceAll("_", " ")}
+                    {time(selectedTime)} –{" "}
+                    {time(
+                      new Date(
+                        Date.parse(selectedTime) + event.duration * 60000,
+                      ).toISOString(),
+                    )}{" "}
+                    · {zone.replaceAll("_", " ")}
                   </span>
                 </div>
               </div>
-              <form className="stack-form" onSubmit={submit}>
+              <form
+                className="stack-form"
+                onSubmit={submit}
+                onChange={(e) => {
+                  const f = new FormData(e.currentTarget);
+                  setGuestDraft(
+                    Object.fromEntries(
+                      [
+                        "name",
+                        "email",
+                        "phone",
+                        "company",
+                        "purpose",
+                        "notes",
+                      ].map((key) => [key, String(f.get(key) || "")]),
+                    ),
+                  );
+                }}
+              >
                 <label>
                   Your name
                   <input
                     name="name"
+                    defaultValue={guestDraft.name || ""}
                     autoComplete="name"
                     placeholder="Alex Morgan"
                     required
@@ -432,6 +475,7 @@ export function BookingPage({
                   Email address
                   <input
                     name="email"
+                    defaultValue={guestDraft.email || ""}
                     type="email"
                     autoComplete="email"
                     placeholder="alex@example.com"
@@ -439,14 +483,54 @@ export function BookingPage({
                     maxLength={254}
                   />
                 </label>
+                <div className="booking-extra-fields">
+                  <label>
+                    Phone number <span className="optional">optional</span>
+                    <input
+                      name="phone"
+                      type="tel"
+                      autoComplete="tel"
+                      maxLength={40}
+                      defaultValue={guestDraft.phone || ""}
+                      placeholder="(555) 123-4567"
+                    />
+                  </label>
+                  <label>
+                    Company or organization{" "}
+                    <span className="optional">optional</span>
+                    <input
+                      name="company"
+                      autoComplete="organization"
+                      maxLength={100}
+                      defaultValue={guestDraft.company || ""}
+                      placeholder="Your business or organization"
+                    />
+                  </label>
+                </div>
                 <label>
-                  Anything you’d like to share?{" "}
+                  What would you like to discuss?{" "}
+                  <span className="optional">optional</span>
+                  <textarea
+                    name="purpose"
+                    rows={3}
+                    maxLength={500}
+                    defaultValue={guestDraft.purpose || ""}
+                    placeholder="Your goals, questions, or what you’d like to achieve…"
+                  />
+                  <small className="booking-field-help">
+                    A little context helps your host prepare for the
+                    conversation.
+                  </small>
+                </label>
+                <label>
+                  Anything your host should prepare?{" "}
                   <span className="optional">optional</span>
                   <textarea
                     name="notes"
+                    defaultValue={guestDraft.notes || ""}
                     rows={3}
                     maxLength={2000}
-                    placeholder="A little context for a good conversation…"
+                    placeholder="Preparation notes, accessibility needs, or other helpful details…"
                   />
                 </label>
                 <div className="honeypot" aria-hidden="true">
@@ -460,6 +544,14 @@ export function BookingPage({
                     {error}
                   </p>
                 )}
+                <div className="booking-review-note">
+                  <Icon name="shield" size={16} />
+                  <span>
+                    Review your date, time, and email before confirming. You’ll
+                    receive a private cancellation link on the confirmation
+                    screen.
+                  </span>
+                </div>
                 <button className="button primary full" disabled={busy}>
                   {busy
                     ? "Saving your time…"

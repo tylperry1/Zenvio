@@ -55,13 +55,14 @@ try {
   if(response.data.slots.length){available=response.data.slots[0];break;}
  }
  assert(available);
- const details={host:profile.slug,event:event.slug,starts_at:available,name:'Test Guest',email:'guest@example.com'};
+ const details={host:profile.slug,event:event.slug,starts_at:available,name:'Test Guest',email:'guest@example.com',phone:'513-555-0123',company:'Guest Studio',purpose:'Discuss the upcoming project'};
  const results=await Promise.all([1,2].map(()=>request('/api/book',{method:'POST',data:details})));
  assert.deepEqual(results.map(x=>x.status).sort(),[201,409]);
  const booking=results.find(x=>x.status===201).data;
  assert(booking.cancel_token);
  const saved=await request('/api/workspace',{cookie:member.cookie});
  assert.equal(saved.data.bookings.length,1);assert.equal(saved.data.contacts.length,1);
+ assert.equal(saved.data.bookings[0].guest_phone,details.phone);assert.equal(saved.data.bookings[0].guest_company,details.company);assert.equal(saved.data.bookings[0].meeting_purpose,details.purpose);assert.equal(saved.data.contacts[0].company,details.company);
  const bookedInsights=await request('/api/admin?view=insights',{cookie:owner.cookie});
  assert.equal(bookedInsights.data.metrics.confirmed_bookings,1);
  assert.equal(bookedInsights.data.daily.reduce((sum,d)=>sum+Number(d.bookings),0),1);
@@ -142,6 +143,14 @@ try {
  assert.equal((await fetch(origin+'/api/profile/photo',{method:'DELETE',headers:{Origin:origin,Cookie:member.cookie}})).status,200);
  assert.equal((await fetch(origin+'/api/profile/photo?host='+profile.slug)).status,404);
  console.log('PASS: encrypted integration settings, masked credentials, protected admin controls, shared pricing, billing defaults, marketplace readiness, calendar feed rotation/revocation, photo upload/re-encoding/removal.');
+ assert.equal((await request('/api/admin/subscriptions')).status,401);
+ assert.equal((await request('/api/admin/subscriptions',{cookie:member.cookie})).status,403);
+ const subscriptionList=await request('/api/admin/subscriptions?search=member',{cookie:owner.cookie});assert.equal(subscriptionList.status,200);assert.equal(subscriptionList.data.total,1);assert.equal(subscriptionList.data.accounts[0].email,accounts.member);
+ const freeList=await request('/api/admin/subscriptions?filter=free',{cookie:owner.cookie});assert.equal(freeList.data.total,2);
+ assert.equal((await request('/api/admin/subscriptions?filter=invalid',{cookie:owner.cookie})).status,400);
+ assert.equal((await request('/api/billing?view=invoices',{cookie:member.cookie})).data.invoices.length,0);
+ assert.equal((await request('/api/billing',{method:'POST',cookie:member.cookie,data:{action:'checkout',plan:'pro',period:'monthly'}})).status,503);
+ assert.equal((await db.query('SELECT count(*)::int AS n FROM private.subscriptions')).rows[0].n,0);
  const hashed=(await db.query('select password from account')).rows;assert(hashed.every(x=>x.password && x.password!==secret));
  await db.query('update private.platform_roles set enabled=false');
  assert.equal((await request('/api/admin',{cookie:owner.cookie})).status,403);

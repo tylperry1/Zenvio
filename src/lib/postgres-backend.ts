@@ -4,7 +4,7 @@ const tables = {
     profiles: ["id", "name", "slug", "timezone", "bio", "headline", "company", "accent_color", "created_at"],
     event_types: ["id", "user_id", "title", "slug", "description", "duration", "buffer", "location", "color", "active", "deleted_at", "created_at"],
     availability: ["user_id", "day", "enabled", "start_time", "end_time"],
-    bookings: ["id", "user_id", "event_id", "guest_name", "guest_email", "notes", "starts_at", "ends_at", "status"],
+    bookings: ["id", "user_id", "event_id", "guest_name", "guest_email", "notes", "guest_phone", "guest_company", "meeting_purpose", "starts_at", "ends_at", "status"],
     contacts: ["id", "user_id", "name", "email", "company", "notes", "created_at"]
 } as const;
 const functions: Record<string, {
@@ -15,6 +15,7 @@ const functions: Record<string, {
     public_profile: { args: ["host_slug"], scalar: true },
     delete_event_type: { args: ["target_event"], scalar: true, private: true },
     public_event: { args: ["host_slug", "event_slug"] }, public_slots: { args: ["host_slug", "event_slug", "day_date"] },
+    reserve_booking_details: { args: ["host_slug", "event_slug", "slot_start", "visitor_name", "visitor_email", "visitor_notes", "visitor_phone", "visitor_company", "visitor_purpose"], scalar: true },
     reserve_booking: { args: ["host_slug", "event_slug", "slot_start", "visitor_name", "visitor_email", "visitor_notes"], scalar: true },
     cancel_booking: { args: ["cancellation_token"], scalar: true }, account_schema_version: { args: [], scalar: true },
     current_platform_role: { args: [], scalar: true, private: true },

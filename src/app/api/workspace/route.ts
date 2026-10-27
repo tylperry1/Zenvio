@@ -33,7 +33,7 @@ export async function GET() {
           token,
         ),
         backend(
-          "/rest/v1/bookings?select=id,event_id,guest_name,guest_email,notes,starts_at,ends_at,status&order=starts_at.desc&limit=1000",
+          "/rest/v1/bookings?select=id,event_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,starts_at,ends_at,status&order=starts_at.desc&limit=1000",
           {},
           token,
         ),

@@ -1331,6 +1331,28 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 </dt>
                 <dd>{selectedBooking.notes || "No notes added."}</dd>
               </div>
+              {selectedBooking.guest_phone && (
+                <div>
+                  <dt>Phone</dt>
+                  <dd>{selectedBooking.guest_phone}</dd>
+                </div>
+              )}
+              {selectedBooking.guest_company && (
+                <div>
+                  <dt>Company</dt>
+                  <dd>{selectedBooking.guest_company}</dd>
+                </div>
+              )}
+              {selectedBooking.meeting_purpose && (
+                <div>
+                  <dt>Meeting purpose</dt>
+                  <dd
+                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {selectedBooking.meeting_purpose}
+                  </dd>
+                </div>
+              )}
             </dl>
             <button
               className="button secondary full"
@@ -1738,7 +1760,11 @@ function Settings({
         <div className="panel-heading">
           <div>
             <h2>A little about you</h2>
-<div style={{display:"flex",gap:16,flexWrap:"wrap"}}><a href="/app/billing">Plan & billing</a><a href="/app/connections">Calendar connections</a><a href="/marketplace">Branding marketplace</a></div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <a href="/app/billing">Plan & billing</a>
+              <a href="/app/connections">Calendar connections</a>
+              <a href="/marketplace">Branding marketplace</a>
+            </div>
             <p>This is how you’ll appear on your booking pages.</p>
           </div>
           <span className="avatar">{initials(data.profile.name)}</span>

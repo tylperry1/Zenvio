@@ -1,20 +1,30 @@
+import {
+  billingDetails,
+  changeSubscription,
+} from "@/lib/subscription-management";
+import { integrationValue } from "@/lib/platform-settings";
 import { NextRequest } from "next/server";
 import { stripeClient } from "@/lib/billing";
 import { pricing } from "@/lib/platform-settings";
 import { getPool } from "@/lib/db";
 import { session, sameOrigin, body, ApiError, failure } from "@/lib/server";
 export const dynamic = "force-dynamic";
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { token } = await session();
+    if (request.nextUrl.searchParams.get("view") === "invoices")
+      return Response.json(await billingDetails(token), {
+        headers: { "Cache-Control": "no-store" },
+      });
     const { rows } = await getPool().query(
-      "SELECT plan,status,current_period_end FROM private.subscriptions WHERE user_id=$1",
+      "SELECT plan,status,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
       [token],
     );
     return Response.json(
       {
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
+        connected: Boolean(await integrationValue("STRIPE_SECRET_KEY")),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -26,8 +36,31 @@ export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
     const { token, user } = await session(),
-      input = await body(request),
-      stripe = await stripeClient();
+      input = await body(request);
+    if (input.action === "cancel" || input.action === "resume") {
+      await changeSubscription(
+        token,
+        input.action === "cancel",
+        token,
+        "User requested subscription change",
+      );
+      return Response.json({
+        ok: true,
+        message:
+          input.action === "cancel"
+            ? "Cancellation scheduled for the end of your billing period."
+            : "Automatic renewal resumed.",
+      });
+    }
+    if (
+      input.action === "checkout" &&
+      process.env.BILLING_CHECKOUT_ENABLED !== "true"
+    )
+      throw new ApiError(
+        "Paid checkout is not available yet. No payment has been taken.",
+        503,
+      );
+    const stripe = await stripeClient();
     if (!["portal", "checkout"].includes(String(input.action)))
       throw new ApiError("Invalid billing action.");
     const client = await getPool().connect();
@@ -42,6 +75,11 @@ export async function POST(request: NextRequest) {
         [token],
       );
       customer = rows[0]?.customer_id;
+      if (!customer && input.action === "portal")
+        throw new ApiError(
+          "No billing account yet. Your Free plan needs no payment method.",
+          409,
+        );
       if (!customer) {
         customer = (
           await stripe.customers.create(

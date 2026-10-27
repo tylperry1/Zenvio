@@ -1,3 +1,4 @@
+import { saveSubscription } from "@/lib/subscription-management";
 import { NextRequest } from "next/server";
 import { stripeClient } from "@/lib/billing";
 import { integrationValue } from "@/lib/platform-settings";
@@ -50,18 +51,7 @@ export async function POST(request: NextRequest) {
       );
       if (!rows[0] || rows[0].user_id !== userId)
         throw Error("Unknown billing account");
-      const paid = ["active", "trialing"].includes(subscription.status);
-      const end = subscription.items.data[0]?.current_period_end;
-      await client.query(
-        "UPDATE private.subscriptions SET subscription_id=$1,plan=$2,status=$3,current_period_end=$4,updated_at=now() WHERE user_id=$5",
-        [
-          subscription.id,
-          paid && subscription.metadata.plan === "pro" ? "pro" : "free",
-          subscription.status,
-          end ? new Date(end * 1000) : null,
-          userId,
-        ],
-      );
+      await saveSubscription(client, subscription, userId);
       await client.query("INSERT INTO private.stripe_events(id) VALUES($1)", [
         event.id,
       ]);

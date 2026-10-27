@@ -32,6 +32,9 @@ export type Booking = {
   event_id: string;
   guest_name: string;
   guest_email: string;
+  guest_phone?: string;
+  guest_company?: string;
+  meeting_purpose?: string;
   notes: string;
   starts_at: string;
   ends_at: string;

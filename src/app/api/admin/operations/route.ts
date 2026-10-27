@@ -1,6 +1,6 @@
 import { deliverBookingEmails, sendAccountMail } from "@/lib/mail";
 import { NextRequest } from "next/server";
-import { stripeClient } from "@/lib/billing";
+import { changeSubscription } from "@/lib/subscription-management";
 import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import {
@@ -112,19 +112,11 @@ export async function POST(request: NextRequest) {
     ) {
       const target = uuid(input.userId),
         reason = string(input.reason, "reason", 500, 5);
-      const { rows } = await getPool().query(
-        "SELECT subscription_id FROM private.subscriptions WHERE user_id=$1",
-        [target],
-      );
-      if (!rows[0]?.subscription_id)
-        throw new ApiError("This account has no subscription.", 404);
-      const stripe = await stripeClient();
-      await stripe.subscriptions.update(rows[0].subscription_id, {
-        cancel_at_period_end: input.action === "subscription-cancel",
-      });
-      await getPool().query(
-        "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)",
-        [token, input.action, JSON.stringify({ userId: target, reason })],
+      await changeSubscription(
+        target,
+        input.action === "subscription-cancel",
+        token,
+        reason,
       );
     } else if (input.action === "integration") {
       if (
