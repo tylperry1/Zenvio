@@ -1744,8 +1744,8 @@ function AvailabilityEditor({
             Guests can book 2 hours to 90 days ahead.
           </p>
           <p>
-            Zenvio checks your Zenvio appointments for conflicts. External
-            calendar sync is planned.
+            Connect Google Calendar in Settings to check busy times and sync
+            your Zenvio appointments.
           </p>
         </div>
       </aside>
@@ -1782,6 +1782,21 @@ function Settings({
   const zones = [...new Set([data.profile.timezone, ...timezones])];
   return (
     <div className="settings-layout">
+      {!demo && (
+        <section className="panel" aria-labelledby="calendar-settings-title" style={{ gridColumn: "1 / -1" }}>
+          <div className="panel-heading">
+            <div>
+              <h2 id="calendar-settings-title">Google Calendar</h2>
+              <p>Connect your Google account to block busy times and add Zenvio bookings to your primary calendar.</p>
+            </div>
+            <Icon name="calendar" size={28} />
+          </div>
+          <Link className="btn btn-primary" href="/app/connections">
+            Connect or manage Google Calendar <Icon name="arrow" size={16} />
+          </Link>
+          <p>You’ll choose your Google account and approve access on the connection page.</p>
+        </section>
+      )}
       <section className="panel">
         <div className="panel-heading">
           <div>
