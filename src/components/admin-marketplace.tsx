@@ -235,6 +235,7 @@ export function AdminMarketplace() {
                         <tr key={p.id}>
                           <td>
                             <b>{p.title}</b>
+                            {p.is_demo && <span className="market-demo-badge">Demo · cannot be purchased</span>}
                             <small className="billing-cell-detail">
                               {p.sku} · {p.category}
                             </small>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./platform.css";
+import "./refinements.css";
 export const metadata: Metadata = {
   title: {
     default: "Zenvio — Good things, on the calendar.",

@@ -20,11 +20,12 @@ export default function Page() {
       <h2>Current release</h2>
       <p>
         This is an early release. Features may change and service may be
-        interrupted. Calendar synchronization, automated email reminders, team
-        scheduling, and payments are planned upgrades and are not currently
-        provided. Zenvio checks conflicts between Zenvio bookings only; it
-        cannot see other commitments on external calendars. Use the calendar
-        download to add confirmed appointments to your own calendar.
+        interrupted. Optional Google Calendar connections check primary-calendar
+        busy times and export Zenvio appointments. Automated reminders and team
+        scheduling remain planned features. Document signing currently supports
+        text agreements, one recipient, private links, typed signatures, and
+        downloadable text records. PDF field placement and independent signer
+        identity verification are not provided in this release.
       </p>
       <h2>Free accounts</h2>
       <p>

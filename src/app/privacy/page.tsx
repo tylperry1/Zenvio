@@ -36,7 +36,7 @@ export default function Page() {
       <p>
         When you connect Google Calendar, Zenvio stores your verified Google
         account email and encrypted authorization tokens. We use access to your
-        primary calendar to check busy periods and create or cancel Zenvio
+        selected connected accounts’ primary calendars to check busy periods and create or cancel Zenvio
         appointment events. We do not copy other Google event titles,
         descriptions, or attendee lists into Zenvio.
       </p>
@@ -50,10 +50,24 @@ export default function Page() {
       </p>
       <p>
         You can disable conflict checking or event export, or disconnect from
-        Calendar connections. Disconnect removes stored Google authorization
+        Calendar connections. Disconnecting an account removes that account’s stored Google authorization
         credentials and stops future synchronization. Existing Google events are
         kept and can be removed in Google Calendar. You can also revoke Zenvio’s
         access from your Google account settings.
+      </p>
+      <h2>Documents and electronic signatures</h2>
+      <p>
+        When you create an agreement, we store its text, recipient name and
+        email, any linked appointment, and a hash of the document. Opening and
+        signing a private document records view and signing timestamps, the
+        typed signature, consent, and a receipt hash. The sender and people
+        possessing the private signing link can access the document. Link
+        possession and a typed name do not independently verify email ownership
+        or government identity. Keep signing links private. Unsigned links
+        expire after 14 days; signed documents and signing records are retained
+        and are not editable through the application. Senders can void an
+        unsigned document to disable its link. This release does not send
+        signing invitation emails automatically.
       </p>
       <h2>Cookies and the demo</h2>
       <p>

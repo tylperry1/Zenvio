@@ -65,7 +65,7 @@ export async function beginGoogleConnection(userId: string, origin: string) {
   return oauth.generateAuthUrl({
     scope: scopes,
     access_type: "offline",
-    prompt: "consent",
+    prompt: "consent select_account",
     include_granted_scopes: true,
     state,
     code_challenge: proof.codeChallenge,
@@ -118,8 +118,11 @@ export async function finishGoogleConnection(
   const c = await getPool().connect();
   try {
     await c.query("BEGIN");
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["google-accounts:" + userId]);
+    const existingAccounts = await c.query("SELECT count(*)::int AS count FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub<>$2", [userId, identity.sub]);
+    if (existingAccounts.rows[0].count >= 5) throw new ApiError("You can connect up to five Google accounts. Disconnect one before adding another.", 409);
     await c.query(
-      "INSERT INTO private.google_calendar_connections(user_id,account_sub,account_email,access_ciphertext,refresh_ciphertext,expires_at,scope) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id) DO UPDATE SET account_sub=$2,account_email=$3,access_ciphertext=$4,refresh_ciphertext=$5,expires_at=$6,scope=$7,status='connected',last_sync_at=NULL,last_error=NULL,updated_at=now()",
+      "INSERT INTO private.google_calendar_connections(user_id,account_sub,account_email,access_ciphertext,refresh_ciphertext,expires_at,scope) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id,account_sub) DO UPDATE SET account_email=$3,access_ciphertext=$4,refresh_ciphertext=$5,expires_at=$6,scope=$7,status='connected',last_sync_at=NULL,last_error=NULL,updated_at=now()",
       [
         userId,
         identity.sub,
@@ -134,6 +137,7 @@ export async function finishGoogleConnection(
       "INSERT INTO private.google_calendar_jobs(booking_id,user_id) SELECT id,user_id FROM public.bookings WHERE user_id=$1 AND status='confirmed' AND ends_at>now() ON CONFLICT(booking_id) DO UPDATE SET attempts=0,not_before=now(),last_error=NULL,revision=private.google_calendar_jobs.revision+1",
       [userId],
     );
+    await c.query("UPDATE private.google_calendar_jobs SET attempts=0,not_before=now() WHERE user_id=$1", [userId]);
     await c.query(
       "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'google_calendar_connected',$2)",
       [userId, JSON.stringify({ accountEmail: identity.email })],
@@ -146,13 +150,13 @@ export async function finishGoogleConnection(
     c.release();
   }
 }
-async function access(userId: string) {
+async function access(userId: string, expectedAccount?: string) {
   const c = await getPool().connect();
   try {
     await c.query("BEGIN");
     const { rows } = await c.query(
-        "SELECT * FROM private.google_calendar_connections WHERE user_id=$1 FOR UPDATE",
-        [userId],
+        "SELECT * FROM private.google_calendar_connections WHERE user_id=$1 AND ($2::text IS NULL OR account_sub=$2) ORDER BY created_at LIMIT 1 FOR UPDATE",
+        [userId, expectedAccount || null],
       ),
       row = rows[0];
     if (!row) throw new ApiError("Connect Google Calendar first.", 409);
@@ -172,7 +176,7 @@ async function access(userId: string) {
         if (!credentials.access_token) throw Error("Missing token");
         token = credentials.access_token;
         await c.query(
-          "UPDATE private.google_calendar_connections SET access_ciphertext=$2,refresh_ciphertext=$3,expires_at=$4,updated_at=now() WHERE user_id=$1",
+          "UPDATE private.google_calendar_connections SET access_ciphertext=$2,refresh_ciphertext=$3,expires_at=$4,updated_at=now() WHERE user_id=$1 AND account_sub=$5",
           [
             userId,
             sealSecret(token),
@@ -180,6 +184,7 @@ async function access(userId: string) {
               ? sealSecret(credentials.refresh_token)
               : row.refresh_ciphertext,
             new Date(credentials.expiry_date || Date.now() + 3500000),
+            row.account_sub,
           ],
         );
       } catch (e) {
@@ -188,8 +193,8 @@ async function access(userId: string) {
             ?.error === "invalid_grant";
         if (invalid) {
           await c.query(
-            "UPDATE private.google_calendar_connections SET status='reconnect_required',last_error='Google authorization expired or was revoked.' WHERE user_id=$1",
-            [userId],
+            "UPDATE private.google_calendar_connections SET status='reconnect_required',last_error='Google authorization expired or was revoked.' WHERE user_id=$1 AND account_sub=$2",
+            [userId, row.account_sub],
           );
           await c.query("COMMIT");
           throw new ApiError(
@@ -215,7 +220,7 @@ async function googleRequest(
   options: RequestInit = {},
   expectedAccount?: string,
 ) {
-  const { token, accountSub } = await access(userId);
+  const { token, accountSub } = await access(userId, expectedAccount);
   if (expectedAccount && accountSub !== expectedAccount)
     throw new ApiError(
       "The connected Google account changed. Retry synchronization.",
@@ -235,8 +240,8 @@ async function googleRequest(
   );
   if (response.status === 401) {
     await getPool().query(
-      "UPDATE private.google_calendar_connections SET status='reconnect_required',last_error='Reconnect Google Calendar to restore access.' WHERE user_id=$1",
-      [userId],
+      "UPDATE private.google_calendar_connections SET status='reconnect_required',last_error='Reconnect Google Calendar to restore access.' WHERE user_id=$1 AND account_sub=$2",
+      [userId, accountSub],
     );
   }
   return { response, accountSub };
@@ -258,53 +263,27 @@ export async function googleBusyForHost(
   end: string,
 ) {
   const { rows } = await getPool().query(
-    "SELECT p.id,c.check_conflicts FROM public.profiles p JOIN private.google_calendar_connections c ON c.user_id=p.id WHERE p.slug=$1",
+    "SELECT p.id,c.account_sub FROM public.profiles p JOIN private.google_calendar_connections c ON c.user_id=p.id WHERE p.slug=$1 AND c.check_conflicts",
     [host],
   );
-  if (!rows[0]?.check_conflicts) return [];
-  try {
-    const { response } = await googleRequest(rows[0].id, "freeBusy", {
-      method: "POST",
-      body: JSON.stringify({
-        timeMin: start,
-        timeMax: end,
-        items: [{ id: "primary" }],
-      }),
-    });
-    if (!response.ok) throw Error("Calendar unavailable");
-    const data = await response.json();
-    const calendars = Object.values(data.calendars || {}) as {
-      errors?: unknown[];
-      busy?: { start: string; end: string }[];
-    }[];
-    const primary =
-      data.calendars?.primary || (calendars.length === 1 ? calendars[0] : null);
-    if (
-      !primary ||
-      primary.errors?.length ||
-      !Array.isArray(primary.busy) ||
-      !primary.busy.every(
-        (b: { start: string; end: string }) =>
-          Number.isFinite(Date.parse(b.start)) &&
-          Number.isFinite(Date.parse(b.end)) &&
-          Date.parse(b.end) > Date.parse(b.start),
-      )
-    )
-      throw Error("Calendar unavailable");
-    return primary.busy as { start: string; end: string }[];
-  } catch {
-    await getPool()
-      .query(
-        "UPDATE private.google_calendar_connections SET last_error='Google Calendar availability could not be checked. Review calendar access and permissions.' WHERE user_id=$1",
-        [rows[0].id],
-      )
-      .catch(() => {});
-    throw new ApiError(
-      "Calendar availability is temporarily unavailable. Please try again later.",
-      503,
-    );
+  const combined: { start: string; end: string }[] = [];
+  for (const row of rows) {
+    try {
+      const { response } = await googleRequest(row.id, "freeBusy", { method: "POST", body: JSON.stringify({ timeMin: start, timeMax: end, items: [{ id: "primary" }] }) }, row.account_sub);
+      if (!response.ok) throw Error("Calendar unavailable");
+      const data = await response.json();
+      const calendars = Object.values(data.calendars || {}) as { errors?: unknown[]; busy?: { start: string; end: string }[] }[];
+      const primary = data.calendars?.primary || (calendars.length === 1 ? calendars[0] : null);
+      if (!primary || primary.errors?.length || !Array.isArray(primary.busy) || !primary.busy.every((b: { start: string; end: string }) => Number.isFinite(Date.parse(b.start)) && Number.isFinite(Date.parse(b.end)) && Date.parse(b.end) > Date.parse(b.start))) throw Error("Calendar unavailable");
+      combined.push(...primary.busy);
+    } catch {
+      await getPool().query("UPDATE private.google_calendar_connections SET last_error='Google Calendar availability could not be checked. Review calendar access and permissions.' WHERE user_id=$1 AND account_sub=$2", [row.id, row.account_sub]).catch(() => {});
+      throw new ApiError("Calendar availability is temporarily unavailable. Please try again later.", 503);
+    }
   }
+  return combined;
 }
+
 export async function runGoogleJobs(userId?: string, limit = 5) {
   let completed = 0;
   for (let n = 0; n < Math.min(20, Math.max(1, limit)); n++) {
@@ -317,11 +296,11 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
     const claimed = claims[0];
     try {
       const { rows } = await getPool().query(
-        "SELECT b.*,e.title,e.location,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1",
+        "SELECT b.*,e.title,e.location,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1 AND g.sync_events",
         [claimed.booking_id],
       );
-      const job = rows[0];
-      if (!job) throw Error("Disconnected");
+      if (!rows.length) throw Error("Disconnected");
+      for (const job of rows) {
       const { rows: mapped } = await getPool().query(
         "SELECT event_id FROM private.google_calendar_events WHERE user_id=$1 AND account_sub=$2 AND booking_id=$3",
         [job.user_id, job.account_sub, job.id],
@@ -391,27 +370,21 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
           "INSERT INTO private.google_calendar_events(user_id,account_sub,booking_id,event_id,status) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,account_sub,booking_id) DO UPDATE SET status=$5,synced_at=now()",
           [job.user_id, job.account_sub, job.id, eventId, job.status],
         );
-        const deleted = await c.query(
-          "DELETE FROM private.google_calendar_jobs WHERE booking_id=$1 AND claim_token=$2 AND revision=$3 RETURNING booking_id",
-          [job.id, claim, claimed.revision],
-        );
-        if (!deleted.rows.length)
-          await c.query(
-            "UPDATE private.google_calendar_jobs SET locked_until=NULL,claim_token=NULL WHERE booking_id=$1 AND claim_token=$2",
-            [job.id, claim],
-          );
         await c.query(
           "UPDATE private.google_calendar_connections SET last_sync_at=now(),last_error=NULL WHERE user_id=$1 AND account_sub=$2",
           [job.user_id, job.account_sub],
         );
         await c.query("COMMIT");
-        completed++;
       } catch (e) {
         await c.query("ROLLBACK");
         throw e;
       } finally {
         c.release();
       }
+      }
+      const deleted = await getPool().query("DELETE FROM private.google_calendar_jobs WHERE booking_id=$1 AND claim_token=$2 AND revision=$3 RETURNING booking_id", [claimed.booking_id, claim, claimed.revision]);
+      if (!deleted.rows.length) await getPool().query("UPDATE private.google_calendar_jobs SET locked_until=NULL,claim_token=NULL WHERE booking_id=$1 AND claim_token=$2", [claimed.booking_id, claim]);
+      completed++;
     } catch {
       await getPool().query(
         "UPDATE private.google_calendar_jobs SET attempts=CASE WHEN revision=$3 THEN attempts+1 ELSE attempts END,not_before=CASE WHEN revision=$3 THEN now()+interval '5 minutes' ELSE now() END,locked_until=NULL,claim_token=NULL,last_error='Calendar update could not be delivered.' WHERE booking_id=$1 AND claim_token=$2",
@@ -425,18 +398,18 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
   }
   return completed;
 }
-export async function disconnectGoogle(userId: string) {
+export async function disconnectGoogle(userId: string, accountSub?: string) {
   let revoked = true;
   const { rows } = await getPool().query(
-    "SELECT refresh_ciphertext FROM private.google_calendar_connections WHERE user_id=$1",
-    [userId],
+    "SELECT refresh_ciphertext FROM private.google_calendar_connections WHERE user_id=$1 AND ($2::text IS NULL OR account_sub=$2)",
+    [userId, accountSub || null],
   );
-  if (rows[0]) {
+  for (const row of rows) {
     try {
       const oauth = new OAuth2Client({
         transporterOptions: { timeout: 15000 },
       });
-      await oauth.revokeToken(unsealSecret(rows[0].refresh_ciphertext));
+      await oauth.revokeToken(unsealSecret(row.refresh_ciphertext));
     } catch {
       revoked = false;
     }
@@ -445,16 +418,14 @@ export async function disconnectGoogle(userId: string) {
   try {
     await c.query("BEGIN");
     await c.query(
-      "DELETE FROM private.google_calendar_connections WHERE user_id=$1",
-      [userId],
+      "DELETE FROM private.google_calendar_connections WHERE user_id=$1 AND ($2::text IS NULL OR account_sub=$2)",
+      [userId, accountSub || null],
     );
     await c.query(
       "DELETE FROM private.google_calendar_oauth WHERE user_id=$1",
       [userId],
     );
-    await c.query("DELETE FROM private.google_calendar_jobs WHERE user_id=$1", [
-      userId,
-    ]);
+    await c.query("DELETE FROM private.google_calendar_jobs WHERE user_id=$1 AND NOT EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND sync_events)", [userId]);
     await c.query(
       "INSERT INTO private.operation_log(actor_id,action) VALUES($1,'google_calendar_disconnected')",
       [userId],

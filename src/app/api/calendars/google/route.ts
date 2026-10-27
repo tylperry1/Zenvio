@@ -8,14 +8,14 @@ import {
   googleRedirect,
   runGoogleJobs,
 } from "@/lib/google-calendar";
-import { session, sameOrigin, body, failure, ApiError } from "@/lib/server";
+import { session, sameOrigin, body, failure, ApiError, string } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 export async function GET(request: NextRequest) {
   try {
     const { token } = await session();
     const { rows } = await getPool().query(
-      "SELECT account_email,status,check_conflicts,sync_events,last_sync_at,last_error FROM private.google_calendar_connections WHERE user_id=$1",
+      "SELECT account_sub,account_email,status,check_conflicts,sync_events,last_sync_at,last_error FROM private.google_calendar_connections WHERE user_id=$1 ORDER BY created_at",
       [token],
     );
     const { rows: jobs } = await getPool().query(
@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
         isAdmin: (await platformRole(token)) === "master_admin",
         redirectUri: googleRedirect(request.nextUrl.origin),
         connection: rows[0] || null,
+        connections: rows,
+        maximumAccounts: 5,
         jobs: jobs[0],
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -45,17 +47,27 @@ export async function POST(request: NextRequest) {
       return Response.json({
         url: await beginGoogleConnection(token, request.nextUrl.origin),
       });
-    if (input.action === "disconnect")
-      return Response.json({ ok: true, ...(await disconnectGoogle(token)) });
+    if (input.action === "disconnect") {
+      const account = string(input.accountSub, "Google account", 255);
+      const owned = await getPool().query("SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2", [token, account]);
+      if (!owned.rowCount) throw new ApiError("Google account not found.", 404);
+      return Response.json({ ok: true, ...(await disconnectGoogle(token, account)) });
+    }
     if (input.action === "settings") {
       if (
         typeof input.checkConflicts !== "boolean" ||
         typeof input.syncEvents !== "boolean"
       )
         throw new ApiError("Invalid calendar settings.");
+      let account: string | null = input.accountSub ? string(input.accountSub, "Google account", 255) : null;
+      if (!account) {
+        const owned = await getPool().query("SELECT account_sub FROM private.google_calendar_connections WHERE user_id=$1", [token]);
+        if (owned.rows.length !== 1) throw new ApiError("Choose a connected Google account first.", 409);
+        account = owned.rows[0].account_sub;
+      }
       const r = await getPool().query(
-        "UPDATE private.google_calendar_connections SET check_conflicts=$2,sync_events=$3,updated_at=now() WHERE user_id=$1 RETURNING user_id",
-        [token, input.checkConflicts, input.syncEvents],
+        "UPDATE private.google_calendar_connections SET check_conflicts=$2,sync_events=$3,updated_at=now() WHERE user_id=$1 AND account_sub=$4 RETURNING user_id",
+        [token, input.checkConflicts, input.syncEvents, account],
       );
       if (!r.rows.length)
         throw new ApiError("Connect a Google account first.", 409);

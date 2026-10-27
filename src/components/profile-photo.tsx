@@ -27,8 +27,9 @@ export function ProfilePhoto({ host }: { host: string }) {
     }
   }
   return (
-    <section style={{ padding: "20px 0" }}>
-      <h3>Your profile photo</h3>
+    <section className="settings-photo">
+      <div className="settings-photo-preview">
+      {failed && <span aria-hidden="true">{host.slice(0, 2).toUpperCase()}</span>}
       {!failed && (
         <img
           src={`/api/profile/photo?host=${encodeURIComponent(host)}&v=${revision}`}
@@ -39,8 +40,12 @@ export function ProfilePhoto({ host }: { host: string }) {
           onError={() => setFailed(true)}
         />
       )}
-      <label style={{ display: "block" }}>
-        Upload a photo (JPEG, PNG, or WebP; up to 2 MB)
+      </div>
+      <div className="settings-photo-controls">
+      <h3>Profile photo</h3>
+      <p>A familiar face on your public booking page.</p>
+      <label className="settings-photo-upload">
+        {busy ? "Uploading…" : "Upload photo"}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"
@@ -48,9 +53,11 @@ export function ProfilePhoto({ host }: { host: string }) {
           onChange={(e) => void upload(e.target.files?.[0])}
         />
       </label>
+      <small>JPEG, PNG, or WebP · up to 2 MB</small>
       <button
         type="button"
-        disabled={busy}
+        className="settings-photo-remove"
+        disabled={busy || failed}
         onClick={async () => {
           setBusy(true);
           try {
@@ -68,6 +75,7 @@ export function ProfilePhoto({ host }: { host: string }) {
         Remove photo
       </button>
       {message && <p role="status">{message}</p>}
+      </div>
     </section>
   );
 }

@@ -9,6 +9,7 @@ export type Supplier = {
   active: boolean;
 };
 export type MarketProduct = {
+  is_demo?: boolean;
   id: string;
   sku: string;
   title: string;

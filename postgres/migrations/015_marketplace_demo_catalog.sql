@@ -1,0 +1,11 @@
+ALTER TABLE private.marketplace_products ADD COLUMN is_demo boolean NOT NULL DEFAULT false;
+INSERT INTO private.marketplace_products(sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,fulfillment,lead_time,status,is_demo) VALUES
+ ('DEMO-CARDS-250','Premium business cards · 250 pack','DEMO PRODUCT. An illustrative sample of custom business cards with your logo and contact details. Sample price only; not available for purchase.','Business cards',2900,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-CARDS-NFC','Digital contact card','DEMO PRODUCT. Preview a branded contact card for sharing your booking page. Sample price only; no physical product or supplier is attached.','Business cards',1900,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-FLYERS-100','Promotional flyers · 100 pack','DEMO PRODUCT. An illustrative flyer package for introducing your services and booking link. Sample price only; not available for purchase.','Print marketing',3900,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-POSTCARDS-100','Branded postcards · 100 pack','DEMO PRODUCT. A sample postcard concept for client outreach. Sample price only; not available for purchase.','Print marketing',4900,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-BANNER','Retractable display banner','DEMO PRODUCT. Preview a standing display banner for events and your business location. Sample price only; not available for purchase.','Signs & banners',12900,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-APPAREL','Custom logo T-shirt','DEMO PRODUCT. Preview a shirt carrying your own branding. Sample price only; no sizes or supplier inventory are available for purchase.','Branded apparel',2400,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-NOTEBOOK','Branded notebook','DEMO PRODUCT. An illustrative custom notebook for customer gifts and events. Sample price only; not available for purchase.','Promotional gifts',1800,0,1,0,'print_on_demand','Preview only','active',true),
+ ('DEMO-STARTER-KIT','Business branding starter kit','DEMO PRODUCT. A sample bundle concept combining cards, flyers, and promotional materials. Sample price only; not available for purchase.','Branding kits',9900,0,1,0,'print_on_demand','Preview only','active',true)
+ON CONFLICT(sku) DO NOTHING;

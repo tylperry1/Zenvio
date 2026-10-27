@@ -5,7 +5,7 @@ import { ApiError, uuid, integer, string } from "./server";
 import { stripeClient } from "./billing";
 import { integrationValue } from "./platform-settings";
 export const productColumns =
-  "id,sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,lead_time,(image IS NOT NULL) AS has_image,updated_at,revision";
+  "id,sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,lead_time,(image IS NOT NULL) AS has_image,updated_at,revision,is_demo";
 export function cartLines(input: unknown) {
   if (!Array.isArray(input) || !input.length || input.length > 20)
     throw new ApiError("Choose between 1 and 20 products.");
@@ -81,6 +81,7 @@ export async function createMarketCheckout(
     minimum_quantity: number;
     stock: number | null;
     status: string;
+    is_demo: boolean;
     supplier_id: string | null;
     supplier_sku: string;
     fulfillment: string;
@@ -108,6 +109,7 @@ export async function createMarketCheckout(
       throw new ApiError("One or more products are unavailable.", 409);
     for (const line of lines) {
       const p = products.find((p) => p.id === line.productId)!;
+      if (p.is_demo) throw new ApiError("Demo products are for preview only and cannot be purchased.", 409);
       if (
         p.status !== "active" ||
         p.supplier_active === false ||

@@ -421,6 +421,11 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             </button>
           ))}
           {!demo && (
+            <Link className="sidebar-item" href="/app/documents">
+              <Icon name="link" size={19} /> Documents & signatures
+            </Link>
+          )}
+          {!demo && (
             <Link className="sidebar-item" href="/app/connections">
               <Icon name="calendar" size={19} /> Calendar connections
             </Link>
@@ -576,7 +581,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 ) : view === "Contacts" ? (
                   "People, not just appointments."
                 ) : view === "Settings" ? (
-                  "Make yourself at home."
+                  "Workspace settings"
                 ) : (
                   "Your calendar, at a glance."
                 )}
@@ -592,7 +597,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                         ? "Set a weekly rhythm that works for you."
                         : view === "Contacts"
                           ? "Keep the little details that make every conversation feel personal."
-                          : "A few personal touches make all the difference."}
+                          : "Manage your profile, booking page, and connected services."}
               </p>
             </div>
             {["Overview", "Event types"].includes(view) ? (
@@ -1798,29 +1803,23 @@ function Settings({
   return (
     <div className="settings-layout">
       {!demo && (
-        <section className="panel" aria-labelledby="calendar-settings-title" style={{ gridColumn: "1 / -1" }}>
-          <div className="panel-heading">
-            <div>
-              <h2 id="calendar-settings-title">Google Calendar</h2>
+        <section className="panel settings-calendar-card" aria-labelledby="calendar-settings-title">
+          <div className="settings-calendar-copy">
+            <span className="settings-calendar-icon"><Icon name="calendar" size={24} /></span>
+            <div><span className="settings-section-label">CONNECTED CALENDARS</span>
+              <h2 id="calendar-settings-title">Make room for every appointment</h2>
               <p>Connect your Google account to block busy times and add Zenvio bookings to your primary calendar.</p>
             </div>
-            <Icon name="calendar" size={28} />
           </div>
-          <Link className="button primary" href="/app/connections">
-            Connect or manage Google Calendar <Icon name="arrow" size={16} />
+          <Link className="button primary small" href="/app/connections">
+            Connect Google Calendar <Icon name="arrow" size={16} />
           </Link>
-          <p>You’ll choose your Google account and approve access on the connection page.</p>
         </section>
       )}
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h2>A little about you</h2>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <a href="/app/billing">Plan & billing</a>
-              <a href="/app/connections">Calendar connections</a>
-              <a href="/marketplace">Branding marketplace</a>
-            </div>
+            <h2>Profile & preferences</h2>
             <p>This is how you’ll appear on your booking pages.</p>
           </div>
           <span className="avatar">{initials(data.profile.name)}</span>
@@ -1965,33 +1964,15 @@ function Settings({
             </button>
           </div>
         </div>
-        <div className="panel settings-plan">
-          <span className="pill">YOUR PLAN</span>
-          <h3>A thoughtful start.</h3>
-          <div className="price">
-            Free<span> / for now</span>
-          </div>
-          <p>
-            Your core scheduling and contact tools are included. There are no
-            charges or subscriptions in this release.
-          </p>
-          <div className="divider" />
-          <h4>On the horizon</h4>
-          {[
-            "Google & Outlook calendar sync",
-            "Automatic email reminders",
-            "Team & round-robin scheduling",
-            "Payments & subscriptions",
-          ].map((t) => (
-            <p className="planned-row" key={t}>
-              <Icon name="clock" size={15} />
-              {t}
-            </p>
-          ))}
-          <span className="status neutral">
-            Planned upgrades · not yet available
-          </span>
-        </div>
+        {!demo && <div className="panel settings-plan settings-shortcuts">
+          <span className="settings-section-label">YOUR WORKSPACE</span>
+          <h3>Everything in one place</h3>
+          <p>Manage the services that keep your business moving.</p>
+          <Link href="/app/billing"><span><Icon name="grid" size={18} /><span><b>Plan & billing</b><small>Subscription and invoices</small></span></span><Icon name="arrow" size={15} /></Link>
+          <Link href="/app/connections"><span><Icon name="calendar" size={18} /><span><b>Calendar connections</b><small>Connect or manage your calendars</small></span></span><Icon name="arrow" size={15} /></Link>
+          <Link href="/app/documents"><span><Icon name="link" size={18} /><span><b>Documents & signatures</b><small>Agreements and signing records</small></span></span><Icon name="arrow" size={15} /></Link>
+          <Link href="/marketplace"><span><Icon name="link" size={18} /><span><b>Marketing marketplace</b><small>Materials for your brand</small></span></span><Icon name="arrow" size={15} /></Link>
+        </div>}
         {demo && (
           <div className="soft-note">
             <h3>A clean slate?</h3>

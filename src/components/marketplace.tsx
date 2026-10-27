@@ -154,7 +154,11 @@ export function Marketplace() {
                 {products.map((p) => (
                   <article className="market-product-card" key={p.id}>
                     <div className="market-product-image">
-                      {p.has_image ? (
+                      {p.is_demo ? (
+                        <div className={`demo-product-art demo-art-${p.category.toLowerCase().replaceAll(/[^a-z]+/g, "-")}`} aria-label="Illustrative product mockup">
+                          <span>ZENVIO</span><b>{p.category === "Branded apparel" ? "YOUR BRAND" : p.category === "Signs & banners" ? "LET’S CONNECT" : "Good things start here."}</b><small>YOUR BRAND HERE</small>
+                        </div>
+                      ) : p.has_image ? (
                         <img
                           src={`/api/marketplace/image?product=${p.id}&v=${encodeURIComponent(p.updated_at)}`}
                           alt={p.title}
@@ -167,10 +171,11 @@ export function Marketplace() {
                     </div>
                     <div className="market-product-content">
                       <h3>{p.title}</h3>
+                      {p.is_demo && <span className="market-demo-badge">Demo product · sample pricing</span>}
                       <p>{p.description}</p>
                       <b>{money(p.price_cents)}</b>
                       <small className="billing-cell-detail">
-                        {p.stock === null
+                        {p.is_demo ? "Preview only · not available for purchase" : p.stock === null
                           ? "Made to order"
                           : p.stock > 0
                             ? `${p.stock} available`
@@ -179,7 +184,7 @@ export function Marketplace() {
                           ? ` · Estimated production: ${p.lead_time}`
                           : ""}
                       </small>
-                      <form
+                      {!p.is_demo ? <form
                         onSubmit={(e) => {
                           e.preventDefault();
                           const qty = Number(
@@ -249,7 +254,7 @@ export function Marketplace() {
                             ? money(p.shipping_cents) + " shipping per unit"
                             : "Free shipping"}
                         </small>
-                      </form>
+                      </form> : <div className="market-demo-unavailable">Sample item · checkout disabled</div>}
                     </div>
                   </article>
                 ))}
