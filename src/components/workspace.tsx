@@ -419,6 +419,11 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             </button>
           ))}
           {!demo && (
+            <Link className="sidebar-item" href="/app/connections">
+              <Icon name="calendar" size={19} /> Calendar connections
+            </Link>
+          )}
+          {!demo && (
             <Link className="sidebar-item" href="/marketplace">
               <Icon name="grid" size={19} /> Marketing marketplace
             </Link>
