@@ -12,6 +12,9 @@ export function demoData(): WorkspaceData {
     profile: {
       id: "demo",
       name: "Jamie Davis",
+      headline: "Independent consultant. Thoughtful conversations.",
+      company: "Jamie Davis Studio",
+      accent_color: "#365CFF",
       slug: "demo",
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       bio: "Good conversations make great things happen. Find a time and let’s connect.",

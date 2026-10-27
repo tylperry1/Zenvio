@@ -43,6 +43,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [noticeError, setNoticeError] = useState(false),
     [busy, setBusy] = useState(false),
     [menu, setMenu] = useState(false);
+  const [deleting, setDeleting] = useState<EventType | null>(null);
   const [editing, setEditing] = useState<EventType | true | null>(null),
     [contactModal, setContactModal] = useState(false),
     [selectedBooking, setSelectedBooking] = useState<Booking | null>(null),
@@ -145,6 +146,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     }
   }
   const profile = data?.profile;
+  const visibleEvents = data?.events.filter((e) => !e.deleted_at) || [];
   const now = new Date();
   const upcoming =
     data?.bookings
@@ -225,8 +227,20 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <Icon name="link" size={15} /> Copy link
           </button>
           <div>
-            <button className="subtle-button" onClick={() => setEditing(event)}>
+            <button
+              className="subtle-button"
+              disabled={busy}
+              onClick={() => setEditing(event)}
+            >
               Edit
+            </button>
+            <button
+              className="event-delete-button"
+              disabled={busy}
+              aria-label={`Delete ${event.title}`}
+              onClick={() => setDeleting(event)}
+            >
+              Delete
             </button>
             <Link
               className="icon-button"
@@ -483,6 +497,14 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <b>{view}</b>
           </div>
           <div>
+            <Link
+              className="workspace-profile-link"
+              href={`/book/${data.profile.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="globe" size={14} /> My booking page
+            </Link>
             <span className="timezone-top">
               <Icon name="globe" size={14} />
               {data.profile.timezone.replaceAll("_", " ")}
@@ -596,7 +618,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   [
                     "link",
                     "Active booking links",
-                    String(data.events.filter((e) => e.active).length),
+                    String(visibleEvents.filter((e) => e.active).length),
                     "Ready when you are",
                   ],
                 ].map(([icon, title, value, note]) => (
@@ -639,7 +661,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   </button>
                 </div>
                 <div className="events-grid">
-                  {data.events.slice(0, 2).map(eventCard)}
+                  {visibleEvents.slice(0, 2).map(eventCard)}
                   <button
                     className="new-event-card"
                     onClick={() => setEditing(true)}
@@ -674,9 +696,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <>
               <div className="toolbar">
                 <span>
-                  {data.events.length} event types{" "}
+                  {visibleEvents.length} event types{" "}
                   <span className="muted">
-                    · {data.events.filter((e) => e.active).length} active
+                    · {visibleEvents.filter((e) => e.active).length} active
                   </span>
                 </span>
                 <label className="search-field">
@@ -690,7 +712,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 </label>
               </div>
               <div className="events-grid">
-                {data.events
+                {visibleEvents
                   .filter((e) =>
                     e.title.toLowerCase().includes(search.toLowerCase()),
                   )
@@ -1044,6 +1066,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 );
                 return success;
               }}
+              onShare={toast}
               onReset={() => {
                 if (
                   window.confirm(
@@ -1083,6 +1106,64 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </button>
         </div>
       )}
+      {deleting && (
+        <Modal
+          title="Delete this appointment type?"
+          onClose={() => {
+            if (!busy) setDeleting(null);
+          }}
+        >
+          <div className="delete-event-summary">
+            <Icon name="calendar" size={25} />
+            <div>
+              <b>{deleting.title}</b>
+              <p>
+                {deleting.duration} minutes · /{deleting.slug}
+              </p>
+            </div>
+          </div>
+          <p>
+            This type will be removed from your booking page and its booking
+            link will stop accepting appointments. Existing appointments,
+            contacts, and booking history will be kept.
+          </p>
+          <div className="delete-event-actions">
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => setDeleting(null)}
+            >
+              Keep appointment type
+            </button>
+            <button
+              className="button delete-confirm"
+              disabled={busy}
+              onClick={async () => {
+                const target = deleting;
+                const success = await mutate(
+                  { action: "delete-event", id: target.id },
+                  (d) => ({
+                    ...d,
+                    events: d.events.map((e) =>
+                      e.id === target.id
+                        ? {
+                            ...e,
+                            active: false,
+                            deleted_at: new Date().toISOString(),
+                          }
+                        : e,
+                    ),
+                  }),
+                  "Appointment type deleted. Existing appointments have been kept.",
+                );
+                if (success) setDeleting(null);
+              }}
+            >
+              {busy ? "Deleting…" : "Delete appointment type"}
+            </button>
+          </div>
+        </Modal>
+      )}
       {editing && (
         <Modal
           title={
@@ -1097,7 +1178,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             busy={busy}
             onSave={async (values) => {
               if (
-                data.events.some(
+                visibleEvents.some(
                   (e) => e.slug === values.slug && e.id !== values.id,
                 )
               ) {
@@ -1115,7 +1196,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                       )
                     : [...d.events, { ...values, id, user_id: "demo" }],
                 }),
-                "Your booking link is ready.",
+                values.id
+                  ? "Appointment type updated successfully."
+                  : "Appointment type created successfully.",
               );
               if (success) setEditing(null);
             }}
@@ -1625,6 +1708,7 @@ function Settings({
   demo,
   busy,
   onSave,
+  onShare,
   onReset,
 }: {
   data: WorkspaceData;
@@ -1633,9 +1717,16 @@ function Settings({
   onSave: (
     values: Pick<
       WorkspaceData["profile"],
-      "name" | "slug" | "timezone" | "bio"
+      | "name"
+      | "slug"
+      | "timezone"
+      | "bio"
+      | "headline"
+      | "company"
+      | "accent_color"
     >,
   ) => Promise<boolean>;
+  onShare: (message: string, error?: boolean) => void;
   onReset: () => void;
 }) {
   const [slug, setSlug] = useState(data.profile.slug);
@@ -1666,6 +1757,9 @@ function Settings({
               slug,
               timezone: String(f.get("timezone")),
               bio: String(f.get("bio")),
+              headline: String(f.get("headline") || ""),
+              company: String(f.get("company") || ""),
+              accent_color: String(f.get("accent_color") || "#365CFF"),
             });
           }}
         >
@@ -1680,6 +1774,32 @@ function Settings({
             />
           </label>
           <label>
+            Your headline
+            <input
+              name="headline"
+              maxLength={120}
+              defaultValue={data.profile.headline || ""}
+              placeholder="Consultant, coach, or your own kind of expert"
+            />
+          </label>
+          <label>
+            Business or organization
+            <input
+              name="company"
+              maxLength={80}
+              defaultValue={data.profile.company || ""}
+              placeholder="Your business name (optional)"
+            />
+          </label>
+          <label className="profile-form-colors">
+            Profile accent color
+            <input
+              name="accent_color"
+              type="color"
+              defaultValue={data.profile.accent_color || "#365CFF"}
+            />
+          </label>
+          <label>
             Your personal booking address
             <input
               value={slug}
@@ -1691,8 +1811,8 @@ function Settings({
               readOnly={demo}
             />
             <small>
-              /book/{slug}/your-event · Changing this address makes your old
-              links unavailable.
+              /book/{slug} · Changing this address makes your old links
+              unavailable.
             </small>
           </label>
           <label>
@@ -1722,6 +1842,44 @@ function Settings({
         </form>
       </section>
       <aside>
+        <div className="settings-profile-share">
+          <h3>Your public booking profile</h3>
+          <p>
+            A single page with your introduction and available appointment
+            types. Save your profile before previewing changes.
+          </p>
+          <p>
+            <code>/book/{data.profile.slug}</code>
+          </p>
+          <div className="public-profile-actions">
+            <Link
+              className="button secondary small"
+              href={`/book/${data.profile.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Preview profile <Icon name="arrow" size={14} />
+            </Link>
+            <button
+              className="button secondary small"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    `${window.location.origin}/book/${data.profile.slug}`,
+                  );
+                  onShare("Booking page link copied successfully.");
+                } catch {
+                  onShare(
+                    "Could not copy the link. Open the preview and copy its address.",
+                    true,
+                  );
+                }
+              }}
+            >
+              Copy booking page
+            </button>
+          </div>
+        </div>
         <div className="panel settings-plan">
           <span className="pill">YOUR PLAN</span>
           <h3>A thoughtful start.</h3>

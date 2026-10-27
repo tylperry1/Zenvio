@@ -6027,3 +6027,10 @@ h4 {
     gap: 8px;
   }
 }
+
+/* Public booking profile controls. */
+.public-profile-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.public-profile-actions .button{font-size:12px}.event-delete-button{color:var(--error);border:0;background:none;padding:8px;font-size:12px}.event-delete-button:hover{background:var(--error-surface);border-radius:5px}.delete-event-summary{display:flex;gap:12px;align-items:center;background:var(--brand-cloud);border:1px solid var(--border);border-radius:9px;padding:17px;margin:20px 0}.delete-event-summary p{font-size:12px;color:var(--text-secondary);margin:6px 0 0}.button.delete-confirm{background:var(--error);color:white;border-color:var(--error)}.profile-form-colors input[type=color]{width:70px;height:42px;padding:4px}.settings-profile-share{background:var(--brand-cloud);padding:20px;border:1px solid var(--border);border-radius:10px;margin-bottom:25px}.settings-profile-share h3{font-size:17px;margin-bottom:9px}.settings-profile-share p{font-size:12px;color:var(--text-secondary);margin-bottom:15px}.settings-profile-share code{font-size:12px;overflow-wrap:anywhere}.workspace-profile-link{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--action-hover);font-weight:600}
+
+@media(max-width:600px){.workspace-profile-link{font-size:10px}.workspace-profile-link svg{display:none}}
+
+.delete-event-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:24px}.delete-event-summary{overflow-wrap:anywhere}.delete-event-summary>div{min-width:0}.event-card-footer>div{flex-wrap:wrap}

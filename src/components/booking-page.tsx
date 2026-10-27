@@ -41,7 +41,9 @@ export function BookingPage({
       try {
         if (demo) {
           const data = readDemo();
-          const e = data.events.find((e) => e.slug === eventSlug && e.active);
+          const e = data.events.find(
+            (e) => e.slug === eventSlug && e.active && !e.deleted_at,
+          );
           if (!e)
             throw new Error(
               "This booking link is paused or no longer available.",
@@ -82,7 +84,9 @@ export function BookingPage({
   }, [host, eventSlug, demo]);
   function demoSlots(date: string) {
     const data = readDemo();
-    const e = data.events.find((e) => e.slug === eventSlug && e.active);
+    const e = data.events.find(
+      (e) => e.slug === eventSlug && e.active && !e.deleted_at,
+    );
     if (!e) return [];
     return slotsForDay({
       date,
@@ -140,7 +144,9 @@ export function BookingPage({
       let result: Confirmation;
       if (demo) {
         const data = readDemo();
-        const type = data.events.find((e) => e.slug === eventSlug && e.active);
+        const type = data.events.find(
+          (e) => e.slug === eventSlug && e.active && !e.deleted_at,
+        );
         if (!type || !demoSlots(selectedDate).includes(selectedTime))
           throw new Error(
             "That time is no longer available. Please choose another.",
@@ -254,7 +260,9 @@ export function BookingPage({
         <Link href="/">
           <Logo />
         </Link>
-        <span>GOOD THINGS, ON THE CALENDAR.</span>
+        <Link className="inline-link" href={`/book/${host}`}>
+          ← All appointment types
+        </Link>
       </header>
       {demo && (
         <div className="booking-demo-notice">

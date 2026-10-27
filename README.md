@@ -14,6 +14,9 @@ Use a dedicated Neon Postgres database and Better Auth. Follow [the account setu
 
 ## Included
 
+- Public host profiles at `/book/[host]`, with a customizable headline, business name, bio and accent color; guests choose an active appointment type before selecting a time.
+- Appointment-type deletion with confirmation and success notifications. Deleted types stop accepting bookings, while existing appointments and their cancellation links remain intact.
+
 - Responsive marketing site, feature details, current free plan, explicit planned upgrades, privacy, terms, and error pages.
 - Real email/password auth endpoints with server-only HttpOnly cookies, verified server identity, refresh, recovery, sign-out, and password update.
 - Owner-only event type management, duration, custom meeting location, color, activation, and post-meeting buffer.

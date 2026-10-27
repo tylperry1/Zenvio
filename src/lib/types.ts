@@ -4,6 +4,9 @@ export type Profile = {
   slug: string;
   timezone: string;
   bio: string;
+  headline?: string;
+  company?: string;
+  accent_color?: string;
 };
 export type EventType = {
   id: string;
@@ -16,6 +19,7 @@ export type EventType = {
   location: string;
   color: string;
   active: boolean;
+  deleted_at?: string | null;
 };
 export type Availability = {
   day: number;
@@ -61,4 +65,12 @@ export type PublicEvent = {
   duration: number;
   location: string;
   color: string;
+};
+
+export type PublicProfileData = {
+  profile: Omit<Profile, "id">;
+  events: Pick<
+    EventType,
+    "slug" | "title" | "description" | "duration" | "location" | "color"
+  >[];
 };

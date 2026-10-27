@@ -77,8 +77,36 @@ export async function POST(request: NextRequest) {
         },
         token,
       );
+    async function liveEvent(id: unknown) {
+      const rows = await backend(
+        `/rest/v1/event_types?id=eq.${uuid(id)}&select=id,deleted_at`,
+        {},
+        token,
+      );
+      if (!rows[0] || rows[0].deleted_at)
+        throw new ApiError(
+          "This appointment type is no longer available.",
+          404,
+        );
+    }
     switch (input.action) {
+      case "delete-event": {
+        await backend(
+          "/rest/v1/rpc/delete_event_type",
+          {
+            method: "POST",
+            body: JSON.stringify({ target_event: uuid(input.id) }),
+          },
+          token,
+        );
+        return Response.json({
+          ok: true,
+          message:
+            "Appointment type deleted. Existing appointments have been kept.",
+        });
+      }
       case "event": {
+        if (input.id) await liveEvent(input.id);
         const data = {
           user_id: user.id,
           title: string(input.title, "title", 100),
@@ -100,6 +128,7 @@ export async function POST(request: NextRequest) {
         break;
       }
       case "toggle-event":
+        await liveEvent(input.id);
         await write(
           `event_types?id=eq.${uuid(input.id)}`,
           { active: input.active === true },
@@ -152,6 +181,13 @@ export async function POST(request: NextRequest) {
           throw new ApiError(
             "That booking address is reserved. Please choose another.",
           );
+        const accent = string(
+          input.accent_color ?? "#365CFF",
+          "profile color",
+          7,
+        );
+        if (!/^#[0-9a-f]{6}$/i.test(accent))
+          throw new ApiError("Please choose a valid profile color.");
         await write(
           `profiles?id=eq.${user.id}`,
           {
@@ -159,6 +195,9 @@ export async function POST(request: NextRequest) {
             slug: address,
             timezone,
             bio: string(input.bio ?? "", "bio", 500, 0),
+            headline: string(input.headline ?? "", "headline", 120, 0),
+            company: string(input.company ?? "", "business name", 80, 0),
+            accent_color: accent,
           },
           "PATCH",
         );

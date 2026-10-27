@@ -77,6 +77,40 @@ try {
  assert.equal((await request(`/api/book?${qs}`)).status,404);
  const audit=await request('/api/admin?view=audit',{cookie:owner.cookie});assert(audit.data.entries.some(x=>x.action==='event_paused'));
  const detail=await request('/api/admin?account='+profile.id,{cookie:owner.cookie});assert.equal(detail.status,200);
+
+ // Public profiles expose only host introduction and currently bookable types.
+ const saveProfile=await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'profile',name:'Member',slug:profile.slug,timezone:'America/New_York',bio:'A friendly introduction',headline:'Independent consultant',company:'Test Studio',accent_color:'#151B38'}});
+ assert.equal(saveProfile.status,200);
+ const publicProfile=await request('/api/profile?host='+profile.slug);
+ assert.equal(publicProfile.status,200);
+ assert.equal(publicProfile.data.profile.headline,'Independent consultant');
+ assert.equal(publicProfile.data.events.length,0); // paused by admin
+ assert(!JSON.stringify(publicProfile.data).includes(accounts.member));
+ assert(!('id' in publicProfile.data.profile));
+ assert.equal((await request('/api/profile?host=missing-profile')).status,404);
+ const forbiddenDelete=await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'delete-event',id:ownerEvent.id}});
+ assert.equal(forbiddenDelete.status,404);
+ assert.equal((await request('/api/workspace',{method:'POST',cookie:member.cookie,originHeader:'https://untrusted.example',data:{action:'delete-event',id:event.id}})).status,403);
+ assert.equal((await request('/api/admin',{method:'POST',cookie:owner.cookie,data:{...adminChange,active:true,reason:'Resume for booking preservation test'}})).status,200);
+ const bookedAgain=await request('/api/book',{method:'POST',data:{...details,email:'secondguest@example.com'}});
+ assert.equal(bookedAgain.status,201);
+ const deleted=await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'delete-event',id:event.id}});
+ assert.equal(deleted.status,200,JSON.stringify(deleted.data));
+ assert(deleted.data.message.includes('deleted'));
+ assert.equal((await request('/api/profile?host='+profile.slug)).data.events.length,0);
+ assert.equal((await request('/api/book?'+qs)).status,404);
+ assert.equal((await request('/api/book',{method:'POST',data:details})).status,404);
+ const afterDelete=await request('/api/workspace',{cookie:member.cookie});
+ assert(afterDelete.data.events.find(e=>e.id===event.id).deleted_at);
+ assert.equal(afterDelete.data.bookings.find(b=>b.id===bookedAgain.data.id).status,'confirmed');
+ assert.equal((await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'toggle-event',id:event.id,active:true}})).status,404);
+ assert.equal((await request('/api/admin',{method:'POST',cookie:owner.cookie,data:{...adminChange,active:true}})).status,404);
+ assert.equal((await request('/api/cancel',{method:'POST',data:{token:bookedAgain.data.cancel_token}})).status,200);
+ assert.equal((await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'delete-event',id:event.id}})).status,404);
+ const replacement=await request('/api/workspace',{method:'POST',cookie:member.cookie,data:{action:'event',title:'A fresh discovery call',slug:event.slug,description:'New appointment type',duration:30,buffer:15,location:'Phone call',color:'#365CFF',active:true}});
+ assert.equal(replacement.status,200,JSON.stringify(replacement.data));
+ assert.equal((await request('/api/profile?host='+profile.slug)).data.events[0].title,'A fresh discovery call');
+ assert.equal((await db.query('select active from event_types where id=$1',[event.id])).rows[0].active,false);
  const hashed=(await db.query('select password from account')).rows;assert(hashed.every(x=>x.password && x.password!==secret));
  await db.query('update private.platform_roles set enabled=false');
  assert.equal((await request('/api/admin',{cookie:owner.cookie})).status,403);
