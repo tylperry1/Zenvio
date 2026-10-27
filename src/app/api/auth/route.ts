@@ -1,7 +1,8 @@
+import { mailReady } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { allowAuthAttempt } from "@/lib/auth-rate-limit";
 import { platformRole } from "@/lib/admin";
-import { getAuth, mailConfigured } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 import { ApiError, body, email, failure, sameOrigin, string, password, configuration } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
         if (input.action === "sign-out")
             response = await auth.api.signOut(common);
         else if (input.action === "recover") {
-            if (!mailConfigured())
+            if (!await mailReady())
                 throw new ApiError("Password reset email is not available yet. Please contact the platform owner.", 503);
             response = await auth.api.requestPasswordReset({ ...common, body: { email: email(input.email), redirectTo: `${request.nextUrl.origin}/reset-password` } });
         }

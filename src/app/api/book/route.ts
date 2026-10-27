@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import {
   backend,
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
         visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
       }),
     });
+    after(() => deliverBookingEmails());
     return Response.json(result, {
       status: 201,
       headers: { "Cache-Control": "no-store" },

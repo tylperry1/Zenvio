@@ -2,7 +2,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
-import { initials } from "@/lib/client";
+import { PublicPhoto } from "./profile-photo";
 import { readDemo } from "@/lib/demo";
 import type { PublicProfileData } from "@/lib/types";
 export function BookingProfile({ host }: { host: string }) {
@@ -90,7 +90,7 @@ export function BookingProfile({ host }: { host: string }) {
             </div>
             <div className="bp-person">
               <span className="bp-avatar" aria-hidden="true">
-                {initials(data.profile.name)}
+                <PublicPhoto host={host} name={data.profile.name}/>
               </span>
               <span className="bp-welcome">LET’S MAKE TIME TO CONNECT</span>
               <h1>{data.profile.name}</h1>

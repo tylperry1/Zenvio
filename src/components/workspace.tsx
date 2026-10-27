@@ -1,4 +1,5 @@
 "use client";
+import { ProfilePhoto } from "./profile-photo";
 import { useEffect, useState } from "react";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
@@ -1352,7 +1353,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 onClick={async () => {
                   if (
                     !window.confirm(
-                      "Cancel this appointment? No automatic email is sent; please let your guest know.",
+                      "Cancel this appointment? A cancellation email is queued when platform email delivery is connected.",
                     )
                   )
                     return;
@@ -1367,7 +1368,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                             : b,
                         ),
                       }),
-                      "Appointment cancelled. Please notify your guest.",
+                      "Appointment cancelled. If email delivery is unavailable, please notify your guest.",
                     )
                   )
                     setSelectedBooking(null);
@@ -1737,10 +1738,12 @@ function Settings({
         <div className="panel-heading">
           <div>
             <h2>A little about you</h2>
+<div style={{display:"flex",gap:16,flexWrap:"wrap"}}><a href="/app/billing">Plan & billing</a><a href="/app/connections">Calendar connections</a><a href="/marketplace">Branding marketplace</a></div>
             <p>This is how you’ll appear on your booking pages.</p>
           </div>
           <span className="avatar">{initials(data.profile.name)}</span>
         </div>
+        {!demo && <ProfilePhoto host={data.profile.slug} />}
         <form
           className="stack-form settings-form"
           onSubmit={async (e) => {

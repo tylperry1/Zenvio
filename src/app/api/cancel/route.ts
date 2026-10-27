@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { backend, body, failure, sameOrigin, string } from "@/lib/server";
 export async function POST(request: NextRequest) {
@@ -10,6 +12,7 @@ export async function POST(request: NextRequest) {
         cancellation_token: string(input.token, "cancellation token", 100, 32),
       }),
     });
+    after(() => deliverBookingEmails());
     return Response.json({ ok: true });
   } catch (error) {
     return failure(error);

@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { platformRole } from "@/lib/admin";
 import {
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
     sameOrigin(request);
     const { token, user } = await session();
     const input = await body(request);
+    after(() => deliverBookingEmails());
     const write = async (path: string, data: unknown, method = "POST") =>
       backend(
         `/rest/v1/${path}`,

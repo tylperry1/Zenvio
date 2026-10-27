@@ -1,0 +1,15 @@
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import Module from 'node:module';
+import path from 'node:path';
+import ts from 'typescript';
+const filename=path.resolve('src/lib/platform-settings.ts');
+let encrypted,recorded=[];
+const query=async(sql,args=[])=>{if(sql.startsWith('SELECT ciphertext'))return {rows:encrypted?[{ciphertext:encrypted}]:[]};if(sql.startsWith('INSERT INTO private.integration_secrets'))encrypted=args[1];if(sql.startsWith('INSERT INTO private.operation_log'))recorded.push(args);return {rows:[]};};
+const mod=new Module(filename);mod.filename=filename;mod.paths=Module._nodeModulePaths(path.dirname(filename));const standard=mod.require.bind(mod);mod.require=id=>id==='./db'?{getPool:()=>({query,connect:async()=>({query,release(){}})})}:standard(id);
+mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,filename);
+const {saveIntegration,integrationValue}=mod.exports;
+const previous=process.env.INTEGRATION_ENCRYPTION_KEY;process.env.INTEGRATION_ENCRYPTION_KEY='isolated-unit-test-key';
+after(()=>{if(previous===undefined)delete process.env.INTEGRATION_ENCRYPTION_KEY;else process.env.INTEGRATION_ENCRYPTION_KEY=previous;});
+test('integration vault encrypts values, authenticates ciphertext, and excludes secrets from audit details',async()=>{const secret='provider-secret-should-never-be-logged';await saveIntegration('RESEND_API_KEY',secret,'owner');assert(encrypted&&!encrypted.includes(secret));assert.equal(await integrationValue('RESEND_API_KEY'),secret);assert(!JSON.stringify(recorded).includes(secret));const original=encrypted;const parts=encrypted.split('.');parts[1]=Buffer.alloc(16).toString('base64');encrypted=parts.join('.');await assert.rejects(integrationValue('RESEND_API_KEY'));encrypted=original;process.env.INTEGRATION_ENCRYPTION_KEY='wrong-key';await assert.rejects(integrationValue('RESEND_API_KEY'));process.env.INTEGRATION_ENCRYPTION_KEY='isolated-unit-test-key';});

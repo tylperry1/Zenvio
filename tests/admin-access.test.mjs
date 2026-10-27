@@ -32,7 +32,7 @@ function load(relative) {
   mod.paths = Module._nodeModulePaths(path.dirname(filename));
   const standard = mod.require.bind(mod);
   mod.require = (id) =>
-    id === "next/headers"
+    id === "@/lib/mail" ? {mailReady:async()=>false} : id === "next/headers"
       ? { headers: async () => new Headers() }
       : id === "./auth" || id === "@/lib/auth"
         ? { mailConfigured: () => false, getAuth: () => ({api:{getSession:async()=> token ? {user:{id:token,email:"owner@example.com",role:"master_admin"}} : null}}) }

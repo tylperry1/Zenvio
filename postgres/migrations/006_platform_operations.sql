@@ -1,0 +1,10 @@
+CREATE TABLE private.platform_settings (key text PRIMARY KEY, value jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE private.integration_secrets (key text PRIMARY KEY, ciphertext text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE private.operation_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), actor_id uuid, action text NOT NULL, details jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE private.subscriptions (user_id uuid PRIMARY KEY REFERENCES public."user"(id) ON DELETE CASCADE, customer_id text UNIQUE, subscription_id text UNIQUE, plan text NOT NULL DEFAULT 'free', status text NOT NULL DEFAULT 'inactive', current_period_end timestamptz, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE private.stripe_events (id text PRIMARY KEY, received_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE private.profile_photos (user_id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE, image bytea NOT NULL, updated_at timestamptz NOT NULL DEFAULT now());
+INSERT INTO private.platform_settings(key,value) VALUES ('pricing','[{"id":"free","name":"Free","monthly":0,"annual":0,"seats":1},{"id":"pro","name":"Pro","monthly":500,"annual":4800,"seats":1},{"id":"business","name":"Business","monthly":1200,"annual":12000,"seats":1},{"id":"teams","name":"Teams","monthly":900,"annual":8400,"seats":3}]');
+REVOKE ALL ON ALL TABLES IN SCHEMA private FROM anon, authenticated;
+CREATE TABLE private.calendar_feeds (user_id uuid PRIMARY KEY REFERENCES public."user"(id) ON DELETE CASCADE, token uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(), updated_at timestamptz NOT NULL DEFAULT now());
+REVOKE ALL ON private.calendar_feeds FROM anon,authenticated;

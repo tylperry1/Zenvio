@@ -27,7 +27,7 @@ Use a dedicated Neon Postgres database and Better Auth. Follow [the account setu
 
 ## Current limits
 
-Calendar sync, automatic meeting links, confirmation/reminder email, payments, subscriptions, teams, round robin, custom domains per host, booking reschedule, and full contact editing are **not implemented**. Owner cancellation does not email the guest; the UI says so. Zenvio only detects conflicts with other Zenvio bookings. Calendar invites are downloads. Public availability reveals occupied versus available time but never guest details.
+Private calendar subscription feeds provide one-way sync of confirmed and cancelled bookings. Two-way calendar conflict checking, automatic meeting links, reminder emails, paid appointment checkout, teams, round robin, custom domains per host, rescheduling, and full contact editing remain unimplemented. Booking confirmation/cancellation email is queued transactionally and delivered through Resend when configured. Pending messages retry on booking/workspace activity or the admin process button, with a five-attempt limit and five-minute backoff. Zenvio only detects conflicts with other Zenvio bookings. Public availability reveals occupied versus available time but never guest details.
 
 The current guest booking abuse control limits five attempts per email/host/hour. It does not prevent distributed abuse with different email addresses. Add a server-verified CAPTCHA and IP-level shared rate limiting before promoting widely. Authentication rate limits are stored in Postgres by Better Auth. Dashboard lists currently cap at 1,000 appointments and contacts; add pagination before larger accounts. Deletion/export self-service for accounts is not implemented.
 
@@ -36,3 +36,17 @@ The current guest booking abuse control limits five attempts per email/host/hour
 Connect `tylperry1/Zenvio` to the existing Vercel project `zenvio`, production branch `main`, framework Next.js, root directory unset, Node 24, default install/build settings. Set account variables before enabling real account usage. Production and preview database environments should be isolated.
 
 Production build, type checking, and scheduling unit tests can be run without database credentials. A passing build does **not** verify real authentication, the SQL migration, database concurrency, or email delivery; the live acceptance test above is required after configuration.
+
+## Platform operations
+
+Master admin → Platform controls manages encrypted provider credentials, site-wide USD plan prices, user session revocation, subscription cancellation/resumption, email delivery counts, and configuration history. Credential values are never returned by the API. `INTEGRATION_ENCRYPTION_KEY` must be a stable random server secret; losing it makes stored provider credentials unreadable. Database and authentication secrets are intentionally excluded from editable integration settings.
+
+Workspace settings link to billing, calendar connections, and the branding marketplace. Photos are limited to 2 MB input, decoded/re-encoded to 512px WebP with metadata removed, and stored in the dedicated Postgres database.
+
+Resend: enter `RESEND_API_KEY` and a verified `AUTH_EMAIL_FROM` in Platform controls; send a test email there. Password recovery and queued booking notifications use those settings immediately. Signup verification behavior remains controlled by the deployment's original email environment configuration; setting a runtime key does not silently lock existing users out.
+
+Stripe: enter the secret key and webhook signing secret. Configure `/api/billing/webhook` for `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`. Signature verification, event deduplication, customer ownership validation, current-state reconciliation, billing portal access, and admin cancel/resume are implemented. Paid checkout remains disabled unless `BILLING_CHECKOUT_ENABLED=true`; **do not enable until paid entitlements and plan features are implemented and test-mode lifecycle tests pass**. Existing subscriptions retain their Stripe prices when the site catalog changes. Business/Teams checkout is unavailable. No production charge was created during development.
+
+Marketplace: connect a Shopify `SHOPIFY_STORE_DOMAIN` (`your-store.myshopify.com`) and Storefront token. Publish real products tagged `zenvio-branding`; customers choose variants/quantities and continue to Shopify checkout. Configure supplier wholesale/volume pricing and dropship fulfillment in Shopify. No supplier accounts, catalog, inventory, or fulfillment contracts are fabricated.
+
+Calendar: users can create, rotate, or revoke a private subscription URL compatible with Google Calendar, Outlook, and Apple Calendar. Feeds contain appointment titles/times/locations, never guest emails or notes. Treat the URL as a secret. Provider refresh times vary. Google/Microsoft credential fields are reserved for a future direct OAuth integration; they do not activate two-way sync.

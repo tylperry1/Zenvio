@@ -1,0 +1,136 @@
+.platform-page {
+  min-height: 100vh;
+  background: linear-gradient(145deg, #f7f9ff, #fff);
+  color: #151b38;
+  font-family: Arial, sans-serif;
+}
+.platform-page main {
+  width: 100%;
+  max-width: 1100px;
+  margin: auto;
+  padding: clamp(20px, 4vw, 48px);
+}
+.platform-page h1 {
+  font-size: clamp(30px, 5vw, 48px);
+  letter-spacing: -1.6px;
+  margin: 32px 0 16px;
+}
+.platform-page h2 {
+  font-size: 23px;
+  letter-spacing: -0.5px;
+}
+.platform-page p {
+  line-height: 1.7;
+  color: #58617d;
+  max-width: 780px;
+}
+.platform-page section {
+  background: #fff;
+  border: 1px solid #e2e7f4;
+  border-radius: 20px;
+  padding: 24px;
+  margin: 20px 0;
+}
+.platform-page a {
+  color: #365cff;
+}
+.platform-page button,
+.platform-page select,
+.platform-page input {
+  font: inherit;
+  border: 1px solid #d4dced;
+  border-radius: 9px;
+  padding: 11px 15px;
+  max-width: 100%;
+  min-height: 44px;
+}
+.platform-page button {
+  background: #365cff;
+  color: #fff;
+  cursor: pointer;
+  margin: 6px 8px 6px 0;
+}
+.platform-page button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.platform-page label {
+  display: block;
+  color: #3d4765;
+  line-height: 2;
+  margin: 12px 0;
+}
+.platform-page label input,
+.platform-page label select {
+  display: block;
+}
+.platform-page table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.platform-page td,
+.platform-page th {
+  padding: 14px;
+  border-bottom: 1px solid #e2e7f4;
+}
+.platform-page code {
+  overflow-wrap: anywhere;
+}
+.platform-page [role="status"] {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #dce5ff;
+  color: #151b38;
+}
+.platform-page :focus-visible {
+  outline: 3px solid #a8b8ff;
+  outline-offset: 3px;
+}
+.platform-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.platform-plan-grid article {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #dce5ff;
+  border-radius: 18px;
+}
+.platform-plan-grid small {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #365cff;
+}
+.platform-plan-grid h3 {
+  font-size: 25px;
+  margin: 16px 0;
+}
+.platform-plan-grid p {
+  line-height: 1.6;
+}
+.platform-plan-grid b {
+  font-size: 30px;
+}
+.platform-plan-grid span {
+  font-size: 12px;
+  color: #64708b;
+}
+@media (max-width: 800px) {
+  .platform-plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 440px) {
+  .platform-plan-grid {
+    grid-template-columns: 1fr;
+  }
+  .platform-page main {
+    padding: 20px !important;
+  }
+  .platform-page section {
+    padding: 16px !important;
+  }
+}

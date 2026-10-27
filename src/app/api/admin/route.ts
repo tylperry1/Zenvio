@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { mailConfigured } from "@/lib/auth";
+import { mailReady } from "@/lib/mail";
 import { adminSession } from "@/lib/admin";
 import { ApiError, backend, body, failure, integer, sameOrigin, string, uuid, } from "@/lib/server";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         };
         if (q.get("view") === "insights") {
             const insights = await backend("/rest/v1/rpc/admin_insights", { method: "POST", body: "{}" }, token);
-            return Response.json({ ...insights, services: { database: true, authentication: true, account_email: mailConfigured() } }, { headers: { "Cache-Control": "no-store" } });
+            return Response.json({ ...insights, services: { database: true, authentication: true, account_email: await mailReady() } }, { headers: { "Cache-Control": "no-store" } });
         }
         if (q.get("view") === "audit") {
             path = "/rest/v1/rpc/admin_audit";
