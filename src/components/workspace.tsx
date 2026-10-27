@@ -1791,7 +1791,7 @@ function Settings({
             </div>
             <Icon name="calendar" size={28} />
           </div>
-          <Link className="btn btn-primary" href="/app/connections">
+          <Link className="button primary" href="/app/connections">
             Connect or manage Google Calendar <Icon name="arrow" size={16} />
           </Link>
           <p>You’ll choose your Google account and approve access on the connection page.</p>
