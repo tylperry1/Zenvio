@@ -81,3 +81,158 @@
 .shell .overview-brief .button:focus-visible {outline-color:#a8b8ff}
 @media(max-width:1023px){.shell .shell-content{padding-top:28px}}
 @media(max-width:640px){.shell .page-header h1{font-size:27px}.shell .shell-content{padding-top:24px}.shell .shell-topbar{height:64px}.shell .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shell .stat-card:nth-child(2){border-right:0}.shell .stat-card:nth-child(-n+2){border-bottom:1px solid #e1e5ec}}
+
+/* Mobile workspace: readable content, reachable controls, and contained drawers. */
+@media (max-width: 1023px) {
+  .shell .shell-sidebar {
+    height:100dvh;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    visibility:hidden;
+    overscroll-behavior:contain;
+  }
+  .shell[data-nav-open="true"] .shell-sidebar {visibility:visible}
+  .shell .shell-sidebar-head {height:64px;min-height:64px}
+  .shell .shell-nav {min-height:0;overscroll-behavior:contain}
+  .shell .shell-sidebar-foot {flex-shrink:0}
+  .shell .shell-menu,.shell .shell-close {width:44px;height:44px;flex-shrink:0}
+  .shell .shell-nav-group a {min-height:46px;font-size:14px}
+  .shell .shell-account-button {min-width:44px;min-height:44px;justify-content:center}
+  .shell .shell-account-menu {max-width:calc(100vw - 32px)}
+  .shell .shell-account-menu a,.shell .shell-account-menu button {min-height:44px}
+}
+@media (max-width: 640px) {
+  .shell {--shell-topbar:64px}
+  .shell .shell-topbar {gap:10px;padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
+  .shell .shell-breadcrumb {font-size:12px;min-width:0}
+  .shell .shell-topbar-actions {gap:4px;flex-shrink:0}
+  .shell .shell-button.small {min-height:40px;padding:8px 10px;font-size:12px}
+  .shell .shell-content {padding:20px max(16px,env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .shell .page-header {gap:16px;margin-bottom:22px}
+  .shell .page-header h1 {font-size:26px;line-height:1.2;overflow-wrap:anywhere}
+  .shell .page-header p {font-size:13px;line-height:1.6}
+  .shell .page-header-actions {gap:8px}
+  .shell .page-header-actions>.button {min-height:46px;justify-content:center}
+  .shell .demo-banner {gap:8px;padding:13px 14px;margin-bottom:22px}
+  .shell .demo-banner>span {max-width:none;display:block;line-height:1.6;font-size:12px}
+  .shell .demo-banner>span svg {vertical-align:middle;margin-right:6px}
+  .shell .demo-banner>a {max-width:none;width:auto;min-height:36px;font-size:12px;line-height:1.4;white-space:normal}
+  .shell .overview-brief {padding:22px;margin-bottom:18px;border-radius:10px}
+  .shell .overview-brief>div:first-child {min-width:0}
+  .shell .overview-brief h2 {font-size:24px;margin:10px 0}
+  .shell .overview-brief p {font-size:13px;margin-bottom:18px}
+  .shell .overview-brief .button {min-height:44px;margin:0}
+  .shell .brief-label {font-size:11px}
+  .shell .brief-date {display:none}
+  .shell .stats-grid {margin-bottom:24px}
+  .shell .stat-card {padding:18px 14px}
+  .shell .stat-card>div {font-size:12px;align-items:flex-start;line-height:1.4;gap:8px}
+  .shell .stat-card>div svg {width:15px;height:15px;margin-top:2px}
+  .shell .stat-card strong {font-size:29px;margin:15px 0 8px}
+  .shell .stat-card small {font-size:11px;line-height:1.5;display:block}
+  .shell .workspace-section {margin-top:24px}
+  .shell .section-bar {align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .shell .section-bar h2 {font-size:18px}
+  .shell .section-bar p {font-size:12px;line-height:1.5}
+  .shell .section-bar>.inline-link {min-height:36px;font-size:12px}
+  .shell .booking-row {display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:8px 12px;padding:16px;text-align:left;align-items:start}
+  .shell .booking-date {grid-column:1;grid-row:1 / span 2;min-width:0;width:48px;padding:10px 6px}
+  .shell .booking-color {display:none}
+  .shell .booking-info {grid-column:2;grid-row:1;min-width:0}
+  .shell .booking-info>b {font-size:14px;line-height:1.4;margin:0 0 5px;overflow-wrap:anywhere}
+  .shell .booking-info>small {font-size:12px;line-height:1.5;white-space:normal;overflow:visible;overflow-wrap:anywhere}
+  .shell .booking-info>small>span {display:inline;margin:0 3px}
+  .shell .booking-time {grid-column:2;grid-row:2;min-width:0;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .shell .booking-time>small {font-size:11px;margin:0}
+  .shell .booking-row>.status {display:inline-flex;grid-column:2;grid-row:3;justify-self:start;font-size:11px}
+  .shell .booking-row>svg:last-child {grid-column:3;grid-row:1 / span 2;align-self:center;width:16px;display:block}
+  .shell .events-grid {grid-template-columns:minmax(0,1fr);gap:14px}
+  .shell .event-card {padding:20px;min-width:0}
+  .shell .event-card h3 {font-size:18px;overflow-wrap:anywhere}
+  .shell .event-card>p {font-size:13px;line-height:1.65}
+  .shell .event-link {overflow-wrap:anywhere;white-space:normal}
+  .shell .event-card-footer {flex-wrap:wrap;gap:8px;padding-top:14px}
+  .shell .event-card-footer>div {margin-left:auto}
+  .shell .event-card-footer button,.shell .event-card-footer a {min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+  .shell .event-card-footer .icon-button {min-width:44px}
+  .shell .new-event-card {min-height:150px;padding:20px}
+  .shell .workspace-tip {padding:18px;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .shell .workspace-tip p {font-size:12px!important;line-height:1.6}
+  .shell .workspace-tip>.subtle-button {margin:0;min-height:44px}
+  .shell .toolbar {flex-wrap:wrap;gap:12px;align-items:stretch}
+  .shell .toolbar-right {min-width:0;flex:1 1 100%;gap:8px}
+  .shell .search-field {flex:1;min-width:0;max-width:none}
+  .shell .search-field input {width:100%;min-width:0;min-height:44px}
+  .shell .toolbar-right>.button {min-height:44px;flex-shrink:0}
+  .shell .tab-group {width:100%;min-width:0}
+  .shell .tab-group button {flex:1;min-width:0;min-height:44px;padding:8px 7px;font-size:12px}
+  .shell .availability-layout,.shell .settings-layout {grid-template-columns:minmax(0,1fr)}
+  .shell .panel-heading {padding:18px;gap:12px;flex-wrap:wrap}
+  .shell .availability-row {padding:16px;gap:10px;flex-wrap:wrap}
+  .shell .day-label {width:100%;min-height:32px;font-size:14px}
+  .shell .day-label input {width:20px;height:20px}
+  .shell .time-range {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 44px;gap:6px;width:100%;min-width:0}
+  .shell .time-range input {width:100%;min-width:0;padding:8px 4px;min-height:44px}
+  .shell .time-range>.icon-button {width:44px;height:44px;margin:0}
+  .shell .availability-footer {flex-wrap:wrap;padding:16px;gap:12px}
+  .shell .availability-footer .button {width:100%;min-height:44px}
+  .shell .settings-form {padding:18px}
+  .shell .public-profile-actions {flex-wrap:wrap;gap:8px}
+  .shell .public-profile-actions>* {flex:1 1 100%;justify-content:center;min-height:44px}
+  .shell .platform-page section {padding:18px;border-radius:10px}
+  .shell .suite-grid,.shell .suite-cards,.shell .form-columns {grid-template-columns:minmax(0,1fr)}
+  .shell .suite-grid>* {min-width:0}
+  .shell .suite-row {align-items:flex-start;gap:12px;flex-wrap:wrap;overflow-wrap:anywhere}
+  .shell .calendar-toolbar {gap:10px;align-items:stretch}
+  .shell .calendar-toolbar label,.shell .calendar-zone {width:100%;max-width:none;margin-left:0}
+  .shell .calendar-toolbar input,.shell .calendar-toolbar select,.shell .calendar-zone input {width:100%;max-width:none}
+  .shell .calendar-week,.shell .calendar-month {grid-template-columns:minmax(0,1fr)}
+  .shell .calendar-board .calendar-day {min-height:100px}
+  .shell .calendar-entry {min-height:44px!important;font-size:12px!important;line-height:1.5}
+  .shell .market-hero {padding:24px 20px}
+  .shell .market-cart {min-width:0}
+  .shell .platform-page button {min-height:44px}
+  .shell input:not([type=checkbox]):not([type=radio]):not([type=color]),.shell select,.shell textarea,
+  .modal input:not([type=checkbox]):not([type=radio]):not([type=color]),.modal select,.modal textarea,
+  .booking-page input:not([type=checkbox]):not([type=radio]),.booking-page select,.booking-page textarea {font-size:16px}
+  .modal {width:calc(100% - 24px);max-width:calc(100% - 24px);max-height:calc(100dvh - 24px);padding:20px;margin:auto;overflow-y:auto;overscroll-behavior:contain}
+  .modal-heading {gap:12px;align-items:flex-start}
+  .modal-heading h2 {font-size:21px;line-height:1.3;overflow-wrap:anywhere}
+  .modal-heading .icon-button {width:44px;height:44px;flex-shrink:0}
+  .modal .form-columns {grid-template-columns:minmax(0,1fr)}
+  .modal .button {min-height:44px}
+  .toast {width:calc(100% - 32px);min-width:0;max-width:420px;bottom:calc(16px + env(safe-area-inset-bottom));overflow-wrap:anywhere}
+}
+@media (max-width: 360px) {
+  .shell .shell-topbar {gap:6px;padding-inline:10px}
+  .shell .shell-button.small {font-size:11px;padding-inline:8px}
+  .shell .shell-breadcrumb {font-size:11px}
+  .shell .stat-card>div svg {display:none}
+  .shell .booking-row {padding:14px 12px;gap:8px}
+  .shell .event-card-footer>div {margin-left:0;width:100%;justify-content:flex-end}
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .shell-sidebar {transition:none}
+}
+@media (max-width:640px) {
+  .shell .contact-table-header {display:none}
+  .shell .contact-row {grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:16px;min-width:0}
+  .shell .contact-row>span:first-child {grid-column:1;grid-row:1;min-width:0;gap:10px}
+  .shell .contact-row b {font-size:14px;line-height:1.4}
+  .shell .contact-row>span:nth-child(2) {grid-column:1;grid-row:2;font-size:12px;line-height:1.5}
+  .shell .contact-row>span:nth-child(3) {display:flex;grid-column:1;grid-row:3;font-size:12px;line-height:1.5}
+  .shell .contact-row>span:last-child {grid-column:2;grid-row:1 / span 3;align-self:center;gap:8px;padding:0;font-size:13px}
+  .shell .calendar-toolbar {display:grid;grid-template-columns:44px minmax(0,1fr) 44px}
+  .shell .calendar-toolbar>.calendar-step {width:44px;min-height:44px;margin:0}
+  .shell .calendar-toolbar>input[type=date] {grid-column:2;min-width:0}
+  .shell .calendar-toolbar>select,.shell .calendar-toolbar>label {grid-column:1 / -1;min-width:0}
+  .shell .calendar-zone {flex-wrap:wrap}
+  .shell .calendar-zone input {min-width:0}
+  .shell .billing-table-wrap {max-width:100%;overscroll-behavior-inline:contain}
+  .shell .platform-page fieldset {min-width:0;padding:16px}
+  .shell .platform-page input,.shell .platform-page select,.shell .platform-page textarea {min-width:0}
+  .shell .envelope-heading>* {max-width:100%}
+  .shell .envelope-table-row {grid-template-columns:28px minmax(0,1fr)}
+  .shell .envelope-table-row>span:nth-child(3),.shell .envelope-table-row>span:last-child {grid-column:2}
+  .shell .envelope-table-row strong {overflow-wrap:anywhere}
+}
