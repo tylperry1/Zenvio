@@ -4,6 +4,7 @@ import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
+import { AccountData } from "./account-data";
 import { BookingLinkPrompt, SetupChecklist, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
@@ -1991,6 +1992,7 @@ function Settings({
             </Link>
           </div>
         )}
+        {!demo && <AccountData />}
         {demo && (
           <div className="soft-note">
             <h3>A clean slate?</h3>
