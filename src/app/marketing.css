@@ -285,3 +285,12 @@
 .mk-hour-row{font-size:11px}
 .mk-hour-row b{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.marketing-v3 *{scroll-behavior:auto!important;transition:none!important}}
+.mk-header{position:sticky;top:0;z-index:50;background:rgb(255 255 255 / .9);backdrop-filter:blur(10px);border-bottom:1px solid transparent;transition:border-color .2s}
+.mk-header .mk-nav{height:72px}
+.mk-header:has(.mk-mobile-menu[open]){background:#fff}
+.mk-account-notice{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;background:var(--success-surface);color:var(--success);font-size:14px;font-weight:500;border-bottom:1px solid var(--success-border)}
+.mk-account-notice button{display:inline-grid;place-items:center;border:0;background:none;color:inherit;padding:4px;border-radius:6px}
+.mk-feature-grid article{transition:border-color .15s,box-shadow .15s}
+.mk-feature-grid article:hover{border-color:var(--border-strong);box-shadow:0 8px 24px #151b380d}
+@media(max-width:900px){.mk-feature-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.mk-feature-grid{grid-template-columns:1fr}.mk-header .mk-nav{height:64px}}
