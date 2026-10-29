@@ -1,3 +1,4 @@
+import { materializeBookingNotifications } from "@/lib/mail";
 import { drainCalendarCleanup } from "@/lib/google-calendar";
 import { scheduleWorkflows } from "@/lib/workflows";
 import { NextRequest } from "next/server";
@@ -26,6 +27,7 @@ export async function GET(r: NextRequest) {
   try {
     await drainCalendarCleanup();
     await purgeExpiredDeliverySecrets();
+    await materializeBookingNotifications();
     await materializeReminders();
     await scheduleWorkflows();
     return Response.json(await drainDeliveries(undefined, 20));

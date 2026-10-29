@@ -471,6 +471,24 @@ try {
     ).status,
     200,
   );
+  const staffUsage = (await request("/api/usage", null, bob.cookie)).data;
+  assert.equal(staffUsage.plan, "teams");
+  assert.equal(staffUsage.limits.envelopes, 100);
+  assert.equal(staffUsage.shared[0].seats, 3);
+  assert.equal(
+    (
+      await request(
+        "/api/teams",
+        {
+          action: "create",
+          name: "Unauthorized inherited billing",
+          slug: "no-extra-seats",
+        },
+        bob.cookie,
+      )
+    ).status,
+    409,
+  );
   const shared = await request(
     "/api/teams",
     {

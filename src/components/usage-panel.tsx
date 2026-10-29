@@ -21,6 +21,15 @@ export function UsagePanel() {
           <p>
             {data.plan} · {data.seats} paid host allowance
           </p>
+          {data.shared?.map((s: any) => (
+            <p key={s.owner}>
+              Shared Teams billing workspace: {s.envelopes} / {100 * s.seats}{" "}
+              envelopes this month · {s.workflows} / 25 enabled workflows. Your
+              per-host document allowance is 100 monthly. Retained work from
+              removed staff still counts toward this month’s shared document
+              budget.
+            </p>
+          ))}
           <div className="suite-grid">
             {Object.keys(data.limits).map((k) => (
               <label key={k}>

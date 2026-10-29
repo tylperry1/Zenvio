@@ -350,6 +350,12 @@ export async function reconcileAppointmentRefunds(
             ? "failed"
             : "pending";
       if (status === "succeeded") total += r.amount;
+      const localId = r.metadata?.zenvio_refund_id;
+      if (localId && /^[a-f0-9-]{36}$/i.test(localId))
+        await db.query(
+          "UPDATE private.appointment_refunds SET stripe_refund_id=$3,status=$4 WHERE id=$1 AND payment_id=$2 AND (stripe_refund_id IS NULL OR stripe_refund_id=$3)",
+          [localId, p.id, r.id, status],
+        );
       await db.query(
         "INSERT INTO private.appointment_refunds(payment_id,amount_cents,stripe_refund_id,status,reason) VALUES($1,$2,$3,$4,'Reconciled from connected Stripe account') ON CONFLICT(stripe_refund_id) DO UPDATE SET status=$4",
         [p.id, r.amount, r.id, status],

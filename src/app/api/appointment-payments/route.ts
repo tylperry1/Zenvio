@@ -176,7 +176,11 @@ export async function POST(req: NextRequest) {
               { stripeAccount: p.account_id },
             )
           : await stripe.refunds.create(
-              { payment_intent: p.payment_intent, amount },
+              {
+                payment_intent: p.payment_intent,
+                amount,
+                metadata: { zenvio_refund_id: refund.id },
+              },
               {
                 stripeAccount: p.account_id,
                 idempotencyKey: "appointment-refund-" + refund.id,

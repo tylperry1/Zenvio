@@ -121,16 +121,21 @@ export async function drainDeliveries(user?: string, limit = 10) {
   for (let i = 0; i < Math.min(limit, 20); i++) {
     const db = await getPool().connect();
     try {
-      await db.query("BEGIN");
       const { rows } = await db.query(
         `SELECT * FROM private.delivery_jobs WHERE status='queued' AND run_at<=now() ${user ? "AND user_id=$1" : ""} ORDER BY run_at LIMIT 1`,
         user ? [user] : [],
       );
       const j = rows[0];
-      if (!j) {
-        await db.query("COMMIT");
-        break;
-      }
+      if (!j) break;
+      // Persist the first attempt before contacting the provider. A rollback after an
+      // accepted send must not erase the start of its provider idempotency window.
+      const claim = await db.query(
+        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()) WHERE id=$1 AND status='queued' RETURNING claimed_at",
+        [j.id],
+      );
+      if (!claim.rowCount) continue;
+      j.claimed_at = claim.rows[0]?.claimed_at || j.claimed_at || new Date();
+      await db.query("BEGIN");
       // Lock the source before the job, matching signing and rescheduling transactions.
       if (j.booking_id)
         await db.query("SELECT id FROM public.bookings WHERE id=$1 FOR SHARE", [
@@ -167,9 +172,12 @@ export async function drainDeliveries(user?: string, limit = 10) {
         ).rows[0];
         valid &&=
           !!b &&
-          b.status === "confirmed" &&
+          (j.kind === "booking_cancelled"
+            ? b.status === "cancelled"
+            : b.status === "confirmed") &&
           b.revision === j.booking_revision &&
           (j.kind === "workflow_after_appointment" ||
+            j.kind === "booking_cancelled" ||
             new Date(b.starts_at).getTime() > Date.now());
         if (j.kind === "booking_reminder")
           valid &&= b?.reminder_minutes?.includes(

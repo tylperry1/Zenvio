@@ -21,7 +21,8 @@ export async function scheduleWorkflows(user?: string) {
         const usage = await entitlementUsage(r.user_id, db);
         limits.set(
           r.user_id,
-          usage.usage.workflows <= usage.limits.workflows
+          usage.usage.workflows <= usage.limits.workflows &&
+            usage.shared.every((s) => s.workflows <= 25)
             ? usage.limits.workflows
             : 0,
         );

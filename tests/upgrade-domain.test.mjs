@@ -145,7 +145,7 @@ test("capacity checks serialize allocation and never remove existing over-limit 
     service.requireCapacity(db, "owner", "types"),
     (e) => e.status === 409,
   );
-  assert(queries[0].includes("pg_advisory_xact_lock"));
+  assert(queries.some((q) => q.includes("pg_advisory_xact_lock")));
   assert(!queries.some((q) => /DELETE|UPDATE/.test(q)));
 });
 test("stale reminder revisions cancel without sending or decrypting provider payloads", async () => {
@@ -413,4 +413,92 @@ test("duplicate paid webhook is acknowledged without booking or decrypting again
     "evt_duplicate",
   );
   assert.equal(commits, 1);
+});
+
+test("delivery first-attempt timestamp survives an acceptance followed by transaction rollback", async () => {
+  const queries = [];
+  let key;
+  const job = {
+    id: "durable-job",
+    expires_at: new Date(Date.now() + 86400000),
+    kind: "document_complete",
+    payload_ciphertext: "encrypted",
+    recipient: "fixture@example.com",
+    subject: "Fixture",
+  };
+  const db = {
+    query: async (sql) => {
+      queries.push(sql);
+      if (sql.startsWith("SELECT * FROM private.delivery_jobs"))
+        return { rows: [job], rowCount: 1 };
+      if (
+        sql.startsWith("UPDATE private.delivery_jobs SET claimed_at=coalesce")
+      )
+        return { rows: [{ claimed_at: new Date() }], rowCount: 1 };
+      if (sql === "COMMIT") throw Error("Simulated ambiguous commit");
+      return { rows: [], rowCount: 1 };
+    },
+    release() {},
+  };
+  const service = load("src/lib/lifecycle.ts", {
+    "./db": { getPool: () => ({ connect: async () => db }) },
+    "./platform-settings": {
+      integrationValue: async () => "fixture",
+      unsealSecret: () => "Fixture message",
+    },
+    "./server": helpers,
+  });
+  const old = process.env.INTEGRATION_ENCRYPTION_KEY,
+    fetch = globalThis.fetch;
+  process.env.INTEGRATION_ENCRYPTION_KEY = "fixture";
+  globalThis.fetch = async (url, options) => {
+    key = options.headers["Idempotency-Key"];
+    return { ok: true, json: async () => ({ id: "provider-fixture" }) };
+  };
+  try {
+    await assert.rejects(
+      service.drainDeliveries("owner", 1),
+      /ambiguous commit/,
+    );
+    assert.equal(key, "zenvio-delivery-durable-job");
+    assert(
+      queries.findIndex((q) =>
+        q.startsWith("UPDATE private.delivery_jobs SET claimed_at"),
+      ) < queries.indexOf("BEGIN"),
+    );
+    assert(queries.includes("ROLLBACK"));
+  } finally {
+    globalThis.fetch = fetch;
+    if (old === undefined) delete process.env.INTEGRATION_ENCRYPTION_KEY;
+    else process.env.INTEGRATION_ENCRYPTION_KEY = old;
+  }
+});
+test("shared team workflow capacity blocks a staff allocation under its individual allowance", async () => {
+  const locks = [];
+  const db = {
+    query: async (sql, args) => {
+      if (sql.includes("private.team_entitlement_roots"))
+        return { rows: [{ owner_id: "billing-owner", seats: 3 }] };
+      if (sql.startsWith("SELECT s.plan"))
+        return { rows: [{ effective_plan: "teams", seats: 3 }] };
+      if (sql.startsWith("WITH hosts"))
+        return { rows: [{ envelopes: 3, workflows: 25 }] };
+      if (sql.includes(") types"))
+        return {
+          rows: [{ types: 1, calendars: 0, envelopes: 1, workflows: 2 }],
+        };
+      if (sql.includes("pg_advisory_xact_lock")) locks.push(args[0]);
+      return { rows: [], rowCount: 1 };
+    },
+  };
+  const service = load("src/lib/entitlements.ts", {
+    "./db": { getPool: () => db },
+    "./server": helpers,
+    "./entitlement-policy": policy,
+  });
+  await assert.rejects(
+    service.requireCapacity(db, "staff", "workflows"),
+    (e) => e.status === 409 && e.message.includes("shared"),
+  );
+  assert.deepEqual(locks, ["entitlements:billing-owner", "entitlements:staff"]);
 });

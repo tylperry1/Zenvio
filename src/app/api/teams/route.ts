@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           )
         ).rows[0];
         const usage = await entitlementUsage(owner.owner_id, db);
-        if (usage.plan !== "teams")
+        if (usage.plan !== "teams" || !usage.canManageTeamBilling)
           throw new ApiError(
             "This workspace requires an active Teams plan.",
             409,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         );
       } else if (v.action === "create") {
         const usage = await entitlementUsage(token, db);
-        if (usage.plan !== "teams")
+        if (usage.plan !== "teams" || !usage.canManageTeamBilling)
           throw new ApiError(
             "Team workspaces require an active Teams plan or an audited master-admin entitlement.",
             409,
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
             throw new ApiError("Choose at least one staff member.");
           const staff = [...new Set(v.staff.map(uuid))];
           const usage = await entitlementUsage(role.owner_id, db);
-          if (usage.plan !== "teams")
+          if (usage.plan !== "teams" || !usage.canManageTeamBilling)
             throw new ApiError("This workspace requires Teams.", 409);
           const count = (
             await db.query(

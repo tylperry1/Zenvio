@@ -1,6 +1,6 @@
 # Zenvio roadmap and completion synopsis
 
-> October 29 upgrade status: the following baseline was live at commit 4965387. The new scheduling/delivery, calendar/client, PDF template, workflow, teams, marketplace personalization and Connect/entitlement implementation is on the upgrade branch and is **not yet production verified or deployed**. See [upgrade checklist](UPGRADE-CHECKLIST.md) and [configuration/release gates](UPGRADE-CONFIGURATION.md). Keep paid enrollment and appointment charges gated until their stated verification is complete. Supplier automation remains unconfigured. Shared team document/workflow budget accounting remains outstanding.
+> October 29 upgrade status: the following baseline was live at commit 4965387. The new scheduling/delivery, calendar/client, PDF template, workflow, teams, marketplace personalization and Connect/entitlement implementation is on the upgrade branch and is **not yet production verified or deployed**. See [upgrade checklist](UPGRADE-CHECKLIST.md) and [configuration/release gates](UPGRADE-CONFIGURATION.md). Keep paid enrollment and appointment charges gated until their stated verification is complete. Supplier automation remains unconfigured. Shared Teams per-host allowances and billing-workspace budgets are implemented and undergoing final CI validation.
 
 Updated October 27, 2026. This document distinguishes implemented product behavior from configuration, verification, and planned work.
 

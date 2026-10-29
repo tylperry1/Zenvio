@@ -10,16 +10,16 @@ Owner approved October 28: Free 1 active appointment type / 1 Google account / 5
 
 - [x] Audit current source, migrations, roadmap, production deployment, and approved pricing.
 - [x] Obtain approval of exact plan-limit allocations.
-- [ ] Durable appointment reminder jobs, policy configuration, and identity-preserving rescheduling.
-- [ ] PDF/text delivery, reminder/resend/status, completed-copy notifications.
-- [ ] Reusable versioned PDF templates with recipient roles.
-- [ ] Internal calendar with source filters and external busy overlays.
-- [ ] Unified client records and explicit record linking.
-- [ ] Intake question snapshots and durable opt-in workflows.
-- [ ] Organizations, roles, staff invitations, shared scheduling, round robin.
-- [ ] Native marketplace personalization and manual supplier fulfillment.
-- [ ] Stripe Connect host onboarding, capability-gated booking payments and refunds.
-- [ ] Central entitlements, usage, price mapping, seat reconciliation, audited overrides.
+- [x] Durable appointment reminder jobs, policy configuration, and identity-preserving rescheduling.
+- [x] PDF/text delivery, reminder/resend/status, completed-copy notifications.
+- [x] Reusable versioned PDF templates with recipient roles.
+- [x] Internal calendar with source filters and external busy overlays.
+- [x] Unified client records and explicit record linking.
+- [x] Intake question snapshots and durable opt-in workflows.
+- [x] Organizations, roles, staff invitations, shared scheduling, round robin.
+- [x] Native marketplace personalization and manual supplier fulfillment.
+- [x] Stripe Connect host onboarding, capability-gated booking payments and refunds.
+- [x] Central entitlements, usage, price mapping, seat reconciliation, audited overrides.
 - [ ] Isolated tests, browser verification, build, migration checks.
 - [ ] Configuration guide, roadmap, production deployment and read-only smoke checks.
 
@@ -31,12 +31,12 @@ Google API activation / sensitive-scope approval must be verified with real owne
 
 Implemented on the upgrade branch, not deployed: reminder outbox and rescheduling policies; PDF/text email invitations, retries and private-link retention; versioned role templates; internal calendar views and external read-only overlays; unified client records with explicit linking; intake snapshots and opt-in workflows; team invitations, round robin and guarded reassignment; native personalization/artwork/manual supplier records; Connect direct-charge checkout/holds/refund reconciliation; approved account entitlements, usage, price mapping and audited overrides.
 
-- [x] 63 local unit checks; server-price and webhook idempotency checks included.
+- [x] 65 local unit checks; server-price and webhook idempotency checks included.
 - [x] Local isolated migration/API integration through booking, signing, templates, clients, workflow authorization and teams.
 - [x] Local production build and typecheck passed before final documentation/CI changes; rerun required on final commit.
-- [ ] Real Postgres concurrent request test and Chromium desktop/mobile checks in GitHub CI. Local browser aborts at launch.
+- [x] Initial upgrade commit passed real Postgres concurrent requests and Chromium desktop/mobile checks in GitHub CI. Final commit must rerun these checks. Local browser aborts at launch.
 - [ ] Review all browser screenshots and accessible keyboard/error flows.
-- [ ] Complete organization-wide shared document/workflow budget accounting before Teams paid enrollment.
+- [x] Shared per-host and billing-workspace Teams budgets, membership-derived entitlements, and billing-owner restrictions implemented; final CI pending.
 - [ ] Real provider test-mode verification for Connect, Resend delivery and Google sync.
 - [ ] Production promotion and read-only smoke checks.
 

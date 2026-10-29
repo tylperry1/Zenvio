@@ -12,6 +12,9 @@ const shift = (date: string, n: number) =>
     .toISOString()
     .slice(0, 10);
 export function CalendarCenter() {
+  const [organizations, setOrganizations] = useState<any[]>([]),
+    [organization, setOrganization] = useState(""),
+    [staff, setStaff] = useState("all");
   const [zone, setZone] = useState("UTC"),
     [date, setDate] = useState(new Date().toISOString().slice(0, 10)),
     [view, setView] = useState("week"),
@@ -45,6 +48,7 @@ export function CalendarCenter() {
           new URLSearchParams({
             from: from.toISOString(),
             to: to.toISOString(),
+            ...(organization ? { organization } : {}),
             ...(account !== "all" && account !== "zenvio" ? { account } : {}),
           }),
       ),
@@ -53,6 +57,10 @@ export function CalendarCenter() {
     setData(d);
   }
   useEffect(() => {
+    fetch("/api/teams")
+      .then((r) => r.json())
+      .then((d) => setOrganizations(d.organizations || []))
+      .catch(() => {});
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     fetch("/api/workspace")
       .then((r) => r.json())
@@ -60,9 +68,10 @@ export function CalendarCenter() {
   }, []);
   useEffect(() => {
     load().catch((e) => setError(e.message));
-  }, [date, view, zone, account]);
+  }, [date, view, zone, account, organization]);
   const events = (data?.events || []).filter(
     (e: any) =>
+      (staff === "all" || e.user_id === staff) &&
       (account === "all" || e.source === account) &&
       (type === "all" || e.event_id === type) &&
       (e.readOnly || status === "all" || e.status === status),
@@ -290,7 +299,10 @@ export function CalendarCenter() {
                           minute: "2-digit",
                           timeZone: zone,
                         })}{" "}
-                    · {e.readOnly ? "Google · read only" : e.status}
+                    ·{" "}
+                    {(e.sourceLabel || "Zenvio") +
+                      " · " +
+                      (e.readOnly ? "read only" : e.status)}
                   </small>
                   <small>{e.guest_name}</small>
                 </button>
