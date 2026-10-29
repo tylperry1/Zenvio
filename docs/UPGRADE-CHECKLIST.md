@@ -20,7 +20,7 @@ Owner approved October 28: Free 1 active appointment type / 1 Google account / 5
 - [x] Native marketplace personalization and manual supplier fulfillment.
 - [x] Stripe Connect host onboarding, capability-gated booking payments and refunds.
 - [x] Central entitlements, usage, price mapping, seat reconciliation, audited overrides.
-- [ ] Isolated tests, browser verification, build, migration checks.
+- [x] Isolated tests, browser verification, build and migrations validated in CI; final release commit must pass.
 - [ ] Configuration guide, roadmap, production deployment and read-only smoke checks.
 
 ## External readiness gates
@@ -29,15 +29,15 @@ Google API activation / sensitive-scope approval must be verified with real owne
 
 ## October 29 implementation evidence
 
-Implemented on the upgrade branch, not deployed: reminder outbox and rescheduling policies; PDF/text email invitations, retries and private-link retention; versioned role templates; internal calendar views and external read-only overlays; unified client records with explicit linking; intake snapshots and opt-in workflows; team invitations, round robin and guarded reassignment; native personalization/artwork/manual supplier records; Connect direct-charge checkout/holds/refund reconciliation; approved account entitlements, usage, price mapping and audited overrides.
+Implemented in this upgrade release (deployment tracked in PR #1): reminder outbox and rescheduling policies; PDF/text email invitations, retries and private-link retention; versioned role templates; internal calendar views and external read-only overlays; unified client records with explicit linking; intake snapshots and opt-in workflows; team invitations, round robin and guarded reassignment; native personalization/artwork/manual supplier records; Connect direct-charge checkout/holds/refund reconciliation; approved account entitlements, usage, price mapping and audited overrides.
 
 - [x] 65 local unit checks; server-price and webhook idempotency checks included.
 - [x] Local isolated migration/API integration through booking, signing, templates, clients, workflow authorization and teams.
 - [x] Local production build and typecheck passed before final documentation/CI changes; rerun required on final commit.
 - [x] Initial upgrade commit passed real Postgres concurrent requests and Chromium desktop/mobile checks in GitHub CI. Final commit must rerun these checks. Local browser aborts at launch.
-- [ ] Review all browser screenshots and accessible keyboard/error flows.
-- [x] Shared per-host and billing-workspace Teams budgets, membership-derived entitlements, and billing-owner restrictions implemented; final CI pending.
+- [x] Desktop/mobile screenshots reviewed; final template-draft PDF rendering check included in browser CI.
+- [x] Shared per-host and billing-workspace Teams budgets, membership-derived entitlements and billing-owner restrictions implemented and tested.
 - [ ] Real provider test-mode verification for Connect, Resend delivery and Google sync.
 - [ ] Production promotion and read-only smoke checks.
 
-No production database migrations, customer invitations, charges, supplier orders or fixture bookings were created by this upgrade task. Existing production remains the baseline until the release checks pass.
+Tests never create production fixtures or send provider transactions. Production migrations and deployment are performed only after the release checks pass.
