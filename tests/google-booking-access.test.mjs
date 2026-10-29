@@ -21,6 +21,8 @@ const original = m.require.bind(m);
 m.require = (id) =>
   id === "@/lib/appointment-payments"
     ? {}
+    : id === "@/lib/booking-protection"
+      ? { protectBooking: async () => {} }
     : id === "@/lib/workflows"
       ? {}
       : id === "@/lib/lifecycle"
