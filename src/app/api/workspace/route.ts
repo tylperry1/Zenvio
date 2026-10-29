@@ -1,3 +1,4 @@
+import { getPool } from "@/lib/db";
 import { intakeAnswers } from "@/lib/intake";
 import { materializeReminders, drainDeliveries } from "@/lib/lifecycle";
 import { filterGoogleSlots, runGoogleJobs } from "@/lib/google-calendar";
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { token, user } = await session();
-    const [profiles, events, availability, bookings, contacts, role] =
+    const [profiles, events, availability, bookings, contacts, role, counts] =
       await Promise.all([
         backend(`/rest/v1/profiles?id=eq.${user.id}&select=*`, {}, token),
         backend(
@@ -35,17 +36,26 @@ export async function GET() {
           {},
           token,
         ),
-        backend(
-          "/rest/v1/bookings?select=id,event_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,starts_at,ends_at,status&order=starts_at.desc&limit=1000",
-          {},
-          token,
-        ),
+        // Recent and upcoming appointments, soonest first; full history is
+        // paged through /api/bookings.
+        getPool()
+          .query(
+            "SELECT id,event_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
+            [token],
+          )
+          .then((r) => r.rows),
         backend(
           "/rest/v1/contacts?select=*&order=created_at.desc&limit=1000",
           {},
           token,
         ),
         platformRole(token),
+        getPool()
+          .query(
+            "SELECT (SELECT count(*) FROM public.bookings WHERE user_id=$1)::int AS bookings,(SELECT count(*) FROM public.contacts WHERE user_id=$1)::int AS contacts",
+            [token],
+          )
+          .then((r) => r.rows[0]),
       ]);
     if (!profiles[0])
       throw new ApiError(
@@ -59,6 +69,8 @@ export async function GET() {
         availability,
         bookings,
         contacts,
+        bookingCount: counts.bookings,
+        contactCount: counts.contacts,
         platformRole: role,
       },
       { headers: { "Cache-Control": "no-store" } },

@@ -69,8 +69,36 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [filter, setFilter] = useState("upcoming"),
     [calendar, setCalendar] = useState(false),
     [month, setMonth] = useState(() => new Date()),
-    [selectedDay, setSelectedDay] = useState<number | null>(null);
+    [selectedDay, setSelectedDay] = useState<number | null>(null),
+    [remote, setRemote] = useState<{ bookings: Booking[]; total: number } | null>(null),
+    [bookingPage, setBookingPage] = useState(0);
   const linkPrompt = useLinkPrompt(data, demo);
+  useEffect(() => setBookingPage(0), [filter, search, calendar]);
+  useEffect(() => {
+    // Real workspaces page through bookings on the server; the demo filters locally.
+    if (demo || view !== "Bookings" || !data) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ filter, q: search, page: String(bookingPage) });
+    if (calendar) {
+      params.set("from", new Date(month.getFullYear(), month.getMonth() - 1, 20).toISOString());
+      params.set("to", new Date(month.getFullYear(), month.getMonth() + 1, 10).toISOString());
+    }
+    const timer = setTimeout(() => {
+      fetch("/api/bookings?" + params, { cache: "no-store", signal: controller.signal })
+        .then(async (r) => {
+          const d = await r.json();
+          if (!r.ok) throw Error(d.error);
+          setRemote(d);
+        })
+        .catch((e) => {
+          if (e.name !== "AbortError") toast(e.message || "Unable to load bookings.", true);
+        });
+    }, search ? 200 : 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [demo, view, filter, search, bookingPage, calendar, month, data]); // eslint-disable-line react-hooks/exhaustive-deps
   async function load() {
     setFatal("");
     try {
@@ -446,6 +474,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         ? +new Date(b.starts_at) - +new Date(a.starts_at)
         : +new Date(a.starts_at) - +new Date(b.starts_at),
     );
+  const listBookings = demo ? filteredBookings : (remote?.bookings ?? []);
   return (
     <div className="workspace">
       <div className="workspace-main">
@@ -550,7 +579,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   [
                     "users",
                     "Your connections",
-                    String(data.contacts.length),
+                    String(data.contactCount ?? data.contacts.length),
                     "People in your corner",
                   ],
                   [
@@ -793,7 +822,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                       },
                       (_, i) => {
                         const day = i + 1;
-                        const rows = filteredBookings.filter((b) => {
+                        const rows = listBookings.filter((b) => {
                           const parts = new Intl.DateTimeFormat("en-US", {
                             timeZone: data.profile.timezone,
                             year: "numeric",
@@ -855,7 +884,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 )}
                 {bookingRows(
                   selectedDay
-                    ? filteredBookings.filter((b) => {
+                    ? listBookings.filter((b) => {
                         const date = new Intl.DateTimeFormat("en-CA", {
                           timeZone: data.profile.timezone,
                           year: "numeric",
@@ -867,7 +896,28 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                           `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
                         );
                       })
-                    : filteredBookings,
+                    : listBookings,
+                )}
+                {!demo && !calendar && remote && remote.total > 50 && (
+                  <div className="client-pagination">
+                    <span>
+                      {bookingPage * 50 + 1}–{Math.min((bookingPage + 1) * 50, remote.total)} of {remote.total}
+                    </span>
+                    <button
+                      className="button secondary small"
+                      disabled={!bookingPage}
+                      onClick={() => setBookingPage(bookingPage - 1)}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      className="button secondary small"
+                      disabled={(bookingPage + 1) * 50 >= remote.total}
+                      onClick={() => setBookingPage(bookingPage + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
                 )}
               </div>
               <p className="helper-text">
