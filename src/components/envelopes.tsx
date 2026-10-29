@@ -1,6 +1,6 @@
 "use client";
+import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { PdfPages } from "./pdf-pages";
 import type { Field, Recipient } from "@/lib/envelopes";
 type Envelope = {
@@ -156,29 +156,23 @@ export function Envelopes({
   return (
     <div className="platform-page envelopes-page">
       <main>
-        <Link href="/app" className="document-back">
-          ← Workspace
-        </Link>
-        <header className="envelope-heading">
-          <div>
-            <span className="billing-eyebrow">ZENVIO DOCUMENTS</span>
-            <h1>Agreements, from start to signed.</h1>
-            <p>
-              Prepare PDFs, assign signature fields, and follow every recipient.
-            </p>
-          </div>
-          <button
-            disabled={busy}
-            onClick={() => {
-              setCreating(true);
-              setDetail(null);
-              setLinks([]);
-              setError("");
-            }}
-          >
-            + New envelope
-          </button>
-        </header>
+        <PageHeader
+          title="Documents"
+          description="Prepare PDFs, assign signature fields, and follow every recipient."
+          actions={
+            <button
+              disabled={busy}
+              onClick={() => {
+                setCreating(true);
+                setDetail(null);
+                setLinks([]);
+                setError("");
+              }}
+            >
+              + New envelope
+            </button>
+          }
+        />
         <nav className="envelope-tabs">
           <button
             className={!legacy ? "active" : ""}

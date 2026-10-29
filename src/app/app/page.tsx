@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { getAuth } from "@/lib/auth";
 import { configured } from "@/lib/server";
@@ -14,5 +15,9 @@ export default async function Page() {
     const current = await getAuth().api.getSession({ headers: await headers() });
     if (!current)
         redirect("/sign-in");
-    return <Workspace />;
+    return (
+        <Suspense>
+            <Workspace />
+        </Suspense>
+    );
 }

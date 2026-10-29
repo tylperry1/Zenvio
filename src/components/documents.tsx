@@ -1,6 +1,6 @@
 "use client";
+import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Icon } from "./icons";
 type SigningDocument = {
   id: string;
@@ -52,28 +52,21 @@ export function Documents() {
   return (
     <div className="platform-page documents-page">
       <main>
-        <Link className="document-back" href="/app">
-          ← Back to workspace
-        </Link>
-        <div className="billing-heading">
-          <div>
-            <span className="billing-eyebrow">CLIENT AGREEMENTS</span>
-            <h1>Documents & signatures</h1>
-            <p>
-              Prepare an agreement. Share a private link. Keep a clear signing
-              record.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setCreating(true);
-              setLink("");
-              setError("");
-            }}
-          >
-            + New document
-          </button>
-        </div>
+        <PageHeader
+          title="Documents"
+          description="Prepare an agreement. Share a private link. Keep a clear signing record."
+          actions={
+            <button
+              onClick={() => {
+                setCreating(true);
+                setLink("");
+                setError("");
+              }}
+            >
+              + New document
+            </button>
+          }
+        />
         {error && (
           <p role="alert" className="billing-error">
             {error}

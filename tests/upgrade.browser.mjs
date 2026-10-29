@@ -46,7 +46,7 @@ try {
   await page.goto("http://localhost:3100/app/calendar");
   await page.getByLabel("Calendar view").selectOption("month");
   await page
-    .getByRole("button", { name: "+ Appointment", exact: true })
+    .getByRole("button", { name: "+ New appointment", exact: true })
     .click();
   await page.getByRole("dialog").waitFor();
   await page.screenshot({

@@ -108,6 +108,11 @@ export function CalendarCenter() {
     <SuiteShell
       title="Calendar"
       description="Zenvio appointments and read-only connected calendars, with clear source labels."
+      actions={
+        <button disabled={!workspace} onClick={() => setCreating(true)}>
+          + New appointment
+        </button>
+      }
     >
       {error && (
         <p role="alert" className="billing-error">
@@ -118,6 +123,7 @@ export function CalendarCenter() {
       <section>
         <div className="calendar-toolbar">
           <button
+            className="calendar-step"
             onClick={() => setDate(shift(start, -days))}
             aria-label="Previous period"
           >
@@ -130,6 +136,7 @@ export function CalendarCenter() {
             onChange={(e) => setDate(e.target.value)}
           />
           <button
+            className="calendar-step"
             onClick={() => setDate(shift(start, days))}
             aria-label="Next period"
           >
@@ -144,8 +151,8 @@ export function CalendarCenter() {
               <option key={v}>{v}</option>
             ))}
           </select>
-          <label>
-            Timezone
+          <label className="calendar-zone">
+            <span>Timezone</span>
             <input
               value={zone}
               list="calendar-zones"
@@ -169,9 +176,6 @@ export function CalendarCenter() {
               ))}
             </datalist>
           </label>
-          <button disabled={!workspace} onClick={() => setCreating(true)}>
-            + Appointment
-          </button>
         </div>
         <div className="suite-grid">
           <label>

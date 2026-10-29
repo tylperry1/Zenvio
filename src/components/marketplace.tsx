@@ -1,4 +1,5 @@
 "use client";
+import { PageHeader } from "./app-shell";
 import { ProductPersonalizer } from "./product-personalizer";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -60,20 +61,25 @@ export function Marketplace() {
   return (
     <div className="platform-page market-store">
       <main>
-        <div className="billing-top">
-          <Link href="/app">← Your dashboard</Link>
-          <Link href="/marketplace/orders">My orders →</Link>
-        </div>
+        <PageHeader
+          title="Marketplace"
+          description="Marketing essentials and branded merchandise, ordered directly through Zenvio."
+          actions={
+            <Link className="billing-secondary" href="/marketplace/orders">
+              My orders
+            </Link>
+          }
+        />
         <header className="market-hero">
           <div>
             <span className="market-kicker">
               ZENVIO MARKETPLACE · YOUR BRAND. EVERYWHERE.
             </span>
-            <h1>
+            <h2>
               Make your next
               <br />
               impression count.
-            </h1>
+            </h2>
             <p>
               Marketing essentials and branded merchandise, ordered directly
               through Zenvio.

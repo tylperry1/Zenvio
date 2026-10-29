@@ -2,9 +2,11 @@
 import { ProfilePhoto } from "./profile-photo";
 import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PageHeader } from "./app-shell";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
-import { Logo, Icon } from "./icons";
+import { Icon } from "./icons";
 import { Modal } from "./modal";
 import type {
   WorkspaceData,
@@ -29,22 +31,32 @@ type View =
   | "Availability"
   | "Contacts"
   | "Settings";
-const views: [View, string][] = [
-  ["Overview", "grid"],
-  ["Event types", "link"],
-  ["Bookings", "calendar"],
-  ["Availability", "clock"],
-  ["Contacts", "users"],
-];
+const viewSlugs: Record<View, string> = {
+  Overview: "",
+  "Event types": "event-types",
+  Bookings: "bookings",
+  Availability: "availability",
+  Contacts: "contacts",
+  Settings: "settings",
+};
+const viewFor = (slug: string | null) =>
+  (Object.keys(viewSlugs) as View[]).find((v) => viewSlugs[v] === (slug || "")) ||
+  "Overview";
+function greeting(now: Date, timeZone: string) {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone }).format(now),
+  );
+  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+}
 export function Workspace({ demo = false }: { demo?: boolean }) {
+  const router = useRouter();
+  const view = viewFor(useSearchParams().get("view"));
   const [data, setData] = useState<WorkspaceData | null>(null),
-    [view, setView] = useState<View>("Overview"),
     [loading, setLoading] = useState(true),
     [fatal, setFatal] = useState(""),
     [notice, setNotice] = useState(""),
     [noticeError, setNoticeError] = useState(false),
-    [busy, setBusy] = useState(false),
-    [menu, setMenu] = useState(false);
+    [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<EventType | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
   const [editing, setEditing] = useState<EventType | true | null>(null),
@@ -122,11 +134,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
       setBusy(false);
     }
   }
-  function navigate(next: View) {
-    setView(next);
-    setMenu(false);
+  useEffect(() => {
     setSearch("");
     setSelectedDay(null);
+  }, [view]);
+  function navigate(next: View) {
+    const slug = viewSlugs[next];
+    router.push((demo ? "/demo" : "/app") + (slug ? `?view=${slug}` : ""));
   }
   function linkFor(event: EventType) {
     return `/book/${data!.profile.slug}/${event.slug}`;
@@ -347,8 +361,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   }
   if (loading || fatal || !data)
     return (
-      <main className="center-page">
-        <Logo />
+      <main className="center-page workspace-loading">
         {loading ? (
           <>
             <div className="spinner" />
@@ -393,178 +406,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     );
   return (
     <div className="workspace">
-      <aside className={`sidebar ${menu ? "mobile-open" : ""}`}>
-        <Link href="/" className="sidebar-logo">
-          <Logo />
-        </Link>
-        <div className="workspace-selector">
-          <span className="avatar">{initials(data.profile.name)}</span>
-          <span>
-            <b>{data.profile.name}</b>
-            <small>Personal workspace</small>
-          </span>
-          <span className="workspace-badge">Free</span>
-        </div>
-        <p className="sidebar-label">WORKSPACE</p>
-        <nav aria-label="Workspace navigation">
-          {views.map(([title, icon]) => (
-            <button
-              className={`sidebar-item ${view === title ? "active" : ""}`}
-              key={title}
-              onClick={() => navigate(title)}
-            >
-              <Icon name={icon} size={19} />
-              {title}
-              {title === "Bookings" && upcoming.length > 0 && (
-                <span className="sidebar-count">{upcoming.length}</span>
-              )}
-            </button>
-          ))}
-          {!demo && (
-            <>
-              <Link className="sidebar-item" href="/app/calendar">
-                <Icon name="calendar" size={19} /> Calendar
-              </Link>
-              <Link className="sidebar-item" href="/app/clients">
-                <Icon name="users" size={19} /> Client records
-              </Link>
-              <Link className="sidebar-item" href="/app/automation">
-                <Icon name="clock" size={19} /> Reminders & workflows
-              </Link>
-              <Link className="sidebar-item" href="/app/team">
-                <Icon name="users" size={19} /> Team workspace
-              </Link>
-              <Link className="sidebar-item" href="/app/templates">
-                <Icon name="link" size={19} /> PDF templates
-              </Link>
-              <Link className="sidebar-item" href="/app/documents">
-                <Icon name="link" size={19} /> Documents & signatures
-              </Link>
-            </>
-          )}
-          {!demo && (
-            <Link className="sidebar-item" href="/app/connections">
-              <Icon name="calendar" size={19} /> Calendar connections
-            </Link>
-          )}
-          {!demo && (
-            <Link className="sidebar-item" href="/marketplace">
-              <Icon name="grid" size={19} /> Marketing marketplace
-            </Link>
-          )}
-        </nav>
-        <div className="sidebar-note">
-          <span>✳</span>
-          <h4>A little room to grow.</h4>
-          <p>
-            Your ideas, your clients,
-            <br />
-            your next good thing.
-          </p>
-          <button className="inline-link" onClick={() => navigate("Settings")}>
-            See what’s next <Icon name="arrow" size={14} />
-          </button>
-        </div>
-        <div className="sidebar-bottom">
-          {!demo && data.platformRole === "master_admin" && (
-            <Link className="sidebar-item" href="/admin">
-              <Icon name="shield" size={19} />
-              Back to admin panel
-            </Link>
-          )}
-          <button
-            className={`sidebar-item ${view === "Settings" ? "active" : ""}`}
-            onClick={() => navigate("Settings")}
-          >
-            <Icon name="settings" size={19} />
-            Settings
-          </button>
-          <Link className="sidebar-item" href="/">
-            ← Back to website
-          </Link>
-          <div className="sidebar-user">
-            <span className="avatar small-avatar">
-              {initials(data.profile.name)}
-            </span>
-            <div>
-              <b>{data.profile.name}</b>
-              <small>{demo ? "Demo workspace" : "Personal account"}</small>
-            </div>
-            {!demo && (
-              <button
-                className="icon-button"
-                aria-label="Sign out"
-                onClick={async () => {
-                  const r = await fetch("/api/auth", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "sign-out" }),
-                  });
-                  if (r.ok) window.location.assign("/");
-                  else toast("Could not sign out. Please try again.", true);
-                }}
-              >
-                <Icon name="logout" size={17} />
-              </button>
-            )}
-          </div>
-        </div>
-      </aside>
-      {menu && (
-        <button
-          className="sidebar-overlay"
-          onClick={() => setMenu(false)}
-          aria-label="Close navigation"
-        />
-      )}
       <div className="workspace-main">
-        {!demo && data.platformRole === "master_admin" && (
-          <div className="workspace-admin-banner">
-            <span>
-              <Icon name="shield" size={15} /> Master admin · Dashboard view
-            </span>
-            <Link href="/admin">
-              Return to admin panel <Icon name="arrow" size={14} />
-            </Link>
-          </div>
-        )}
-        <header className="workspace-topbar">
-          <div>
-            <button
-              className="icon-button mobile-menu"
-              aria-label="Open navigation"
-              onClick={() => setMenu(true)}
-            >
-              <Icon name="menu" />
-            </button>
-            <span>Workspace</span>
-            <Icon name="chevron" size={13} />
-            <b>{view}</b>
-          </div>
-          <div>
-            {!demo && (
-              <Link className="workspace-shop-link" href="/marketplace">
-                <Icon name="grid" size={15} />
-                <span>Marketplace</span>
-              </Link>
-            )}
-            <Link
-              className="workspace-profile-link"
-              href={`/book/${data.profile.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Icon name="globe" size={14} /> My booking page
-            </Link>
-            <span className="timezone-top">
-              <Icon name="globe" size={14} />
-              {data.profile.timezone.replaceAll("_", " ")}
-            </span>
-            <span className="avatar small-avatar">
-              {initials(data.profile.name)}
-            </span>
-          </div>
-        </header>
         {demo && (
           <div className="demo-banner">
             <span>
@@ -578,77 +420,64 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </div>
         )}
         <main className="workspace-content">
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">
-                {view === "Overview"
-                  ? "A LITTLE MORE POSSIBILITY"
-                  : "YOUR WORKSPACE"}
-              </p>
-              <h1>
-                {view === "Overview" ? (
-                  <>
-                    Hello, {data.profile.name.split(" ")[0]}.{" "}
-                    <span className="greeting-sun">☀</span>
-                  </>
-                ) : view === "Event types" ? (
-                  "Your booking links."
-                ) : view === "Availability" ? (
-                  "Make time on your terms."
-                ) : view === "Contacts" ? (
-                  "People, not just appointments."
-                ) : view === "Settings" ? (
-                  "Workspace settings"
-                ) : (
-                  "Your calendar, at a glance."
+          <PageHeader
+            title={
+              view === "Overview"
+                ? `${greeting(now, data.profile.timezone)}, ${data.profile.name.split(" ")[0]}`
+                : view === "Event types"
+                  ? "Booking links"
+                  : view
+            }
+            description={
+              view === "Overview"
+                ? `${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: data.profile.timezone })} · Here’s what’s coming up.`
+                : view === "Event types"
+                  ? "The appointment types guests can book from your page."
+                  : view === "Bookings"
+                    ? "Upcoming, past, and cancelled appointments."
+                    : view === "Availability"
+                      ? "Your weekly hours and booking rules."
+                      : view === "Contacts"
+                        ? "Everyone who has booked with you, plus people you add."
+                        : "Your profile, booking page, and connected services."
+            }
+            actions={
+              <>
+                {view === "Overview" && (
+                  <Link
+                    className="button secondary small"
+                    href={`/book/${data.profile.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Icon name="external" size={16} /> View booking page
+                  </Link>
                 )}
-              </h1>
-              <p>
-                {view === "Overview"
-                  ? "A good day to connect. Here’s what’s coming up for you."
-                  : view === "Event types"
-                    ? "Different conversations. The same simple way to get together."
-                    : view === "Bookings"
-                      ? "All your conversations, with a little room to breathe."
-                      : view === "Availability"
-                        ? "Set a weekly rhythm that works for you."
-                        : view === "Contacts"
-                          ? "Keep the little details that make every conversation feel personal."
-                          : "Manage your profile, booking page, and connected services."}
-              </p>
-            </div>
-            {["Overview", "Event types"].includes(view) ? (
-              <button
-                className="button primary small"
-                onClick={() => setEditing(true)}
-              >
-                <Icon name="plus" size={17} /> New event type
-              </button>
-            ) : view === "Bookings" && !demo ? (
-              <button
-                className="button primary small"
-                onClick={() => setCreatingAppointment(true)}
-              >
-                <Icon name="plus" size={17} /> Create appointment
-              </button>
-            ) : view === "Contacts" ? (
-              <button
-                className="button primary small"
-                onClick={() => setContactModal(true)}
-              >
-                <Icon name="plus" size={17} /> Add contact
-              </button>
-            ) : (
-              <span className="today-label">
-                {now.toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                  timeZone: data.profile.timezone,
-                })}
-              </span>
-            )}
-          </div>
+                {["Overview", "Event types"].includes(view) ? (
+                  <button
+                    className="button primary small"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Icon name="plus" size={17} /> New booking link
+                  </button>
+                ) : view === "Bookings" && !demo ? (
+                  <button
+                    className="button primary small"
+                    onClick={() => setCreatingAppointment(true)}
+                  >
+                    <Icon name="plus" size={17} /> Create appointment
+                  </button>
+                ) : view === "Contacts" ? (
+                  <button
+                    className="button primary small"
+                    onClick={() => setContactModal(true)}
+                  >
+                    <Icon name="plus" size={17} /> Add contact
+                  </button>
+                ) : null}
+              </>
+            }
+          />
           {view === "Overview" && (
             <>
               <div className="stats-grid">
@@ -1139,14 +968,6 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             />
           )}
         </main>
-        <footer className="workspace-footer">
-          <span>
-            <Icon name="link" size={14} /> Good things, on the calendar.
-          </span>
-          <span>
-            Made with a little intention. <Link href="/privacy">Privacy</Link>
-          </span>
-        </footer>
       </div>
       {notice && (
         <div

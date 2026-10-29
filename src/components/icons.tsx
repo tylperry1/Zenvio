@@ -114,6 +114,53 @@ export function Icon({
         <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3Z" />
       </>
     ),
+    home: <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1Z" />,
+    file: (
+      <>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+        <path d="M14 3v5h5M9 13h6m-6 4h4" />
+      </>
+    ),
+    layers: (
+      <>
+        <path d="m12 3 9 5-9 5-9-5Z" />
+        <path d="m3 13 9 5 9-5" />
+      </>
+    ),
+    bell: (
+      <>
+        <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z" />
+        <path d="M10 20.5a2 2 0 0 0 4 0" />
+      </>
+    ),
+    card: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+        <path d="M3 10h18M7 15h3" />
+      </>
+    ),
+    bag: (
+      <>
+        <path d="M5 8h14l-1 12H6Z" />
+        <path d="M9 10V7a3 3 0 0 1 6 0v3" />
+      </>
+    ),
+    team: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.5M17.5 14.5A5 5 0 0 1 20.5 19" />
+      </>
+    ),
+    contact: (
+      <>
+        <rect x="4" y="3" width="16" height="18" rx="2.5" />
+        <circle cx="12" cy="10" r="2.5" />
+        <path d="M8 16.5a4 4 0 0 1 8 0" />
+      </>
+    ),
+    plug: <path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0Zm5 8v5" />,
+    external: <path d="M14 4h6v6m0-6-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
+    chevronDown: <path d="m6 9 6 6 6-6" />,
   };
   return (
     <svg
