@@ -8,7 +8,7 @@ export default function Page() {
         <Logo />
       </Link>
       <h1>Privacy at Zenvio</h1>
-      <p>Effective October 27, 2026</p>
+      <p>Effective October 29, 2026</p>
       <h2>What we collect</h2>
       <p>
         When account services are enabled, Zenvio stores the account details you
@@ -36,9 +36,12 @@ export default function Page() {
       <p>
         When you connect Google Calendar, Zenvio stores your verified Google
         account email and encrypted authorization tokens. We use access to your
-        selected connected accounts’ primary calendars to check busy periods and create or cancel Zenvio
-        appointment events. We do not copy other Google event titles,
-        descriptions, or attendee lists into Zenvio.
+        selected connected accounts’ primary calendars to check busy periods and
+        create or cancel Zenvio appointment events. When your granted
+        permissions allow event reading, the internal calendar temporarily
+        displays external event titles and times. These external event details
+        are not stored in Zenvio’s database. With free/busy access only,
+        external events appear as Busy.
       </p>
       <p>
         When an appointment host enables calendar export, the appointment title,
@@ -50,25 +53,32 @@ export default function Page() {
       </p>
       <p>
         You can disable conflict checking or event export, or disconnect from
-        Calendar connections. Disconnecting an account removes that account’s stored Google authorization
-        credentials and stops future synchronization. Existing Google events are
-        kept and can be removed in Google Calendar. You can also revoke Zenvio’s
-        access from your Google account settings.
+        Calendar connections. Disconnecting an account removes that account’s
+        stored Google authorization credentials and stops future
+        synchronization. Existing Google events are kept and can be removed in
+        Google Calendar. You can also revoke Zenvio’s access from your Google
+        account settings.
       </p>
       <h2>Documents and electronic signatures</h2>
       <p>
-        When you create an agreement, we store its text or uploaded PDF, recipient names and
-        email addresses, assigned fields and responses, any linked appointment, and a hash of the document. Opening and
-        signing a private document records view and signing timestamps, the
-        typed signature, consent, and a receipt hash. The sender and people
-        possessing a private signing link can access the original document. All recipients
-        can download the completed PDF with every signature and its signing record. Link
-        possession and a typed name do not independently verify email ownership
-        or government identity. Keep signing links private. Unsigned links
-        expire after 14 days; signed documents and signing records are retained
-        and are not editable through the application. Senders can void an
-        unsigned document to disable its link. This release does not send
-        signing invitation emails automatically.
+        When you create an agreement, we store its text or uploaded PDF,
+        recipient names and email addresses, assigned fields and responses, any
+        linked appointment, and a hash of the document. Opening and signing a
+        private document records view and signing timestamps, the typed
+        signature, consent, and a receipt hash. The sender and people possessing
+        a private signing link can access the original document. All recipients
+        can download the completed PDF with every signature and its signing
+        record. Link possession and a typed name do not independently verify
+        email ownership or government identity. Keep signing links private.
+        Unsigned links expire after 14 days; signed documents and signing
+        records are retained and are not editable through the application.
+        Senders can void an unsigned document to disable its link. Senders may
+        explicitly choose email invitations and unsigned reminders through
+        Resend. Signing access tokens are validated using hashes; retry links
+        and queued message payloads are encrypted with the integration vault,
+        cleared when no longer needed, and never shared between recipients.
+        Completion links may be retained encrypted for up to 30 days. Signing
+        and delivery actions are recorded in the account history.
       </p>
       <h2>Cookies and the demo</h2>
       <p>

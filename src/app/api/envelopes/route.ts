@@ -1,4 +1,10 @@
-import { NextRequest } from "next/server";
+import { requireCapacity } from "@/lib/entitlements";
+import {
+  queueEnvelopeInvitation,
+  resendEnvelope,
+} from "@/lib/document-delivery";
+import { drainDeliveries } from "@/lib/lifecycle";
+import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import {
   ApiError,
@@ -71,7 +77,16 @@ export async function GET(req: NextRequest) {
       )
     ).rows;
     const { pdf, user_id, ...envelope } = e;
-    return Response.json({ envelope, recipients, events }, { headers });
+    const deliveries = (
+      await getPool().query(
+        "SELECT id,recipient_id,recipient,kind,status,provider_status,last_error,sent_at,run_at FROM private.delivery_jobs WHERE envelope_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100",
+        [id, token],
+      )
+    ).rows;
+    return Response.json(
+      { envelope, recipients, events, deliveries },
+      { headers },
+    );
   } catch (e) {
     return failure(e);
   }
@@ -115,6 +130,7 @@ export async function POST(req: NextRequest) {
         await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
           "envelope-upload:" + token,
         ]);
+        await requireCapacity(db, token, "envelopes");
         const c = await db.query(
           "SELECT count(*)::int n FROM private.signature_envelopes WHERE user_id=$1 AND created_at>now()-interval '24 hours'",
           [token],
@@ -166,7 +182,7 @@ export async function POST(req: NextRequest) {
       if (!e) throw new ApiError("Document not found.", 404);
       const recipients = (
         await db.query(
-          "SELECT id,name,email,status FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
+          "SELECT id,name,email,status,link_ciphertext FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
           [id],
         )
       ).rows;
@@ -181,12 +197,33 @@ export async function POST(req: NextRequest) {
           [id, JSON.stringify(fields), digest],
         );
         if (input.action === "send") {
+          const reminderDays = input.reminder_days ?? [3, 7];
+          if (
+            !Array.isArray(reminderDays) ||
+            reminderDays.length > 3 ||
+            reminderDays.some((d) => !Number.isInteger(d) || d < 1 || d > 13)
+          )
+            throw new ApiError(
+              "Choose up to three reminder days, between 1 and 13.",
+            );
+          e.reminder_days = [...new Set(reminderDays)];
+          await db.query(
+            "UPDATE private.signature_envelopes SET reminder_days=$2 WHERE id=$1",
+            [e.id, e.reminder_days],
+          );
           for (const recipient of recipients) {
             const secret = signingToken();
             await db.query(
               "UPDATE private.signature_recipients SET token_hash=$2 WHERE id=$1",
               [recipient.id, hash(secret)],
             );
+            if (input.email_delivery === true)
+              await queueEnvelopeInvitation(
+                db,
+                { ...e, expires_at: new Date(Date.now() + 14 * 86400000) },
+                recipient,
+                secret,
+              );
             links.push({
               name: recipient.name,
               email: recipient.email,
@@ -198,6 +235,12 @@ export async function POST(req: NextRequest) {
             [id],
           );
         }
+      } else if (input.action === "resend") {
+        const recipient = recipients.find(
+          (r) => r.id === uuid(input.recipient_id),
+        );
+        if (!recipient) throw new ApiError("Recipient not found.", 404);
+        await resendEnvelope(db, e, recipient);
       } else if (input.action === "void") {
         if (!["draft", "sent"].includes(e.status))
           throw new ApiError("This document cannot be voided.", 409);
@@ -211,6 +254,7 @@ export async function POST(req: NextRequest) {
         [id, input.action],
       );
       await db.query("COMMIT");
+      after(() => drainDeliveries(token).then(() => {}));
       return Response.json({ ok: true, links }, { headers });
     } catch (e) {
       await db.query("ROLLBACK");

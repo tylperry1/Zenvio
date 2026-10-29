@@ -11,7 +11,11 @@ function load(file, overrides = {}) {
   m.paths = Module._nodeModulePaths(path.dirname(filename));
   const standard = m.require.bind(m);
   m.require = (id) =>
-    Object.hasOwn(overrides, id) ? overrides[id] : standard(id);
+    id === "./entitlements"
+      ? {}
+      : Object.hasOwn(overrides, id)
+        ? overrides[id]
+        : standard(id);
   m._compile(
     ts.transpileModule(fs.readFileSync(filename, "utf8"), {
       compilerOptions: {

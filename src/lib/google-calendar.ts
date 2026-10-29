@@ -1,3 +1,4 @@
+import { requireCapacity } from "./entitlements";
 import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getPool } from "./db";
@@ -23,8 +24,8 @@ export function googleRedirect(origin: string) {
 export async function googleConfigured() {
   return Boolean(
     process.env.INTEGRATION_ENCRYPTION_KEY &&
-    (await integrationValue("GOOGLE_CLIENT_ID")) &&
-    (await integrationValue("GOOGLE_CLIENT_SECRET")),
+      (await integrationValue("GOOGLE_CLIENT_ID")) &&
+      (await integrationValue("GOOGLE_CLIENT_SECRET")),
   );
 }
 async function oauthClient(redirectUri?: string) {
@@ -122,6 +123,15 @@ export async function finishGoogleConnection(
     await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
       "google-accounts:" + userId,
     ]);
+    if (
+      !(
+        await c.query(
+          "SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2",
+          [userId, identity.sub],
+        )
+      ).rowCount
+    )
+      await requireCapacity(c, userId, "calendars");
     const existingAccounts = await c.query(
       "SELECT count(*)::int AS count FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub<>$2",
       [userId, identity.sub],
@@ -635,4 +645,145 @@ export async function runGoogleJobsForCancellation(cancelToken: string) {
     [cancelToken],
   );
   if (rows[0]) await runGoogleJobs(rows[0].user_id);
+}
+
+// Ephemeral calendar display. Events copied from Zenvio are excluded, not duplicated.
+export async function calendarDisplay(
+  userId: string,
+  accountSub: string,
+  start: string,
+  end: string,
+) {
+  const c = (
+    await getPool().query(
+      "SELECT scope,account_email FROM private.google_calendar_connections WHERE user_id=$1 AND account_sub=$2",
+      [userId, accountSub],
+    )
+  ).rows[0];
+  if (!c) throw new ApiError("Google account not found.", 404);
+  if (
+    !String(c.scope)
+      .split(" ")
+      .some((s) =>
+        [
+          "https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/calendar.events",
+          "https://www.googleapis.com/auth/calendar.events.readonly",
+        ].includes(s),
+      )
+  ) {
+    const busy = await readGoogleBusy(userId, accountSub, start, end);
+    return busy.map((b, i) => ({
+      id: accountSub + ":busy:" + i,
+      title: "Busy",
+      starts_at: b.start,
+      ends_at: b.end,
+      source: accountSub,
+      readOnly: true,
+    }));
+  }
+  const result: any[] = [];
+  let page = "";
+  for (let n = 0; n < 5; n++) {
+    const q = new URLSearchParams({
+      timeMin: start,
+      timeMax: end,
+      singleEvents: "true",
+      maxResults: "500",
+      fields:
+        "items(id,summary,start,end,status,extendedProperties/private),nextPageToken",
+      ...(page ? { pageToken: page } : {}),
+    });
+    const { response } = await googleRequest(
+      userId,
+      "calendars/primary/events?" + q,
+      {},
+      accountSub,
+    );
+    if (!response.ok)
+      throw new ApiError(
+        "Google events could not be loaded. Check this account’s connection.",
+        503,
+      );
+    const data = await response.json();
+    for (const e of data.items || []) {
+      if (
+        e.status === "cancelled" ||
+        e.extendedProperties?.private?.zenvioOwnerId === userId
+      )
+        continue;
+      result.push({
+        id: accountSub + ":" + e.id,
+        title: e.summary || "Busy",
+        starts_at: e.start?.dateTime || e.start?.date,
+        ends_at: e.end?.dateTime || e.end?.date,
+        allDay: !!e.start?.date,
+        source: accountSub,
+        readOnly: true,
+      });
+    }
+    page = data.nextPageToken;
+    if (!page) return result;
+  }
+  throw new ApiError(
+    "Too many external events. Choose a smaller date range.",
+    409,
+  );
+  return result;
+}
+export async function drainCalendarCleanup(user?: string) {
+  const db = await getPool().connect();
+  try {
+    await db.query("BEGIN");
+    const jobs = (
+      await db.query(
+        `SELECT * FROM private.google_calendar_cleanup WHERE completed_at IS NULL AND attempts<8 ${user ? "AND user_id=$1" : ""} ORDER BY created_at LIMIT 10 FOR UPDATE SKIP LOCKED`,
+        user ? [user] : [],
+      )
+    ).rows;
+    for (const j of jobs) {
+      try {
+        const existing = await googleRequest(
+          j.user_id,
+          "calendars/primary/events/" + encodeURIComponent(j.event_id),
+          {},
+          j.account_sub,
+        );
+        if (![404, 410].includes(existing.response.status)) {
+          if (!existing.response.ok) throw Error("Access unavailable");
+          const e = await existing.response.json();
+          if (
+            e.extendedProperties?.private?.zenvioOwnerId !== j.user_id ||
+            e.extendedProperties?.private?.zenvioBookingId !== j.booking_id
+          )
+            throw Error("Ownership mismatch");
+          const r = await googleRequest(
+            j.user_id,
+            "calendars/primary/events/" +
+              encodeURIComponent(j.event_id) +
+              "?sendUpdates=none",
+            { method: "DELETE" },
+            j.account_sub,
+          );
+          if (!r.response.ok && ![404, 410].includes(r.response.status))
+            throw Error("Delete failed");
+        }
+        await db.query(
+          "UPDATE private.google_calendar_cleanup SET completed_at=now(),last_error=NULL WHERE id=$1",
+          [j.id],
+        );
+      } catch {
+        await db.query(
+          "UPDATE private.google_calendar_cleanup SET attempts=attempts+1,last_error='Previous staff calendar copy needs cleanup. Reconnect the previous account and retry.' WHERE id=$1",
+          [j.id],
+        );
+      }
+    }
+    await db.query("COMMIT");
+  } catch (e) {
+    await db.query("ROLLBACK");
+    throw e;
+  } finally {
+    db.release();
+  }
 }

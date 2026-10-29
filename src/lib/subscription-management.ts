@@ -10,15 +10,27 @@ export async function saveSubscription(
 ) {
   const paid = ["active", "trialing"].includes(subscription.status);
   const end = subscription.items.data[0]?.current_period_end;
+  const item = subscription.items.data[0];
+  const mapping = (
+    await client.query(
+      "SELECT plan FROM private.subscription_prices WHERE stripe_price_id=$1",
+      [item?.price?.id],
+    )
+  ).rows[0];
+  const mappedPlan = mapping?.plan || subscription.metadata.plan;
+  const seats = item?.quantity || 1;
   await client.query(
-    "UPDATE private.subscriptions SET subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
-      paid && subscription.metadata.plan === "pro" ? "pro" : "free",
+      paid && ["pro", "business", "teams"].includes(mappedPlan)
+        ? mappedPlan
+        : "free",
       subscription.status,
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
+      seats,
     ],
   );
 }

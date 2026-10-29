@@ -60,6 +60,11 @@ export async function POST(request: NextRequest) {
         "Paid checkout is not available yet. No payment has been taken.",
         503,
       );
+    if (input.action === "checkout")
+      throw new ApiError(
+        "Review a plan and billing period using Plan & billing before enrolling.",
+        409,
+      );
     const stripe = await stripeClient();
     if (!["portal", "checkout"].includes(String(input.action)))
       throw new ApiError("Invalid billing action.");

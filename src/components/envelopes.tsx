@@ -28,6 +28,20 @@ export function Envelopes({
   legacy?: boolean;
   onLegacy: () => void;
 }) {
+  const [templateChoices, setTemplateChoices] = useState<
+      { id: string; name: string }[]
+    >([]),
+    [templateTarget, setTemplateTarget] = useState("");
+  useEffect(() => {
+    fetch("/api/pdf-templates")
+      .then((r) => r.json())
+      .then((d) =>
+        setTemplateChoices((d.templates || []).filter((t: any) => !t.archived)),
+      )
+      .catch(() => {});
+  }, []);
+  const [emailDelivery, setEmailDelivery] = useState(false),
+    [reminderDays, setReminderDays] = useState("3,7");
   const [items, setItems] = useState<Envelope[]>([]),
     [detail, setDetail] = useState<Detail | null>(null),
     [bytes, setBytes] = useState<Uint8Array | null>(null),
@@ -88,6 +102,8 @@ export function Envelopes({
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));
+    const id = new URLSearchParams(location.search).get("envelope");
+    if (id) void open(id);
   }, []);
   async function action(action: string) {
     if (!detail || busy) return;
@@ -106,11 +122,23 @@ export function Envelopes({
     setBusy(true);
     setError("");
     try {
-      const d = await api({ action, id: detail.envelope.id, fields });
+      const d = await api({
+        action,
+        id: detail.envelope.id,
+        fields,
+        email_delivery: emailDelivery,
+        reminder_days: reminderDays
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .map(Number),
+      });
       setLinks(d.links || []);
       setNotice(
         action === "send"
-          ? "Ready to share. Copy each recipient’s private link below; no email was sent."
+          ? emailDelivery
+            ? "Signing invitations queued. You can also copy the private links below."
+            : "Ready to share. Copy each recipient’s private link below; no email was sent."
           : action === "save"
             ? "Draft saved."
             : "Document voided.",
@@ -371,6 +399,54 @@ export function Envelopes({
                 >
                   Back to documents
                 </button>
+                <button
+                  className="billing-secondary"
+                  onClick={async () => {
+                    const name = prompt("Template name", detail.envelope.title);
+                    if (!name) return;
+                    const roles = detail.recipients.map(
+                      (r, i) =>
+                        prompt(
+                          "Role for recipient " + (i + 1),
+                          "Recipient " + (i + 1),
+                        ) || "Recipient " + (i + 1),
+                    );
+                    const templateId = templateTarget;
+                    const r = await fetch("/api/pdf-templates", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        action: "save_from_envelope",
+                        envelope_id: detail.envelope.id,
+                        name,
+                        roles,
+                        ...(templateId ? { id: templateId } : {}),
+                      }),
+                    });
+                    const d = await r.json();
+                    if (!r.ok) setError(d.error);
+                    else
+                      setNotice(
+                        "Template saved. Open PDF templates to use it.",
+                      );
+                  }}
+                >
+                  Save as template / new version
+                </button>
+                <label>
+                  Template destination
+                  <select
+                    value={templateTarget}
+                    onChange={(e) => setTemplateTarget(e.target.value)}
+                  >
+                    <option value="">Create a new template</option>
+                    {templateChoices.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        New version of {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <a
                   className="button"
                   href={
@@ -537,6 +613,28 @@ export function Envelopes({
                     >
                       Save draft
                     </button>
+                    <label className="document-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={emailDelivery}
+                        onChange={(e) => setEmailDelivery(e.target.checked)}
+                      />{" "}
+                      Email invitations and unsigned reminders
+                    </label>
+                    {emailDelivery && (
+                      <label>
+                        Remind after days · comma separated
+                        <input
+                          value={reminderDays}
+                          onChange={(e) => setReminderDays(e.target.value)}
+                          placeholder="3,7"
+                        />
+                        <small>
+                          Up to three reminders, days 1–13. Leave empty for no
+                          reminders.
+                        </small>
+                      </label>
+                    )}
                     <button disabled={busy} onClick={() => action("send")}>
                       3. Create signing links
                     </button>
@@ -685,6 +783,42 @@ export function Envelopes({
               />
             </div>
             <section className="envelope-card">
+              <h3>Delivery & reminders</h3>
+              {detail.recipients.map((r) => (
+                <div key={r.id}>
+                  <span>
+                    {r.name} · {r.status}
+                  </span>
+                  <button
+                    disabled={
+                      busy ||
+                      r.status === "signed" ||
+                      detail.envelope.status !== "sent"
+                    }
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await api({
+                          action: "resend",
+                          id: detail.envelope.id,
+                          recipient_id: r.id,
+                        });
+                        setNotice("Invitation queued for resend.");
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Resend invitation
+                  </button>
+                </div>
+              ))}
+              <p>
+                Review delivery acceptance and retries in Reminders & workflows.
+                Provider acceptance is not a guarantee of inbox delivery.
+              </p>
               <h3>Activity trail</h3>
               {detail.events.map((e, i) => (
                 <div className="envelope-event" key={i}>
@@ -796,7 +930,8 @@ export function Envelopes({
         <p className="document-method-note">
           Native Zenvio signing uses private links and explicit consent. Email
           ownership and signer identity are not independently verified. Links
-          are shared manually; automatic email delivery is not enabled.
+          may be shared privately or emailed when the sender enables delivery.
+          Email requires a configured provider.
         </p>
       </main>
     </div>

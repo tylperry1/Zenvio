@@ -9,6 +9,7 @@ export type Profile = {
   accent_color?: string;
 };
 export type EventType = {
+  intake_questions?: import("./intake").Question[];
   id: string;
   user_id: string;
   title: string;
@@ -59,6 +60,13 @@ export type WorkspaceData = {
   contacts: Contact[];
 };
 export type PublicEvent = {
+  payment?: {
+    payment_mode: string;
+    price_cents: number;
+    deposit_cents: number;
+    refund_policy: string;
+  };
+  questions?: import("./intake").Question[];
   host: string;
   host_slug: string;
   timezone: string;

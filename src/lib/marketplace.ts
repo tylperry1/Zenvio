@@ -1,3 +1,4 @@
+import { resolvePersonalization } from "./personalization";
 import type { PoolClient } from "pg";
 import type Stripe from "stripe";
 import { getPool } from "./db";
@@ -5,7 +6,7 @@ import { ApiError, uuid, integer, string } from "./server";
 import { stripeClient } from "./billing";
 import { integrationValue } from "./platform-settings";
 export const productColumns =
-  "id,sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,lead_time,(image IS NOT NULL) AS has_image,updated_at,revision,is_demo";
+  "id,sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,lead_time,(image IS NOT NULL) AS has_image,updated_at,revision,is_demo,personalization_options,artwork_allowed";
 export function cartLines(input: unknown) {
   if (!Array.isArray(input) || !input.length || input.length > 20)
     throw new ApiError("Choose between 1 and 20 products.");
@@ -109,7 +110,11 @@ export async function createMarketCheckout(
       throw new ApiError("One or more products are unavailable.", 409);
     for (const line of lines) {
       const p = products.find((p) => p.id === line.productId)!;
-      if (p.is_demo) throw new ApiError("Demo products are for preview only and cannot be purchased.", 409);
+      if (p.is_demo)
+        throw new ApiError(
+          "Demo products are for preview only and cannot be purchased.",
+          409,
+        );
       if (
         p.status !== "active" ||
         p.supplier_active === false ||
@@ -120,6 +125,11 @@ export async function createMarketCheckout(
           `${p.title} is unavailable in that quantity. Refresh the catalog and check the minimum quantity.`,
           409,
         );
+      const raw = (input.lines as any[]).find((x) => x.productId === p.id);
+      const resolved = await resolvePersonalization(client, p, user.id, raw);
+      (p as any).personalization = resolved.snapshot;
+      (p as any).artwork_id = resolved.artwork_id;
+      (p as any).price_cents += resolved.extra;
       subtotal += p.price_cents * line.quantity;
       shipping += p.shipping_cents * line.quantity;
     }
@@ -157,6 +167,15 @@ export async function createMarketCheckout(
           p.supplier_sku,
           p.fulfillment,
           p.stock !== null,
+        ],
+      );
+      await client.query(
+        "UPDATE private.marketplace_order_items SET personalization=$3,artwork_id=$4 WHERE order_id=$1 AND product_id=$2",
+        [
+          orderId,
+          p.id,
+          JSON.stringify((p as any).personalization),
+          (p as any).artwork_id,
         ],
       );
       if (p.stock !== null)
@@ -354,7 +373,7 @@ export async function marketOrderDetail(orderId: string, userId?: string) {
   );
   if (!rows[0]) throw new ApiError("Order not found.", 404);
   const { rows: items } = await getPool().query(
-    "SELECT id,product_id,title,sku,quantity,price_cents" +
+    "SELECT id,product_id,title,sku,quantity,price_cents,personalization,artwork_id" +
       (!userId ? ",cost_cents,supplier_id,supplier_sku,fulfillment" : "") +
       " FROM private.marketplace_order_items WHERE order_id=$1",
     [orderId],

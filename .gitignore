@@ -9,3 +9,5 @@ coverage/
 /public/pdf.worker.min.mjs
 
 /public/pdf-assets/
+
+test-results/

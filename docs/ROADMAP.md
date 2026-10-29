@@ -1,53 +1,47 @@
-# Zenvio roadmap and completion synopsis
+# Zenvio roadmap and release synopsis
 
-Updated October 27, 2026. This document distinguishes implemented product behavior from configuration, verification, and planned work.
+Upgrade release prepared October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
 
-## Implemented
+## Implemented product features
 
-| Area | Completed behavior |
+| Area | Release behavior |
 | --- | --- |
-| Brand and landing page | Approved Clear & Connected Zenvio identity, cobalt/midnight palette, SVG logos, responsive landing page, interactive preview, pricing, FAQs, and booking examples. |
-| Accounts and database | Dedicated Neon Postgres, Better Auth signup/sign-in/sign-out, password reset email integration, secure sessions, private owner setup, server-checked master admin access, and isolated user data. Production uses gozenvio.com consistently for navigation, authentication, and callbacks. |
-| Scheduling | Appointment types with durations, buffers, meeting locations, weekly availability, timezones/DST handling, public booking pages, transactional conflict protection, cancellation links, and calendar downloads. Types can be safely deleted without erasing appointment history. |
-| Booking profiles | Profile photo upload and removal, short bio, headline, business name, accent color, public host profile with appointment type selection, preview, and copy-link actions. Images are validated and re-encoded. |
-| Detailed booking forms | Guest name/email plus optional phone, company, meeting purpose, and notes; timezone-aware time selection and retained form entries. |
-| Manual appointments | Bookings → Create appointment. Select an active type, an available date/time, an existing contact or new client, and optional meeting details. Uses the same two-hour minimum notice, 90-day window, availability, buffers, conflict protection, email queue, and calendar jobs as public bookings. Arbitrary-time overrides and custom-duration appointments are not included. |
-| Contacts | Contact search, details, notes, appointment history, and CSV export. Manual appointments can prefill a selected contact's name and email. |
-| Master admin | Platform overview, accounts and details, activity/audit, booking-link pause/resume, exports, user management, subscription controls, integration credentials, pricing, actual database health and email queue status. Persistent return-to-admin access from the user dashboard. |
-| Admin user editing | Edit member name, email, and timezone with a reason. Email changes clear verification and revoke sessions; verification delivery is attempted when account mail is configured. Master admin accounts and self-editing through admin controls are protected. |
-| Admin deletion | Typed-email confirmation and reason. Eligible accounts can be permanently deleted. Deletion is blocked for upcoming confirmed appointments, pending calendar jobs, and retained billing, marketplace order, or document-signing records. This is deliberately not a blanket purge of financial or agreement history. |
-| Professional UI | Shared admin sidebar, focused operations pages, comparable pricing cards, clear rate inputs, annual savings, grouped settings links, padded calendar connection card, compact photo control, responsive profile form, and improved shared cards and forms. |
-| Email integration | Resend credential/sender setup, password reset and account email support, transactional booking confirmation/cancellation outbox, retries, delivery status, and admin test/retry controls. Credentials/sender domain configuration are still required for delivery. |
-| Subscription management | User plan/billing page, customer-scoped invoices, Stripe portal, cancellation/resume, master-admin subscription search/filter/details, reasoned/audited changes, signed webhooks and local reconciliation. Paid self-service enrollment remains gated pending complete entitlements and final plan setup. |
-| Pricing | Approved defaults: Free $0; Pro $5/month or $48/year; Business $12/month or $120/year; Teams $9/host/month or $84/host/year, three-host minimum. Admin can change displayed/new-checkout rates; existing Stripe subscriptions retain their prices. |
-| Google calendars | OAuth/PKCE and encrypted tokens, up to five connected Google accounts per host, each account's primary calendar, independent conflict-check and appointment-copy preferences, combined busy-time filtering, separate event mappings per account, account-specific disconnect, retries, and daily retry task. Reconnecting one identity preserves the other accounts. |
-| Other calendar clients | Private one-way subscription feeds for Google Calendar, Outlook, and Apple Calendar, with rotation/revocation. Feeds do not check external conflicts. |
-| Internal marketplace | Native Postgres catalog, categories, search, cart, server-authoritative pricing, inventory reservation, Stripe card checkout preparation, own order history, admin catalog/photos/suppliers, payment webhooks, order fulfillment statuses, tracking, cancellation/expiration handling, refund controls and records. No Shopify or external store platform. |
-| Demo marketplace | Eight clearly labeled sample products in six categories: Business cards, Print marketing, Signs & banners, Branded apparel, Promotional gifts, and Branding kits. Illustrative mockups/sample prices, no claimed supplier inventory, and server-enforced purchase blocking. Admin can edit or archive sample listings; samples remain non-purchasable. |
-| Supplier management | Internal wholesale/dropship/print-on-demand supplier records, contact details, fulfillment terms, lead times, costs, supplier SKUs, and private notes. Orders are coordinated manually; automatic supplier API ordering/catalog synchronization is not implemented. |
-| Text agreement signing | Documents & signatures navigation, text agreements up to 9,000 characters, reusable text templates, optional appointment link, one recipient, private signing links, review screen, typed name and explicit consent, document/receipt hashes, timestamps, view/sign/void activity, expiry for unsigned links, signed text downloads, and signer Print / save PDF. Signed text is not editable through the app. |
+| Foundation | Existing cobalt/midnight branding, responsive landing page, dedicated Neon Postgres, Better Auth, account isolation, canonical gozenvio.com URLs and master-admin controls retained. |
+| Scheduling and rescheduling | Public booking profiles, manual appointments, weekly availability/timezones, buffers, notice/window checks, secure guest management links, host cancellation/rescheduling policies, same-ID rescheduling and activity history. |
+| Reminders and delivery | Encrypted database-backed delivery jobs, configurable appointment and unsigned-document reminders, stale/cancelled-job guards, persistent attempt timestamps, provider idempotency, bounded retries and explicit uncertain-delivery review. Old booking notifications bridge into the same queue. |
+| Documents | Existing PDF envelopes and text agreements, recipient review, explicit email delivery, manual resend, completion notifications, private-link sharing, per-recipient hashed access tokens, encrypted retry-link retention, signing audit history and completed downloads. No independent identity verification or full DocuSign-parity claim. |
+| PDF templates | Named/searchable templates, original-PDF previews, recipient roles, signature/initial/date/text fields, required settings, duplication, archival and immutable versions. Drafts can be prepared from client records and linked to appointments. |
+| Internal calendar | Day, week, month and agenda views; timezone/source/type/status/workspace/staff controls; quick manual booking; protected rescheduling/cancellation. External events are read-only, free/busy-only access displays Busy, and exported Zenvio event copies are excluded when readable event data is available. |
+| Client records | Contact details/notes, appointments and intake snapshots, PDF/text documents and recipient progress, linked payments/refunds, tasks and a chronological activity/delivery timeline. Existing document links require explicit recipient review; unrelated contacts are not merged by name. |
+| Intake and workflows | Appointment-specific validated questions and historical answer snapshots. Explicitly enabled booking confirmation/agreement preparation or sending, pre-appointment reminders, follow-up email, and PDF/text completion host notices/tasks. Durable jobs, deduplication, supported trigger/action validation and execution history. |
+| Teams | Organizations, owner/admin/staff roles, email-bound hashed invitation acceptance, personal availability/calendar ownership, shared booking pages/types, least-recently-assigned round robin, transactional assignment and guarded reassignment/removal. Existing personal booking URLs remain. |
+| Native marketplace | Existing categories/products/demo labels and purchase blocking, validated product options and artwork, illustrative previews, immutable order snapshots, supplier SKU mapping, real operator-entered manual fulfillment records, tracking and exception history. No Shopify dependency. |
+| Appointment payments | Stripe Connect Express onboarding, capability checks, direct-charge Checkout, free/full/deposit policies, server amounts, expiring holds, signed/idempotent reconciliation, separate financial records, refund controls and audit history. Paid slot conflicts require explicit host review; disconnecting Stripe does not cancel or refund appointments. |
+| Subscriptions | Approved prices retained; central per-account/per-host limits, shared Teams billing-workspace budgets, usage meters, recurring monthly/annual price mappings, minimum seats, signed webhook reconciliation, existing-price preservation and audited expiring admin overrides. |
+| Administration | Existing user editing/deletion protections, integration vault, pricing and health pages; new entitlement and native personalization/fulfillment controls. Retained financial/document/organization histories block destructive account deletion. |
 
-| PDF signature envelopes | PDF uploads up to 3 MB / 30 pages, drafts, up to ten parallel recipients, click-to-place and draggable assigned signature/initial/date/text fields, required responses, per-recipient private links, decline/void, status/search/progress, view/sign activity, locked sent documents, agreement/receipt hashes, completed PDF with signature overlays and signing-record page. Existing text agreements remain available. |
+## Configuration and verification gates
 
-## Activation and scope limits
+| Capability | Release state | Required owner action |
+| --- | --- | --- |
+| Precise reminders/workflow timing | Durable queue implemented; minute-level scheduler unconfigured | Configure authenticated `/api/jobs` execution every five minutes, verify it, then set JOB_SCHEDULER_CONFIGURED=true. The existing daily cron is a fallback. |
+| Signing email delivery | Implemented; actual provider delivery unverified by this release | Verify Resend sender/key and review an authorized test invitation. Provider acceptance and available delivery events are reported distinctly. |
+| Google sync and overlays | Existing integration extended; real account verification outstanding | Enable Calendar API in the OAuth client’s project, complete required Google verification, then verify connection/export/conflict behavior with an owner-controlled account. |
+| Appointment charges | Safely gated | Finish Connect platform/test-mode review, webhook setup and host capability checks before enabling APPOINTMENT_PAYMENTS_ENABLED. Default platform commission is zero. |
+| Paid SaaS enrollment | Safely gated | Map all recurring Stripe prices and verify subscription/seat/payment-state behavior before enabling BILLING_CHECKOUT_ENABLED. |
+| Automated supplier submission | Unconfigured | Contract a real provider and implement/verify its adapter. Complete manual fulfillment remains available; no confirmations, stock or tracking are fabricated. |
+| Demo products | Demonstration only | Keep purchase blocking until real supplier/product data and commercial terms replace the demo catalog. |
 
-- **Google production verification:** branding/domain verification was completed by the owner; sensitive calendar permission review still needs its scope justifications/demo video and Google's approval. Publishing status is separate from approval. No real Google account or provider approval is fabricated by tests.
-- **Google scope:** primary calendars from multiple accounts are supported. Secondary/shared calendar selection within an account, Outlook OAuth, and Google-originated appointment rescheduling/cancellation remain outstanding. Google changes are not atomically reserved with Postgres; simultaneous external changes can require review. Disabling copies/disconnecting keeps existing Google events.
-- **Document signing:** PDF envelopes and legacy text agreements are native Zenvio features. Links are shared manually and displayed once. PDF recipients sign independently; sequential routing, drawn/uploaded signatures, automatic email invitations/reminders, OTP/email ownership checks, and independent identity verification remain outstanding. PDF signature names and field responses use Latin characters; uploaded PDF content is preserved. Private-link possession and a typed name are self-attestation, not a cryptographic identity certificate. Completed PDFs are shared with all recipients. Records are retained; this does not claim full DocuSign feature parity.
-- **Marketplace commerce:** demo products cannot be purchased. Real products, negotiated suppliers, shipping/tax setup, Stripe keys, the marketplace webhook secret, and an explicit checkout enablement are needed before live sales. No live purchase, refund, supplier contract, or fulfillment arrangement is implied by the demo catalog.
-- **Subscription launch:** existing subscription management is ready for configured Stripe customers, but paid enrollment is disabled until the approved plan entitlements, feature gates, and billing configuration are fully implemented. Business and Teams checkout are not fully enabled.
-- **Email:** Resend code is integrated; successful live delivery depends on a valid key, verified sender/domain, and deployment configuration. Retries can be inspected in admin.
+## Validation and compatibility
 
-## Next priorities
+The release includes 65 unit checks, a real-Postgres retained-record migration fixture, API ownership/signing/workflow/team integration tests, a concurrent booking test, typecheck, production build and Chromium desktop/mobile checks. Fixtures use disposable databases and fake addresses without provider credentials. No customer appointments, real invitations, charges or supplier orders are created by tests. The browser test also prepares a template draft and renders its PDF. Production smoke checks are read-only.
 
-1. Finish Google sensitive-scope verification and validate with real connected accounts.
-2. Add selection of secondary/shared calendars inside Google accounts, then Outlook OAuth.
-3. Expand document signing with verified recipient access, sequential routing, drawn signatures, email delivery/reminders, and richer reusable PDF templates.
-4. Finish plan entitlements and annual/seat billing, then enable paid enrollment deliberately.
-5. Add real marketplace products and supplier agreements; integrate supplier catalog, inventory, order placement, and return workflows.
-6. Add appointment reminders, custom booking questions, rescheduling, team scheduling and round-robin availability.
-7. Add signed-document retention/export administration and account deactivation/anonymization workflows for users with retained history.
+Migrations 017–031 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
 
-## Validation
+## Outstanding product work
 
-Unit checks cover authorization, origin enforcement, scheduling conflicts, native checkout validation, vault encryption, subscription ownership, user editing/deletion protections, manual appointment ownership, and signing hashes. Isolated Postgres integration exercises accounts, actual manual reservations and concurrency, admin edits/deletion, signature immutability/expiry/voiding and concurrent signing, and native marketplace inventory/payment reconciliation. Google tests use a real isolated database with substituted Google network responses. Browser checks cover desktop/mobile layouts and the agreement creation/signing flow. Test accounts, documents, purchases, and signatures belong only to isolated test environments.
+- Provider activation/verification listed above; these are not represented as live integrations.
+- Sequential signing, drawn/uploaded signature capture, independent recipient identity verification and advanced retention/export administration.
+- True bidirectional editing of external calendars and expanded provider/calendar selection beyond supported primary-calendar integration.
+- Contracted supplier catalog/inventory/submission/returns adapters and real marketplace catalog expansion.
+- Further workflow actions only after explicit implementation, authorization design and tests.

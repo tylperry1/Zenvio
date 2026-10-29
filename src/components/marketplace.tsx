@@ -1,10 +1,14 @@
 "use client";
+import { ProductPersonalizer } from "./product-personalizer";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { MarketProduct } from "@/lib/marketplace-types";
 import { money } from "@/lib/billing-types";
 import { Icon } from "./icons";
 type CartLine = {
+  options?: Record<string, string>;
+  artwork_id?: string;
+  instructions?: string;
   productId: string;
   quantity: number;
   title: string;
@@ -13,6 +17,7 @@ type CartLine = {
   minimum: number;
 };
 export function Marketplace() {
+  const [artwork, setArtwork] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<MarketProduct[]>([]),
     [total, setTotal] = useState(0),
     [categories, setCategories] = useState<string[]>([]),
@@ -155,8 +160,19 @@ export function Marketplace() {
                   <article className="market-product-card" key={p.id}>
                     <div className="market-product-image">
                       {p.is_demo ? (
-                        <div className={`demo-product-art demo-art-${p.category.toLowerCase().replaceAll(/[^a-z]+/g, "-")}`} aria-label="Illustrative product mockup">
-                          <span>ZENVIO</span><b>{p.category === "Branded apparel" ? "YOUR BRAND" : p.category === "Signs & banners" ? "LET’S CONNECT" : "Good things start here."}</b><small>YOUR BRAND HERE</small>
+                        <div
+                          className={`demo-product-art demo-art-${p.category.toLowerCase().replaceAll(/[^a-z]+/g, "-")}`}
+                          aria-label="Illustrative product mockup"
+                        >
+                          <span>ZENVIO</span>
+                          <b>
+                            {p.category === "Branded apparel"
+                              ? "YOUR BRAND"
+                              : p.category === "Signs & banners"
+                                ? "LET’S CONNECT"
+                                : "Good things start here."}
+                          </b>
+                          <small>YOUR BRAND HERE</small>
                         </div>
                       ) : p.has_image ? (
                         <img
@@ -171,90 +187,150 @@ export function Marketplace() {
                     </div>
                     <div className="market-product-content">
                       <h3>{p.title}</h3>
-                      {p.is_demo && <span className="market-demo-badge">Demo product · sample pricing</span>}
+                      {p.is_demo && (
+                        <span className="market-demo-badge">
+                          Demo product · sample pricing
+                        </span>
+                      )}
                       <p>{p.description}</p>
                       <b>{money(p.price_cents)}</b>
                       <small className="billing-cell-detail">
-                        {p.is_demo ? "Preview only · not available for purchase" : p.stock === null
-                          ? "Made to order"
-                          : p.stock > 0
-                            ? `${p.stock} available`
-                            : "Out of stock"}
+                        {p.is_demo
+                          ? "Preview only · not available for purchase"
+                          : p.stock === null
+                            ? "Made to order"
+                            : p.stock > 0
+                              ? `${p.stock} available`
+                              : "Out of stock"}
                         {p.lead_time
                           ? ` · Estimated production: ${p.lead_time}`
                           : ""}
                       </small>
-                      {!p.is_demo ? <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const qty = Number(
-                              new FormData(e.currentTarget).get("quantity"),
-                            ),
-                            existing = cart.find((l) => l.productId === p.id);
-                          if (cart.length >= 20 && !existing) {
-                            setError(
-                              "Your cart can hold up to 20 different products.",
+                      {!p.is_demo ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const form = new FormData(e.currentTarget);
+                            const options = Object.fromEntries(
+                              (p.personalization_options || []).map((o) => [
+                                o.key,
+                                String(form.get("option_" + o.key) || ""),
+                              ]),
                             );
-                            return;
-                          }
-                          if (
-                            (existing?.quantity || 0) + qty >
-                            Math.min(1000, p.stock ?? 1000)
-                          ) {
-                            setError(
-                              "That quantity is not currently available.",
+                            const personal = {
+                              options,
+                              artwork_id: artwork[p.id] || "",
+                              instructions: String(
+                                form.get("personalization_instructions") || "",
+                              ),
+                            };
+                            const extra = (
+                              p.personalization_options || []
+                            ).reduce(
+                              (sum, o) =>
+                                sum +
+                                (o.values.find(
+                                  (v) => v.value === options[o.key],
+                                )?.price_delta_cents || 0),
+                              0,
                             );
-                            return;
-                          }
-                          setCart((c) =>
-                            existing
-                              ? c.map((l) =>
-                                  l.productId === p.id
-                                    ? { ...l, quantity: l.quantity + qty }
-                                    : l,
-                                )
-                              : [
-                                  ...c,
-                                  {
-                                    productId: p.id,
-                                    title: p.title,
-                                    quantity: qty,
-                                    price: p.price_cents,
-                                    shipping: p.shipping_cents,
-                                    minimum: p.minimum_quantity,
-                                  },
-                                ],
-                          );
-                          setMessage(p.title + " added to your cart.");
-                        }}
-                      >
-                        <div className="market-add-row">
-                          <label>
-                            Quantity
-                            <input
-                              name="quantity"
-                              type="number"
-                              min={p.minimum_quantity}
-                              max={Math.min(p.stock ?? 1000, 1000)}
-                              defaultValue={p.minimum_quantity}
-                              required
-                            />
-                          </label>
-                          <button
-                            disabled={
-                              p.stock !== null && p.stock < p.minimum_quantity
+                            const qty = Number(
+                                new FormData(e.currentTarget).get("quantity"),
+                              ),
+                              existing = cart.find((l) => l.productId === p.id);
+                            if (
+                              existing &&
+                              (JSON.stringify(existing.options) !==
+                                JSON.stringify(personal.options) ||
+                                existing.artwork_id !== personal.artwork_id ||
+                                existing.instructions !== personal.instructions)
+                            ) {
+                              setError(
+                                "Remove the existing cart line before choosing a different personalization for this product.",
+                              );
+                              return;
                             }
-                          >
-                            Add to cart <Icon name="arrow" size={15} />
-                          </button>
+                            if (cart.length >= 20 && !existing) {
+                              setError(
+                                "Your cart can hold up to 20 different products.",
+                              );
+                              return;
+                            }
+                            if (
+                              (existing?.quantity || 0) + qty >
+                              Math.min(1000, p.stock ?? 1000)
+                            ) {
+                              setError(
+                                "That quantity is not currently available.",
+                              );
+                              return;
+                            }
+                            setCart((c) =>
+                              existing
+                                ? c.map((l) =>
+                                    l.productId === p.id
+                                      ? { ...l, quantity: l.quantity + qty }
+                                      : l,
+                                  )
+                                : [
+                                    ...c,
+                                    {
+                                      productId: p.id,
+                                      title: p.title,
+                                      quantity: qty,
+                                      ...personal,
+                                      price: p.price_cents + extra,
+                                      shipping: p.shipping_cents,
+                                      minimum: p.minimum_quantity,
+                                    },
+                                  ],
+                            );
+                            setMessage(p.title + " added to your cart.");
+                          }}
+                        >
+                          {!!(
+                            p.personalization_options?.length ||
+                            p.artwork_allowed
+                          ) && (
+                            <ProductPersonalizer
+                              product={p}
+                              onArtwork={(id) =>
+                                setArtwork({ ...artwork, [p.id]: id })
+                              }
+                            />
+                          )}
+                          <div className="market-add-row">
+                            <label>
+                              Quantity
+                              <input
+                                name="quantity"
+                                type="number"
+                                min={p.minimum_quantity}
+                                max={Math.min(p.stock ?? 1000, 1000)}
+                                defaultValue={p.minimum_quantity}
+                                required
+                              />
+                            </label>
+                            <button
+                              disabled={
+                                p.stock !== null && p.stock < p.minimum_quantity
+                              }
+                            >
+                              Add to cart <Icon name="arrow" size={15} />
+                            </button>
+                          </div>
+                          <small className="market-small">
+                            Minimum {p.minimum_quantity} ·{" "}
+                            {p.shipping_cents
+                              ? money(p.shipping_cents) + " shipping per unit"
+                              : "Free shipping"}
+                          </small>
+                        </form>
+                      ) : (
+                        <div className="market-demo-unavailable">
+                          Sample item · checkout disabled
                         </div>
-                        <small className="market-small">
-                          Minimum {p.minimum_quantity} ·{" "}
-                          {p.shipping_cents
-                            ? money(p.shipping_cents) + " shipping per unit"
-                            : "Free shipping"}
-                        </small>
-                      </form> : <div className="market-demo-unavailable">Sample item · checkout disabled</div>}
+                      )}
                     </div>
                   </article>
                 ))}
@@ -321,6 +397,9 @@ export function Marketplace() {
                           lines: cart.map((l) => ({
                             productId: l.productId,
                             quantity: l.quantity,
+                            options: l.options,
+                            artwork_id: l.artwork_id,
+                            instructions: l.instructions,
                           })),
                           businessName: f.get("businessName"),
                           instructions: f.get("instructions"),

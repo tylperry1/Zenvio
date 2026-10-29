@@ -1,13 +1,152 @@
-import {test,beforeEach} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import Module from 'node:module';import path from 'node:path';import ts from 'typescript';
-let queries=[],updates=[],status='active',customer='cus_owner',owner='owner',cancel=false;
-const subscription=()=>({id:'sub_owner',customer,metadata:{user_id:owner,plan:'pro'},status,cancel_at_period_end:cancel,items:{data:[{current_period_end:1900000000}]}});
-const query=async(sql,args)=>{queries.push({sql,args});return {rows:sql.startsWith('SELECT customer_id')?[{customer_id:'cus_owner',subscription_id:'sub_owner'}]:[]};};
-const stripe={subscriptions:{retrieve:async()=>subscription(),update:async(id,values)=>{updates.push({id,values});cancel=values.cancel_at_period_end;return subscription();}},invoices:{list:async input=>{assert.equal(input.customer,'cus_owner');return {has_more:false,data:[{id:'in_1',number:'INV-1',status:'paid',amount_paid:500,amount_due:0,currency:'usd',created:1,hosted_invoice_url:'https://invoice.stripe.com/test',customer:'cus_owner',metadata:{private:'must not return'}}]};}}};
-class ApiError extends Error{constructor(message,status){super(message);this.status=status;}}
-const filename=path.resolve('src/lib/subscription-management.ts'),mod=new Module(filename);mod.filename=filename;mod.paths=Module._nodeModulePaths(path.dirname(filename));const standard=mod.require.bind(mod);mod.require=id=>id==='./db'?{getPool:()=>({query,connect:async()=>({query,release(){}})})}:id==='./billing'?{stripeClient:async()=>stripe}:id==='./server'?{ApiError}:standard(id);mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,filename);const {changeSubscription,billingDetails}=mod.exports;
-beforeEach(()=>{queries=[];updates=[];status='active';customer='cus_owner';owner='owner';cancel=false;});
-test('cancellation preserves the current paid plan, persists renewal status, and records the actor and reason',async()=>{await changeSubscription('owner',true,'admin','Customer request');assert.equal(updates[0].values.cancel_at_period_end,true);const saved=queries.find(q=>q.sql.startsWith('UPDATE private.subscriptions'));assert.equal(saved.args[1],'pro');assert.equal(saved.args[4],true);assert.equal(saved.args[5],'owner');const audit=queries.find(q=>q.sql.startsWith('INSERT INTO private.operation_log'));assert.equal(audit.args[0],'admin');assert(JSON.parse(audit.args[2]).reason==='Customer request');});
-test('resume switches off scheduled cancellation',async()=>{cancel=true;await changeSubscription('owner',false,'owner','User requested');assert.equal(updates[0].values.cancel_at_period_end,false);});
-test('another Stripe customer or user binding cannot be changed',async()=>{customer='cus_other';await assert.rejects(changeSubscription('owner',true,'admin','Reason'));assert.equal(updates.length,0);customer='cus_owner';owner='another-user';await assert.rejects(changeSubscription('owner',true,'admin','Reason'));assert.equal(updates.length,0);});
-test('an already cancelled subscription cannot be resumed or cancelled again',async()=>{status='canceled';await assert.rejects(changeSubscription('owner',false,'owner','Reason'));assert.equal(updates.length,0);assert(queries.some(q=>q.sql==='ROLLBACK'));});
-test('invoice reads are scoped to the account customer and expose only receipt fields',async()=>{const data=await billingDetails('owner');assert.equal(data.invoices.length,1);assert(!JSON.stringify(data).includes('must not return'));assert(!('customer' in data.invoices[0]));});
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import Module from "node:module";
+import path from "node:path";
+import ts from "typescript";
+let queries = [],
+  updates = [],
+  status = "active",
+  customer = "cus_owner",
+  owner = "owner",
+  cancel = false;
+const subscription = () => ({
+  id: "sub_owner",
+  customer,
+  metadata: { user_id: owner, plan: "pro" },
+  status,
+  cancel_at_period_end: cancel,
+  items: {
+    data: [
+      {
+        current_period_end: 1900000000,
+        price: { id: "price_pro" },
+        quantity: 1,
+      },
+    ],
+  },
+});
+const query = async (sql, args) => {
+  queries.push({ sql, args });
+  return {
+    rows: sql.startsWith("SELECT customer_id")
+      ? [{ customer_id: "cus_owner", subscription_id: "sub_owner" }]
+      : [],
+  };
+};
+const stripe = {
+  subscriptions: {
+    retrieve: async () => subscription(),
+    update: async (id, values) => {
+      updates.push({ id, values });
+      cancel = values.cancel_at_period_end;
+      return subscription();
+    },
+  },
+  invoices: {
+    list: async (input) => {
+      assert.equal(input.customer, "cus_owner");
+      return {
+        has_more: false,
+        data: [
+          {
+            id: "in_1",
+            number: "INV-1",
+            status: "paid",
+            amount_paid: 500,
+            amount_due: 0,
+            currency: "usd",
+            created: 1,
+            hosted_invoice_url: "https://invoice.stripe.com/test",
+            customer: "cus_owner",
+            metadata: { private: "must not return" },
+          },
+        ],
+      };
+    },
+  },
+};
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+const filename = path.resolve("src/lib/subscription-management.ts"),
+  mod = new Module(filename);
+mod.filename = filename;
+mod.paths = Module._nodeModulePaths(path.dirname(filename));
+const standard = mod.require.bind(mod);
+mod.require = (id) =>
+  id === "./db"
+    ? {
+        getPool: () => ({
+          query,
+          connect: async () => ({ query, release() {} }),
+        }),
+      }
+    : id === "./billing"
+      ? { stripeClient: async () => stripe }
+      : id === "./server"
+        ? { ApiError }
+        : standard(id);
+mod._compile(
+  ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText,
+  filename,
+);
+const { changeSubscription, billingDetails } = mod.exports;
+beforeEach(() => {
+  queries = [];
+  updates = [];
+  status = "active";
+  customer = "cus_owner";
+  owner = "owner";
+  cancel = false;
+});
+test("cancellation preserves the current paid plan, persists renewal status, and records the actor and reason", async () => {
+  await changeSubscription("owner", true, "admin", "Customer request");
+  assert.equal(updates[0].values.cancel_at_period_end, true);
+  const saved = queries.find((q) =>
+    q.sql.startsWith("UPDATE private.subscriptions"),
+  );
+  assert.equal(saved.args[1], "pro");
+  assert.equal(saved.args[4], true);
+  assert.equal(saved.args[5], "owner");
+  const audit = queries.find((q) =>
+    q.sql.startsWith("INSERT INTO private.operation_log"),
+  );
+  assert.equal(audit.args[0], "admin");
+  assert(JSON.parse(audit.args[2]).reason === "Customer request");
+});
+test("resume switches off scheduled cancellation", async () => {
+  cancel = true;
+  await changeSubscription("owner", false, "owner", "User requested");
+  assert.equal(updates[0].values.cancel_at_period_end, false);
+});
+test("another Stripe customer or user binding cannot be changed", async () => {
+  customer = "cus_other";
+  await assert.rejects(changeSubscription("owner", true, "admin", "Reason"));
+  assert.equal(updates.length, 0);
+  customer = "cus_owner";
+  owner = "another-user";
+  await assert.rejects(changeSubscription("owner", true, "admin", "Reason"));
+  assert.equal(updates.length, 0);
+});
+test("an already cancelled subscription cannot be resumed or cancelled again", async () => {
+  status = "canceled";
+  await assert.rejects(changeSubscription("owner", false, "owner", "Reason"));
+  assert.equal(updates.length, 0);
+  assert(queries.some((q) => q.sql === "ROLLBACK"));
+});
+test("invoice reads are scoped to the account customer and expose only receipt fields", async () => {
+  const data = await billingDetails("owner");
+  assert.equal(data.invoices.length, 1);
+  assert(!JSON.stringify(data).includes("must not return"));
+  assert(!("customer" in data.invoices[0]));
+});

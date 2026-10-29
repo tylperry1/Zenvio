@@ -1,4 +1,6 @@
 "use client";
+import { UsagePanel } from "./usage-panel";
+import { Enrollment } from "./enrollment";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Modal } from "./modal";
@@ -270,7 +272,11 @@ export function Billing() {
                 ? `Your paid subscription will end on ${billingDate(sub?.current_period_end)}. This schedules cancellation at the end of the billing period and does not issue a refund.`
                 : "Your existing subscription will renew on its current schedule and price."}
             </p>
-            {error && <p role="alert" className="billing-error">{error}</p>}
+            {error && (
+              <p role="alert" className="billing-error">
+                {error}
+              </p>
+            )}
             <div className="billing-actions">
               <button disabled={busy} onClick={() => void action(confirm)}>
                 {busy
@@ -289,6 +295,8 @@ export function Billing() {
             </div>
           </Modal>
         )}
+        <UsagePanel />
+        <Enrollment />
       </main>
     </div>
   );
