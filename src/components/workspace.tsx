@@ -140,6 +140,10 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     setSearch("");
     setSelectedDay(null);
   }, [view]);
+  useEffect(() => {
+    // Contacts live on the Clients page in a real workspace.
+    if (view === "Contacts" && !demo) router.replace("/app/clients");
+  }, [view, demo, router]);
   function navigate(next: View) {
     const slug = viewSlugs[next];
     router.push((demo ? "/demo" : "/app") + (slug ? `?view=${slug}` : ""));
@@ -455,7 +459,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 ? `${greeting(now, data.profile.timezone)}, ${data.profile.name.split(" ")[0]}`
                 : view === "Event types"
                   ? "Booking links"
-                  : view
+                  : view === "Contacts"
+                    ? "Clients"
+                    : view
             }
             description={
               view === "Overview"

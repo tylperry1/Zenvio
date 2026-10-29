@@ -3,8 +3,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
+import { Icon } from "./icons";
+import { Modal } from "./modal";
+const shortDate = (value: string) =>
+  new Date(value).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 export function ClientCenter() {
   const [clients, setClients] = useState<any[]>([]),
+    [total, setTotal] = useState(0),
+    [loaded, setLoaded] = useState(false),
+    [adding, setAdding] = useState(false),
     [detail, setDetail] = useState<any>(null),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
@@ -19,6 +26,29 @@ export function ClientCenter() {
       d = await r.json();
     if (!r.ok) throw Error(d.error);
     setClients(d.contacts);
+    setTotal(d.total);
+    setLoaded(true);
+  }
+  async function add(form: HTMLFormElement) {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/workspace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "contact", ...Object.fromEntries(new FormData(form)) }),
+        }),
+        d = await r.json();
+      if (!r.ok) throw Error(d.error);
+      setAdding(false);
+      setMessage("Client added.");
+      setPage(0);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
   async function open(id: string) {
     const r = await fetch("/api/clients?id=" + id),
@@ -29,6 +59,10 @@ export function ClientCenter() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [query, page]);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("client");
+    if (id) open(id).catch((e) => setError(e.message));
+  }, []);
   async function save(v: any) {
     try {
       const r = await fetch("/api/clients", {
@@ -76,8 +110,26 @@ export function ClientCenter() {
     : [];
   return (
     <SuiteShell
-      title="Client records"
-      description="Appointments, agreements, payments, notes, and communication in one place."
+      title={detail ? detail.contact.name : "Clients"}
+      description={
+        detail
+          ? [detail.contact.email, detail.contact.company].filter(Boolean).join(" · ")
+          : "Everyone who has booked with you or that you’ve added, with their appointments, documents, payments, and notes."
+      }
+      actions={
+        detail ? (
+          <button className="billing-secondary" onClick={() => setDetail(null)}>
+            ← All clients
+          </button>
+        ) : (
+          <>
+            <a className="billing-secondary" href="/api/clients?export=csv">
+              <Icon name="download" size={15} /> Export CSV
+            </a>
+            <button onClick={() => setAdding(true)}>+ Add client</button>
+          </>
+        )
+      }
     >
       {error && (
         <p role="alert" className="billing-error">
@@ -86,54 +138,103 @@ export function ClientCenter() {
       )}
       {message && <p role="status">{message}</p>}
       {!detail ? (
-        <section>
-          <label>
-            Find a client
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Name, email, or company"
-            />
-          </label>
-          {clients.map((c) => (
-            <button
-              className="suite-client"
-              key={c.id}
-              onClick={() => open(c.id).catch((e) => setError(e.message))}
-            >
-              <strong>{c.name}</strong>
+        <section className="client-list">
+          <div className="client-list-toolbar">
+            <label className="client-search">
+              <Icon name="search" size={16} />
+              <input
+                value={query}
+                aria-label="Search clients"
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search by name, email, or company"
+              />
+            </label>
+            <span>
+              {total} {total === 1 ? "client" : "clients"}
+            </span>
+          </div>
+          {clients.length ? (
+            <div className="client-table-wrap">
+              <table className="client-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Company</th>
+                    <th>Appointments</th>
+                    <th>Last appointment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((c) => (
+                    <tr
+                      key={c.id}
+                      tabIndex={0}
+                      onClick={() => open(c.id).catch((e) => setError(e.message))}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && open(c.id).catch((err) => setError(err.message))
+                      }
+                    >
+                      <td>
+                        <span className="client-name">
+                          <span className="client-avatar">
+                            {c.name
+                              .split(/\s+/)
+                              .map((w: string) => w[0])
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase()}
+                          </span>
+                          {c.name}
+                        </span>
+                      </td>
+                      <td>{c.email}</td>
+                      <td>{c.company || "—"}</td>
+                      <td>{c.appointments}</td>
+                      <td>{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            loaded && (
+              <div className="client-empty">
+                <Icon name="users" size={24} />
+                <h3>{query ? "No matching clients" : "No clients yet"}</h3>
+                <p>
+                  {query
+                    ? "Try another name, email, or company."
+                    : "Guests are added automatically when they book. You can also add someone yourself."}
+                </p>
+              </div>
+            )
+          )}
+          {total > 50 && (
+            <div className="client-pagination">
               <span>
-                {c.email} · {c.company}
+                Page {page + 1} of {Math.ceil(total / 50)}
               </span>
-            </button>
-          ))}
-          <button disabled={!page} onClick={() => setPage(page - 1)}>
-            Previous
-          </button>
-          <button
-            disabled={clients.length < 50}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </button>
+              <button className="billing-secondary" disabled={!page} onClick={() => setPage(page - 1)}>
+                Previous
+              </button>
+              <button
+                className="billing-secondary"
+                disabled={(page + 1) * 50 >= total}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </section>
       ) : (
         <>
-          <button className="billing-secondary" onClick={() => setDetail(null)}>
-            ← All clients
-          </button>
           <section>
-            <div className="envelope-heading">
-              <div>
-                <h2>{detail.contact.name}</h2>
-                <p>
-                  {detail.contact.email} · {detail.contact.company}
-                </p>
-              </div>
-              <div className="envelope-actions">
+            <div className="client-detail-actions">
                 <button
                   onClick={async () => {
                     const r = await fetch("/api/workspace");
@@ -148,7 +249,6 @@ export function ClientCenter() {
                   Prepare agreement
                 </Link>
                 <Link href="/app/payments">Payments</Link>
-              </div>
             </div>
             <details>
               <summary>Edit client & notes</summary>
@@ -340,6 +440,42 @@ export function ClientCenter() {
             ))}
           </section>
         </>
+      )}
+      {adding && (
+        <Modal title="Add a client" onClose={() => !busy && setAdding(false)}>
+          <form
+            className="stack-form client-add-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void add(e.currentTarget);
+            }}
+          >
+            <label>
+              Name
+              <input name="name" required maxLength={100} autoFocus />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Company <small>Optional</small>
+              <input name="company" maxLength={100} />
+            </label>
+            <label>
+              Notes <small>Optional</small>
+              <textarea name="notes" maxLength={2000} rows={3} />
+            </label>
+            <div className="link-prompt-actions">
+              <button type="button" className="button secondary small" onClick={() => setAdding(false)}>
+                Cancel
+              </button>
+              <button className="button primary small" disabled={busy}>
+                {busy ? "Adding…" : "Add client"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
       {appointment && (
         <CreateAppointment

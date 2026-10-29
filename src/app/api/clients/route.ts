@@ -16,24 +16,51 @@ export async function GET(req: NextRequest) {
     const { token } = await session(),
       id = req.nextUrl.searchParams.get("id");
     if (!id) {
+      const params = req.nextUrl.searchParams,
+        search =
+          "%" + string(params.get("q") || "", "search", 100, 0).replace(/[\\%_]/g, "\\$&") + "%";
+      if (params.get("export") === "csv") {
+        const r = await getPool().query(
+          `SELECT c.name,c.email,c.company,c.notes,c.created_at,count(b.id) FILTER (WHERE b.status='confirmed')::int appointments
+             FROM public.contacts c LEFT JOIN public.bookings b ON b.contact_id=c.id AND b.user_id=c.user_id
+            WHERE c.user_id=$1 GROUP BY c.id ORDER BY c.name LIMIT 50000`,
+          [token],
+        );
+        // Prefix cells that spreadsheet apps would evaluate as formulas.
+        const cell = (v: unknown) => {
+          let text = v instanceof Date ? v.toISOString() : String(v ?? "");
+          if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+          return '"' + text.replaceAll('"', '""') + '"';
+        };
+        const csv = [
+          ["Name", "Email", "Company", "Notes", "Added", "Appointments"],
+          ...r.rows.map((c) => [c.name, c.email, c.company, c.notes, c.created_at, c.appointments]),
+        ]
+          .map((row) => row.map(cell).join(","))
+          .join("\r\n");
+        return new Response(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="zenvio-clients.csv"',
+            "Cache-Control": "no-store",
+          },
+        });
+      }
       const r = await getPool().query(
-        "SELECT * FROM public.contacts WHERE user_id=$1 AND (name ILIKE $2 OR email ILIKE $2 OR company ILIKE $2) ORDER BY created_at DESC LIMIT 50 OFFSET $3",
+        `SELECT c.*,count(b.id) FILTER (WHERE b.status='confirmed')::int appointments,
+                max(b.starts_at) FILTER (WHERE b.status='confirmed') last_appointment,
+                count(*) OVER()::int total
+           FROM public.contacts c LEFT JOIN public.bookings b ON b.contact_id=c.id AND b.user_id=c.user_id
+          WHERE c.user_id=$1 AND (c.name ILIKE $2 OR c.email ILIKE $2 OR c.company ILIKE $2)
+          GROUP BY c.id ORDER BY c.created_at DESC LIMIT 50 OFFSET $3`,
         [
           token,
-          "%" +
-            string(req.nextUrl.searchParams.get("q") || "", "search", 100, 0) +
-            "%",
-          Math.max(
-            0,
-            Math.min(
-              10000,
-              Number(req.nextUrl.searchParams.get("page") || 0) || 0,
-            ),
-          ) * 50,
+          search,
+          Math.max(0, Math.min(10000, Number(params.get("page") || 0) || 0)) * 50,
         ],
       );
       return Response.json(
-        { contacts: r.rows },
+        { contacts: r.rows, total: r.rows[0]?.total ?? 0, pageSize: 50 },
         { headers: { "Cache-Control": "no-store" } },
       );
     }

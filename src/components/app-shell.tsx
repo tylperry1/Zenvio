@@ -12,6 +12,8 @@ type NavItem = {
   href: string;
   // Workspace views live on one route and are addressed by ?view=.
   view?: string;
+  // The demo has no client records API, so it maps to its own view.
+  demoView?: string;
   demo?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
@@ -35,8 +37,7 @@ const groups: NavGroup[] = [
   {
     label: "Clients",
     items: [
-      { id: "contacts", label: "Contacts", icon: "users", href: "/app?view=contacts", view: "contacts", demo: true },
-      { id: "clients", label: "Client records", icon: "contact", href: "/app/clients" },
+      { id: "clients", label: "Clients", icon: "users", href: "/app/clients", demoView: "contacts", demo: true },
       { id: "documents", label: "Documents", icon: "file", href: "/app/documents" },
       { id: "templates", label: "PDF templates", icon: "layers", href: "/app/templates" },
     ],
@@ -62,13 +63,17 @@ const groups: NavGroup[] = [
 
 function hrefFor(item: NavItem, demo: boolean) {
   if (!demo) return item.href;
-  return item.view ? `/demo?view=${item.view}` : "/demo";
+  const view = item.view ?? item.demoView;
+  return view ? `/demo?view=${view}` : "/demo";
 }
 
 function activeItem(pathname: string, view: string | null, demo: boolean) {
   const all = groups.flatMap((g) => g.items);
   if (pathname === "/app" || (demo && pathname === "/demo"))
-    return all.find((i) => i.view === (view || "")) || all[0];
+    return (
+      all.find((i) => i.view === (view || "") || (demo && i.demoView === view)) ||
+      all[0]
+    );
   if (pathname.startsWith("/marketplace"))
     return all.find((i) => i.id === "marketplace");
   return all
@@ -122,21 +127,19 @@ function Breadcrumb({ demo }: { demo: boolean }) {
   const params = useSearchParams();
   const current = activeItem(pathname, params.get("view"), demo);
   const group = groupOf(current);
+  const label =
+    pathname === "/marketplace/orders" ? "Orders" : current?.label || "Overview";
   return (
     <div className="shell-breadcrumb">
       <span>{demo ? "Demo workspace" : "Workspace"}</span>
-      {group && (
+      {group && group !== label && (
         <>
           <Icon name="chevron" size={13} />
           <span>{group}</span>
         </>
       )}
       <Icon name="chevron" size={13} />
-      <b>
-        {pathname === "/marketplace/orders"
-          ? "Orders"
-          : current?.label || "Overview"}
-      </b>
+      <b>{label}</b>
     </div>
   );
 }
