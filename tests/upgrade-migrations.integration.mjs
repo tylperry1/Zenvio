@@ -127,6 +127,20 @@ try {
       .rows[0].notes,
     "Preserve notes",
   );
+  await db.query(
+    "UPDATE private.email_outbox SET migrated_at=now() WHERE booking_id=$1",
+    [booking.id],
+  );
+  assert.equal(
+    (
+      await db.query(
+        "SELECT count(*)::int n FROM private.email_outbox WHERE booking_id=$1 AND sent_at IS NULL AND attempts<5",
+        [booking.id],
+      )
+    ).rows[0].n,
+    0,
+    "Old application delivery query must not resend bridged mail",
+  );
   console.log(
     "PASS migration compatibility: pre-upgrade appointments/tokens/contact links, signed content/receipts, subscriptions, notes and over-limit types preserved.",
   );

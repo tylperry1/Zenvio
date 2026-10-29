@@ -36,7 +36,7 @@ Upgrade release prepared October 28, 2026. Deployment and verification are track
 
 The release includes 65 unit checks, a real-Postgres retained-record migration fixture, API ownership/signing/workflow/team integration tests, a concurrent booking test, typecheck, production build and Chromium desktop/mobile checks. Fixtures use disposable databases and fake addresses without provider credentials. No customer appointments, real invitations, charges or supplier orders are created by tests. The browser test also prepares a template draft and renders its PDF. Production smoke checks are read-only.
 
-Migrations 017–030 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
+Migrations 017–031 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
 
 ## Outstanding product work
 
