@@ -115,7 +115,7 @@
 .envelope-file-icon {
   background: #edf1ff;
   border-radius: 9px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: #4560d9;
   padding: 15px 7px;
@@ -300,7 +300,7 @@
   bottom: -20px;
   left: 0;
   color: #66748c;
-  font-size: 10px;
+  font-size: 12px;
 }
 .recipient-progress {
   display: flex;
@@ -315,7 +315,7 @@
   word-break: break-word;
 }
 .recipient-progress b {
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 7px;
   text-transform: capitalize;
   color: #3f5fdc;
@@ -453,7 +453,7 @@
     padding: 16px;
   }
   .envelope-sign-header button {
-    font-size: 11px;
+    font-size: 12px;
     padding: 10px;
   }
 }

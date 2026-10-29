@@ -1,4 +1,5 @@
 "use client";
+import { PageHeader } from "./app-shell";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { money } from "@/lib/billing-types";
@@ -207,16 +208,15 @@ export function MarketplaceOrders() {
   return (
     <div className="platform-page market-store">
       <main>
-        <div className="billing-top">
-          <Link href="/marketplace">← Marketplace</Link>
-          <Link href="/app">Your dashboard →</Link>
-        </div>
-        <header className="billing-heading">
-          <div>
-            <h1>Your orders</h1>
-            <p>Payment status, production, and delivery updates.</p>
-          </div>
-        </header>
+        <PageHeader
+          title="Your orders"
+          description="Payment status, production, and delivery updates."
+          actions={
+            <Link className="billing-secondary" href="/marketplace">
+              Back to marketplace
+            </Link>
+          }
+        />
         {error && (
           <p role="alert" className="billing-error">
             {error}

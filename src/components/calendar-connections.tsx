@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { PageHeader } from "./app-shell";
 import { GoogleCalendarConnection } from "./google-calendar-connection";
 import { useEffect, useState } from "react";
 export function CalendarConnections() {
@@ -43,9 +43,11 @@ export function CalendarConnections() {
       : "";
   return (
     <div className="platform-page">
-      <main style={{ maxWidth: 800, margin: "auto", padding: 32 }}>
-        <Link href="/app">← Workspace</Link>
-        <h1>Calendar connections</h1>
+      <main className="narrow-page">
+        <PageHeader
+          title="Calendar connections"
+          description="Connect external calendars for conflict checks, or subscribe to a private feed of your Zenvio appointments."
+        />
         <GoogleCalendarConnection />
         <section>
           <h2>Calendar subscription feed</h2>

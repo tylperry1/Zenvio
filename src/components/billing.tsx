@@ -1,7 +1,7 @@
 "use client";
+import { PageHeader } from "./app-shell";
 import { UsagePanel } from "./usage-panel";
 import { Enrollment } from "./enrollment";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Modal } from "./modal";
 import { InvoiceList } from "./invoice-list";
@@ -94,25 +94,19 @@ export function Billing() {
   return (
     <div className="platform-page billing-page">
       <main>
-        <div className="billing-top">
-          <Link href="/app">← Your workspace</Link>
-          <span className="billing-eyebrow">ACCOUNT SETTINGS</span>
-        </div>
-        <header className="billing-heading">
-          <div>
-            <h1>Plan & billing</h1>
-            <p>
-              Your subscription, renewal details, and invoices in one place.
-            </p>
-          </div>
-          <button
-            className="billing-secondary"
-            disabled={busy}
-            onClick={() => load().catch((e) => setError(e.message))}
-          >
-            Refresh status
-          </button>
-        </header>
+        <PageHeader
+          title="Plan & billing"
+          description="Your subscription, renewal details, and invoices in one place."
+          actions={
+            <button
+              className="billing-secondary"
+              disabled={busy}
+              onClick={() => load().catch((e) => setError(e.message))}
+            >
+              Refresh status
+            </button>
+          }
+        />
         {error && (
           <p role="alert" className="billing-error">
             {error}{" "}

@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import "./platform.css";
 import "./refinements.css";
 import "./documents.css";
 import "./suite.css";
+import "./shell.css";
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 export const metadata: Metadata = {
   title: {
     default: "Zenvio — Good things, on the calendar.",
@@ -57,7 +64,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );
