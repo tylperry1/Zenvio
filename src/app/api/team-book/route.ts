@@ -13,6 +13,7 @@ import { filterGoogleSlots, runGoogleJobs } from "@/lib/google-calendar";
 import { entitlementUsage } from "@/lib/entitlements";
 import { materializeReminders } from "@/lib/lifecycle";
 import { deliverBookingEmails } from "@/lib/mail";
+import { protectBooking } from "@/lib/booking-protection";
 export const dynamic = "force-dynamic";
 async function staff(organization: string, event: string) {
   const e = (
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       start = string(v.starts_at, "appointment time", 40);
     if (!Number.isFinite(Date.parse(start)))
       throw new ApiError("Choose a time.");
+    await protectBooking(req, v.captcha);
     const candidates = [];
     for (const s of d.staff) {
       try {

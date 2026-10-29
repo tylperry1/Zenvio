@@ -18,6 +18,8 @@ export const integrationFields = {
   GOOGLE_CLIENT_SECRET: "Google OAuth client secret",
   MICROSOFT_CLIENT_ID: "Microsoft OAuth client ID",
   MICROSOFT_CLIENT_SECRET: "Microsoft OAuth client secret",
+  TURNSTILE_SITE_KEY: "Cloudflare Turnstile site key (booking CAPTCHA)",
+  TURNSTILE_SECRET_KEY: "Cloudflare Turnstile secret key (booking CAPTCHA)",
 } as const;
 export type IntegrationKey = keyof typeof integrationFields;
 function key() {
