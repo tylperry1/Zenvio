@@ -24,7 +24,7 @@ Upgrade release deployed to https://gozenvio.com at implementation commit `67215
 
 | Capability | Release state | Required owner action |
 | --- | --- | --- |
-| Reminder/workflow scheduling | Five-minute GitHub workflow with scoped OIDC and observed runner health | Production activation is recorded in the release checklist. Scheduling is best effort, not an exact-minute SLA; monitor last success. The existing daily cron is a fallback. |
+| Reminder/workflow scheduling | Active five-minute GitHub workflow; production identity/Resend configuration probe passed; observed runner health | No key reintegration needed. Scheduling is best effort, not an exact-minute SLA; monitor last success. The existing daily cron is a fallback. |
 | Signing email delivery | Implemented; actual provider delivery unverified by this release | Verify Resend sender/key and review an authorized test invitation. Provider acceptance and available delivery events are reported distinctly. |
 | Google sync and overlays | Existing integration extended; real account verification outstanding | Enable Calendar API in the OAuth client’s project, complete required Google verification, then verify connection/export/conflict behavior with an owner-controlled account. |
 | Appointment charges | Safely gated | Finish Connect platform/test-mode review, webhook setup and host capability checks before enabling APPOINTMENT_PAYMENTS_ENABLED. Default platform commission is zero. |
