@@ -4,6 +4,7 @@ import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
+import { BookingLinkPrompt, SetupChecklist, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
 import { Icon } from "./icons";
@@ -67,6 +68,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [calendar, setCalendar] = useState(false),
     [month, setMonth] = useState(() => new Date()),
     [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const linkPrompt = useLinkPrompt(data, demo);
   async function load() {
     setFatal("");
     try {
@@ -144,6 +146,33 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   }
   function linkFor(event: EventType) {
     return `/book/${data!.profile.slug}/${event.slug}`;
+  }
+  async function copyProfileLink() {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/book/${data!.profile.slug}`,
+      );
+      toast("Booking page link copied. Share it anywhere.");
+    } catch {
+      toast("Couldn’t copy automatically. Open your booking page to share it.", true);
+    }
+  }
+  async function saveSlug(slug: string) {
+    const p = data!.profile;
+    return mutate(
+      {
+        action: "profile",
+        name: p.name,
+        slug,
+        timezone: p.timezone,
+        bio: p.bio || "",
+        headline: p.headline || "",
+        company: p.company || "",
+        accent_color: p.accent_color || "#365CFF",
+      },
+      (d) => ({ ...d, profile: { ...d.profile, slug } }),
+      "Your booking link is ready to share.",
+    );
   }
   async function copy(event: EventType) {
     try {
@@ -480,6 +509,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           />
           {view === "Overview" && (
             <>
+              <SetupChecklist
+                data={data}
+                demo={demo}
+                base={demo ? "/demo" : "/app"}
+                onChooseLink={linkPrompt.show}
+                onCopyLink={() => void copyProfileLink()}
+              />
               <div className="stats-grid">
                 {[
                   [
@@ -1004,6 +1040,18 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               setSelectedDay(null);
             }
             return success;
+          }}
+        />
+      )}
+      {linkPrompt.open && (
+        <BookingLinkPrompt
+          data={data}
+          busy={busy}
+          onClose={linkPrompt.close}
+          onSave={async (slug) => {
+            const saved = await saveSlug(slug);
+            if (saved) linkPrompt.done();
+            return saved;
           }}
         />
       )}
