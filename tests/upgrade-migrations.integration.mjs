@@ -38,13 +38,15 @@ try {
     "Existing fixture",
     "existing@example.com",
   ]);
-  await db.query("INSERT INTO public.profiles(id,name,slug) VALUES($1,$2,$3)", [
+  await db.query("UPDATE public.profiles SET name=$2,slug=$3 WHERE id=$1", [
     user,
     "Existing fixture",
     "existing-fixture",
   ]);
-  const types = [];
-  for (let n = 0; n < 3; n++)
+  const types = (
+    await db.query("SELECT id FROM public.event_types WHERE user_id=$1", [user])
+  ).rows.map((r) => r.id);
+  for (let n = types.length; n < 3; n++)
     types.push(
       (
         await db.query(

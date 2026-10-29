@@ -47,6 +47,19 @@ export function ClientCenter() {
   }
   const timeline = detail
     ? [
+        ...(detail.activity || []).map((a: any) => ({
+          date: a.created_at,
+          title: a.action.replaceAll("_", " "),
+        })),
+        ...(detail.textDocuments || []).map((d: any) => ({
+          date: d.signed_at || d.created_at,
+          title: d.title + " · " + d.status,
+        })),
+        ...(detail.refunds || []).map((r: any) => ({
+          date: r.created_at,
+          title:
+            "Refund · " + r.status + " · $" + (r.amount_cents / 100).toFixed(2),
+        })),
         ...detail.bookings.map((b: any) => ({
           date: b.starts_at,
           title: b.title + " · " + b.status,
@@ -320,12 +333,6 @@ export function ClientCenter() {
           </div>
           <section>
             <h2>Activity timeline</h2>
-            {detail.activity?.map((a: any, i: number) => (
-              <p key={"activity" + i}>
-                {new Date(a.created_at).toLocaleString()} ·{" "}
-                {a.action.replaceAll("_", " ")}
-              </p>
-            ))}
             {timeline.map((x, i) => (
               <p key={i}>
                 <time>{new Date(x.date).toLocaleString()}</time> · {x.title}

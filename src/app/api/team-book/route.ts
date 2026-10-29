@@ -30,7 +30,7 @@ async function staff(organization: string, event: string) {
     );
   const rows = (
     await getPool().query(
-      "SELECT s.*,p.slug host_slug,t.slug event_slug FROM private.team_event_staff s JOIN private.memberships m ON m.user_id=s.user_id AND m.organization_id=$2 AND m.active JOIN public.profiles p ON p.id=s.user_id JOIN public.event_types t ON t.id=s.personal_event_id WHERE s.event_id=$1 ORDER BY s.last_assigned_at NULLS FIRST,s.user_id",
+      "SELECT s.*,p.slug host_slug,t.slug event_slug FROM private.team_event_staff s JOIN private.memberships m ON m.user_id=s.user_id AND m.organization_id=$2 AND m.active JOIN public.profiles p ON p.id=s.user_id JOIN public.event_types t ON t.id=s.personal_event_id WHERE s.event_id=$1 AND t.active AND t.deleted_at IS NULL ORDER BY s.last_assigned_at NULLS FIRST,s.user_id",
       [e.id, e.organization_id],
     )
   ).rows;
