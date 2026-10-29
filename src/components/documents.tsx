@@ -23,7 +23,7 @@ type Data = {
     starts_at: string;
   }[];
 };
-export function Documents() {
+export function Documents({ tabs }: { tabs: React.ReactNode }) {
   const [data, setData] = useState<Data | null>(null),
     [creating, setCreating] = useState(false),
     [busy, setBusy] = useState(false);
@@ -54,7 +54,7 @@ export function Documents() {
       <main>
         <PageHeader
           title="Documents"
-          description="Prepare an agreement. Share a private link. Keep a clear signing record."
+          description="Prepare PDFs and agreements, collect signatures, and keep a clear signing record."
           actions={
             <button
               onClick={() => {
@@ -63,10 +63,11 @@ export function Documents() {
                 setError("");
               }}
             >
-              + New document
+              + New agreement
             </button>
           }
         />
+        {tabs}
         {error && (
           <p role="alert" className="billing-error">
             {error}
