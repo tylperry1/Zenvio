@@ -34,10 +34,25 @@ async function run() {
   const result = await response.json();
   if (!result.configured)
     throw Error("Resend sender or integration configuration is missing");
-  if (probe && result.emailDiagnostics)
+  if (probe && result.emailDiagnostics) {
+    const {
+      senderDomain,
+      credentialStatus,
+      domainStatus,
+      issue,
+      failureCodes,
+    } = result.emailDiagnostics;
     console.log(
-      "Email diagnostics: " + JSON.stringify(result.emailDiagnostics),
+      "Email configuration diagnostics: " +
+        JSON.stringify({
+          senderDomain,
+          credentialStatus,
+          domainStatus,
+          issue,
+          failureCodes,
+        }),
     );
+  }
   console.log(
     probe
       ? "Scheduler identity and existing Resend configuration verified; no deliveries processed."
