@@ -1,3 +1,4 @@
+import { scheduledProbeStatus } from "./scheduled-probe-status.mjs";
 // Only runs inside this repository's main-branch GitHub workflow. Never prints tokens or message bodies.
 const audience = "https://gozenvio.com/api/jobs";
 async function run() {
@@ -53,14 +54,20 @@ async function run() {
         }),
     );
   }
-  console.log(
-    probe
-      ? "Scheduler identity and existing Resend configuration verified; no deliveries processed."
-      : result.busy
+  if (probe) {
+    const status = scheduledProbeStatus(result);
+    if (!status.ok) {
+      console.error(status.message);
+      throw Error("email_probe_failed");
+    }
+    console.log(status.message);
+  } else
+    console.log(
+      result.busy
         ? "Another worker is processing the queue."
         : "Scheduled processing completed. Deliveries accepted: " +
-          Number(result.sent || 0),
-  );
+            Number(result.sent || 0),
+    );
 }
 run().catch(() => {
   console.error(

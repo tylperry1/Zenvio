@@ -1,3 +1,4 @@
+import { scheduledProbeStatus } from "../scripts/scheduled-probe-status.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -187,4 +188,47 @@ test("signup verification checks the integration vault at send time without chan
     url: "https://example.com/verify",
   });
   assert.equal(sent, 1);
+});
+
+test("the production probe cannot report verification when credentials are rejected or diagnostics unavailable", () => {
+  for (const credentialStatus of ["rejected", "unavailable", "not_checked"])
+    assert.equal(
+      scheduledProbeStatus({
+        configured: true,
+        emailDiagnostics: { credentialStatus, domainStatus: "not_checked" },
+      }).ok,
+      false,
+    );
+  assert.equal(
+    scheduledProbeStatus({
+      configured: true,
+      emailDiagnostics: {
+        credentialStatus: "accepted",
+        domainStatus: "unverified",
+      },
+    }).ok,
+    false,
+  );
+  assert.equal(
+    scheduledProbeStatus({
+      configured: true,
+      emailDiagnostics: {
+        credentialStatus: "accepted",
+        domainStatus: "verified",
+        issue: null,
+      },
+    }).ok,
+    true,
+  );
+  const limited = scheduledProbeStatus({
+    configured: true,
+    emailDiagnostics: {
+      credentialStatus: "sending_only",
+      domainStatus: "not_checked",
+      senderDomain: "example.com",
+      issue: null,
+    },
+  });
+  assert(limited.ok);
+  assert(limited.message.includes("must be checked in Resend"));
 });
