@@ -1,3 +1,5 @@
+import { intakeAnswers } from "@/lib/intake";
+import { materializeReminders, drainDeliveries } from "@/lib/lifecycle";
 import { filterGoogleSlots, runGoogleJobs } from "@/lib/google-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
@@ -70,6 +72,11 @@ export async function POST(request: NextRequest) {
     sameOrigin(request);
     const { token, user } = await session();
     const input = await body(request);
+    after(() =>
+      materializeReminders(token)
+        .then(() => drainDeliveries(token))
+        .then(() => {}),
+    );
     after(() => deliverBookingEmails());
     after(() => runGoogleJobs(token).then(() => {}));
     const write = async (path: string, data: unknown, method = "POST") =>
@@ -101,26 +108,50 @@ export async function POST(request: NextRequest) {
           backend(`/rest/v1/event_types?id=eq.${eventId}&select=*`, {}, token),
           backend(`/rest/v1/profiles?id=eq.${user.id}&select=*`, {}, token),
         ]);
-        const event = events[0], profile = profiles[0];
+        const event = events[0],
+          profile = profiles[0];
         if (!event || !event.active || event.deleted_at || !profile)
-          throw new ApiError("Choose an active appointment type in your workspace.", 404);
+          throw new ApiError(
+            "Choose an active appointment type in your workspace.",
+            404,
+          );
         const start = string(input.starts_at, "appointment time", 40);
-        if (!Number.isFinite(Date.parse(start))) throw new ApiError("Choose a valid appointment time.");
-        if (!(await filterGoogleSlots(profile.slug, event.slug, [start])).length)
-          throw new ApiError("That time is no longer available. Choose another time.", 409);
-        await backend("/rest/v1/rpc/reserve_booking_details", {
+        if (!Number.isFinite(Date.parse(start)))
+          throw new ApiError("Choose a valid appointment time.");
+        if (
+          !(await filterGoogleSlots(profile.slug, event.slug, [start])).length
+        )
+          throw new ApiError(
+            "That time is no longer available. Choose another time.",
+            409,
+          );
+        await backend("/rest/v1/rpc/reserve_booking_intake", {
           method: "POST",
           body: JSON.stringify({
-            host_slug: profile.slug, event_slug: event.slug, slot_start: start,
+            host_slug: profile.slug,
+            event_slug: event.slug,
+            slot_start: start,
+            answers_snapshot: intakeAnswers(
+              event.intake_questions || [],
+              input.answers,
+            ),
             visitor_name: string(input.name, "name", 100, 2),
             visitor_email: email(input.email),
             visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
             visitor_phone: string(input.phone ?? "", "phone number", 40, 0),
             visitor_company: string(input.company ?? "", "company", 100, 0),
-            visitor_purpose: string(input.purpose ?? "", "meeting purpose", 500, 0),
+            visitor_purpose: string(
+              input.purpose ?? "",
+              "meeting purpose",
+              500,
+              0,
+            ),
           }),
         });
-        return Response.json({ ok: true, message: "Appointment created." }, { status: 201 });
+        return Response.json(
+          { ok: true, message: "Appointment created." },
+          { status: 201 },
+        );
       }
       case "delete-event": {
         await backend(

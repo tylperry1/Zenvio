@@ -421,9 +421,26 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             </button>
           ))}
           {!demo && (
-            <Link className="sidebar-item" href="/app/documents">
-              <Icon name="link" size={19} /> Documents & signatures
-            </Link>
+            <>
+              <Link className="sidebar-item" href="/app/calendar">
+                <Icon name="calendar" size={19} /> Calendar
+              </Link>
+              <Link className="sidebar-item" href="/app/clients">
+                <Icon name="users" size={19} /> Client records
+              </Link>
+              <Link className="sidebar-item" href="/app/automation">
+                <Icon name="clock" size={19} /> Reminders & workflows
+              </Link>
+              <Link className="sidebar-item" href="/app/team">
+                <Icon name="users" size={19} /> Team workspace
+              </Link>
+              <Link className="sidebar-item" href="/app/templates">
+                <Icon name="link" size={19} /> PDF templates
+              </Link>
+              <Link className="sidebar-item" href="/app/documents">
+                <Icon name="link" size={19} /> Documents & signatures
+              </Link>
+            </>
           )}
           {!demo && (
             <Link className="sidebar-item" href="/app/connections">
@@ -608,7 +625,10 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <Icon name="plus" size={17} /> New event type
               </button>
             ) : view === "Bookings" && !demo ? (
-              <button className="button primary small" onClick={() => setCreatingAppointment(true)}>
+              <button
+                className="button primary small"
+                onClick={() => setCreatingAppointment(true)}
+              >
                 <Icon name="plus" size={17} /> Create appointment
               </button>
             ) : view === "Contacts" ? (
@@ -1145,13 +1165,26 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         </div>
       )}
       {creatingAppointment && data && (
-        <CreateAppointment data={data} busy={busy}
-          onClose={() => { if (!busy) setCreatingAppointment(false); }}
+        <CreateAppointment
+          data={data}
+          busy={busy}
+          onClose={() => {
+            if (!busy) setCreatingAppointment(false);
+          }}
           onSave={async (values) => {
-            const success = await mutate({ action: "create-appointment", ...values }, d => d, "Appointment created successfully.");
-            if (success) { setCreatingAppointment(false); setFilter("upcoming"); setSelectedDay(null); }
+            const success = await mutate(
+              { action: "create-appointment", ...values },
+              (d) => d,
+              "Appointment created successfully.",
+            );
+            if (success) {
+              setCreatingAppointment(false);
+              setFilter("upcoming");
+              setSelectedDay(null);
+            }
             return success;
-          }} />
+          }}
+        />
       )}
       {deleting && (
         <Modal
@@ -1803,12 +1836,25 @@ function Settings({
   return (
     <div className="settings-layout">
       {!demo && (
-        <section className="panel settings-calendar-card" aria-labelledby="calendar-settings-title">
+        <section
+          className="panel settings-calendar-card"
+          aria-labelledby="calendar-settings-title"
+        >
           <div className="settings-calendar-copy">
-            <span className="settings-calendar-icon"><Icon name="calendar" size={24} /></span>
-            <div><span className="settings-section-label">CONNECTED CALENDARS</span>
-              <h2 id="calendar-settings-title">Make room for every appointment</h2>
-              <p>Connect your Google account to block busy times and add Zenvio bookings to your primary calendar.</p>
+            <span className="settings-calendar-icon">
+              <Icon name="calendar" size={24} />
+            </span>
+            <div>
+              <span className="settings-section-label">
+                CONNECTED CALENDARS
+              </span>
+              <h2 id="calendar-settings-title">
+                Make room for every appointment
+              </h2>
+              <p>
+                Connect your Google account to block busy times and add Zenvio
+                bookings to your primary calendar.
+              </p>
             </div>
           </div>
           <Link className="button primary small" href="/app/connections">
@@ -1964,15 +2010,53 @@ function Settings({
             </button>
           </div>
         </div>
-        {!demo && <div className="panel settings-plan settings-shortcuts">
-          <span className="settings-section-label">YOUR WORKSPACE</span>
-          <h3>Everything in one place</h3>
-          <p>Manage the services that keep your business moving.</p>
-          <Link href="/app/billing"><span><Icon name="grid" size={18} /><span><b>Plan & billing</b><small>Subscription and invoices</small></span></span><Icon name="arrow" size={15} /></Link>
-          <Link href="/app/connections"><span><Icon name="calendar" size={18} /><span><b>Calendar connections</b><small>Connect or manage your calendars</small></span></span><Icon name="arrow" size={15} /></Link>
-          <Link href="/app/documents"><span><Icon name="link" size={18} /><span><b>Documents & signatures</b><small>Agreements and signing records</small></span></span><Icon name="arrow" size={15} /></Link>
-          <Link href="/marketplace"><span><Icon name="link" size={18} /><span><b>Marketing marketplace</b><small>Materials for your brand</small></span></span><Icon name="arrow" size={15} /></Link>
-        </div>}
+        {!demo && (
+          <div className="panel settings-plan settings-shortcuts">
+            <span className="settings-section-label">YOUR WORKSPACE</span>
+            <h3>Everything in one place</h3>
+            <p>Manage the services that keep your business moving.</p>
+            <Link href="/app/billing">
+              <span>
+                <Icon name="grid" size={18} />
+                <span>
+                  <b>Plan & billing</b>
+                  <small>Subscription and invoices</small>
+                </span>
+              </span>
+              <Icon name="arrow" size={15} />
+            </Link>
+            <Link href="/app/connections">
+              <span>
+                <Icon name="calendar" size={18} />
+                <span>
+                  <b>Calendar connections</b>
+                  <small>Connect or manage your calendars</small>
+                </span>
+              </span>
+              <Icon name="arrow" size={15} />
+            </Link>
+            <Link href="/app/documents">
+              <span>
+                <Icon name="link" size={18} />
+                <span>
+                  <b>Documents & signatures</b>
+                  <small>Agreements and signing records</small>
+                </span>
+              </span>
+              <Icon name="arrow" size={15} />
+            </Link>
+            <Link href="/marketplace">
+              <span>
+                <Icon name="link" size={18} />
+                <span>
+                  <b>Marketing marketplace</b>
+                  <small>Materials for your brand</small>
+                </span>
+              </span>
+              <Icon name="arrow" size={15} />
+            </Link>
+          </div>
+        )}
         {demo && (
           <div className="soft-note">
             <h3>A clean slate?</h3>

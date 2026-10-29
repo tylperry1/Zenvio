@@ -1,4 +1,7 @@
-import { NextRequest } from "next/server";
+import { scheduleWorkflows } from "@/lib/workflows";
+import { queueEnvelopeCompletion } from "@/lib/document-delivery";
+import { drainDeliveries } from "@/lib/lifecycle";
+import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, failure, sameOrigin, string } from "@/lib/server";
 import { completedPdf, hash, Field } from "@/lib/envelopes";
@@ -141,6 +144,12 @@ export async function POST(req: NextRequest) {
             [e.id],
           );
           e.status = "completed";
+          await queueEnvelopeCompletion(db, e);
+          after(() =>
+            scheduleWorkflows(e.user_id)
+              .then(() => drainDeliveries(e.user_id))
+              .then(() => {}),
+          );
           await db.query(
             "INSERT INTO private.signature_events(envelope_id,action) VALUES($1,'completed')",
             [e.id],

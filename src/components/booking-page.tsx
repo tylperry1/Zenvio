@@ -20,6 +20,10 @@ export function BookingPage({
   eventSlug: string;
 }) {
   const demo = host === "demo";
+  const [paymentReturn, setPaymentReturn] = useState("");
+  useEffect(() => {
+    setPaymentReturn(new URLSearchParams(location.search).get("payment") || "");
+  }, []);
   const [guestDraft, setGuestDraft] = useState<Record<string, string>>({});
   const [event, setEvent] = useState<PublicEvent | null>(null),
     [error, setError] = useState(""),
@@ -68,7 +72,7 @@ export function BookingPage({
           );
           const d = await r.json();
           if (!r.ok) throw new Error(d.error);
-          setEvent(d.event);
+          setEvent({ ...d.event, payment: d.payment });
         }
       } catch (e) {
         if (!controller.signal.aborted)
@@ -206,10 +210,24 @@ export function BookingPage({
             company: f.get("company"),
             purpose: f.get("purpose"),
             website: f.get("website"),
+            answers: Object.fromEntries(
+              (event?.questions || []).map((q) => [
+                q.id,
+                q.type === "checkbox"
+                  ? f.get("intake_" + q.id) === "on"
+                  : q.type === "multiple_choice"
+                    ? f.getAll("intake_" + q.id)
+                    : f.get("intake_" + q.id),
+              ]),
+            ),
           }),
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error);
+        if (d.url) {
+          location.assign(d.url);
+          return;
+        }
         result = d;
       }
       setGuestName(name);
@@ -264,6 +282,13 @@ export function BookingPage({
     : "";
   return (
     <div className="booking-page">
+      {paymentReturn && (
+        <p role="status" className="booking-payment-notice">
+          {paymentReturn === "processing"
+            ? "Your payment is being verified. This page does not confirm an appointment. Watch for the confirmation email; contact the host if it does not arrive. Avoid paying again while verification is pending."
+            : "Checkout was cancelled. No appointment has been confirmed. The temporary slot hold will expire automatically."}
+        </p>
+      )}
       <header className="booking-header">
         <Link href="/">
           <Logo />
@@ -533,6 +558,87 @@ export function BookingPage({
                     placeholder="Preparation notes, accessibility needs, or other helpful details…"
                   />
                 </label>
+                {event?.questions?.map((q) => (
+                  <label key={q.id}>
+                    {q.label}
+                    {q.required ? " *" : " (optional)"}
+                    {q.type === "checkbox" ? (
+                      <input
+                        type="checkbox"
+                        name={"intake_" + q.id}
+                        required={q.required}
+                      />
+                    ) : q.type === "long_text" ? (
+                      <textarea
+                        name={"intake_" + q.id}
+                        required={q.required}
+                        maxLength={2000}
+                      />
+                    ) : q.type === "single_choice" ? (
+                      <select name={"intake_" + q.id} required={q.required}>
+                        <option value="">Choose…</option>
+                        {q.options.map((o) => (
+                          <option key={o}>{o}</option>
+                        ))}
+                      </select>
+                    ) : q.type === "multiple_choice" ? (
+                      <span>
+                        {q.options.map((o) => (
+                          <label key={o}>
+                            <input
+                              type="checkbox"
+                              name={"intake_" + q.id}
+                              value={o}
+                            />
+                            {o}
+                          </label>
+                        ))}
+                      </span>
+                    ) : (
+                      <input
+                        name={"intake_" + q.id}
+                        required={q.required}
+                        maxLength={200}
+                      />
+                    )}
+                  </label>
+                ))}
+                {event.payment && event.payment.payment_mode !== "free" && (
+                  <div className="booking-payment-notice">
+                    <strong>
+                      {event.payment.payment_mode === "deposit"
+                        ? "Deposit due now"
+                        : "Payment due now"}
+                      : $
+                      {(
+                        (event.payment.payment_mode === "deposit"
+                          ? event.payment.deposit_cents
+                          : event.payment.price_cents) / 100
+                      ).toFixed(2)}{" "}
+                      USD
+                    </strong>
+                    <p>
+                      Total: ${(event.payment.price_cents / 100).toFixed(2)} ·
+                      Remaining after payment: $
+                      {(
+                        (event.payment.price_cents -
+                          (event.payment.payment_mode === "deposit"
+                            ? event.payment.deposit_cents
+                            : event.payment.price_cents)) /
+                        100
+                      ).toFixed(2)}
+                    </p>
+                    <p>
+                      {event.payment.refund_policy ||
+                        "Contact the host for their refund policy."}
+                    </p>
+                    <small>
+                      Continue to Stripe to pay. Your appointment is confirmed
+                      only after payment is reconciled. Abandoned checkout
+                      temporarily holds the slot.
+                    </small>
+                  </div>
+                )}
                 <div className="honeypot" aria-hidden="true">
                   <label>
                     Website
@@ -557,14 +663,20 @@ export function BookingPage({
                     ? "Saving your time…"
                     : demo
                       ? "Confirm demo booking"
-                      : "Confirm appointment"}
+                      : event.payment?.payment_mode &&
+                          event.payment.payment_mode !== "free"
+                        ? "Continue to secure payment"
+                        : "Confirm appointment"}
                   <Icon name="check" size={17} />
                 </button>
                 <p className="legal-note">
                   By booking, you agree to share these details with {event.host}
                   . Please review our{" "}
-                  <Link href="/privacy">Privacy Policy</Link>. No payment is
-                  required.
+                  <Link href="/privacy">Privacy Policy</Link>.{" "}
+                  {event.payment?.payment_mode &&
+                  event.payment.payment_mode !== "free"
+                    ? "Payment is collected securely by the host through Stripe."
+                    : "No payment is required."}
                 </p>
               </form>
             </section>
@@ -748,7 +860,11 @@ export function BookingPage({
               </div>
               <p className="booking-notice">
                 <Icon name="shield" size={14} /> Pick a time 2 hours to 90 days
-                ahead. No payment required.
+                ahead.{" "}
+                {event.payment?.payment_mode &&
+                event.payment.payment_mode !== "free"
+                  ? "Payment required to confirm."
+                  : "No payment required."}
               </p>
             </section>
           )}

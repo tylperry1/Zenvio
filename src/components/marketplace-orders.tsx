@@ -55,6 +55,23 @@ export function OrderDetails({
               <tr key={i.id}>
                 <td>
                   <b>{i.title}</b>
+                  {i.personalization?.choices?.map((c) => (
+                    <small key={c.label} className="billing-cell-detail">
+                      {c.label}: {c.value}
+                    </small>
+                  ))}
+                  {i.personalization?.instructions && (
+                    <p>{i.personalization.instructions}</p>
+                  )}
+                  {i.artwork_id && (
+                    <a
+                      href={"/api/marketplace/artwork?id=" + i.artwork_id}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View order artwork
+                    </a>
+                  )}
                   <small className="billing-cell-detail">{i.sku}</small>
                 </td>
                 <td>{i.quantity}</td>

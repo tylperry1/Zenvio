@@ -48,6 +48,18 @@ export function AdminNavigation({
         ],
         ["pricing", "spark", "Pricing", "/admin/operations?section=pricing"],
         [
+          "entitlements",
+          "shield",
+          "Plans & entitlements",
+          "/admin/entitlements",
+        ],
+        [
+          "marketplace-tools",
+          "link",
+          "Personalization & fulfillment",
+          "/admin/marketplace-tools",
+        ],
+        [
           "health",
           "shield",
           "System health",

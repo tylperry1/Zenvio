@@ -1,4 +1,5 @@
 "use client";
+import { planLimits } from "@/lib/entitlement-policy";
 import { useEffect, useState } from "react";
 type Plan = {
   id: string;
@@ -33,6 +34,15 @@ export function PublicPricing() {
           <p>
             ${(p.annual / 100).toFixed(2)} billed annually
             {p.seats > 1 ? ` per host · ${p.seats}-host minimum` : ""}
+          </p>
+          <p>
+            {planLimits[p.id as keyof typeof planLimits]?.types} active
+            appointment types ·{" "}
+            {planLimits[p.id as keyof typeof planLimits]?.calendars} Google
+            accounts{p.id === "teams" ? " per host" : ""} ·{" "}
+            {planLimits[p.id as keyof typeof planLimits]?.envelopes}{" "}
+            envelopes/month{p.id === "teams" ? " per paid host" : ""} ·{" "}
+            {planLimits[p.id as keyof typeof planLimits]?.workflows} workflows
           </p>
           <span>
             {p.id === "free"

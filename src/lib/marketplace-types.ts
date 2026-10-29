@@ -9,6 +9,8 @@ export type Supplier = {
   active: boolean;
 };
 export type MarketProduct = {
+  personalization_options?: import("./personalization").ProductOption[];
+  artwork_allowed?: boolean;
   is_demo?: boolean;
   id: string;
   sku: string;
@@ -32,6 +34,11 @@ export type AdminProduct = MarketProduct & {
   status: string;
 };
 export type OrderItem = {
+  artwork_id?: string;
+  personalization?: {
+    choices?: { label: string; value: string; supplier_sku?: string }[];
+    instructions?: string;
+  };
   id: string;
   product_id: string;
   title: string;

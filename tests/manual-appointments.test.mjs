@@ -1,9 +1,139 @@
-import {test,beforeEach}from'node:test';import assert from'node:assert/strict';import fs from'node:fs';import path from'node:path';import Module from'node:module';import ts from'typescript';
-let blocked=false,unavailable=false,reservations=0,foreign=false,received;const uid='11111111-1111-4111-8111-111111111111';class ApiError extends Error{constructor(message,status=400){super(message);this.status=status;}}
-const filename=path.resolve('src/app/api/workspace/route.ts'),m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const original=m.require.bind(m);m.require=id=>id==='next/server'?{after:()=>{}}:id==='@/lib/admin'?{platformRole:async()=> 'member'}:id==='@/lib/mail'?{deliverBookingEmails:async()=>{}}:id==='@/lib/google-calendar'?{filterGoogleSlots:async(h,e,slots)=>{if(unavailable)throw new ApiError('Calendar unavailable',503);return blocked?[]:slots;},runGoogleJobsForHost:async()=>{}}:id==='@/lib/server'?{ApiError,session:async()=>({token:uid,user:{id:uid}}),uuid:v=>v,integer:v=>v,slug:v=>v,string:v=>v,email:v=>v,body:r=>r.json(),sameOrigin:()=>{},failure:e=>Response.json({error:e.message},{status:e.status||500}),backend:async (p,o,t)=>{if(p.includes('event_types?')){assert.equal(t,uid);return foreign?[]:[{id:'event',slug:'intro',active:true}];}if(p.includes('profiles?')){assert.equal(t,uid);return [{slug:'owner'}];}if(p.includes('reserve_booking')){reservations++;received=JSON.parse(o.body);return {id:'booking'};}if(p.endsWith('public_event'))return [{duration:30}];if(p.endsWith('public_slots'))return [{starts_at:'2026-11-02T15:00:00Z'}];throw Error('Unexpected call');}}:original(id);m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,filename);const {GET,POST}=m.exports;const request=()=>new Request('https://zenvio.test/api/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create-appointment',event_id:'event',host:'forged-host',event:'forged-event',starts_at:'2026-11-02T15:00:00Z',name:'Guest',email:'guest@example.com'})});beforeEach(()=>{blocked=false;unavailable=false;reservations=0;foreign=false;received=null;});
-test('Google conflicts reject confirmation before creating a booking',async()=>{blocked=true;assert.equal((await POST(request())).status,409);assert.equal(reservations,0);});
-test('Google outages do not silently create bookings without checking availability',async()=>{unavailable=true;assert.equal((await POST(request())).status,503);assert.equal(reservations,0);});
-test('available Google time proceeds to the existing transactional reservation',async()=>{assert.equal((await POST(request())).status,201);assert.equal(reservations,1);});
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import Module from "node:module";
+import ts from "typescript";
+let blocked = false,
+  unavailable = false,
+  reservations = 0,
+  foreign = false,
+  received;
+const uid = "11111111-1111-4111-8111-111111111111";
+class ApiError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+const filename = path.resolve("src/app/api/workspace/route.ts"),
+  m = new Module(filename);
+m.filename = filename;
+m.paths = Module._nodeModulePaths(path.dirname(filename));
+const original = m.require.bind(m);
+m.require = (id) =>
+  id === "@/lib/intake"
+    ? { intakeAnswers: () => [] }
+    : id === "@/lib/lifecycle"
+      ? {}
+      : id === "next/server"
+        ? { after: () => {} }
+        : id === "@/lib/admin"
+          ? { platformRole: async () => "member" }
+          : id === "@/lib/mail"
+            ? { deliverBookingEmails: async () => {} }
+            : id === "@/lib/google-calendar"
+              ? {
+                  filterGoogleSlots: async (h, e, slots) => {
+                    if (unavailable)
+                      throw new ApiError("Calendar unavailable", 503);
+                    return blocked ? [] : slots;
+                  },
+                  runGoogleJobsForHost: async () => {},
+                }
+              : id === "@/lib/server"
+                ? {
+                    ApiError,
+                    session: async () => ({ token: uid, user: { id: uid } }),
+                    uuid: (v) => v,
+                    integer: (v) => v,
+                    slug: (v) => v,
+                    string: (v) => v,
+                    email: (v) => v,
+                    body: (r) => r.json(),
+                    sameOrigin: () => {},
+                    failure: (e) =>
+                      Response.json(
+                        { error: e.message },
+                        { status: e.status || 500 },
+                      ),
+                    backend: async (p, o, t) => {
+                      if (p.includes("event_types?")) {
+                        assert.equal(t, uid);
+                        return foreign
+                          ? []
+                          : [{ id: "event", slug: "intro", active: true }];
+                      }
+                      if (p.includes("profiles?")) {
+                        assert.equal(t, uid);
+                        return [{ slug: "owner" }];
+                      }
+                      if (p.includes("reserve_booking")) {
+                        reservations++;
+                        received = JSON.parse(o.body);
+                        return { id: "booking" };
+                      }
+                      if (p.endsWith("public_event")) return [{ duration: 30 }];
+                      if (p.endsWith("public_slots"))
+                        return [{ starts_at: "2026-11-02T15:00:00Z" }];
+                      throw Error("Unexpected call");
+                    },
+                  }
+                : original(id);
+m._compile(
+  ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText,
+  filename,
+);
+const { GET, POST } = m.exports;
+const request = () =>
+  new Request("https://zenvio.test/api/book", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "create-appointment",
+      event_id: "event",
+      host: "forged-host",
+      event: "forged-event",
+      starts_at: "2026-11-02T15:00:00Z",
+      name: "Guest",
+      email: "guest@example.com",
+    }),
+  });
+beforeEach(() => {
+  blocked = false;
+  unavailable = false;
+  reservations = 0;
+  foreign = false;
+  received = null;
+});
+test("Google conflicts reject confirmation before creating a booking", async () => {
+  blocked = true;
+  assert.equal((await POST(request())).status, 409);
+  assert.equal(reservations, 0);
+});
+test("Google outages do not silently create bookings without checking availability", async () => {
+  unavailable = true;
+  assert.equal((await POST(request())).status, 503);
+  assert.equal(reservations, 0);
+});
+test("available Google time proceeds to the existing transactional reservation", async () => {
+  assert.equal((await POST(request())).status, 201);
+  assert.equal(reservations, 1);
+});
 
-test('manual appointment derives the host and event from the signed-in workspace',async()=>{assert.equal((await POST(request())).status,201);assert.equal(received.host_slug,'owner');assert.equal(received.event_slug,'intro');});
-test('manual appointment rejects another user appointment type before reservation',async()=>{foreign=true;assert.equal((await POST(request())).status,404);assert.equal(reservations,0);});
+test("manual appointment derives the host and event from the signed-in workspace", async () => {
+  assert.equal((await POST(request())).status, 201);
+  assert.equal(received.host_slug, "owner");
+  assert.equal(received.event_slug, "intro");
+});
+test("manual appointment rejects another user appointment type before reservation", async () => {
+  foreign = true;
+  assert.equal((await POST(request())).status, 404);
+  assert.equal(reservations, 0);
+});
