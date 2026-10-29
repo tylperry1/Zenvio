@@ -21,7 +21,7 @@ Owner approved October 28: Free 1 active appointment type / 1 Google account / 5
 - [x] Stripe Connect host onboarding, capability-gated booking payments and refunds.
 - [x] Central entitlements, usage, price mapping, seat reconciliation, audited overrides.
 - [x] Isolated tests, browser verification, build and migrations validated in CI; final release commit must pass.
-- [ ] Configuration guide, roadmap, production deployment and read-only smoke checks.
+- [x] Configuration guide, roadmap, production deployment and read-only smoke checks.
 
 ## External readiness gates
 
@@ -38,6 +38,14 @@ Implemented in this upgrade release (deployment tracked in PR #1): reminder outb
 - [x] Desktop/mobile screenshots reviewed; final template-draft PDF rendering check included in browser CI.
 - [x] Shared per-host and billing-workspace Teams budgets, membership-derived entitlements and billing-owner restrictions implemented and tested.
 - [ ] Real provider test-mode verification for Connect, Resend delivery and Google sync.
-- [ ] Production promotion and read-only smoke checks.
+- [x] Production promotion and read-only smoke checks.
 
 Tests never create production fixtures or send provider transactions. Production migrations and deployment are performed only after the release checks pass.
+
+## Production release evidence
+
+Implementation release `67215235aebfebf26c14ae42d0cce8f839582bde` is READY at https://gozenvio.com (Vercel deployment `dpl_9KqYVeJn8A2cgr6LZxa91BBhSEKu`). The final tested source is `02ff910b47f6211ccdf7578bb2b0abee1168d5b4`; merge source is identical. [Final CI](https://github.com/tylperry1/Zenvio/actions/runs/40800130283) passed 65 unit checks, pre-upgrade retained-record migration compatibility, real Postgres API/concurrency flows, typecheck/build and Chromium desktop/mobile/PDF-content tests. Production dependencies audit reported zero vulnerabilities.
+
+Production build logs confirm migrations 017–031 applied. Read-only checks passed for landing/sign-in/privacy, health/pricing, private calendar/template redirects, unauthenticated API/admin/job rejection, and PDF worker delivery. Runtime log inspection found driver SSL-mode compatibility warnings on stderr, with no application failures in the inspected requests. No production fixture accounts, appointments, invitations, charges or supplier orders were created.
+
+Remaining owner activation: frequent scheduler, real Resend/Google verification, Connect platform/host readiness, recurring subscription price mapping and test-mode billing verification, and a contracted supplier adapter. Paid enrollment/appointment charges remain gated; supplier automation remains unconfigured. Existing authentication and integration-encryption secrets were not changed.

@@ -1,6 +1,6 @@
 # Zenvio roadmap and release synopsis
 
-Upgrade release prepared October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
+Upgrade release deployed to https://gozenvio.com at implementation commit `6721523` on October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
 
 ## Implemented product features
 
