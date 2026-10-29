@@ -279,7 +279,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           <span className="empty-icon">
             <Icon name="calendar" size={28} />
           </span>
-          <h3>A little open space.</h3>
+          <h3>No appointments here yet</h3>
           <p>
             Your{" "}
             {filter === "cancelled"
@@ -480,33 +480,46 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           />
           {view === "Overview" && (
             <>
+              <div className="overview-brief">
+                <div>
+                  <span className="brief-label">YOUR SCHEDULE</span>
+                  <h2>Ready for what’s next.</h2>
+                  <p>{upcoming.length ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.` : "Set your availability and share a booking link to get started."}</p>
+                  <button className="button small" onClick={() => navigate("Bookings")}>Open schedule <Icon name="arrow" size={16} /></button>
+                </div>
+                <div className="brief-date">
+                  <Icon name="calendar" size={24} />
+                  <strong>{now.toLocaleDateString("en-US", { day: "numeric", timeZone: data.profile.timezone })}</strong>
+                  <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: data.profile.timezone })}</span>
+                </div>
+              </div>
               <div className="stats-grid">
                 {[
                   [
                     "calendar",
-                    "Meetings this week",
+                    "Upcoming appointments",
                     String(nextWeek.length),
                     "Over the next 7 days",
                   ],
                   [
                     "clock",
-                    "Time together",
+                    "Booked time",
                     totalMinutes >= 60
                       ? `${Math.round((totalMinutes / 60) * 10) / 10} hrs`
                       : `${totalMinutes} min`,
-                    "Reserved for good conversations",
+                    "Scheduled over the next 7 days",
                   ],
                   [
                     "users",
-                    "Your connections",
+                    "Total contacts",
                     String(data.contacts.length),
-                    "People in your corner",
+                    "Across your workspace",
                   ],
                   [
                     "link",
                     "Active booking links",
                     String(visibleEvents.filter((e) => e.active).length),
-                    "Ready when you are",
+                    "Available for clients to book",
                   ],
                 ].map(([icon, title, value, note]) => (
                   <article className="stat-card" key={title}>
@@ -523,7 +536,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <div className="section-bar">
                   <div>
                     <h2>Up next</h2>
-                    <p>A few conversations to look forward to.</p>
+                    <p>Your next confirmed appointments.</p>
                   </div>
                   <button
                     className="inline-link"
@@ -538,7 +551,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <div className="section-bar">
                   <div>
                     <h2>Your booking links</h2>
-                    <p>Share a little time. See what happens.</p>
+                    <p>Client-ready pages for every appointment type.</p>
                   </div>
                   <button
                     className="inline-link"
@@ -556,7 +569,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <span>
                       <Icon name="plus" size={25} />
                     </span>
-                    <b>Make room for something new.</b>
+                    <b>Add a booking link</b>
                     <p>Create a new event type</p>
                   </button>
                 </div>
@@ -564,10 +577,10 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <div className="workspace-tip">
                 <span>✳</span>
                 <div>
-                  <b>Your time is a good place to start.</b>
+                  <b>Make your booking page easy to find.</b>
                   <p>
                     Share your booking link in your email signature. Your next
-                    connection might be closer than you think.
+                    client can book a time without the back-and-forth.
                   </p>
                 </div>
                 <button
@@ -611,7 +624,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   <span>
                     <Icon name="plus" size={25} />
                   </span>
-                  <b>Make room for something new.</b>
+                  <b>Add a booking link</b>
                   <p>Create a new event type</p>
                 </button>
               </div>

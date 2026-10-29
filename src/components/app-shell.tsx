@@ -189,7 +189,7 @@ export function AppShell({
       <aside className="shell-sidebar" aria-label="Main navigation">
         <div className="shell-sidebar-head">
           <Link href={demo ? "/demo" : "/app"} className="shell-logo">
-            <Logo />
+            <Logo light />
           </Link>
           <button
             className="shell-icon-button shell-close"
