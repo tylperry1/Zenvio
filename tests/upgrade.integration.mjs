@@ -209,7 +209,13 @@ try {
     200,
   );
   const pdf = await PDFDocument.create();
-  pdf.addPage().drawText("Disposable fixture only. No real agreement.");
+  pdf
+    .addPage()
+    .drawText("Disposable fixture only. No real agreement.", {
+      x: 48,
+      y: 720,
+      size: 16,
+    });
   const bytes = await pdf.save(),
     form = new FormData();
   form.set("title", "Disposable PDF template");

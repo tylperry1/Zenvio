@@ -89,10 +89,30 @@ try {
     .click();
   await page.waitForURL("**/app/documents?envelope=*");
   await page.locator("canvas").first().waitFor();
-  await page.waitForFunction(() => {
-    const canvas = document.querySelector("canvas");
-    return canvas && canvas.width > 0 && canvas.height > 0;
-  });
+  await page.waitForFunction(
+    () => document.querySelector("canvas")?.dataset.rendered === "true",
+  );
+  assert(
+    await page
+      .locator("canvas")
+      .first()
+      .evaluate((canvas) => {
+        const pixels = canvas
+          .getContext("2d")
+          .getImageData(0, 0, canvas.width, canvas.height).data;
+        let ink = 0;
+        for (let i = 0; i < pixels.length; i += 4)
+          if (
+            pixels[i] < 150 &&
+            pixels[i + 1] < 150 &&
+            pixels[i + 2] < 150 &&
+            pixels[i + 3] > 0
+          )
+            ink++;
+        return ink > 100;
+      }),
+    "PDF canvas must contain rendered text",
+  );
   await page.getByLabel("Template destination").waitFor();
   await page.screenshot({
     path: "test-results/upgrade-template-draft-desktop.png",

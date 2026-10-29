@@ -48,6 +48,7 @@ export function PdfPages({
           });
           renders.push(render);
           await render.promise;
+          if (!cancelled) canvas.dataset.rendered = "true";
         }
       } catch (e) {
         if (!cancelled)

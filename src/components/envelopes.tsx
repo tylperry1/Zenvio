@@ -930,7 +930,8 @@ export function Envelopes({
         <p className="document-method-note">
           Native Zenvio signing uses private links and explicit consent. Email
           ownership and signer identity are not independently verified. Links
-          are shared manually; automatic email delivery is not enabled.
+          may be shared privately or emailed when the sender enables delivery.
+          Email requires a configured provider.
         </p>
       </main>
     </div>
