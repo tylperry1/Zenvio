@@ -1390,3 +1390,208 @@ body {
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Admin console: same chrome as the member shell */
+.admin-v3.admin-v3.admin-v3 {
+  --av-sidebar-width: 256px;
+  background: var(--surface-page);
+}
+.admin-v3.admin-v3 .av-sidebar.professional-sidebar {
+  padding: 0 12px 12px;
+  border-color: var(--border);
+  gap: 0;
+}
+.admin-v3.admin-v3 .professional-sidebar .av-brand {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding: 0 8px;
+}
+.admin-v3.admin-v3 .professional-sidebar .av-brand img {
+  width: auto;
+  height: 26px;
+}
+.admin-v3.admin-v3 .av-admin-wordmark {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--action-primary);
+}
+.admin-v3.admin-v3 .av-admin-wordmark small {
+  margin-left: 13px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.admin-v3.admin-v3 .av-nav-group {
+  margin: 0 0 14px;
+}
+.admin-v3.admin-v3 .av-nav-group > p {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.admin-v3.admin-v3 .professional-sidebar nav {
+  gap: 2px;
+}
+.admin-v3.admin-v3 .professional-sidebar nav > a,
+.admin-v3.admin-v3 .professional-sidebar nav > button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font: 500 14px var(--font-family);
+  color: var(--text-secondary);
+}
+.admin-v3.admin-v3 .professional-sidebar nav > a svg,
+.admin-v3.admin-v3 .professional-sidebar nav > button svg {
+  color: var(--text-muted);
+}
+.admin-v3.admin-v3 .professional-sidebar nav > a:hover,
+.admin-v3.admin-v3 .professional-sidebar nav > button:hover {
+  background: #f2f4f9;
+  color: var(--text-primary);
+}
+.admin-v3.admin-v3 .professional-sidebar nav > a.active,
+.admin-v3.admin-v3 .professional-sidebar nav > button.active {
+  background: var(--surface-subtle);
+  color: var(--action-primary);
+  font-weight: 600;
+  box-shadow: none;
+}
+.admin-v3.admin-v3 .professional-sidebar nav > a.active svg,
+.admin-v3.admin-v3 .professional-sidebar nav > button.active svg {
+  color: var(--action-primary);
+}
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom {
+  padding-top: 12px;
+  border-color: var(--border);
+}
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > a,
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > button {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > a:hover,
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > button:hover {
+  background: #f2f4f9;
+}
+.admin-v3.admin-v3 .av-console-caption {
+  display: none;
+}
+.admin-v3.admin-v3 .av-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 60px;
+  padding: 0 clamp(16px, 3vw, 32px);
+  border-color: var(--border);
+  background: rgb(255 255 255 / 0.92);
+  backdrop-filter: blur(8px);
+}
+.admin-v3.admin-v3 .av-topbar > div {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.admin-v3.admin-v3 .av-topbar b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-v3.admin-v3 .av-access-badge {
+  font-size: 12px;
+}
+.admin-v3.admin-v3 .av-workspace-link {
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-v3.admin-v3 .av-content,
+.admin-v3.operations-page .av-content {
+  max-width: 1280px;
+  padding: 32px clamp(16px, 3vw, 40px) 64px;
+}
+.admin-v3.admin-v3 .av-eyebrow {
+  display: none;
+}
+.admin-v3.admin-v3 .av-page-heading {
+  align-items: flex-end;
+  margin-bottom: 28px;
+}
+.admin-v3.admin-v3 .av-page-heading h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.admin-v3.admin-v3 .av-page-heading > div > p:last-child {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.admin-v3.admin-v3 .av-panel,
+.admin-v3.admin-v3 .av-stat,
+.admin-v3.operations-page .billing-metrics article {
+  border-color: var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.admin-v3.admin-v3 .av-panel h2 {
+  font-size: 16px;
+  font-weight: 650;
+}
+.admin-v3.admin-v3 .av-stat strong {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 760px) {
+  .admin-v3.admin-v3 .professional-sidebar .av-brand {
+    height: auto;
+    padding: 4px 8px 12px;
+  }
+  .admin-v3.admin-v3 .professional-sidebar nav > a,
+  .admin-v3.admin-v3 .professional-sidebar nav > button {
+    min-height: 34px;
+    font-size: 12px;
+  }
+}
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > a,
+.admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > button {
+  justify-content: flex-start;
+}
+.admin-v3.platform-page button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-v3.platform-page input,
+.admin-v3.platform-page select,
+.admin-v3.platform-page textarea {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-color: var(--border-strong);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.admin-v3.platform-page section {
+  border-color: var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.admin-v3.platform-page h2 {
+  font-size: 17px;
+  font-weight: 650;
+}
+.admin-v3.platform-page p,
+.admin-v3.platform-page label {
+  font-size: 14px;
+}
+.admin-v3.admin-v3 .av-sidebar-bottom > a > svg {
+  margin-left: 0;
+}
