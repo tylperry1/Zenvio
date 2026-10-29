@@ -30,7 +30,11 @@ function load(file, overrides = {}) {
   m.paths = Module._nodeModulePaths(path.dirname(filename));
   const require = m.require.bind(m);
   m.require = (id) =>
-    Object.hasOwn(overrides, id) ? overrides[id] : require(id);
+    Object.hasOwn(overrides, id)
+      ? overrides[id]
+      : id === "./resend-diagnostics"
+        ? resendHelpers
+        : require(id);
   m._compile(
     ts.transpileModule(fs.readFileSync(filename, "utf8"), {
       compilerOptions: {
@@ -43,6 +47,10 @@ function load(file, overrides = {}) {
   );
   return m.exports;
 }
+const resendHelpers = load("src/lib/resend-diagnostics.ts", {
+  "./platform-settings": {},
+  "./db": {},
+});
 const intake = load("src/lib/intake.ts", { "./server": helpers });
 test("intake enforces required values and choice membership and snapshots original questions", () => {
   const questions = intake.intakeQuestions([

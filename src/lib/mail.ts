@@ -1,10 +1,12 @@
+import { resendFailure } from "./resend-diagnostics";
 import { createHash } from "node:crypto";
 import { integrationValue } from "./platform-settings";
 export async function mailReady() {
-  return Boolean(
-    (await integrationValue("RESEND_API_KEY")) &&
-      (await integrationValue("AUTH_EMAIL_FROM")),
-  );
+  const [key, from] = await Promise.all([
+    integrationValue("RESEND_API_KEY"),
+    integrationValue("AUTH_EMAIL_FROM"),
+  ]);
+  return Boolean(key.trim() && from.trim());
 }
 export async function sendAccountMail(
   email: string,
@@ -18,19 +20,23 @@ export async function sendAccountMail(
   if (!key || !from) throw Error("Email is not configured.");
   const text = `${subject}\n\nOpen this link to continue:\n${url}\n\nIf you did not request this, ignore this email.`;
   const id = createHash("sha256")
-    .update(email + subject + url)
+    .update(JSON.stringify({ from: from.trim(), to: email, subject, text }))
     .digest("hex");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${key.trim()}`,
       "Content-Type": "application/json",
       "Idempotency-Key": `account-${id}`,
     },
-    body: JSON.stringify({ from, to: email, subject, text }),
+    body: JSON.stringify({ from: from.trim(), to: email, subject, text }),
     signal: AbortSignal.timeout(15000),
   });
-  if (!response.ok) throw Error("Account email could not be delivered.");
+  if (!response.ok)
+    throw resendFailure(
+      response.status,
+      await response.json().catch(() => ({})),
+    );
 }
 
 // Existing transactional SQL notifications are bridged to the encrypted durable queue.

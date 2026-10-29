@@ -1,3 +1,4 @@
+import { emailDiagnostics } from "@/lib/resend-diagnostics";
 import { NextRequest } from "next/server";
 import { jobsAuthorized } from "@/lib/job-authorization";
 import { processScheduledJobs, runnerStatus } from "@/lib/job-runner";
@@ -17,6 +18,7 @@ export async function GET(r: NextRequest) {
           ok: true,
           configured: await mailReady(),
           scheduler: await runnerStatus(),
+          emailDiagnostics: await emailDiagnostics(),
         },
         { headers: { "Cache-Control": "no-store" } },
       );
