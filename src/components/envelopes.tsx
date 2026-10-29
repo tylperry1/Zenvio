@@ -28,6 +28,18 @@ export function Envelopes({
   legacy?: boolean;
   onLegacy: () => void;
 }) {
+  const [templateChoices, setTemplateChoices] = useState<
+      { id: string; name: string }[]
+    >([]),
+    [templateTarget, setTemplateTarget] = useState("");
+  useEffect(() => {
+    fetch("/api/pdf-templates")
+      .then((r) => r.json())
+      .then((d) =>
+        setTemplateChoices((d.templates || []).filter((t: any) => !t.archived)),
+      )
+      .catch(() => {});
+  }, []);
   const [emailDelivery, setEmailDelivery] = useState(false),
     [reminderDays, setReminderDays] = useState("3,7");
   const [items, setItems] = useState<Envelope[]>([]),
@@ -399,10 +411,7 @@ export function Envelopes({
                           "Recipient " + (i + 1),
                         ) || "Recipient " + (i + 1),
                     );
-                    const templateId = prompt(
-                      "Existing template ID to create a new version (leave blank for a new template)",
-                      "",
-                    );
+                    const templateId = templateTarget;
                     const r = await fetch("/api/pdf-templates", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -424,6 +433,20 @@ export function Envelopes({
                 >
                   Save as template / new version
                 </button>
+                <label>
+                  Template destination
+                  <select
+                    value={templateTarget}
+                    onChange={(e) => setTemplateTarget(e.target.value)}
+                  >
+                    <option value="">Create a new template</option>
+                    {templateChoices.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        New version of {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <a
                   className="button"
                   href={

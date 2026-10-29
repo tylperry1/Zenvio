@@ -74,6 +74,30 @@ try {
       fullPage: true,
     });
   }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("http://localhost:3100/app/templates");
+  await page
+    .getByRole("button", { name: "Use template", exact: true })
+    .first()
+    .click();
+  await page.getByLabel("Name", { exact: true }).fill("Browser Fixture Client");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("browser-fixture@example.com");
+  await page
+    .getByRole("button", { name: "Prepare draft for review", exact: true })
+    .click();
+  await page.waitForURL("**/app/documents?envelope=*");
+  await page.locator("canvas").first().waitFor();
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector("canvas");
+    return canvas && canvas.width > 0 && canvas.height > 0;
+  });
+  await page.getByLabel("Template destination").waitFor();
+  await page.screenshot({
+    path: "test-results/upgrade-template-draft-desktop.png",
+    fullPage: true,
+  });
   assert.deepEqual(errors, []);
   console.log(
     "PASS browser: seven authenticated upgrade pages desktop/mobile, month view, manual appointment dialog, no horizontal overflow or page exceptions.",

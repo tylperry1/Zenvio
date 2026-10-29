@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     ).rows;
     const activity = (
       await getPool().query(
-        "SELECT action,created_at FROM private.client_activity WHERE user_id=$2 AND contact_id=$1 ORDER BY created_at DESC LIMIT 200",
+        "SELECT action,created_at FROM private.client_activity WHERE user_id=$2 AND contact_id=$1 UNION ALL SELECT a.action,a.created_at FROM private.booking_activity a JOIN public.bookings b ON b.id=a.booking_id WHERE b.user_id=$2 AND b.contact_id=$1 UNION ALL SELECT s.action,s.created_at FROM private.signature_events s JOIN private.signature_envelopes e ON e.id=s.envelope_id WHERE e.user_id=$2 AND e.contact_id=$1 ORDER BY created_at DESC LIMIT 200",
         [id, token],
       )
     ).rows;
