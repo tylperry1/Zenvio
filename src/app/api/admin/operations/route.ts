@@ -1,3 +1,7 @@
+import {
+  ResendDeliveryError,
+  emailDiagnostics,
+} from "@/lib/resend-diagnostics";
 import { deliverBookingEmails, sendAccountMail } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { changeSubscription } from "@/lib/subscription-management";
@@ -46,7 +50,7 @@ export async function GET() {
       "SELECT action,details,created_at FROM private.operation_log ORDER BY created_at DESC LIMIT 50",
     );
     const { rows: emailDelivery } = await getPool().query(
-      "SELECT count(*) FILTER(WHERE sent_at IS NULL)::int AS pending,count(*) FILTER(WHERE sent_at IS NOT NULL)::int AS sent,count(*) FILTER(WHERE sent_at IS NULL AND attempts>=5)::int AS failed FROM private.email_outbox",
+      "SELECT (SELECT count(*)::int FROM private.delivery_jobs WHERE status='queued')+(SELECT count(*)::int FROM private.email_outbox WHERE sent_at IS NULL AND migrated_at IS NULL AND attempts<5) pending,(SELECT count(*)::int FROM private.delivery_jobs WHERE status='sent')+(SELECT count(*)::int FROM private.email_outbox WHERE sent_at IS NOT NULL) sent,(SELECT count(*)::int FROM private.delivery_jobs WHERE status IN ('failed','uncertain'))+(SELECT count(*)::int FROM private.email_outbox WHERE sent_at IS NULL AND migrated_at IS NULL AND attempts>=5) failed",
     );
     const { rows: users } = await getPool().query(
       'SELECT id,name,email,"emailVerified","createdAt" FROM public."user" ORDER BY "createdAt" DESC LIMIT 100',
@@ -55,11 +59,12 @@ export async function GET() {
       "SELECT name,applied_at FROM private.schema_migrations ORDER BY name DESC",
     );
     const { rows: queue } = await getPool().query(
-      "SELECT min(created_at) FILTER(WHERE sent_at IS NULL) AS oldest_pending,max(sent_at) AS last_sent FROM private.email_outbox",
+      "SELECT (SELECT min(created_at) FROM (SELECT created_at FROM private.delivery_jobs WHERE status='queued' UNION ALL SELECT created_at FROM private.email_outbox WHERE sent_at IS NULL AND migrated_at IS NULL) q) oldest_pending,(SELECT max(sent_at) FROM(SELECT sent_at FROM private.delivery_jobs UNION ALL SELECT sent_at FROM private.email_outbox) s) last_sent",
     );
     return Response.json(
       {
         health,
+        emailDiagnostics: await emailDiagnostics(),
         healthDetails: {
           checkedAt: new Date().toISOString(),
           nodeVersion: process.version,
@@ -191,6 +196,8 @@ export async function POST(request: NextRequest) {
     } else throw new ApiError("Unknown action.");
     return Response.json({ ok: true });
   } catch (e) {
+    if (e instanceof ResendDeliveryError)
+      return failure(new ApiError(e.message, e.retryable ? 503 : 400));
     return failure(e);
   }
 }

@@ -14,6 +14,12 @@ type Plan = {
   seats: number;
 };
 type Data = {
+  emailDiagnostics?: {
+    senderDomain: string | null;
+    credentialStatus: string;
+    domainStatus: string;
+    issue: string | null;
+  };
   healthDetails: {
     checkedAt: string;
     nodeVersion: string;
@@ -136,7 +142,17 @@ export function Operations({ initialView }: { initialView?: string }) {
                           : "Users & activity"}
               </h1>
               <p>
-                {view === "pricing" ? "Control plan pricing across Zenvio, with a clear view of every rate." : view === "integrations" ? "Connect your services and manage credentials in one secure place." : view === "health" ? "Monitor platform availability, delivery, and service configuration." : view === "users" ? "Manage account access and review recent platform activity." : view === "subscriptions" ? "Review customers, renewals, and billing activity." : "Manage products, suppliers, orders, and fulfillment."}
+                {view === "pricing"
+                  ? "Control plan pricing across Zenvio, with a clear view of every rate."
+                  : view === "integrations"
+                    ? "Connect your services and manage credentials in one secure place."
+                    : view === "health"
+                      ? "Monitor platform availability, delivery, and service configuration."
+                      : view === "users"
+                        ? "Manage account access and review recent platform activity."
+                        : view === "subscriptions"
+                          ? "Review customers, renewals, and billing activity."
+                          : "Manage products, suppliers, orders, and fulfillment."}
               </p>
             </div>
             <Link
@@ -240,6 +256,31 @@ export function Operations({ initialView }: { initialView?: string }) {
                       </b>
                     </div>
                   </div>
+                  <h3>Email provider diagnostics</h3>
+                  {data.emailDiagnostics && (
+                    <>
+                      <p>
+                        Sender domain:{" "}
+                        {data.emailDiagnostics.senderDomain ||
+                          "Invalid or missing"}{" "}
+                        · Credential check:{" "}
+                        {data.emailDiagnostics.credentialStatus.replaceAll(
+                          "_",
+                          " ",
+                        )}{" "}
+                        · Sending domain:{" "}
+                        {data.emailDiagnostics.domainStatus.replaceAll(
+                          "_",
+                          " ",
+                        )}
+                      </p>
+                      {data.emailDiagnostics.issue && (
+                        <p role="alert" className="billing-error">
+                          {data.emailDiagnostics.issue}
+                        </p>
+                      )}
+                    </>
+                  )}
                   <h3>Provider configuration</h3>
                   <div className="admin-provider-grid">
                     {data.integrations
@@ -402,26 +443,103 @@ export function Operations({ initialView }: { initialView?: string }) {
               {view === "pricing" && (
                 <section className="av-panel pricing-editor">
                   <div className="pricing-editor-heading">
-                    <div><span className="billing-eyebrow">PRICING CONTROL</span><h2>One clear price for every plan</h2><p>Set your monthly and annual rates in USD.</p></div>
+                    <div>
+                      <span className="billing-eyebrow">PRICING CONTROL</span>
+                      <h2>One clear price for every plan</h2>
+                      <p>Set your monthly and annual rates in USD.</p>
+                    </div>
                     <span className="pricing-currency">USD · $</span>
                   </div>
-                  <form onSubmit={async e => { e.preventDefault(); await save({ action: "pricing", plans: data.pricing }); }}>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await save({ action: "pricing", plans: data.pricing });
+                    }}
+                  >
                     <div className="pricing-editor-grid">
                       {data.pricing.map((plan, i) => (
-                        <article className={`pricing-editor-card ${plan.id === "pro" ? "featured" : ""}`} key={plan.id}>
-                          <div className="pricing-card-heading"><h3>{plan.name}</h3><span>{i === 0 ? "Always free" : plan.id === "teams" ? "Per host" : "Per month"}</span></div>
-                          <p className="pricing-plan-description">{i === 0 ? "The starting point for scheduling." : plan.id === "pro" ? "More flexibility for independent hosts." : plan.id === "teams" ? "Coordinated scheduling across your team." : "Tools for growing businesses."}</p>
-                          {(["monthly", "annual"] as const).map(period => (
-                            <label key={period}><span>{period === "monthly" ? "Monthly price" : "Annual total"}</span>
-                              <div className="pricing-money-input"><span aria-hidden="true">$</span><input aria-label={`${plan.name} ${period} USD`} type="number" min={0} max={period === "monthly" ? 10000 : 120000} step="0.01" required disabled={i === 0 || busy} value={(plan[period] / 100).toString()}
-                                onChange={e => setData({ ...data, pricing: data.pricing.map((p, index) => index === i ? { ...p, [period]: Math.round(Number(e.target.value) * 100) } : p) })} /></div>
+                        <article
+                          className={`pricing-editor-card ${plan.id === "pro" ? "featured" : ""}`}
+                          key={plan.id}
+                        >
+                          <div className="pricing-card-heading">
+                            <h3>{plan.name}</h3>
+                            <span>
+                              {i === 0
+                                ? "Always free"
+                                : plan.id === "teams"
+                                  ? "Per host"
+                                  : "Per month"}
+                            </span>
+                          </div>
+                          <p className="pricing-plan-description">
+                            {i === 0
+                              ? "The starting point for scheduling."
+                              : plan.id === "pro"
+                                ? "More flexibility for independent hosts."
+                                : plan.id === "teams"
+                                  ? "Coordinated scheduling across your team."
+                                  : "Tools for growing businesses."}
+                          </p>
+                          {(["monthly", "annual"] as const).map((period) => (
+                            <label key={period}>
+                              <span>
+                                {period === "monthly"
+                                  ? "Monthly price"
+                                  : "Annual total"}
+                              </span>
+                              <div className="pricing-money-input">
+                                <span aria-hidden="true">$</span>
+                                <input
+                                  aria-label={`${plan.name} ${period} USD`}
+                                  type="number"
+                                  min={0}
+                                  max={period === "monthly" ? 10000 : 120000}
+                                  step="0.01"
+                                  required
+                                  disabled={i === 0 || busy}
+                                  value={(plan[period] / 100).toString()}
+                                  onChange={(e) =>
+                                    setData({
+                                      ...data,
+                                      pricing: data.pricing.map((p, index) =>
+                                        index === i
+                                          ? {
+                                              ...p,
+                                              [period]: Math.round(
+                                                Number(e.target.value) * 100,
+                                              ),
+                                            }
+                                          : p,
+                                      ),
+                                    })
+                                  }
+                                />
+                              </div>
                             </label>
                           ))}
-                          <div className="pricing-card-footer">{i === 0 ? "No payment required" : plan.id === "teams" ? "Three-host minimum" : plan.monthly > 0 && plan.annual < plan.monthly * 12 ? `${Math.round((1 - plan.annual / (plan.monthly * 12)) * 100)}% annual savings` : "Annual billing available"}</div>
+                          <div className="pricing-card-footer">
+                            {i === 0
+                              ? "No payment required"
+                              : plan.id === "teams"
+                                ? "Three-host minimum"
+                                : plan.monthly > 0 &&
+                                    plan.annual < plan.monthly * 12
+                                  ? `${Math.round((1 - plan.annual / (plan.monthly * 12)) * 100)}% annual savings`
+                                  : "Annual billing available"}
+                          </div>
                         </article>
                       ))}
                     </div>
-                    <div className="pricing-save-bar"><p><Icon name="shield" size={17} /> New checkouts use these rates. Existing subscriptions keep their current price.</p><button disabled={busy}>{busy ? "Saving…" : "Save pricing"}</button></div>
+                    <div className="pricing-save-bar">
+                      <p>
+                        <Icon name="shield" size={17} /> New checkouts use these
+                        rates. Existing subscriptions keep their current price.
+                      </p>
+                      <button disabled={busy}>
+                        {busy ? "Saving…" : "Save pricing"}
+                      </button>
+                    </div>
                   </form>
                 </section>
               )}
