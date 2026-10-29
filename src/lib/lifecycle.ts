@@ -1,3 +1,4 @@
+import { resendFailure, ResendDeliveryError } from "./resend-diagnostics";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import {
@@ -115,7 +116,7 @@ export async function drainDeliveries(user?: string, limit = 10) {
     integrationValue("RESEND_API_KEY"),
     integrationValue("AUTH_EMAIL_FROM"),
   ]);
-  if (!key || !from || !process.env.INTEGRATION_ENCRYPTION_KEY)
+  if (!key.trim() || !from.trim() || !process.env.INTEGRATION_ENCRYPTION_KEY)
     return { sent: 0, configured: false };
   let sent = 0;
   for (let i = 0; i < Math.min(limit, 20); i++) {
@@ -243,12 +244,12 @@ export async function drainDeliveries(user?: string, limit = 10) {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
-            Authorization: "Bearer " + key,
+            Authorization: "Bearer " + key.trim(),
             "Content-Type": "application/json",
             "Idempotency-Key": "zenvio-delivery-" + j.id,
           },
           body: JSON.stringify({
-            from,
+            from: from.trim(),
             to: j.recipient,
             subject: j.subject,
             text: unsealSecret(j.payload_ciphertext),
@@ -257,16 +258,24 @@ export async function drainDeliveries(user?: string, limit = 10) {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.id)
-          throw new Error("Provider rejected delivery");
+          throw resendFailure(response.status, data);
         await db.query(
           "UPDATE private.delivery_jobs SET status='sent',sent_at=now(),provider_id=$2,provider_status='accepted',payload_ciphertext=NULL,last_error=NULL WHERE id=$1",
           [j.id, data.id],
         );
         sent++;
-      } catch {
+      } catch (error) {
+        const failure =
+          error instanceof ResendDeliveryError
+            ? error
+            : new ResendDeliveryError(
+                "network_failure",
+                "Email delivery could not be confirmed. A retry uses the same provider key.",
+                true,
+              );
         await db.query(
-          "UPDATE private.delivery_jobs SET status=CASE WHEN attempts>=5 THEN 'failed' ELSE 'queued' END,run_at=now()+interval '5 minutes',last_error='Delivery failed. Retry available.' WHERE id=$1",
-          [j.id],
+          "UPDATE private.delivery_jobs SET status=CASE WHEN $2='idempotency_conflict' THEN 'uncertain' WHEN NOT $4 OR attempts>=5 THEN 'failed' ELSE 'queued' END,run_at=now()+interval '5 minutes',provider_status=$2,last_error=$3 WHERE id=$1",
+          [j.id, failure.code, failure.message, failure.retryable],
         );
       }
       await db.query("COMMIT");
