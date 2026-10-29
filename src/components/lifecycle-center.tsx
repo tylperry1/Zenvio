@@ -48,12 +48,30 @@ export function LifecycleCenter() {
         </p>
       )}
       {message && <p role="status">{message}</p>}
-      {data && !data.preciseSchedulingConfigured && (
-        <p className="billing-note">
-          Minute-level scheduling is not configured. Jobs are durable and can be
-          processed manually; an administrator must connect a frequent scheduler
-          before relying on timed delivery.
-        </p>
+      {data && (
+        <section>
+          <h2>Automatic delivery</h2>
+          <p>
+            {data.scheduler?.configured
+              ? "Five-minute scheduled processing is configured."
+              : "Automatic processing is not configured."}{" "}
+            GitHub may delay scheduled runs; delivery is not guaranteed at an
+            exact minute.
+          </p>
+          <p role="status">
+            {data.scheduler?.healthy
+              ? "Scheduler healthy"
+              : data.scheduler?.configured
+                ? "Waiting for a recent successful run"
+                : "Manual processing available"}
+            {data.scheduler?.lastSuccess &&
+              " · Last success: " +
+                new Date(data.scheduler.lastSuccess).toLocaleString()}
+          </p>
+          {data.scheduler?.lastError && (
+            <p role="alert">{data.scheduler.lastError}</p>
+          )}
+        </section>
       )}
       {data?.events.map((e: any) => (
         <section key={e.id}>

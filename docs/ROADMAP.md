@@ -24,7 +24,7 @@ Upgrade release deployed to https://gozenvio.com at implementation commit `67215
 
 | Capability | Release state | Required owner action |
 | --- | --- | --- |
-| Precise reminders/workflow timing | Durable queue implemented; minute-level scheduler unconfigured | Configure authenticated `/api/jobs` execution every five minutes, verify it, then set JOB_SCHEDULER_CONFIGURED=true. The existing daily cron is a fallback. |
+| Reminder/workflow scheduling | Five-minute GitHub workflow with scoped OIDC and observed runner health | Production activation is recorded in the release checklist. Scheduling is best effort, not an exact-minute SLA; monitor last success. The existing daily cron is a fallback. |
 | Signing email delivery | Implemented; actual provider delivery unverified by this release | Verify Resend sender/key and review an authorized test invitation. Provider acceptance and available delivery events are reported distinctly. |
 | Google sync and overlays | Existing integration extended; real account verification outstanding | Enable Calendar API in the OAuth client’s project, complete required Google verification, then verify connection/export/conflict behavior with an owner-controlled account. |
 | Appointment charges | Safely gated | Finish Connect platform/test-mode review, webhook setup and host capability checks before enabling APPOINTMENT_PAYMENTS_ENABLED. Default platform commission is zero. |
@@ -36,7 +36,7 @@ Upgrade release deployed to https://gozenvio.com at implementation commit `67215
 
 The release includes 65 unit checks, a real-Postgres retained-record migration fixture, API ownership/signing/workflow/team integration tests, a concurrent booking test, typecheck, production build and Chromium desktop/mobile checks. Fixtures use disposable databases and fake addresses without provider credentials. No customer appointments, real invitations, charges or supplier orders are created by tests. The browser test also prepares a template draft and renders its PDF. Production smoke checks are read-only.
 
-Migrations 017–031 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
+Migrations 017–032 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
 
 ## Outstanding product work
 

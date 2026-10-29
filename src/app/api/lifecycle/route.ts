@@ -1,3 +1,4 @@
+import { runnerStatus } from "@/lib/job-runner";
 import { materializeBookingNotifications } from "@/lib/mail";
 import { integrationValue } from "@/lib/platform-settings";
 import { scheduleWorkflows } from "@/lib/workflows";
@@ -22,7 +23,7 @@ export const maxDuration = 300;
 export async function GET() {
   try {
     const { token } = await session();
-    const [events, jobs] = await Promise.all([
+    const [events, jobs, scheduler] = await Promise.all([
       getPool().query(
         "SELECT id,title,reminder_minutes,cancellation_notice_minutes,reschedule_notice_minutes,intake_questions FROM public.event_types WHERE user_id=$1 AND deleted_at IS NULL ORDER BY title",
         [token],
@@ -31,13 +32,14 @@ export async function GET() {
         "SELECT id,booking_id,envelope_id,document_id,kind,recipient,subject,status,attempts,provider_id,provider_status,last_error,run_at,sent_at FROM private.delivery_jobs WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",
         [token],
       ),
+      runnerStatus(),
     ]);
     return Response.json(
       {
         events: events.rows,
         jobs: jobs.rows,
-        preciseSchedulingConfigured:
-          process.env.JOB_SCHEDULER_CONFIGURED === "true",
+        scheduler,
+        preciseSchedulingConfigured: scheduler.healthy,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

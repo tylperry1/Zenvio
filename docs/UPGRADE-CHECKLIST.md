@@ -49,3 +49,7 @@ Implementation release `67215235aebfebf26c14ae42d0cce8f839582bde` is READY at ht
 Production build logs confirm migrations 017–031 applied. Read-only checks passed for landing/sign-in/privacy, health/pricing, private calendar/template redirects, unauthenticated API/admin/job rejection, and PDF worker delivery. Runtime log inspection found driver SSL-mode compatibility warnings on stderr, with no application failures in the inspected requests. No production fixture accounts, appointments, invitations, charges or supplier orders were created.
 
 Remaining owner activation: frequent scheduler, real Resend/Google verification, Connect platform/host readiness, recurring subscription price mapping and test-mode billing verification, and a contracted supplier adapter. Paid enrollment/appointment charges remain gated; supplier automation remains unconfigured. Existing authentication and integration-encryption secrets were not changed.
+
+## Scheduled processing follow-up
+
+Existing Resend configuration is reused. Added a five-minute GitHub scheduler with short-lived scoped OIDC (no copied cron key), read-only verification mode, an overlap lease and observed runner health. Migration 032 adds only the private health/lease row. Local unit checks: 68 passed. Production activation and identity/configuration probe are pending final CI and deployment; real delivery jobs are processed only by operational scheduled runs, never by the probe.
