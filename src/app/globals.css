@@ -181,10 +181,6 @@ legend {
   background: var(--surface-subtle);
   color: var(--text-primary);
 }
-.text-button {
-  padding-left: 0;
-  background: transparent;
-}
 .small {
   padding: 12px 17px;
   min-height: 41px;
@@ -236,34 +232,8 @@ legend {
   color: var(--text-secondary);
   margin-bottom: 17px;
 }
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.1px;
-  padding: 9px 12px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: 25px;
-  color: var(--text-secondary);
-}
-.live-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  background: var(--action-primary);
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px var(--shadow-color);
-}
 .muted {
   color: var(--text-muted);
-}
-.divider {
-  height: 1px;
-  background: var(--border);
-  margin: 24px 0;
 }
 .avatar {
   display: inline-flex;
@@ -278,12 +248,6 @@ legend {
   color: var(--text-secondary);
   flex-shrink: 0;
 }
-.small-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  font-size: 12px;
-}
 .large-avatar {
   width: 60px;
   height: 60px;
@@ -291,621 +255,24 @@ legend {
   font-size: 20px;
 }
 /* A calm, editorial home. */
-.marketing-nav {
-  height: 100px;
-  max-width: 1320px;
-  margin: auto;
-  padding: 0 60px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 30px;
-}
-.marketing-nav nav {
-  display: flex;
-  gap: 33px;
-  margin-left: 70px;
-}
-.marketing-nav nav a,
-.nav-login {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.marketing-nav nav a:hover {
-  color: var(--action-primary);
-}
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-}
-.hero {
-  max-width: 1320px;
-  margin: auto;
-  min-height: 670px;
-  padding: 65px 60px 60px;
-  display: grid;
-  grid-template-columns: 1fr 1.06fr;
-  gap: 22px;
-  align-items: center;
-}
-.hero-copy {
-  position: relative;
-  z-index: 1;
-}
-.hero h1 {
-  font-weight: 500;
-  font-size: 76px;
-  line-height: 1.06;
-  letter-spacing: -4.4px;
-  margin: 27px 0 30px;
-  position: relative;
-}
-.hero h1 em {
-  color: var(--action-primary);
-  letter-spacing: -3.7px;
-  position: relative;
-  z-index: 1;
-}
-.hero-underline {
-  position: absolute;
-  bottom: -6px;
-  left: 6px;
-  width: 90%;
-  max-width: 390px;
-  z-index: 0;
-}
-.hero-copy > p {
-  max-width: 386px;
-  font-size: 14px;
-  line-height: 1.9;
-  color: var(--text-secondary);
-  margin-bottom: 28px;
-}
-.hero-buttons {
-  display: flex;
-  gap: 21px;
-  align-items: center;
-}
-.play-circle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 26px;
-  width: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  color: var(--action-primary);
-  font-size: 11px;
-  padding-left: 2px;
-}
-.hero-footnote {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  margin-top: 22px;
-}
-.hero-footnote > span {
-  margin: 0 5px;
-}
-.hero-visual {
-  height: 505px;
-  position: relative;
-  margin-top: 15px;
-  display: flex;
-  align-items: center;
-  isolation: isolate;
-}
-.orbit {
-  position: absolute;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 560px;
-  height: 490px;
-  z-index: -1;
-  left: -20px;
-  top: -12px;
-  transform: rotate(-20deg);
-}
-.orbit-two {
-  width: 500px;
-  height: 420px;
-  left: 12px;
-  top: 20px;
-  background: var(--overlay);
-  border-color: var(--border);
-  transform: rotate(30deg);
-}
-.product-window {
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface-card);
-  width: 100%;
-  height: 382px;
-  box-shadow: 0 27px 70px var(--shadow-color);
-  transform: rotate(-2deg);
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-.window-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 29px;
-  padding: 0 13px;
-  background: var(--surface-card);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 7px;
-}
-.window-bar > div {
-  display: flex;
-  gap: 4px;
-}
-.window-bar i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--surface-subtle);
-}
-.window-bar i:first-child {
-  background: var(--accent-soft);
-}
-.window-bar span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.product-content {
-  height: calc(100% - 29px);
-  display: grid;
-  grid-template-columns: 135px 1fr;
-}
-.mini-sidebar {
-  background: var(--surface-card);
-  padding: 19px 11px;
-  position: relative;
-  border-right: 1px solid var(--border);
-}
-.mini-sidebar .logo {
-  font-size: 18px;
-  gap: 5px;
-}
-.mini-user {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 7px;
-  margin: 24px 0 17px;
-}
-.mini-user .avatar {
-  width: 23px;
-  height: 23px;
-  font-size: 11px;
-  border-radius: 7px;
-}
-.mini-user small {
-  display: block;
-  font-size: 6px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-.mini-nav {
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 8px;
-  color: var(--text-secondary);
-  border-radius: 4px;
-  margin-bottom: 4px;
-}
-.mini-nav.selected {
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-.mini-sidebar-bottom {
-  position: absolute;
-  bottom: 17px;
-  font-size: 5.5px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-secondary);
-}
-.mini-main {
-  padding: 26px 23px;
-}
-.mini-label {
-  font-size: 5.5px;
-  letter-spacing: 1px;
-  color: var(--text-secondary);
-}
-.mini-main h3 {
-  font-size: 18px;
-  margin: 9px 0 7px;
-  font-weight: 500;
-  letter-spacing: -0.6px;
-}
-.mini-main h3 span {
-  color: var(--text-secondary);
-  font-size: 20px;
-  padding-left: 4px;
-}
-.mini-main > p {
-  font-size: 7px;
-  color: var(--text-secondary);
-  margin-bottom: 15px;
-}
-.mini-stats {
-  display: flex;
-  gap: 8px;
-}
-.mini-stats > div {
-  width: 50%;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 10px 12px;
-  font-size: 7px;
-  color: var(--text-secondary);
-}
-.mini-stats b {
-  display: block;
-  font-size: 23px;
-  font-weight: 500;
-  line-height: 1;
-  margin-top: 10px;
-  color: var(--text-primary);
-}
-.mini-stats b span {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 400;
-  margin-left: 4px;
-}
-.mini-heading {
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  justify-content: space-between;
-  margin: 19px 0 9px;
-}
-.mini-heading > span {
-  font-size: 6px;
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-.mini-event {
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  border-top: 3px solid var(--border);
-  padding: 10px 11px;
-}
-.mini-event-top {
-  display: flex;
-  justify-content: space-between;
-}
-.mini-badge {
-  font-size: 5px;
-  background: var(--surface-subtle);
-  padding: 3px 5px;
-  border-radius: 10px;
-  color: var(--text-secondary);
-}
-.mini-event h4 {
-  font-size: 12px;
-  letter-spacing: -0.2px;
-  margin: 5px 0 7px;
-}
-.mini-event p {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  font-size: 6px;
-  color: var(--text-secondary);
-  margin: 0 0 11px;
-}
-.mini-event > div:last-child {
-  border-top: 1px solid var(--border);
-  padding-top: 7px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 7px;
-  color: var(--text-secondary);
-}
-.mini-event > div:last-child > span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.mini-meeting {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 9px 2px;
-}
-.mini-meeting > div {
-  font-size: 11px;
-}
-.mini-meeting small {
-  display: block;
-  font-size: 6px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-.mini-meeting > span {
-  width: 2px;
-  height: 24px;
-  background: var(--action-primary);
-  border-radius: 2px;
-}
-.mini-meeting section {
-  flex: 1;
-}
-.mini-meeting b {
-  font-size: 11px;
-}
-.mini-meeting p {
-  font-size: 6px;
-  color: var(--text-secondary);
-  margin: 3px 0 0;
-}
-.mini-meeting > svg {
-  color: var(--text-secondary);
-}
-.floating-booking {
-  position: absolute;
-  bottom: 28px;
-  left: -25px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 17px 19px;
-  box-shadow: 0 14px 35px var(--shadow-color);
-  z-index: 3;
-  transform: rotate(1deg);
-  width: 350px;
-}
-.success-icon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: var(--surface-subtle);
-  border-radius: 50%;
-  color: var(--text-secondary);
-  width: 35px;
-  height: 35px;
-  flex-shrink: 0;
-}
-.floating-booking b {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: -0.15px;
-}
-.floating-booking p {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin: 5px 0 0;
-}
-.tiny-spark {
-  font-size: 22px;
-  color: var(--text-secondary);
-  margin-left: auto;
-}
-.little-flower {
-  font-size: 62px;
-  color: var(--text-secondary);
-  position: absolute;
-  right: 4px;
-  top: -14px;
-  transform: rotate(15deg);
-}
-.visual-note {
-  position: absolute;
-  right: 18px;
-  bottom: -24px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
-  letter-spacing: -0.2px;
-  transform: rotate(-8deg);
-}
-.visual-note em {
-  font-size: 15px;
-}
-.visual-note svg {
-  position: absolute;
-  right: 100%;
-  top: -12px;
-  transform: rotate(160deg);
-}
-.audience-strip {
-  border-block: 1px solid var(--border);
-  margin: 32px auto 0;
-  text-align: center;
-  padding: 30px 40px 32px;
-}
-.audience-strip > p {
-  font-size: 11px;
-  letter-spacing: 2px;
-  color: var(--text-secondary);
-  margin: 0 0 25px;
-}
-.audience-strip > div {
-  display: flex;
-  justify-content: center;
-  gap: 65px;
-  align-items: center;
-}
-.audience-strip > div > span {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--font-family);
-  font-size: 16px;
-  color: var(--text-secondary);
-}
-.audience-strip svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 1.3;
-}
+
 .section {
   max-width: 1200px;
   margin: auto;
   padding: 92px 60px;
 }
-.section-heading {
-  position: relative;
-  margin-bottom: 40px;
-}
-.section h2,
-.how-section h2 {
+.section h2{
   font-size: 44px;
   line-height: 1.15;
   letter-spacing: -2px;
   font-weight: 500;
   margin-bottom: 20px;
 }
-.section-heading > p:last-child {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 23px;
-}
-.feature-card {
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  padding: 28px 25px 26px;
-  background: var(--surface-card);
-}
-.feature-icon {
-  display: inline-flex;
-  width: 49px;
-  height: 49px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 13px;
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-  margin-bottom: 22px;
-}
-.tone-1 {
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-}
-.tone-2 {
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-}
-.feature-card h3 {
-  font-size: 17px;
-  font-weight: 500;
-  margin-bottom: 12px;
-  letter-spacing: -0.5px;
-}
-.feature-card p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.9;
-  margin-bottom: 23px;
-}
-.feature-card a {
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-flex;
-  gap: 9px;
-  align-items: center;
-}
-.how-section {
-  background: var(--surface-subtle);
-  padding: 70px max(60px, calc((100vw - 1080px) / 2));
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 70px;
-}
-.how-section h2 {
-  margin: 22px 0 32px;
-}
-.how-section ol {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.how-section li {
-  display: flex;
-  gap: 22px;
-  margin: 0 0 29px;
-}
-.how-section li:last-child {
-  margin: 0;
-}
-.how-section li > span {
-  display: flex;
-  width: 35px;
-  height: 35px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-.how-section h3 {
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-.how-section li p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.8;
-  margin: 0;
-}
 .pricing > h2 {
   text-align: center;
 }
 .pricing > .eyebrow {
   text-align: center;
-}
-.pricing-grid {
-  display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: 24px;
-  max-width: 840px;
-  margin: 38px auto 0;
-}
-.price-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 31px;
-  background: var(--surface-card);
-}
-.price-card h3 {
-  font-size: 25px;
-  font-weight: 500;
-  margin: 22px 0 8px;
-}
-.price-card > p {
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 .price {
   font-size: 46px;
@@ -919,104 +286,9 @@ legend {
   letter-spacing: 0;
   font-weight: 400;
 }
-.price-card > .button {
-  width: 100%;
-}
-.price-card ul {
-  padding: 0;
-  list-style: none;
-  margin: 25px 0 0;
-}
-.price-card li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  padding: 8px 0;
-  color: var(--text-secondary);
-}
-.price-card li svg {
-  color: var(--text-secondary);
-}
 .future {
   background: var(--surface-card);
   border-color: var(--border);
-}
-.future-label {
-  font-size: 16px;
-  font-family: var(--font-family);
-  font-style: normal;
-  margin-top: 28px;
-  color: var(--text-secondary);
-}
-.planned-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 25px 0;
-}
-.planned-grid > div {
-  padding: 20px 13px;
-  background: var(--surface-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.planned-grid svg {
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-.planned-grid b,
-.planned-grid small {
-  display: block;
-}
-.planned-grid b {
-  font-size: 12px;
-  font-weight: 500;
-}
-.planned-grid small {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 6px;
-}
-.price-card > p.muted {
-  font-size: 12px;
-}
-.final-cta {
-  background: var(--surface-dark);
-  padding: 69px 20px;
-  text-align: center;
-  color: var(--text-inverse);
-  position: relative;
-  overflow: hidden;
-}
-.final-cta .eyebrow {
-  color: var(--text-secondary);
-  font-size: 11px;
-  letter-spacing: 1.7px;
-}
-.final-cta h2 {
-  font-size: 49px;
-  font-weight: 400;
-  line-height: 1.2;
-  margin: 20px 0 28px;
-  letter-spacing: -2px;
-}
-.final-cta h2 em {
-  color: var(--text-secondary);
-}
-.final-cta > p:last-child {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin: 18px 0 0;
-}
-.cta-flower {
-  position: absolute;
-  right: 12%;
-  bottom: 28px;
-  font-size: 190px;
-  color: var(--text-primary);
-  transform: rotate(15deg);
-  pointer-events: none;
 }
 .footer {
   max-width: 1320px;
@@ -1689,193 +961,12 @@ legend {
   min-height: 100svh;
   background: var(--surface-card);
 }
-.sidebar {
-  width: 236px;
-  position: fixed;
-  inset: 0 auto 0 0;
-  background: var(--surface-card);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 30px 17px 0;
-  z-index: 20;
-}
-.sidebar-logo {
-  padding: 0 13px;
-  margin-bottom: 29px;
-}
-.sidebar-logo .logo {
-  font-size: 27px;
-}
-.workspace-selector {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 14px 9px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 29px;
-}
-.workspace-selector .avatar {
-  width: 31px;
-  height: 31px;
-  font-size: 12px;
-  border-radius: 9px;
-}
-.workspace-selector b {
-  font-size: 12px;
-  font-weight: 600;
-  display: block;
-  max-width: 105px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.workspace-selector small {
-  font-size: 11px;
-  color: var(--text-secondary);
-  display: block;
-  margin-top: 4px;
-}
-.workspace-badge {
-  font-size: 11px;
-  color: var(--text-secondary);
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  padding: 4px 5px;
-  border-radius: 4px;
-  margin-left: auto;
-}
-.sidebar-label {
-  font-size: 11px;
-  letter-spacing: 1.8px;
-  color: var(--text-secondary);
-  padding-left: 15px;
-  margin-bottom: 11px;
-}
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  padding: 12px 14px;
-  border-radius: 7px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  min-height: 41px;
-}
-.sidebar-item:hover {
-  background: var(--surface-card);
-}
-.sidebar-item.active {
-  background: var(--surface-subtle);
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-.sidebar-count {
-  margin-left: auto;
-  background: var(--surface-subtle);
-  border-radius: 5px;
-  padding: 3px 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-.sidebar-note {
-  margin: 36px 7px 18px;
-  padding: 17px 16px;
-  border: 1px solid var(--border);
-  background: var(--surface-card);
-  border-radius: 8px;
-}
-.sidebar-note > span {
-  font-size: 29px;
-  color: var(--text-secondary);
-}
-.sidebar-note h4 {
-  font-weight: 500;
-  font-size: 12px;
-  margin: 8px 0;
-}
-.sidebar-note p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 14px;
-}
-.sidebar-note .inline-link {
-  font-size: 11px;
-  gap: 6px;
-}
-.sidebar-bottom {
-  margin-top: auto;
-}
-.sidebar-bottom > a {
-  font-size: 12px;
-}
-.sidebar-user {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border-top: 1px solid var(--border);
-  padding: 19px 5px;
-  margin-top: 12px;
-}
-.sidebar-user > div {
-  flex: 1;
-  min-width: 0;
-}
-.sidebar-user b {
-  font-size: 12px;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar-user small {
-  font-size: 11px;
-  color: var(--text-secondary);
-  display: block;
-  margin-top: 4px;
-}
 .workspace-main {
   width: calc(100% - 236px);
   margin-left: 236px;
   display: flex;
   flex-direction: column;
   min-height: 100svh;
-}
-.workspace-topbar {
-  height: 68px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface-card);
-  padding: 0 37px;
-  gap: 10px;
-}
-.workspace-topbar > div {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.workspace-topbar b {
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-.timezone-top {
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
 }
 .demo-banner {
   display: flex;
@@ -1941,16 +1032,6 @@ legend {
 }
 .page-heading > .button {
   margin-top: 7px;
-  white-space: nowrap;
-}
-.greeting-sun {
-  color: var(--text-secondary);
-  font-size: 32px;
-  margin-left: 7px;
-}
-.today-label {
-  font-size: 12px;
-  color: var(--text-secondary);
   white-space: nowrap;
 }
 .stats-grid {
@@ -2318,24 +1399,6 @@ legend {
   white-space: nowrap;
   color: var(--text-secondary);
 }
-.workspace-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: var(--text-secondary);
-  gap: 20px;
-  padding: 20px 37px;
-  border-top: 1px solid var(--border);
-}
-.workspace-footer > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.workspace-footer a {
-  margin-left: 10px;
-}
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -2677,9 +1740,6 @@ legend {
 .settings-plan {
   padding: 25px;
 }
-.settings-plan > .pill {
-  font-size: 11px;
-}
 .settings-plan h3 {
   font-size: 20px;
   font-weight: 500;
@@ -2700,13 +1760,6 @@ legend {
 .settings-plan h4 {
   font-size: 12px;
   font-weight: 500;
-}
-.settings-plan .planned-row {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  font-size: 12px;
-  margin: 12px 0;
 }
 .settings-plan .status {
   font-size: 7px;
@@ -2931,129 +1984,12 @@ legend {
 .month-day > span {
   margin-bottom: 5px;
 }
-.mobile-menu {
-  display: none;
-}
-.sidebar-overlay {
-  display: none;
-}
-/* Keep the small screens just as thoughtful. */
-@media (min-width: 1450px) {
-  .hero {
-    gap: 60px;
-  }
-  .hero-visual {
-    height: 530px;
-  }
-  .product-window {
-    height: 420px;
-  }
-  .mini-main {
-    padding: 30px;
-  }
-  .mini-event {
-    padding: 13px;
-  }
-  .mini-heading {
-    margin-top: 24px;
-  }
-  .floating-booking {
-    bottom: 30px;
-  }
-  .hero h1 {
-    font-size: 82px;
-  }
-  .hero {
-    padding-bottom: 75px;
-  }
-}
 @media (max-width: 1150px) {
-  .marketing-nav {
-    padding-inline: 35px;
-  }
-  .hero {
-    padding: 50px 35px;
-    gap: 25px;
-    min-height: 610px;
-  }
-  .hero h1 {
-    font-size: 64px;
-    letter-spacing: -3.5px;
-  }
-  .hero h1 em {
-    letter-spacing: -3px;
-  }
-  .hero-copy > p {
-    font-size: 13px;
-    max-width: 330px;
-  }
-  .hero-visual {
-    height: 460px;
-  }
-  .product-window {
-    height: 350px;
-  }
-  .product-content {
-    grid-template-columns: 115px 1fr;
-  }
-  .mini-sidebar {
-    padding: 18px 9px;
-  }
-  .mini-main {
-    padding: 22px 15px;
-  }
-  .mini-main h3 {
-    font-size: 15px;
-  }
-  .mini-user {
-    margin: 20px 0 13px;
-  }
-  .mini-nav {
-    padding: 8px 5px;
-  }
-  .mini-stats > div {
-    font-size: 6px;
-  }
-  .mini-event h4 {
-    font-size: 11px;
-  }
-  .floating-booking {
-    bottom: 20px;
-    left: -15px;
-    width: 310px;
-    padding: 14px;
-  }
-  .floating-booking b {
-    font-size: 11px;
-  }
-  .visual-note {
-    right: 0;
-    bottom: -20px;
-  }
-  .orbit {
-    width: 440px;
-    height: 450px;
-  }
-  .orbit-two {
-    width: 400px;
-    height: 390px;
-  }
-  .audience-strip > div {
-    gap: 40px;
-  }
-  .audience-strip > div > span {
-    font-size: 14px;
-  }
   .section {
     padding: 70px 35px;
   }
-  .section h2,
-  .how-section h2 {
+  .section h2{
     font-size: 39px;
-  }
-  .how-section {
-    padding: 55px 45px;
-    gap: 55px;
   }
   .footer {
     padding: 35px;
@@ -3064,19 +2000,12 @@ legend {
   .footer nav {
     margin-left: auto;
   }
-  .sidebar {
-    width: 212px;
-    padding-inline: 12px;
-  }
   .workspace-main {
     margin-left: 212px;
     width: calc(100% - 212px);
   }
   .workspace-content {
     padding: 30px 26px;
-  }
-  .workspace-topbar {
-    padding: 0 26px;
   }
   .demo-banner {
     padding: 10px 26px;
@@ -3211,179 +2140,8 @@ legend {
   }
 }
 @media (max-width: 950px) {
-  .marketing-nav nav {
-    gap: 22px;
-    margin-left: 0;
-  }
-  .hero h1 {
-    font-size: 58px;
-  }
-  .hero h1 em {
-    letter-spacing: -2.7px;
-  }
-  .hero-buttons {
-    gap: 14px;
-  }
-  .hero-buttons .button {
-    font-size: 12px;
-    padding: 14px 18px;
-  }
-  .hero-buttons .text-button {
-    padding-left: 0;
-    padding-right: 0;
-    gap: 7px;
-  }
-  .hero-copy > .pill {
-    font-size: 7px;
-    letter-spacing: 0.8px;
-  }
-  .product-content {
-    grid-template-columns: 90px 1fr;
-  }
-  .mini-sidebar .logo {
-    font-size: 15px;
-    gap: 3px;
-  }
-  .mini-user {
-    font-size: 6px;
-    gap: 4px;
-  }
-  .mini-user .avatar {
-    width: 17px;
-    height: 17px;
-    font-size: 6px;
-    border-radius: 5px;
-  }
-  .mini-user small {
-    font-size: 5px;
-  }
-  .mini-nav {
-    font-size: 6px;
-    gap: 6px;
-  }
-  .mini-nav svg {
-    height: 11px;
-    width: 11px;
-  }
-  .mini-sidebar-bottom {
-    font-size: 4px;
-    gap: 2px;
-  }
-  .mini-sidebar-bottom svg {
-    height: 10px;
-    width: 10px;
-  }
-  .product-window {
-    height: 330px;
-  }
-  .mini-main {
-    padding: 22px 13px;
-  }
-  .mini-main h3 {
-    font-size: 13px;
-  }
-  .mini-main h3 span {
-    font-size: 15px;
-  }
-  .mini-stats > div {
-    padding: 9px 8px;
-    font-size: 5px;
-  }
-  .mini-stats b {
-    font-size: 21px;
-  }
-  .mini-stats b span {
-    font-size: 6px;
-  }
-  .mini-heading {
-    font-size: 7px;
-    margin-top: 17px;
-  }
-  .mini-event {
-    padding: 8px;
-  }
-  .mini-event h4 {
-    font-size: 7px;
-  }
-  .mini-event p {
-    font-size: 5px;
-    gap: 4px;
-  }
-  .mini-event p svg {
-    height: 9px;
-    width: 9px;
-  }
-  .floating-booking {
-    width: 280px;
-    left: -8px;
-    bottom: 30px;
-    padding: 13px;
-    gap: 8px;
-  }
-  .floating-booking b {
-    font-size: 11px;
-  }
-  .floating-booking p {
-    font-size: 7px;
-  }
-  .success-icon {
-    height: 30px;
-    width: 30px;
-  }
-  .floating-booking .tiny-spark {
-    font-size: 18px;
-  }
-  .orbit {
-    width: 360px;
-    height: 410px;
-    left: 0;
-    top: 20px;
-  }
-  .orbit-two {
-    width: 325px;
-    height: 360px;
-  }
-  .little-flower {
-    font-size: 49px;
-    top: 3px;
-  }
-  .hero-visual {
-    height: 430px;
-  }
-  .hero-footnote {
-    font-size: 11px;
-  }
-  .audience-strip > div {
-    gap: 25px;
-  }
-  .audience-strip > div > span {
-    font-size: 12px;
-  }
-  .audience-strip svg {
-    width: 17px;
-    height: 17px;
-  }
-  .section h2,
-  .how-section h2 {
+  .section h2{
     font-size: 35px;
-  }
-  .feature-card {
-    padding: 24px 19px;
-  }
-  .feature-card h3 {
-    font-size: 15px;
-  }
-  .feature-card p {
-    font-size: 12px;
-  }
-  .feature-card a {
-    font-size: 11px;
-  }
-  .feature-grid {
-    gap: 17px;
-  }
-  .section-heading > p:last-child {
-    font-size: 12px;
   }
   .workspace-tip > div > p {
     font-size: 11px;
@@ -3408,9 +2166,6 @@ legend {
   }
   .workspace-content {
     padding: 28px 24px;
-  }
-  .workspace-topbar {
-    padding: 0 24px;
   }
   .page-heading h1 {
     font-size: 23px;
@@ -3492,9 +2247,6 @@ legend {
   }
   .workspace-tip > .subtle-button {
     display: none;
-  }
-  .sidebar-note {
-    padding: 14px;
   }
   .demo-banner {
     gap: 10px;
@@ -3601,291 +2353,11 @@ legend {
   }
 }
 @media (max-width: 760px) {
-  .marketing-nav {
-    height: 80px;
-    padding-inline: 25px;
-  }
-  .marketing-nav nav {
-    display: none;
-  }
-  .marketing-nav .logo {
-    font-size: 26px;
-  }
-  .nav-actions {
-    gap: 18px;
-  }
-  .nav-login {
-    font-size: 12px;
-  }
-  .nav-actions > .button {
-    padding: 11px 14px;
-    font-size: 12px;
-    min-height: 37px;
-  }
-  .hero {
-    grid-template-columns: 1fr;
-    padding: 40px 28px 45px;
-    gap: 20px;
-    overflow: hidden;
-  }
-  .hero h1 {
-    font-size: 70px;
-    letter-spacing: -4px;
-    margin: 26px 0 33px;
-  }
-  .hero h1 em {
-    letter-spacing: -3.6px;
-  }
-  .hero-copy > .pill {
-    font-size: 11px;
-  }
-  .hero-copy > p {
-    font-size: 13px;
-    max-width: 410px;
-  }
-  .hero-buttons .button {
-    font-size: 12px;
-    padding: 15px 21px;
-  }
-  .hero-footnote {
-    font-size: 11px;
-  }
-  .hero-visual {
-    max-width: 490px;
-    width: calc(100% - 20px);
-    justify-self: center;
-    height: 430px;
-    margin-top: 25px;
-  }
-  .product-window {
-    height: 350px;
-  }
-  .product-content {
-    grid-template-columns: 120px 1fr;
-  }
-  .mini-sidebar .logo {
-    font-size: 18px;
-    gap: 4px;
-  }
-  .mini-sidebar {
-    padding: 20px 12px;
-  }
-  .mini-user {
-    font-size: 7px;
-    gap: 7px;
-  }
-  .mini-user .avatar {
-    width: 22px;
-    height: 22px;
-    font-size: 7px;
-  }
-  .mini-user small {
-    font-size: 6px;
-  }
-  .mini-nav {
-    font-size: 11px;
-    gap: 9px;
-    padding: 8px;
-  }
-  .mini-nav svg {
-    height: 13px;
-    width: 13px;
-  }
-  .mini-sidebar-bottom {
-    font-size: 5px;
-  }
-  .mini-main {
-    padding: 25px 22px;
-  }
-  .mini-main h3 {
-    font-size: 17px;
-  }
-  .mini-main h3 span {
-    font-size: 20px;
-  }
-  .mini-main > p {
-    font-size: 7px;
-  }
-  .mini-stats > div {
-    font-size: 7px;
-    padding: 10px;
-  }
-  .mini-stats b {
-    font-size: 23px;
-  }
-  .mini-stats b span {
-    font-size: 7px;
-  }
-  .mini-heading {
-    font-size: 11px;
-    margin-top: 18px;
-  }
-  .mini-event {
-    padding: 10px;
-  }
-  .mini-event h4 {
-    font-size: 11px;
-  }
-  .mini-event p {
-    font-size: 6px;
-    gap: 6px;
-  }
-  .mini-event p svg {
-    height: 11px;
-    width: 11px;
-  }
-  .floating-booking {
-    left: -10px;
-    width: 320px;
-    bottom: 2px;
-    padding: 17px;
-    gap: 10px;
-  }
-  .floating-booking b {
-    font-size: 11px;
-  }
-  .floating-booking p {
-    font-size: 11px;
-  }
-  .visual-note {
-    bottom: -33px;
-    right: 0;
-  }
-  .orbit {
-    width: 470px;
-    height: 430px;
-    top: -10px;
-    left: -10px;
-  }
-  .orbit-two {
-    width: 420px;
-    height: 360px;
-    left: 0;
-    top: 25px;
-  }
-  .little-flower {
-    top: -15px;
-    font-size: 55px;
-    right: -15px;
-  }
-  .audience-strip {
-    margin-top: 35px;
-    padding: 25px 20px;
-  }
-  .audience-strip > p {
-    font-size: 7px;
-    letter-spacing: 1.5px;
-    margin-bottom: 22px;
-  }
-  .audience-strip > div {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
-    max-width: 400px;
-    margin: auto;
-  }
-  .audience-strip > div > span {
-    font-size: 13px;
-    justify-content: center;
-    gap: 7px;
-  }
   .section {
     padding: 60px 28px;
   }
-  .section h2,
-  .how-section h2 {
+  .section h2{
     font-size: 36px;
-  }
-  .section-heading > p:last-child {
-    position: static;
-    margin-top: 20px;
-    font-size: 12px;
-  }
-  .feature-grid {
-    grid-template-columns: 1fr;
-  }
-  .feature-card {
-    padding: 27px;
-  }
-  .feature-card h3 {
-    font-size: 19px;
-  }
-  .feature-card p {
-    font-size: 12px;
-    max-width: 450px;
-  }
-  .feature-card a {
-    font-size: 12px;
-  }
-  .feature-icon {
-    margin-bottom: 18px;
-  }
-  .section-heading {
-    margin-bottom: 30px;
-  }
-  .how-section {
-    grid-template-columns: 1fr;
-    padding: 50px 28px;
-    gap: 40px;
-  }
-  .how-section h2 {
-    margin: 18px 0 27px;
-  }
-  .how-section ol {
-    max-width: 450px;
-  }
-  .how-section li {
-    gap: 18px;
-  }
-  .how-section h3 {
-    font-size: 17px;
-  }
-  .how-section li p {
-    font-size: 12px;
-  }
-  .pricing-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-    max-width: 450px;
-  }
-  .price-card {
-    padding: 28px;
-  }
-  .price-card li {
-    font-size: 12px;
-  }
-  .price-card > p {
-    font-size: 13px;
-  }
-  .price-card.future {
-    padding-bottom: 20px;
-  }
-  .future-label {
-    font-size: 20px;
-  }
-  .planned-grid b {
-    font-size: 12px;
-  }
-  .planned-grid small {
-    font-size: 12px;
-  }
-  .price-card > p.muted {
-    font-size: 12px;
-  }
-  .final-cta {
-    padding: 55px 25px;
-  }
-  .final-cta h2 {
-    font-size: 40px;
-  }
-  .final-cta .eyebrow {
-    font-size: 7px;
-    letter-spacing: 1px;
-  }
-  .cta-flower {
-    font-size: 135px;
-    right: -15px;
-    bottom: 10px;
   }
   .footer {
     padding: 30px 25px;
@@ -3901,38 +2373,9 @@ legend {
     text-align: center;
     font-size: 11px;
   }
-  .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.2s;
-    width: 236px;
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
-  .sidebar-overlay {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: var(--overlay);
-    z-index: 15;
-  }
   .workspace-main {
     width: 100%;
     margin-left: 0;
-  }
-  .mobile-menu {
-    display: inline-flex;
-    margin-left: -8px;
-  }
-  .workspace-topbar {
-    height: 60px;
-    padding: 0 24px;
-  }
-  .workspace-topbar > div {
-    gap: 10px;
-  }
-  .timezone-top {
-    font-size: 11px;
   }
   .demo-banner {
     padding: 10px 20px;
@@ -3970,9 +2413,6 @@ legend {
   .page-heading > div > p:last-child {
     font-size: 12px;
     max-width: 330px;
-  }
-  .greeting-sun {
-    font-size: 27px;
   }
   .stats-grid {
     gap: 13px;
@@ -4024,16 +2464,6 @@ legend {
   .workspace-tip p {
     font-size: 11px !important;
   }
-  .workspace-footer {
-    padding: 18px 23px;
-    font-size: 7px;
-  }
-  .workspace-footer > span:last-child {
-    font-size: 7px;
-  }
-  .page-heading > .today-label {
-    display: none;
-  }
   .contact-row .avatar {
     display: flex;
   }
@@ -4068,9 +2498,6 @@ legend {
     padding: 25px;
   }
   .settings-plan p {
-    font-size: 12px;
-  }
-  .settings-plan .planned-row {
     font-size: 12px;
   }
   .settings-plan .status {
@@ -4310,302 +2737,15 @@ legend {
   }
 }
 @media (max-width: 480px) {
-  .marketing-nav {
-    padding-inline: 21px;
-    gap: 15px;
-  }
-  .nav-actions {
-    gap: 15px;
-  }
-  .nav-actions > .button {
-    font-size: 11px;
-    padding: 11px;
-  }
-  .nav-actions > .button svg {
-    display: none;
-  }
-  .nav-login {
-    font-size: 12px;
-  }
-  .hero {
-    padding: 28px 23px 45px;
-  }
-  .hero h1 {
-    font-size: 59px;
-    letter-spacing: -3.5px;
-  }
-  .hero h1 em {
-    letter-spacing: -3px;
-  }
-  .hero-copy > .pill {
-    font-size: 6.5px;
-    letter-spacing: 0.8px;
-    padding: 8px 10px;
-  }
-  .hero-copy > p {
-    font-size: 12px;
-    line-height: 1.85;
-  }
-  .hero-buttons {
-    gap: 14px;
-  }
-  .hero-buttons .button {
-    font-size: 12px;
-    padding: 14px 17px;
-    gap: 7px;
-  }
-  .hero-buttons .text-button {
-    padding-inline: 0;
-    font-size: 12px;
-  }
-  .hero-visual {
-    width: calc(100% - 5px);
-    height: 355px;
-    margin-top: 32px;
-  }
-  .product-window {
-    height: 300px;
-    border-radius: 9px;
-  }
-  .product-content {
-    grid-template-columns: 86px 1fr;
-  }
-  .mini-sidebar {
-    padding: 16px 7px;
-  }
-  .mini-sidebar .logo {
-    font-size: 14px;
-    gap: 3px;
-  }
-  .mini-user {
-    font-size: 5px;
-    gap: 4px;
-    margin: 20px 0 12px;
-  }
-  .mini-user .avatar {
-    width: 17px;
-    height: 17px;
-    font-size: 5px;
-    border-radius: 5px;
-  }
-  .mini-user small {
-    font-size: 4.5px;
-  }
-  .mini-nav {
-    padding: 7px 5px;
-    gap: 6px;
-    font-size: 6px;
-  }
-  .mini-nav svg {
-    width: 10px;
-    height: 10px;
-  }
-  .mini-sidebar-bottom {
-    font-size: 3.5px;
-    gap: 3px;
-  }
-  .mini-main {
-    padding: 20px 13px;
-  }
-  .mini-main h3 {
-    font-size: 12px;
-    margin-top: 8px;
-    margin-bottom: 6px;
-    letter-spacing: -0.3px;
-  }
-  .mini-main h3 span {
-    font-size: 14px;
-  }
-  .mini-label {
-    font-size: 4.5px;
-  }
-  .mini-main > p {
-    font-size: 5.5px;
-    margin-bottom: 14px;
-  }
-  .mini-stats {
-    gap: 6px;
-  }
-  .mini-stats > div {
-    padding: 8px;
-    font-size: 5px;
-  }
-  .mini-stats b {
-    font-size: 19px;
-    margin-top: 7px;
-  }
-  .mini-stats b span {
-    font-size: 5px;
-  }
-  .mini-heading {
-    font-size: 6px;
-    margin: 14px 0 7px;
-  }
-  .mini-heading > span {
-    font-size: 5px;
-  }
-  .mini-event {
-    padding: 7px;
-  }
-  .mini-event h4 {
-    font-size: 7px;
-    margin: 4px 0 6px;
-  }
-  .mini-event p {
-    font-size: 4.5px;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-  .mini-event p svg {
-    width: 9px;
-    height: 9px;
-  }
-  .mini-event > div:last-child {
-    font-size: 5px;
-    padding-top: 6px;
-  }
-  .mini-event > div:last-child svg {
-    width: 9px;
-    height: 9px;
-  }
-  .mini-badge {
-    font-size: 4px;
-    padding: 2px 4px;
-  }
-  .mini-meeting {
-    gap: 7px;
-    padding: 7px 1px;
-  }
-  .mini-meeting > div {
-    font-size: 7px;
-  }
-  .mini-meeting b {
-    font-size: 6px;
-  }
-  .mini-meeting p {
-    font-size: 5px;
-  }
-  .mini-meeting small {
-    font-size: 4px;
-  }
-  .mini-meeting > span {
-    height: 19px;
-  }
-  .mini-meeting > svg {
-    width: 12px;
-    height: 12px;
-  }
-  .floating-booking {
-    width: 265px;
-    padding: 12px 14px;
-    left: -8px;
-    bottom: -3px;
-    gap: 8px;
-  }
-  .floating-booking b {
-    font-size: 7px;
-  }
-  .floating-booking p {
-    font-size: 6px;
-    margin-top: 4px;
-  }
-  .floating-booking .success-icon {
-    width: 28px;
-    height: 28px;
-  }
-  .floating-booking .success-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-  .visual-note {
-    right: -10px;
-    bottom: -37px;
-    font-size: 11px;
-  }
-  .visual-note em {
-    font-size: 12px;
-  }
-  .visual-note svg {
-    width: 40px;
-  }
-  .little-flower {
-    font-size: 47px;
-    top: -22px;
-    right: -12px;
-  }
-  .orbit {
-    width: 340px;
-    height: 355px;
-    left: -10px;
-    top: -14px;
-  }
-  .orbit-two {
-    width: 310px;
-    height: 310px;
-    left: 0;
-    top: 0;
-  }
-  .audience-strip {
-    margin-top: 40px;
-    padding: 24px 20px;
-  }
-  .audience-strip > div {
-    gap: 21px 12px;
-  }
-  .audience-strip > div > span {
-    font-size: 12px;
-    gap: 6px;
-  }
-  .audience-strip > p {
-    font-size: 6px;
-    letter-spacing: 1.2px;
-  }
-  .audience-strip svg {
-    height: 15px;
-    width: 15px;
-  }
   .section {
     padding: 50px 23px;
   }
-  .section h2,
-  .how-section h2 {
+  .section h2{
     font-size: 32px;
   }
   .section .eyebrow {
     font-size: 7px;
     letter-spacing: 1.5px;
-  }
-  .feature-card {
-    padding: 25px;
-  }
-  .feature-card h3 {
-    font-size: 17px;
-  }
-  .how-section {
-    padding: 45px 23px;
-    gap: 35px;
-  }
-  .how-section .eyebrow {
-    font-size: 7px;
-  }
-  .how-section li p {
-    font-size: 12px;
-  }
-  .how-section h3 {
-    font-size: 16px;
-  }
-  .how-section li > span {
-    width: 30px;
-    height: 30px;
-    font-size: 11px;
-  }
-  .final-cta h2 {
-    font-size: 34px;
-    letter-spacing: -1.4px;
-  }
-  .final-cta .eyebrow {
-    font-size: 6px;
-    letter-spacing: 0.9px;
   }
   .footer {
     padding: 28px 23px;
@@ -4617,12 +2757,6 @@ legend {
   .footer nav {
     gap: 12px;
     font-size: 11px;
-  }
-  .workspace-topbar {
-    padding-inline: 20px;
-  }
-  .timezone-top {
-    display: none;
   }
   .workspace-content {
     padding: 25px 18px 30px;
@@ -4782,13 +2916,6 @@ legend {
   }
   .workspace-tip p {
     font-size: 11px !important;
-  }
-  .workspace-footer {
-    padding: 17px 20px;
-    justify-content: center;
-  }
-  .workspace-footer > span:last-child {
-    display: none;
   }
   .toolbar {
     flex-wrap: wrap;
@@ -5170,17 +3297,11 @@ legend {
   min-width: 24px;
   height: 28px;
 }
-.mini-sidebar .logo.logo-compact {
-  width: 26px;
-  min-width: 24px;
-  height: 26px;
-}
 .booking-footer .logo {
   width: 120px;
   min-width: 120px;
 }
 .footer .logo,
-.sidebar-logo .logo,
 .auth-story .logo,
 .booking-header .logo {
   width: 144px;
@@ -5196,8 +3317,7 @@ textarea:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
-.auth-story a:focus-visible,
-.final-cta a:focus-visible {
+.auth-story a:focus-visible{
   outline-color: var(--brand-symbol-accent);
 }
 input,
@@ -5231,26 +3351,6 @@ h4 {
   font-weight: 700;
   letter-spacing: -0.035em;
 }
-.hero h1 {
-  font-size: clamp(44px, 5.3vw, 72px);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-}
-.hero h1 span {
-  color: var(--action-primary);
-}
-.hero-copy > p {
-  font-size: 15px;
-  line-height: 1.8;
-  max-width: 420px;
-}
-.pill {
-  color: var(--action-hover);
-  background: var(--surface-subtle);
-  border-color: var(--border);
-  letter-spacing: 0.07em;
-}
 .primary {
   background: var(--action-primary);
   color: var(--text-inverse);
@@ -5278,90 +3378,25 @@ h4 {
   color: var(--action-hover);
   font-weight: 700;
 }
-.live-dot {
-  background: var(--action-primary);
-  box-shadow: none;
-}
-.hero-footnote {
-  color: var(--text-secondary);
-}
-.product-window {
-  transform: none;
-  box-shadow: var(--shadow);
-}
-.window-bar {
-  background: var(--surface-subtle);
-}
-.orbit {
-  border-color: var(--border);
-}
-.little-flower,
-.cta-flower {
-  display: none;
-}
-.visual-note {
-  transform: none;
-  font-family: var(--font-family);
-  color: var(--text-secondary);
-}
-.visual-note em {
-  font-size: inherit;
-  font-weight: 600;
-}
-.feature-icon,
-.tone-1,
-.tone-2 {
-  background: var(--accent-soft);
-  color: var(--action-hover);
-  border-radius: 10px;
-}
-.feature-card {
-  background: var(--surface-card);
-}
-.feature-card h3 {
-  font-weight: 700;
-}
-.feature-card p {
-  font-size: 13px;
-}
-.section h2,
-.how-section h2,
-.final-cta h2 {
+.section h2{
   font-weight: 700;
   letter-spacing: -0.04em;
 }
-.section-heading > p:last-child {
-  font-size: 13px;
-}
-.how-section {
-  background: var(--surface-subtle);
-}
-.audience-strip > div > span {
-  font-family: var(--font-family);
-  font-weight: 600;
-}
-.future-label {
-  font-family: var(--font-family);
-  font-style: normal;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.final-cta,
+
 .auth-story {
   background: var(--surface-dark);
   color: var(--text-inverse);
 }
-.final-cta h2,
+
 .auth-story h1 {
   color: var(--text-inverse);
   font-weight: 700;
 }
-.final-cta h2 em,
+
 .auth-story h1 em {
   color: var(--text-inverse);
 }
-.final-cta .eyebrow,
-.final-cta > p:last-child,
+
 .auth-story p,
 .auth-story > small {
   color: var(--text-on-dark);
@@ -5410,7 +3445,6 @@ h4 {
   border-color: var(--border);
 }
 .notice.success,
-.success-icon,
 .confirmation-check {
   background: var(--success-surface);
   color: var(--success) !important;
@@ -5421,11 +3455,6 @@ h4 {
   background: var(--error-surface);
   color: var(--error) !important;
   border-color: var(--error-border);
-}
-.notice.warning {
-  background: var(--warning-surface);
-  color: var(--warning);
-  border-color: var(--warning-border);
 }
 .status {
   color: var(--success);
@@ -5448,30 +3477,10 @@ h4 {
   border-color: var(--success-border);
   box-shadow: var(--shadow);
 }
-.sidebar-item.active {
-  background: var(--action-selected);
-  color: var(--action-hover);
-}
-.sidebar-item:hover {
-  background: var(--surface-subtle);
-}
-.sidebar-count,
-.workspace-badge {
-  color: var(--action-hover);
-  background: var(--accent-soft);
-}
-.sidebar-note,
+
 .soft-note,
 .workspace-tip {
   background: var(--surface-subtle);
-}
-.workspace-selector b,
-.sidebar-user b {
-  color: var(--text-primary);
-}
-.workspace-topbar b,
-.workspace-topbar > div {
-  color: var(--text-secondary);
 }
 .demo-banner,
 .booking-demo-notice {
@@ -5486,9 +3495,6 @@ h4 {
 }
 .page-heading h1 {
   font-weight: 700;
-}
-.greeting-sun {
-  color: var(--action-primary);
 }
 .stat-card strong {
   color: var(--text-primary);
@@ -5644,18 +3650,13 @@ h4 {
 .event-card-footer .inline-link {
   min-height: 32px;
 }
-.sidebar-item {
-  min-height: 44px;
-}
 /* Keep long labels, paths, and approved logos inside narrow screens. */
 .booking-header,
-.marketing-nav,
 .footer,
 .booking-footer {
   min-width: 0;
 }
 .booking-header a,
-.marketing-nav > a,
 .footer > a {
   flex-shrink: 0;
 }
@@ -5668,19 +3669,10 @@ h4 {
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
-  .hero h1 {
-    font-size: clamp(42px, 8vw, 62px);
-  }
-  .section-heading > p:last-child {
-    font-size: 13px;
-  }
   .auth-story p {
     font-size: 14px;
   }
-  .feature-card p {
-    font-size: 13px;
-  }
-  .marketing-nav .logo,
+  
   .footer .logo,
   .booking-header .logo {
     width: 128px;
@@ -5691,28 +3683,8 @@ h4 {
   }
 }
 @media (max-width: 480px) {
-  .hero h1 {
-    font-size: clamp(37px, 10.4vw, 48px);
-    letter-spacing: -0.045em;
-  }
-  .hero-copy > p {
-    font-size: 14px;
-  }
-  .hero-buttons .button {
-    font-size: 12px;
-  }
-  .section h2,
-  .how-section h2 {
+  .section h2{
     font-size: 32px;
-  }
-  .section-heading > p:last-child {
-    position: static;
-  }
-  .final-cta h2 {
-    font-size: 32px;
-  }
-  .feature-card h3 {
-    font-size: 18px;
   }
   .event-card h3 {
     font-size: 17px;
@@ -5794,51 +3766,6 @@ h4 {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-.admin-layout {
-  min-height: 100svh;
-  background: var(--surface-page);
-}
-.admin-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px 40px;
-  background: var(--surface-card);
-  border-bottom: 1px solid var(--border);
-}
-.admin-header > div,
-.admin-label {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.admin-label {
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--action-hover);
-}
-.admin-content {
-  max-width: 1400px;
-  margin: auto;
-  padding: 40px;
-}
-.admin-content .page-heading h1 {
-  font-size: 32px;
-}
-.admin-stats .stat-card > div {
-  font-size: 12px;
-}
-.admin-search {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.admin-search input {
-  width: 250px;
-  font-size: 12px;
 }
 .admin-table-wrap {
   overflow: auto;
@@ -5963,57 +3890,11 @@ h4 {
   justify-content: flex-end;
 }
 @media (max-width: 760px) {
-  .admin-header {
-    padding: 20px;
-    gap: 15px;
-  }
-  .admin-header > div {
-    gap: 10px;
-  }
-  .admin-label {
-    font-size: 12px;
-  }
-  .admin-header .button {
-    font-size: 12px;
-    padding: 10px;
-  }
-  .admin-content {
-    padding: 25px 20px;
-  }
-  .admin-content .page-heading h1 {
-    font-size: 26px;
-  }
-  .admin-search {
-    width: 100%;
-  }
-  .admin-search .search-field {
-    flex: 1;
-    max-width: none;
-  }
-  .admin-search input {
-    width: 100%;
-  }
   .admin-pagination {
     font-size: 12px;
   }
-  .admin-header .logo {
-    width: 120px;
-  }
 }
 @media (max-width: 480px) {
-  .admin-header {
-    flex-wrap: wrap;
-  }
-  .admin-header > div {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .admin-content {
-    padding: 25px 16px;
-  }
-  .admin-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .admin-table td {
     padding: 15px;
   }
@@ -6029,10 +3910,7 @@ h4 {
 }
 
 /* Public booking profile controls. */
-.public-profile-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.public-profile-actions .button{font-size:12px}.event-delete-button{color:var(--error);border:0;background:none;padding:8px;font-size:12px}.event-delete-button:hover{background:var(--error-surface);border-radius:5px}.delete-event-summary{display:flex;gap:12px;align-items:center;background:var(--brand-cloud);border:1px solid var(--border);border-radius:9px;padding:17px;margin:20px 0}.delete-event-summary p{font-size:12px;color:var(--text-secondary);margin:6px 0 0}.button.delete-confirm{background:var(--error);color:white;border-color:var(--error)}.profile-form-colors input[type=color]{width:70px;height:42px;padding:4px}.settings-profile-share{background:var(--brand-cloud);padding:20px;border:1px solid var(--border);border-radius:10px;margin-bottom:25px}.settings-profile-share h3{font-size:17px;margin-bottom:9px}.settings-profile-share p{font-size:12px;color:var(--text-secondary);margin-bottom:15px}.settings-profile-share code{font-size:12px;overflow-wrap:anywhere}.workspace-profile-link{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--action-hover);font-weight:600}
-
-@media(max-width:600px){.workspace-profile-link{font-size:12px}.workspace-profile-link svg{display:none}}
+.public-profile-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.public-profile-actions .button{font-size:12px}.event-delete-button{color:var(--error);border:0;background:none;padding:8px;font-size:12px}.event-delete-button:hover{background:var(--error-surface);border-radius:5px}.delete-event-summary{display:flex;gap:12px;align-items:center;background:var(--brand-cloud);border:1px solid var(--border);border-radius:9px;padding:17px;margin:20px 0}.delete-event-summary p{font-size:12px;color:var(--text-secondary);margin:6px 0 0}.button.delete-confirm{background:var(--error);color:white;border-color:var(--error)}.profile-form-colors input[type=color]{width:70px;height:42px;padding:4px}.settings-profile-share{background:var(--brand-cloud);padding:20px;border:1px solid var(--border);border-radius:10px;margin-bottom:25px}.settings-profile-share h3{font-size:17px;margin-bottom:9px}.settings-profile-share p{font-size:12px;color:var(--text-secondary);margin-bottom:15px}.settings-profile-share code{font-size:12px;overflow-wrap:anywhere}
 
 .delete-event-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:24px}.delete-event-summary{overflow-wrap:anywhere}.delete-event-summary>div{min-width:0}.event-card-footer>div{flex-wrap:wrap}
 .booking-form-steps{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;letter-spacing:.4px;margin:18px 0;color:#8893aa}.booking-form-steps b{color:#365cff}.booking-form-intro{font-size:13px;color:#73809a;line-height:1.65;margin:-4px 0 20px}.booking-extra-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}.booking-extra-fields label{min-width:0}.booking-field-help{font-size:12px;font-weight:400;line-height:1.6;color:#7c879e}.booking-review-note{display:flex;gap:9px;align-items:flex-start;color:#6d7b96;font-size:12px;line-height:1.6;padding:12px 14px;background:#f3f6ff;border-radius:10px}.booking-review-note svg{flex-shrink:0;margin-top:2px}.guest-details{max-height:none}.guest-details .selected-slot span{line-height:1.7}.booking-host .host-avatar{overflow:hidden}@media(max-width:520px){.booking-extra-fields{grid-template-columns:1fr;gap:0}}
-.workspace-admin-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:#eaf0ff;border-bottom:1px solid #d4dfff;padding:12px 28px;color:#59729f;font-size:12px}.workspace-admin-banner>span,.workspace-admin-banner>a{display:flex;align-items:center;gap:7px}.workspace-admin-banner>a{font-weight:700;color:#3157dc}.workspace-shop-link{display:flex;align-items:center;gap:6px;font-size:12px;color:#596f98;font-weight:600}@media(max-width:600px){.workspace-admin-banner{padding:11px 18px;font-size:12px}.workspace-admin-banner>span{font-size:11px}.workspace-shop-link>span{display:none}.workspace-topbar>div:last-child{gap:12px}}

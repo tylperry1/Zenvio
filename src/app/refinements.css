@@ -112,9 +112,6 @@
 
 /* Documents and the private signing experience. */
 .documents-page main { max-width:1240px; }
-.document-back { display:inline-block; font-size:12px; margin:0 0 24px; }
-.documents-page .billing-heading h1 { margin:12px 0; }
-.documents-page .billing-heading p { margin:0; }
 .document-composer .stack-form { margin-top:24px; gap:18px; }
 .document-composer .stack-form label { margin:0; line-height:1.6; }
 .document-composer .stack-form input,.document-composer .stack-form select,.document-composer textarea { width:100%; margin-top:8px; }
