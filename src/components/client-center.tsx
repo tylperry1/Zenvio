@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
@@ -59,10 +60,12 @@ export function ClientCenter() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [query, page]);
+  const params = useSearchParams();
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("client");
+    const id = params.get("client");
     if (id) open(id).catch((e) => setError(e.message));
-  }, []);
+    if (params.get("new")) setAdding(true);
+  }, [params]);
   async function save(v: any) {
     try {
       const r = await fetch("/api/clients", {

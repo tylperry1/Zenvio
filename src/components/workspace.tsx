@@ -51,7 +51,9 @@ function greeting(now: Date, timeZone: string) {
 }
 export function Workspace({ demo = false }: { demo?: boolean }) {
   const router = useRouter();
-  const view = viewFor(useSearchParams().get("view"));
+  const params = useSearchParams();
+  const view = viewFor(params.get("view"));
+  const intent = params.get("new");
   const [data, setData] = useState<WorkspaceData | null>(null),
     [loading, setLoading] = useState(true),
     [fatal, setFatal] = useState(""),
@@ -140,6 +142,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     setSearch("");
     setSelectedDay(null);
   }, [view]);
+  useEffect(() => {
+    // Quick actions from search open the matching form once data is ready.
+    if (!intent || !data) return;
+    if (intent === "link") setEditing(true);
+    if (intent === "appointment" && !demo) setCreatingAppointment(true);
+    router.replace((demo ? "/demo" : "/app") + (viewSlugs[view] ? `?view=${viewSlugs[view]}` : ""));
+  }, [intent, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Contacts live on the Clients page in a real workspace.
     if (view === "Contacts" && !demo) router.replace("/app/clients");

@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
+import { CommandPalette, type PaletteItem } from "./command-palette";
 
 type NavItem = {
   id: string;
@@ -79,6 +80,35 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
   return all
     .filter((i) => !i.view && i.href !== "/app")
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
+}
+
+function paletteItems(demo: boolean, admin: boolean): PaletteItem[] {
+  const base = demo ? "/demo" : "/app";
+  const actions: PaletteItem[] = [
+    { id: "new-link", label: "New booking link", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create" },
+    ...(demo
+      ? []
+      : [
+          { id: "new-appointment", label: "New appointment", icon: "plus", href: "/app?view=bookings&new=appointment", group: "Actions", keywords: "booking schedule create" },
+          { id: "new-client", label: "Add client", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create" },
+          { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
+        ]),
+  ];
+  const pages = groups.flatMap((g) =>
+    g.items
+      .filter((i) => !demo || i.demo)
+      .map((i) => ({
+        id: "page-" + i.id,
+        label: i.label,
+        icon: i.icon,
+        href: hrefFor(i, demo),
+        group: "Pages",
+        keywords: g.label,
+      })),
+  );
+  if (admin && !demo)
+    pages.push({ id: "page-admin", label: "Admin console", icon: "shield", href: "/admin", group: "Pages", keywords: "platform" });
+  return [...actions, ...pages];
 }
 
 function groupOf(item?: NavItem) {
@@ -157,7 +187,19 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [search, setSearch] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select, [contenteditable]");
+      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
+        e.preventDefault();
+        setSearch(true);
+      }
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, []);
   const menuRef = useRef<HTMLDivElement>(null);
   const name = user?.name || (demo ? "Jamie Davis" : "Your account");
   useEffect(() => {
@@ -245,6 +287,11 @@ export function AppShell({
           <Suspense fallback={<div className="shell-breadcrumb" />}>
             <Breadcrumb demo={demo} />
           </Suspense>
+          <button className="shell-search" onClick={() => setSearch(true)} aria-label="Search (Ctrl+K)">
+            <Icon name="search" size={16} />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
           <div className="shell-topbar-actions">
             {demo ? (
               <Link href="/sign-up" className="shell-button primary small">
@@ -308,6 +355,12 @@ export function AppShell({
           </p>
         )}
         <div className="shell-content">{children}</div>
+        <CommandPalette
+          open={search}
+          onClose={() => setSearch(false)}
+          items={paletteItems(demo, admin)}
+          searchClients={!demo && !!user}
+        />
       </div>
     </div>
   );
