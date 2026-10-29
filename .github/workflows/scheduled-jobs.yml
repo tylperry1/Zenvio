@@ -1,0 +1,30 @@
+name: Scheduled email processing
+on:
+  schedule:
+    - cron: '2-57/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Verify configuration without sending, or process scheduled deliveries'
+        type: choice
+        options: [verify, process]
+        default: verify
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: zenvio-scheduled-email-processing
+  cancel-in-progress: false
+jobs:
+  process:
+    if: github.repository == 'tylperry1/Zenvio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Authenticate and process scheduled work
+        env:
+          SCHEDULED_JOB_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'process' }}
+        run: node scripts/run-scheduled-jobs.mjs

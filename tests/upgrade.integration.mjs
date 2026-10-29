@@ -209,13 +209,11 @@ try {
     200,
   );
   const pdf = await PDFDocument.create();
-  pdf
-    .addPage()
-    .drawText("Disposable fixture only. No real agreement.", {
-      x: 48,
-      y: 720,
-      size: 16,
-    });
+  pdf.addPage().drawText("Disposable fixture only. No real agreement.", {
+    x: 48,
+    y: 720,
+    size: 16,
+  });
   const bytes = await pdf.save(),
     form = new FormData();
   form.set("title", "Disposable PDF template");
@@ -835,6 +833,41 @@ try {
     ).rows[0].n,
     1,
   );
+  const schedulerHeaders = {
+    Authorization: "Bearer " + process.env.CRON_SECRET,
+  };
+  const beforeProbe = (
+    await db.query("SELECT count(*)::int n FROM private.job_runner_state")
+  ).rows[0].n;
+  const probe = await fetch(origin + "/api/jobs?probe=1", {
+    headers: schedulerHeaders,
+  });
+  assert.equal(probe.status, 200);
+  const probeData = await probe.json();
+  assert.equal(probeData.configured, false);
+  assert(!JSON.stringify(probeData).includes(process.env.CRON_SECRET));
+  assert.equal(
+    (await db.query("SELECT count(*)::int n FROM private.job_runner_state"))
+      .rows[0].n,
+    beforeProbe,
+    "Probe must not create or process runner state",
+  );
+  const scheduled = await fetch(origin + "/api/jobs", {
+    headers: schedulerHeaders,
+  });
+  assert.equal(
+    scheduled.status,
+    503,
+    "Fixture has no mail provider credentials",
+  );
+  const runnerState = (
+    await db.query(
+      "SELECT * FROM private.job_runner_state WHERE id='scheduled'",
+    )
+  ).rows[0];
+  assert.equal(runnerState.last_error, "Email delivery is not configured.");
+  assert.equal(runnerState.last_success_at, null);
+  assert.equal(runnerState.locked_until, null);
   console.log(
     "PASS upgrade integration: migrations, ownership, required intake snapshots, immutable reschedule IDs and reminder cancellation, encrypted per-recipient delivery, template versions, client links, workflow permissions, team invitations and shared reservations, provider/payment gates, and admin isolation.",
   );
