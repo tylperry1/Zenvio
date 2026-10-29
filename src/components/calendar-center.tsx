@@ -62,9 +62,19 @@ export function CalendarCenter() {
       .then((d) => setOrganizations(d.organizations || []))
       .catch(() => {});
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    if (window.innerWidth < 640) setView("day");
     fetch("/api/workspace")
       .then((r) => r.json())
-      .then((d) => setWorkspace(d));
+      .then((d) => {
+        setWorkspace(d);
+        // Show the host's own business hours, not the browser's.
+        const home = d?.profile?.timezone;
+        if (home) {
+          setZone(home);
+          const p = inZone(new Date(), home);
+          setDate(`${p.year}-${p.month}-${p.day}`);
+        }
+      });
   }, []);
   useEffect(() => {
     load().catch((e) => setError(e.message));
@@ -269,7 +279,15 @@ export function CalendarCenter() {
           </button>
         </section>
       )}
-      <div className={"calendar-board calendar-" + view}>
+      {view === "day" || view === "week" ? (
+        <TimeGrid
+          days={Array.from({ length: days }, (_, i) => shift(start, i))}
+          events={events}
+          zone={zone}
+          onSelect={setSelected}
+        />
+      ) : (
+        <div className={"calendar-board calendar-" + view}>
         {Array.from({ length: days }, (_, i) => shift(start, i)).map((day) => (
           <section className="calendar-day" key={day}>
             <h2>
@@ -314,6 +332,7 @@ export function CalendarCenter() {
           </section>
         ))}
       </div>
+      )}
       {creating && workspace && (
         <CreateAppointment
           data={workspace}
@@ -343,5 +362,156 @@ export function CalendarCenter() {
         />
       )}
     </SuiteShell>
+  );
+}
+
+const HOUR = 64;
+const minutesIn = (d: Date, zone: string) => {
+  const p = inZone(d, zone);
+  return +p.hour * 60 + +p.minute;
+};
+function TimeGrid({
+  days,
+  events,
+  zone,
+  onSelect,
+}: {
+  days: string[];
+  events: any[];
+  zone: string;
+  onSelect: (e: any) => void;
+}) {
+  const now = new Date(),
+    today = key(now, zone);
+  const allDay = (day: string) =>
+    events.filter((e) => e.allDay && e.starts_at <= day && e.ends_at > day);
+  const timed = days.map((day) => {
+    const items = events
+      .filter(
+        (e) =>
+          !e.allDay &&
+          key(new Date(e.starts_at), zone) <= day &&
+          key(new Date(Date.parse(e.ends_at) - 1), zone) >= day,
+      )
+      .map((e) => {
+        const start = new Date(e.starts_at),
+          end = new Date(e.ends_at);
+        const from = key(start, zone) === day ? minutesIn(start, zone) : 0,
+          to =
+            key(new Date(+end - 1), zone) === day
+              ? minutesIn(end, zone) || 1440
+              : 1440;
+        return { e, from, to: Math.max(to, from + 15), lane: 0 };
+      })
+      .sort((a, b) => a.from - b.from || b.to - a.to);
+    // Side-by-side lanes for overlapping appointments.
+    const ends: number[] = [];
+    for (const item of items) {
+      let lane = ends.findIndex((end) => end <= item.from);
+      if (lane < 0) lane = ends.length;
+      ends[lane] = item.to;
+      item.lane = lane;
+    }
+    return { day, items, lanes: Math.max(1, ends.length) };
+  });
+  const all = timed.flatMap((d) => d.items);
+  const first = Math.min(8, ...all.map((i) => Math.floor(i.from / 60))),
+    last = Math.max(18, ...all.map((i) => Math.ceil(i.to / 60)));
+  const hours = Array.from({ length: last - first }, (_, i) => first + i);
+  const hasAllDay = days.some((d) => allDay(d).length);
+  const label = (h: number) =>
+    new Date(Date.UTC(2000, 0, 1, h)).toLocaleTimeString([], {
+      hour: "numeric",
+      timeZone: "UTC",
+    });
+  return (
+    <div className="time-grid-scroll">
+      <div
+        className="time-grid"
+        style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(${days.length > 1 ? 110 : 0}px, 1fr))` }}
+      >
+        <div className="time-grid-corner" />
+        {days.map((day) => (
+          <div
+            key={day}
+            className={"time-grid-head" + (day === today ? " today" : "")}
+          >
+            <span>
+              {new Date(day + "T12:00:00Z").toLocaleDateString([], {
+                weekday: "short",
+                timeZone: "UTC",
+              })}
+            </span>
+            <b>{Number(day.slice(8))}</b>
+          </div>
+        ))}
+        {hasAllDay && (
+          <>
+            <div className="time-grid-gutter-label">All day</div>
+            {days.map((day) => (
+              <div key={day} className="time-grid-allday">
+                {allDay(day).map((e) => (
+                  <span key={e.id} className="calendar-entry external">
+                    {e.title}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </>
+        )}
+        <div className="time-grid-hours" style={{ height: hours.length * HOUR }}>
+          {hours.map((h) => (
+            <span key={h} style={{ top: (h - first) * HOUR }}>
+              {label(h)}
+            </span>
+          ))}
+        </div>
+        {timed.map(({ day, items, lanes }) => (
+          <div
+            key={day}
+            className={"time-grid-day" + (day === today ? " today" : "")}
+            style={{ height: hours.length * HOUR, backgroundSize: `100% ${HOUR}px` }}
+          >
+            {day === today && (
+              <i
+                className="time-grid-now"
+                style={{ top: ((minutesIn(now, zone) - first * 60) / 60) * HOUR }}
+              />
+            )}
+            {items.map(({ e, from, to, lane }) => (
+              <button
+                key={e.id + day}
+                className={
+                  "time-grid-event" +
+                  (to - from < 45 ? " compact" : "") +
+                  (e.readOnly ? " external" : "") +
+                  (e.status === "cancelled" ? " cancelled" : "")
+                }
+                disabled={e.readOnly}
+                onClick={() => onSelect(e)}
+                style={{
+                  top: ((from - first * 60) / 60) * HOUR,
+                  height: Math.max(((to - from) / 60) * HOUR - 2, 20),
+                  left: `calc(${(lane / lanes) * 100}% + 2px)`,
+                  width: `calc(${100 / lanes}% - 4px)`,
+                }}
+                title={`${e.title}${e.guest_name ? " · " + e.guest_name : ""}`}
+              >
+                <strong>{e.title}</strong>
+                <small>
+                  {new Date(e.starts_at).toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZone: zone,
+                  })}
+                  {e.guest_name ? " · " + e.guest_name : ""}
+                  {e.readOnly ? " · " + (e.sourceLabel || "Busy") : ""}
+                </small>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

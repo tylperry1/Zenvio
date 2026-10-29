@@ -687,3 +687,156 @@ body {
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
+
+/* Calendar time grid (day and week views) */
+.time-grid-scroll {
+  overflow-x: auto;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.time-grid {
+  display: grid;
+  min-width: 0;
+}
+.time-grid-corner,
+.time-grid-head,
+.time-grid-gutter-label,
+.time-grid-allday {
+  border-bottom: 1px solid var(--border);
+}
+.time-grid-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-left: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.time-grid-head b {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0;
+}
+.time-grid-head.today b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--action-primary);
+  color: var(--text-inverse);
+}
+.time-grid-gutter-label {
+  padding: 8px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.time-grid-allday {
+  padding: 6px;
+  border-left: 1px solid var(--border);
+}
+.time-grid-allday .calendar-entry {
+  margin: 0 0 4px !important;
+}
+.time-grid-hours {
+  position: relative;
+}
+.time-grid-hours span {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.time-grid-hours span:first-child {
+  transform: none;
+}
+.time-grid-day {
+  position: relative;
+  border-left: 1px solid var(--border);
+  background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+}
+.time-grid-day.today {
+  background-color: #f8faff;
+}
+.time-grid-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--error);
+  z-index: 2;
+}
+.time-grid-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+}
+.shell .platform-page .time-grid-event {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 0;
+  border-left: 3px solid var(--action-primary);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.time-grid-event strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time-grid-event small {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell .platform-page .time-grid-event.external {
+  border-left-color: #8a6ad8;
+  background: #f4efff;
+  opacity: 1;
+  cursor: default;
+}
+.shell .platform-page .time-grid-event.cancelled {
+  border-left-color: var(--border-strong);
+  background: #f2f4f9;
+  text-decoration: line-through;
+}
+.shell .platform-page .time-grid-event.compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+}
+.time-grid-event.compact strong {
+  flex-shrink: 0;
+  max-width: 60%;
+}
