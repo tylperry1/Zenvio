@@ -4,7 +4,7 @@ Prepared October 29, 2026. Source implementation is not proof of a live provider
 
 ## Preserve existing configuration
 
-Keep DATABASE_URL, DATABASE_URL_UNPOOLED, BETTER_AUTH_SECRET, INTEGRATION_ENCRYPTION_KEY, CRON_SECRET, Google OAuth credentials, and existing Stripe/Resend secrets. Never regenerate them to deploy this upgrade. The canonical URL remains https://gozenvio.com. Apply new migrations 017–029 using `npm run db:migrate`; migrations 001–016 remain byte-for-byte unchanged. Take the normal database recovery checkpoint first. New private tables revoke public/anon/authenticated access. Existing personal booking URLs and records remain supported.
+Keep DATABASE_URL, DATABASE_URL_UNPOOLED, BETTER_AUTH_SECRET, INTEGRATION_ENCRYPTION_KEY, CRON_SECRET, Google OAuth credentials, and existing Stripe/Resend secrets. Never regenerate them to deploy this upgrade. The canonical URL remains https://gozenvio.com. Apply new migrations 017–030 using `npm run db:migrate`; migrations 001–016 remain byte-for-byte unchanged. Take the normal database recovery checkpoint first. New private tables revoke public/anon/authenticated access. Existing personal booking URLs and records remain supported.
 
 The build runs checksummed migrations only outside preview environments. A preview must use an isolated database with the new migrations already applied; it must never share the production database for testing.
 

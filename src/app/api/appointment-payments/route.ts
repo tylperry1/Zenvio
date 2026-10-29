@@ -17,6 +17,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { token } = await session();
+    await getPool().query(
+      "UPDATE private.appointment_payments SET status='expired' WHERE user_id=$1 AND status IN ('held','pending') AND hold_expires_at<=now() AND booking_id IS NULL",
+      [token],
+    );
     const [account, payments, events] = await Promise.all([
       getPool().query(
         "SELECT charges_enabled,payouts_enabled,details_submitted,disconnected_at FROM private.host_payment_accounts WHERE user_id=$1",

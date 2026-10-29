@@ -1,3 +1,4 @@
+import { scheduleWorkflows } from "@/lib/workflows";
 import { queueDelivery, appOrigin, drainDeliveries } from "@/lib/lifecycle";
 import { unsealSecret } from "@/lib/platform-settings";
 import { NextRequest, after } from "next/server";
@@ -93,7 +94,11 @@ export async function POST(request: NextRequest) {
             subject: "Signed: " + document.title,
             text: `Download your signed agreement: ${appOrigin()}/sign#token=${unsealSecret(document.link_ciphertext)}`,
           });
-        after(() => drainDeliveries(document.user_id).then(() => {}));
+        after(() =>
+          scheduleWorkflows(document.user_id)
+            .then(() => drainDeliveries(document.user_id))
+            .then(() => {}),
+        );
         document = {
           ...document,
           status: "signed",

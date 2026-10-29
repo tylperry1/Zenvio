@@ -1,3 +1,4 @@
+import { materializeBookingNotifications } from "@/lib/mail";
 import { integrationValue } from "@/lib/platform-settings";
 import { scheduleWorkflows } from "@/lib/workflows";
 import { NextRequest, after } from "next/server";
@@ -103,7 +104,8 @@ export async function POST(r: NextRequest) {
         );
     } else if (v.action !== "process") throw new ApiError("Invalid action.");
     after(() =>
-      scheduleWorkflows(token)
+      materializeBookingNotifications()
+        .then(() => scheduleWorkflows(token))
         .then(() => drainDeliveries(token))
         .then(() => {}),
     );

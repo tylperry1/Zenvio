@@ -7,7 +7,7 @@ import {
 } from "./platform-settings";
 import { ApiError, string, email } from "./server";
 import { filterGoogleSlots } from "./google-calendar";
-import { scheduleBooking, appOrigin } from "./lifecycle";
+import { scheduleBooking, appOrigin, queueDelivery } from "./lifecycle";
 export async function appointmentPaymentsReady() {
   return (
     process.env.APPOINTMENT_PAYMENTS_ENABLED === "true" &&
@@ -178,6 +178,7 @@ export async function reconcileAppointmentPayment(
   account: string,
   checkoutId: string,
   eventId: string,
+  eventType?: string,
 ) {
   const stripe = await stripeClient();
   const checkout = await stripe.checkout.sessions.retrieve(
@@ -238,6 +239,31 @@ export async function reconcileAppointmentPayment(
           "UPDATE private.appointment_payments SET status='paid',payment_intent=$2,last_error='Payment received but slot unavailable. Host must review and refund or arrange another appointment.' WHERE id=$1",
           [p.id, checkout.payment_intent],
         );
+        const owner = (
+          await db.query('SELECT email FROM public."user" WHERE id=$1', [
+            p.user_id,
+          ])
+        ).rows[0];
+        if (owner)
+          await queueDelivery(db, {
+            user: p.user_id,
+            kind: "payment_review",
+            key: "payment-review:" + p.id,
+            to: owner.email,
+            subject: "Appointment payment requires review",
+            text:
+              "Payment was received but the slot could not be confirmed. Review Appointment payments to arrange a new time or issue an authorized refund. No automatic refund or cancellation was made. " +
+              appOrigin() +
+              "/app/payments",
+          });
+        await queueDelivery(db, {
+          user: p.user_id,
+          kind: "payment_review",
+          key: "payment-review-guest:" + p.id,
+          to: guest.email,
+          subject: "Payment received — appointment awaiting host review",
+          text: "Your payment was received, but an appointment could not be confirmed at the requested time. The host has been notified to arrange a time or review a refund. Please do not pay again.",
+        });
       } else {
         await db.query(
           "UPDATE private.appointment_payments SET status='paid' WHERE id=$1",
@@ -276,7 +302,16 @@ export async function reconcileAppointmentPayment(
         );
         await scheduleBooking(db, booking.id);
       }
-    } else if (checkout.status === "expired" && !p.booking_id)
+    } else if (
+      eventType === "checkout.session.async_payment_failed" &&
+      checkout.payment_status !== "paid" &&
+      !p.booking_id
+    )
+      await db.query(
+        "UPDATE private.appointment_payments SET status='failed',last_error='Payment failed. No appointment was confirmed.' WHERE id=$1",
+        [p.id],
+      );
+    else if (checkout.status === "expired" && !p.booking_id)
       await db.query(
         "UPDATE private.appointment_payments SET status='expired',guest_ciphertext='' WHERE id=$1",
         [p.id],

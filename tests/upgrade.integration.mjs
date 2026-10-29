@@ -739,6 +739,96 @@ try {
     ).status,
     503,
   );
+  const completedRule = await request(
+    "/api/workflows",
+    {
+      action: "create",
+      name: "Legacy completion notice",
+      trigger: "document_completed",
+      workflow_action: "email_host",
+      minutes: 0,
+      subject: "Legacy fixture completed",
+      message: "Isolated fixture",
+    },
+    alice.cookie,
+  );
+  assert.equal(completedRule.status, 200);
+  const completionId = (
+    await request("/api/workflows", null, alice.cookie)
+  ).data.rules.find((r) => r.name === "Legacy completion notice").id;
+  await request(
+    "/api/workflows",
+    { action: "toggle", id: completionId, enabled: true },
+    alice.cookie,
+  );
+  const legacy = await request(
+    "/api/documents",
+    {
+      action: "create",
+      title: "Legacy fixture",
+      content: "Disposable legacy text agreement for isolated testing only.",
+      name: "Fixture Legacy Signer",
+      email: "legacy@example.com",
+      email_delivery: true,
+      reminder_days: [2, 6],
+    },
+    alice.cookie,
+  );
+  assert.equal(legacy.status, 201, JSON.stringify(legacy.data));
+  await db.query(
+    "UPDATE private.delivery_jobs SET created_at=now()-interval '6 minutes' WHERE document_id=$1",
+    [legacy.data.id],
+  );
+  assert.equal(
+    (
+      await request(
+        "/api/documents",
+        { action: "resend", id: legacy.data.id },
+        alice.cookie,
+      )
+    ).status,
+    200,
+  );
+  assert(
+    !JSON.stringify(
+      (await request("/api/documents?id=" + legacy.data.id, null, alice.cookie))
+        .data,
+    ).includes("link_ciphertext"),
+  );
+  const legacyToken = legacy.data.signingPath.split("token=")[1],
+    legacyRead = (
+      await request("/api/sign", { action: "read", token: legacyToken })
+    ).data;
+  const legacySigned = await request("/api/sign", {
+    action: "sign",
+    token: legacyToken,
+    name: "Fixture Legacy Signer",
+    consent: true,
+    content_hash: legacyRead.document.content_hash,
+  });
+  assert.equal(legacySigned.status, 200, JSON.stringify(legacySigned.data));
+  await request("/api/lifecycle", { action: "process" }, alice.cookie);
+  for (let n = 0; n < 30; n++) {
+    if (
+      (
+        await db.query(
+          "SELECT 1 FROM private.workflow_runs WHERE rule_id=$1 AND document_id=$2",
+          [completionId, legacy.data.id],
+        )
+      ).rowCount
+    )
+      break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(
+    (
+      await db.query(
+        "SELECT count(*)::int n FROM private.workflow_runs WHERE rule_id=$1 AND document_id=$2",
+        [completionId, legacy.data.id],
+      )
+    ).rows[0].n,
+    1,
+  );
   console.log(
     "PASS upgrade integration: migrations, ownership, required intake snapshots, immutable reschedule IDs and reminder cancellation, encrypted per-recipient delivery, template versions, client links, workflow permissions, team invitations and shared reservations, provider/payment gates, and admin isolation.",
   );

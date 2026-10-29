@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
         event.account,
         (event.data.object as any).id,
         event.id,
+        event.type,
       );
     else if (
       event.type === "charge.refunded" ||

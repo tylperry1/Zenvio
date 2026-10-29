@@ -32,7 +32,7 @@ export async function scheduleWorkflows(user?: string) {
         r.trigger === "document_completed"
           ? (
               await db.query(
-                "SELECT e.id,e.contact_id,e.completed_at FROM private.signature_envelopes e WHERE e.user_id=$1 AND e.status='completed' AND e.completed_at>=$2",
+                "SELECT e.id,e.contact_id,e.completed_at,'pdf' kind FROM private.signature_envelopes e WHERE e.user_id=$1 AND e.status='completed' AND e.completed_at>=$2 UNION ALL SELECT d.id,d.contact_id,d.signed_at completed_at,'text' kind FROM private.signing_documents d WHERE d.user_id=$1 AND d.status='signed' AND d.signed_at>=$2",
                 [r.user_id, r.created_at],
               )
             ).rows
@@ -43,15 +43,18 @@ export async function scheduleWorkflows(user?: string) {
               )
             ).rows;
       for (const b of sources) {
-        const key = `workflow:${r.id}:${b.id}:${r.trigger === "after_booking" ? 0 : b.revision || 0}`;
+        const key = `workflow:${r.id}:${b.kind === "text" ? "text:" : ""}${b.id}:${r.trigger === "after_booking" ? 0 : b.revision || 0}`;
         const run = await db.query(
-          "INSERT INTO private.workflow_runs(rule_id,user_id,booking_id,envelope_id,dedupe_key,status) VALUES($1,$2,$3,$4,$5,'queued') ON CONFLICT(dedupe_key) DO UPDATE SET last_error=NULL WHERE private.workflow_runs.status='queued' RETURNING id",
+          "INSERT INTO private.workflow_runs(rule_id,user_id,booking_id,envelope_id,dedupe_key,document_id,status) VALUES($1,$2,$3,$4,$5,$6,'queued') ON CONFLICT(dedupe_key) DO UPDATE SET last_error=NULL WHERE private.workflow_runs.status='queued' RETURNING id",
           [
             r.id,
             r.user_id,
             r.trigger === "document_completed" ? null : b.id,
-            r.trigger === "document_completed" ? b.id : null,
+            r.trigger === "document_completed" && b.kind !== "text"
+              ? b.id
+              : null,
             key,
+            b.kind === "text" ? b.id : null,
           ],
         );
         if (!run.rowCount) continue;
