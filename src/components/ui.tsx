@@ -205,3 +205,109 @@ export function formatDateTime(value: string | Date) {
     minute: "2-digit",
   });
 }
+
+type ConfirmOptions = {
+  title: string;
+  body?: ReactNode;
+  confirmLabel?: string;
+  danger?: boolean;
+};
+// In-app replacement for window.confirm: `if (await confirm({...})) …`.
+export function useConfirm() {
+  const [pending, setPending] = useState<(ConfirmOptions & { resolve: (ok: boolean) => void }) | null>(null);
+  const confirm = useCallback(
+    (options: ConfirmOptions) => new Promise<boolean>((resolve) => setPending({ ...options, resolve })),
+    [],
+  );
+  const close = (ok: boolean) => {
+    pending?.resolve(ok);
+    setPending(null);
+  };
+  const node = pending ? (
+    <ConfirmDialog {...pending} onClose={close} />
+  ) : null;
+  return { confirm, node };
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel = "Confirm",
+  danger,
+  onClose,
+}: ConfirmOptions & { onClose: (ok: boolean) => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="modal ui-confirm"
+      aria-labelledby="ui-confirm-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose(false);
+      }}
+    >
+      <h2 id="ui-confirm-title">{title}</h2>
+      {body && <div className="ui-confirm-body">{body}</div>}
+      <div className="ui-modal-actions">
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={() => onClose(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          autoFocus
+          className={`ui-btn ${danger ? "ui-btn-danger" : "ui-btn-primary"}`}
+          onClick={() => onClose(true)}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
+export function CopyField({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="ui-copy">
+      <input readOnly value={value} aria-label={label} className="ui-input" onFocus={(e) => e.currentTarget.select()} />
+      <button
+        type="button"
+        className="ui-btn ui-btn-secondary"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch {}
+        }}
+      >
+        <Icon name={copied ? "check" : "link"} size={14} /> {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+export function Meter({ value, max, label }: { value: number; max: number; label: string }) {
+  const pct = max ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <div className="ui-meter" role="meter" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={max}>
+      <span style={{ width: `${pct}%` }} className={pct >= 100 ? "full" : ""} />
+    </div>
+  );
+}
+
+export function slugify(text: string) {
+  return text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
