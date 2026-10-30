@@ -1601,3 +1601,15 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+@media (max-width: 760px) {
+  .cal-nav {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .cal-range.cal-range {
+    order: 5;
+    flex-basis: 100%;
+    margin: 6px 0 0;
+    white-space: normal;
+  }
+}
