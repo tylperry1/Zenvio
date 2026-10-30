@@ -1,3 +1,4 @@
+import { assertMemberControl } from "@/lib/team-member-policy";
 import {
   filterGoogleSlots,
   runGoogleJobs,
@@ -54,8 +55,11 @@ export async function GET(req: NextRequest) {
         role.role === "staff" ? [id, token] : [id],
       )
     ).rows;
+    const usage = await entitlementUsage(role.owner_id);
+    const invitations = role.role === "staff" ? [] : (await getPool().query("SELECT id,email,role,expires_at,created_at FROM private.team_invites WHERE organization_id=$1 AND accepted_at IS NULL AND expires_at>now() ORDER BY created_at DESC", [id])).rows;
+    const occupied = (await getPool().query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active", [role.owner_id])).rows[0].n;
     return Response.json(
-      { role: role.role, members, events, bookings },
+      { role: role.role, members, events, bookings, invitations, seats:usage.seats, occupied, canManageBilling:role.role==="owner" },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
@@ -92,10 +96,13 @@ export async function POST(req: NextRequest) {
             [invite.organization_id],
           )
         ).rows[0];
+        await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+owner.owner_id]);
+        const existingMember=(await db.query("SELECT role,active FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[invite.organization_id,token])).rows[0];
+        if(existingMember?.role==="owner" || existingMember?.active) throw new ApiError("You already have an active membership in this workspace.",409);
         const usage = await entitlementUsage(owner.owner_id, db);
-        if (usage.plan !== "teams" || !usage.canManageTeamBilling)
+        if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
           throw new ApiError(
-            "This workspace requires an active Teams plan.",
+            "This workspace requires an active Teams subscription.",
             409,
           );
         const count = (
@@ -119,9 +126,9 @@ export async function POST(req: NextRequest) {
         );
       } else if (v.action === "create") {
         const usage = await entitlementUsage(token, db);
-        if (usage.plan !== "teams" || !usage.canManageTeamBilling)
+        if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
           throw new ApiError(
-            "Team workspaces require an active Teams plan or an audited master-admin entitlement.",
+            "Team workspaces require an active Teams subscription or an audited master-admin entitlement.",
             409,
           );
         const id = (
@@ -141,12 +148,38 @@ export async function POST(req: NextRequest) {
         await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
           "team:" + organization,
         ]);
-        if (v.action === "invite") {
+        if (v.action === "rename") {
+          await db.query("UPDATE private.organizations SET name=$2 WHERE id=$1", [organization,string(v.name,"workspace name",100,2)]);
+        } else if (v.action === "revoke-invite") {
+          const invitation = (await db.query("SELECT role FROM private.team_invites WHERE id=$1 AND organization_id=$2 AND accepted_at IS NULL FOR UPDATE", [uuid(v.invite_id),organization])).rows[0];
+          if (!invitation) throw new ApiError("Invitation not found.",404);
+          if (invitation.role==="administrator" && role.role!=="owner") throw new ApiError("Only the owner can revoke manager invitations.",403);
+          await db.query("UPDATE private.team_invites SET expires_at=now() WHERE id=$1 AND organization_id=$2", [uuid(v.invite_id),organization]);
+        } else if (v.action === "role" || v.action === "reactivate") {
+          const target=uuid(v.user_id);
+          const member=(await db.query("SELECT role FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[organization,target])).rows[0];
+          if (!member) throw new ApiError("Member not found.",404);
+          assertMemberControl(role.role,member.role,target===token,String(v.action));
+          if (v.action==="role") {
+            if (!["staff","administrator"].includes(String(v.role))) throw new ApiError("Choose Staff or Manager.");
+            await db.query("UPDATE private.memberships SET role=$3 WHERE organization_id=$1 AND user_id=$2",[organization,target,v.role]);
+          } else {
+            const usage=await entitlementUsage(role.owner_id,db);
+            if (!["team","teams"].includes(usage.plan)||!usage.canManageTeamBilling) throw new ApiError("An active Teams subscription is required.",409);
+            await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+role.owner_id]);
+            const count=(await db.query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active AND m.user_id<>$2",[role.owner_id,target])).rows[0].n;
+            if(count>=usage.seats) throw new ApiError("The owner must add a seat before reactivating this member.",409);
+            await db.query("UPDATE private.memberships SET active=true WHERE organization_id=$1 AND user_id=$2",[organization,target]);
+          }
+        } else if (v.action === "invite") {
           const address = email(v.email);
           if (!["staff", "administrator"].includes(String(v.role)))
             throw new ApiError("Choose staff or administrator.");
           if (role.role !== "owner" && v.role === "administrator")
             throw new ApiError("Only owners can invite administrators.", 403);
+          const existingMember=(await db.query('SELECT m.role FROM private.memberships m JOIN public."user" u ON u.id=m.user_id WHERE m.organization_id=$1 AND lower(u.email)=$2',[organization,address])).rows[0];
+          if(existingMember) throw new ApiError("This person already belongs to the team. Use the member controls to change their role or reactivate them.",409);
+          await db.query("UPDATE private.team_invites SET expires_at=now() WHERE organization_id=$1 AND email=$2 AND accepted_at IS NULL",[organization,address]);
           const secret = signingToken();
           await db.query(
             "INSERT INTO private.team_invites(organization_id,email,role,token_hash) VALUES($1,$2,$3,$4)",
@@ -193,8 +226,8 @@ export async function POST(req: NextRequest) {
             throw new ApiError("Choose at least one staff member.");
           const staff = [...new Set(v.staff.map(uuid))];
           const usage = await entitlementUsage(role.owner_id, db);
-          if (usage.plan !== "teams" || !usage.canManageTeamBilling)
-            throw new ApiError("This workspace requires Teams.", 409);
+          if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
+            throw new ApiError("This workspace requires a Teams subscription.", 409);
           const count = (
             await db.query(
               "SELECT count(*)::int n FROM private.team_event_types WHERE organization_id=$1 AND active",
@@ -362,6 +395,7 @@ export async function POST(req: NextRequest) {
           if (!b.rowCount) throw new ApiError("Appointment not found.", 404);
         } else throw new ApiError("Invalid team action.");
       }
+      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)", [token,"team_"+String(v.action),JSON.stringify({organization:v.organization||result.id||null,target:v.user_id||null})]);
       await db.query("COMMIT");
       return Response.json(result);
     } catch (e) {

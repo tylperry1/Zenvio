@@ -1,73 +1,23 @@
 "use client";
-import { useState } from "react";
-export function Enrollment() {
-  const [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
-  return (
-    <section>
-      <h2>Choose or change a paid plan</h2>
-      <p>
-        Paid enrollment remains gated until Stripe recurring prices and webhooks
-        are configured. Changes can create prorations on your next invoice.
-        Existing records are preserved when limits change.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
-      <form
-        className="stack-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          try {
-            const f = new FormData(e.currentTarget),
-              r = await fetch("/api/subscription-enroll", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  plan: f.get("plan"),
-                  period: f.get("period"),
-                  seats: Number(f.get("seats")),
-                  confirm: f.get("confirm") === "on",
-                }),
-              }),
-              d = await r.json();
-            if (!r.ok) throw Error(d.error);
-            if (d.url) location.assign(d.url);
-            else setMessage(d.message);
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <label>
-          Plan
-          <select name="plan">
-            <option value="pro">Pro</option>
-            <option value="business">Business</option>
-            <option value="teams">Teams</option>
-          </select>
-        </label>
-        <label>
-          Billing period
-          <select name="period">
-            <option value="monthly">Monthly</option>
-            <option value="annual">Annual</option>
-          </select>
-        </label>
-        <label>
-          Paid hosts (Teams only, minimum 3)
-          <input name="seats" type="number" min={3} defaultValue={3} />
-        </label>
-        <label className="document-checkbox">
-          <input name="confirm" type="checkbox" required />I have reviewed the
-          site’s current plan price, billing period, host quantity, and
-          proration policy.
-        </label>
-        <button disabled={busy}>Continue to billing review</button>
-      </form>
-    </section>
-  );
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Icon } from "./icons";
+import { Modal } from "./modal";
+import { money } from "@/lib/billing-types";
+import { currentOffers, includedFeatures, subscriptionTotal } from "@/lib/subscription-offers.mjs";
+export function Enrollment({enabled=false,currentPlan="free",currentSeats=1,hasSubscription=false,onUpdated}: {enabled?:boolean;currentPlan?:string;currentSeats?:number;hasSubscription?:boolean;onUpdated?:()=>void}) {
+  const [plan,setPlan]=useState(currentPlan === 'team' ? 'team' : 'individual'),[seats,setSeats]=useState(Math.max(3,currentSeats)),[review,setReview]=useState(false),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+  useEffect(()=>{setPlan(currentPlan==='team'?'team':'individual');setSeats(Math.max(3,currentSeats));},[currentPlan,currentSeats]);
+  const count=plan==='team'?seats:1,total=subscriptionTotal(plan,count);
+  const unchanged=hasSubscription && currentPlan===plan && (plan!=='team'||currentSeats===seats);
+  async function subscribe(){setBusy(true);setError('');try{const r=await fetch('/api/subscription-enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan,seats:count,period:'monthly',confirm:confirmed})}),d=await r.json();if(!r.ok)throw Error(d.error);if(d.url){location.assign(d.url);return;}setMessage(d.message);setReview(false);onUpdated?.();}catch(e){setError(e instanceof Error?e.message:'Unable to update your subscription.');}finally{setBusy(false);}}
+  return <section className="subscription-enrollment" id="packages">
+    <div className="subscription-section-title"><div><span className="subscription-kicker">SIMPLE BY DESIGN</span><h2>Your workspace. Your package.</h2><p>Scheduling and signing are included. Choose who you work with.</p></div><span className="subscription-monthly">Monthly billing · USD</span></div>
+    {message&&<p role="status" className="subscription-success">{message}</p>}
+    <div className="subscription-choice-grid">{currentOffers.map(offer=><button key={offer.id} className={`subscription-choice ${plan===offer.id?'is-selected':''}`} aria-pressed={plan===offer.id} onClick={()=>{setPlan(offer.id);setError('');}}><span><Icon name={offer.id==='team'?'team':'users'} size={22}/><span>{currentPlan===offer.id?'CURRENT PACKAGE':offer.id==='team'?'FIRST 3 SEATS INCLUDED':'ONE PERSON'}</span></span><strong>{offer.name}</strong><b>{money(offer.monthly)}<small>/month</small></b><p>{offer.id==='team'?'Then $9.99/month for each additional seat.':'Scheduling, clients, workflows, payments, and signing.'}</p><span className="subscription-choice-check"><Icon name={plan===offer.id?'check':'plus'} size={16}/>{plan===offer.id?'Selected':'Choose package'}</span></button>)}</div>
+    <div className="subscription-configurator"><div><h3>{plan==='team'?'Room for your team.':'Everything for your working day.'}</h3><p>{plan==='team'?'The owner counts as one seat. Managers can run the team; only the owner changes billing.':'One host with 100 signing envelopes each month. Clients book and sign without paid accounts.'}</p>{plan==='team'&&<label className="subscription-seat-input">Total paid seats<input type="number" min={3} max={1000} value={seats} onChange={e=>setSeats(Math.min(1000,Math.max(3,Number(e.target.value)||3)))}/><small>3 included + {seats-3} additional</small></label>}</div><div className="subscription-order-summary" aria-live="polite"><span>Your monthly subscription</span><strong>{money(total)}<small>/month</small></strong><p>{plan==='team'?`$49.99 + ${seats-3} × $9.99`:'One seat · all paid features included'}</p><button className="subscription-cta" disabled={!enabled||unchanged} onClick={()=>{setConfirmed(false);setReview(true);setError('');}}>{unchanged?'Your current package':hasSubscription?'Review package change':'Review subscription'}<Icon name="arrow" size={16}/></button>{!enabled&&<small>Online enrollment is being prepared. Your current access is unchanged.</small>}</div></div>
+    <ul className="subscription-included-strip">{includedFeatures.map(feature=><li key={feature}><Icon name="check" size={15}/>{feature}</li>)}</ul>
+    <div className="subscription-fair-billing"><Icon name="shield" size={19}/><p>No charge without confirmation. No automatic overages. Taxes and payment processing fees may apply. <Link href="/pricing">Read package details</Link>.</p></div>
+    {review&&<Modal title={hasSubscription?'Review your package change':'Review your subscription'} onClose={()=>{if(!busy)setReview(false);}}><div className="subscription-review"><span className="subscription-kicker">{plan==='team'?'TEAMS':'INDIVIDUAL'} · {count} {count===1?'SEAT':'SEATS'}</span><strong>{money(total)}<small>/month</small></strong><p>{plan==='team'?`Includes 3 seats at $49.99, plus ${seats-3} additional seats at $9.99 each.`:'Scheduling and document signing for one person.'}</p><p>{hasSubscription?'This change applies immediately when any required payment succeeds. Stripe calculates a prorated charge or credit for the current period. Taxes may apply.':'You will review payment details in secure checkout before starting your monthly subscription. Taxes may apply.'}</p><p>100 document envelopes per host per calendar month. Drafts count. No rollover or automatic overage charges.</p><label className="subscription-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span>I confirm this monthly package, seat count, and {hasSubscription?'any prorated billing adjustment':'recurring billing'}.</span></label>{error&&<p role="alert" className="billing-error">{error}</p>}<button className="subscription-cta" disabled={busy||!confirmed} onClick={()=>void subscribe()}>{busy?'Processing…':hasSubscription?'Confirm package change':'Continue to secure checkout'}<Icon name="arrow" size={16}/></button></div></Modal>}
+  </section>;
 }

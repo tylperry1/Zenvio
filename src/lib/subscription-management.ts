@@ -9,21 +9,31 @@ export async function saveSubscription(
   userId: string,
 ) {
   const paid = ["active", "trialing"].includes(subscription.status);
-  const end = subscription.items.data[0]?.current_period_end;
-  const item = subscription.items.data[0];
-  const mapping = (
-    await client.query(
-      "SELECT plan FROM private.subscription_prices WHERE stripe_price_id=$1",
-      [item?.price?.id],
-    )
-  ).rows[0];
+  const items = subscription.items.data;
+  const mappings = (await client.query(
+    "SELECT plan,period,stripe_price_id FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[])",
+    [items.map((item) => item.price.id)],
+  )).rows;
+  const base = items.find((item) => mappings.some((m) => m.stripe_price_id === item.price.id && ["individual", "team"].includes(m.plan)));
+  const legacy = items[0];
+  const mapping = mappings.find((m) => m.stripe_price_id === (base || legacy)?.price.id);
   const mappedPlan = mapping?.plan || subscription.metadata.plan;
-  const seats = item?.quantity || 1;
+  let seats = legacy?.quantity || 1;
+  if (["individual", "team"].includes(mappedPlan)) {
+    if (!base || base.quantity !== 1) throw new Error("Invalid base subscription quantity.");
+    const extras = items.filter((item) => item !== base);
+    if (extras.length > 1 || (mappedPlan === "individual" && extras.length)) throw new Error("Invalid subscription items.");
+    const extra = extras[0];
+    const extraMap = extra && mappings.find((m) => m.stripe_price_id === extra.price.id);
+    if (extra && (extraMap?.plan !== "team_extra" || extraMap.period !== mapping.period || !Number.isInteger(extra.quantity) || extra.quantity! < 1 || extra.quantity! > 997)) throw new Error("Invalid additional seat price or quantity.");
+    seats = mappedPlan === "team" ? 3 + (extra?.quantity || 0) : 1;
+  }
+  const end = (base || legacy)?.current_period_end;
   await client.query(
     "UPDATE private.subscriptions SET subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
-      paid && ["pro", "business", "teams"].includes(mappedPlan)
+      paid && ["pro", "business", "teams", "individual", "team"].includes(mappedPlan)
         ? mappedPlan
         : "free",
       subscription.status,
@@ -44,6 +54,7 @@ export async function changeSubscription(
     client = await getPool().connect();
   try {
     await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["billing:"+userId]);
     const { rows } = await client.query(
       "SELECT customer_id,subscription_id FROM private.subscriptions WHERE user_id=$1",
       [userId],

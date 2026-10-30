@@ -1,3 +1,5 @@
+import { billingReadiness } from "@/lib/billing-readiness";
+import { entitlementUsage } from "@/lib/entitlements";
 import {
   billingDetails,
   changeSubscription,
@@ -17,14 +19,15 @@ export async function GET(request: NextRequest) {
         headers: { "Cache-Control": "no-store" },
       });
     const { rows } = await getPool().query(
-      "SELECT plan,status,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
+      "SELECT plan,seats,status,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
       [token],
     );
     return Response.json(
       {
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
-        connected: Boolean(await integrationValue("STRIPE_SECRET_KEY")),
+        ...(await billingReadiness()),
+        usage: await entitlementUsage(token),
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -68,6 +68,9 @@ export function EntitlementAdmin() {
           <label>
             Plan
             <select name="plan">
+              <option>individual</option>
+              <option>team</option>
+              <option>team_extra</option>
               <option>pro</option>
               <option>business</option>
               <option>teams</option>
@@ -116,6 +119,8 @@ export function EntitlementAdmin() {
             Plan
             <select name="plan">
               <option>free</option>
+              <option>individual</option>
+              <option>team</option>
               <option>pro</option>
               <option>business</option>
               <option>teams</option>

@@ -1,8 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Icon } from "./icons";
 import { SuiteShell } from "./suite-shell";
 export function TeamCenter() {
   const [staffFilter, setStaffFilter] = useState("");
+  const [memberSearch,setMemberSearch]=useState("");
+  const [busy,setBusy]=useState(false);
   const [orgs, setOrgs] = useState<any[]>([]),
     [selected, setSelected] = useState(""),
     [data, setData] = useState<any>(null),
@@ -17,6 +21,8 @@ export function TeamCenter() {
   }
   async function open(id: string) {
     setSelected(id);
+    setData(null);
+    if(!id)return;
     const r = await fetch("/api/teams?id=" + id),
       d = await r.json();
     if (!r.ok) throw Error(d.error);
@@ -26,6 +32,8 @@ export function TeamCenter() {
     load().catch((e) => setError(e.message));
   }, []);
   async function action(v: any) {
+    if(busy)return;
+    setBusy(true);setError("");setMessage("");
     try {
       const r = await fetch("/api/teams", {
           method: "POST",
@@ -37,10 +45,11 @@ export function TeamCenter() {
       if (d.invitationPath) setLink(location.origin + d.invitationPath);
       setMessage("Workspace updated.");
       await load();
-      if (selected) await open(selected);
+      if (d.id) await open(d.id);
+      else if (selected) await open(selected);
     } catch (e) {
       setError((e as Error).message);
-    }
+    } finally {setBusy(false);}
   }
   return (
     <SuiteShell
@@ -110,16 +119,20 @@ export function TeamCenter() {
       {data && (
         <>
           <section>
-            <h2>Members</h2>
-            {data.members.map((m: any) => (
+            <div className="subscription-section-title"><div><span className="subscription-kicker">PEOPLE & PERMISSIONS</span><h2>Your team, together.</h2><p>{data.occupied} of {data.seats} paid seats in use. The owner is included.</p></div>{data.canManageBilling ? <Link className="billing-secondary" href="/app/billing">Manage paid seats <Icon name="arrow" size={15}/></Link> : <span className="subscription-monthly">Billing is managed by the owner</span>}</div>
+            <label>Find a team member<input type="search" value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="Search name or email"/></label>
+            {data.members.filter((m:any)=>`${m.name} ${m.email}`.toLowerCase().includes(memberSearch.toLowerCase())).map((m: any) => (
               <article className="suite-row" key={m.user_id}>
                 <div>
                   <strong>{m.name}</strong>
                   <small>
-                    {m.email} · {m.role} · {m.active ? "Active" : "Removed"}
+                    {m.email} · {m.role === "administrator" ? "Manager" : m.role} · {m.active ? "Active" : "Inactive"}
                   </small>
                 </div>
-                {data.role !== "staff" && m.role !== "owner" && m.active && (
+                <div className="team-member-actions">
+                {data.role==="owner" && m.role!=="owner" && <select disabled={busy} aria-label={"Role for "+m.name} value={m.role} onChange={e=>void action({action:"role",user_id:m.user_id,role:e.target.value})}><option value="staff">Staff</option><option value="administrator">Manager</option></select>}
+                {data.role!=="staff" && m.role!=="owner" && (data.role==="owner"||m.role==="staff") && !m.active && <button disabled={busy} onClick={()=>void action({action:"reactivate",user_id:m.user_id})}>Reactivate</button>}
+                {data.role !== "staff" && m.role !== "owner" && (data.role==="owner"||m.role==="staff") && m.active && (
                   <button
                     onClick={() => {
                       if (
@@ -130,9 +143,10 @@ export function TeamCenter() {
                         void action({ action: "remove", user_id: m.user_id });
                     }}
                   >
-                    Remove
+                    Deactivate
                   </button>
                 )}
+                </div>
               </article>
             ))}
             {data.role !== "staff" && (
@@ -155,7 +169,7 @@ export function TeamCenter() {
                   <select name="role">
                     <option value="staff">Staff</option>
                     {data.role === "owner" && (
-                      <option value="administrator">Administrator</option>
+                      <option value="administrator">Manager</option>
                     )}
                   </select>
                 </label>
@@ -163,6 +177,7 @@ export function TeamCenter() {
               </form>
             )}
           </section>
+          {data.role!=="staff" && <section><span className="subscription-kicker">WORKSPACE CONTROLS</span><h2>Team settings & invitations</h2><form className="suite-grid" onSubmit={e=>{e.preventDefault();void action({action:"rename",name:new FormData(e.currentTarget).get("name")});}}><label>Workspace name<input name="name" required minLength={2} maxLength={100} defaultValue={orgs.find(o=>o.id===selected)?.name} key={selected}/></label><button disabled={busy}>Save name</button></form><h3>Pending invitations</h3>{data.invitations?.length ? data.invitations.map((i:any)=><div className="suite-row" key={i.id}><div><b>{i.email}</b><small>{i.role==='administrator'?'Manager':'Staff'} · Expires {new Date(i.expires_at).toLocaleDateString()}</small></div>{(data.role==='owner'||i.role==='staff')&&<button disabled={busy} onClick={()=>void action({action:'revoke-invite',invite_id:i.id})}>Revoke invitation</button>}</div>):<p>No pending invitations.</p>}<p className="team-permission-note">Managers can invite and manage staff, edit the workspace name, and manage shared scheduling. Only owners assign manager roles or change subscriptions and paid seats. Each person signs in with their own account.</p></section>}
           <section>
             <h2>Shared appointment types</h2>
             {data.events.map((e: any) => (

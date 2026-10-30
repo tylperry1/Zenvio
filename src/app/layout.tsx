@@ -7,6 +7,7 @@ import "./documents.css";
 import "./suite.css";
 import "./shell.css";
 import "./workspace-design.css";
+import "./subscriptions.css";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

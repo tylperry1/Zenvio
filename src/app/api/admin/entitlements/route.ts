@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       await db.query("BEGIN");
       const reason = string(v.reason, "reason", 500, 5);
       if (v.action === "override") {
-        if (!["free", "pro", "business", "teams"].includes(String(v.plan)))
+        if (!["free", "pro", "business", "teams", "individual", "team"].includes(String(v.plan)))
           throw new ApiError("Invalid plan.");
         const expires = new Date(String(v.expires));
         if (
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         );
       } else if (v.action === "price") {
         if (
-          !["pro", "business", "teams"].includes(String(v.plan)) ||
+          !["pro", "business", "teams", "individual", "team", "team_extra"].includes(String(v.plan)) ||
           !["monthly", "annual"].includes(String(v.period))
         )
           throw new ApiError("Invalid plan or period.");

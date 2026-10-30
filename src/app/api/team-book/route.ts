@@ -23,7 +23,7 @@ async function staff(organization: string, event: string) {
   ).rows[0];
   if (!e) throw new ApiError("Team booking page not found.", 404);
   const entitlement = await entitlementUsage(e.owner_id);
-  if (entitlement.plan !== "teams" || !entitlement.canManageTeamBilling)
+  if (!["teams", "team"].includes(entitlement.plan) || !entitlement.canManageTeamBilling)
     throw new ApiError(
       "This team booking page is unavailable. Contact the host.",
       409,
