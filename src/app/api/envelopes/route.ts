@@ -1,4 +1,4 @@
-import { requireCapacity } from "@/lib/entitlements";
+import { recordEnvelopeSend } from "@/lib/envelope-usage";
 import {
   queueEnvelopeInvitation,
   resendEnvelope,
@@ -130,7 +130,6 @@ export async function POST(req: NextRequest) {
         await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
           "envelope-upload:" + token,
         ]);
-        await requireCapacity(db, token, "envelopes");
         const c = await db.query(
           "SELECT count(*)::int n FROM private.signature_envelopes WHERE user_id=$1 AND created_at>now()-interval '24 hours'",
           [token],
@@ -197,6 +196,7 @@ export async function POST(req: NextRequest) {
           [id, JSON.stringify(fields), digest],
         );
         if (input.action === "send") {
+          await recordEnvelopeSend(db, token, "pdf", id);
           const reminderDays = input.reminder_days ?? [3, 7];
           if (
             !Array.isArray(reminderDays) ||

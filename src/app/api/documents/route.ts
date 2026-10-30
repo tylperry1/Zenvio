@@ -1,6 +1,6 @@
 import { queueDelivery, appOrigin, drainDeliveries } from "@/lib/lifecycle";
 import { sealSecret, unsealSecret } from "@/lib/platform-settings";
-import { requireCapacity } from "@/lib/entitlements";
+import { recordEnvelopeSend } from "@/lib/envelope-usage";
 import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import {
@@ -163,7 +163,6 @@ export async function POST(request: NextRequest) {
       );
       if (active.rows[0].count >= 30)
         throw new ApiError("Please wait before creating more documents.", 429);
-      await requireCapacity(client, token, "envelopes");
       const reminderDays = input.reminder_days ?? [3, 7];
       if (
         !Array.isArray(reminderDays) ||
@@ -190,6 +189,7 @@ export async function POST(request: NextRequest) {
           documentHash(secret),
         ],
       );
+      await recordEnvelopeSend(client, token, "text", rows[0].id);
       if (input.email_delivery === true) {
         await client.query(
           "UPDATE private.signing_documents SET link_ciphertext=$2 WHERE id=$1",

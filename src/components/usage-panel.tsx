@@ -22,15 +22,7 @@ export function UsagePanel() {
           <p>
             {data.plan === "team" ? "Teams" : data.plan === "individual" ? "Individual" : data.plan} · {data.seats} host{data.seats === 1 ? "" : "s"}
           </p>
-          {data.shared?.map((s: any) => (
-            <p key={s.owner}>
-              Shared Teams billing workspace: {s.envelopes} / {100 * s.seats}{" "}
-              envelopes this month · {s.workflows} / 25 enabled workflows. Your
-              per-host document allowance is 100 monthly. Retained work from
-              removed staff still counts toward this month’s shared document
-              budget.
-            </p>
-          ))}
+          {data.envelope && <p>Signing: {data.envelope.sent} / {data.envelope.included} included this month{data.envelope.seats > 1 ? " · shared across your team" : ""}. Drafts and reminders are free. Additional envelopes cost $1 each when enabled by the billing owner.</p>}
           <div className="subscription-usage-grid">
             {Object.keys(data.limits).map((k) => (
               <label key={k}>
@@ -48,7 +40,7 @@ export function UsagePanel() {
                 <small>
                   {data.usage[k]} / {data.limits[k]}
                   {data.usage[k] > data.limits[k]
-                    ? " · Existing records kept; reduce active usage or upgrade before adding more."
+                    ? k === "envelopes" ? " · Additional usage is subject to owner-approved spending settings." : " · Existing records kept; reduce active usage or upgrade before adding more."
                     : ""}
                 </small>
               </label>

@@ -224,7 +224,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               </>
             ) : (
               <>
-                New around here? <Link href="/sign-up">Create a workspace</Link>
+                New around here? <Link href="/early-access">Join early access</Link>
               </>
             )}
           </p>

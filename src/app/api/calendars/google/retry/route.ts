@@ -1,3 +1,4 @@
+import { settleEnvelopeInvoices } from "@/lib/envelope-invoices";
 import {
   materializeReminders,
   drainDeliveries,
@@ -27,8 +28,11 @@ export async function GET(request: NextRequest) {
     await materializeReminders();
     await scheduleWorkflows();
     const emails = await drainDeliveries(undefined, 5);
+    const delivered = await runGoogleJobs(undefined, 5);
+    const envelopeInvoices = await settleEnvelopeInvoices();
     return Response.json({
-      delivered: await runGoogleJobs(undefined, 5),
+      envelopeInvoices,
+      delivered,
       emails,
     });
   } catch {

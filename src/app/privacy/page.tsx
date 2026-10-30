@@ -16,6 +16,8 @@ export default function Page() {
         appointment details. Guests provide their name, email address, and any
         notes they choose to include when booking.
       </p>
+      <h2>Early-access signups</h2>
+      <p>If you join early access, we store your name, email address, package interest, expected team size, consent time, and reserved offer. We use these details for early-access and launch communications and to honor your offer. Joining does not create an account or authorize payment. Contact hello@gozenvio.com to opt out or request deletion.</p>
       <h2>How we use it</h2>
       <p>
         We use this information to authenticate accounts, display booking

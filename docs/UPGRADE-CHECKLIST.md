@@ -1,3 +1,5 @@
+> Historical upgrade notes: new subscriptions use the current [subscription packages](SUBSCRIPTION_PACKAGES.md). The current 20-per-seat allowance and owner-approved $1 overages supersede the draft-counting policy below; legacy subscription allowances remain preserved.
+
 # Zenvio complete-upgrade checklist
 
 Requested October 28, 2026. Baseline production commit: 4965387.

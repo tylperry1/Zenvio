@@ -1,4 +1,5 @@
 "use client";
+import { EnvelopeAllowance, type EnvelopeBudget } from "./envelope-allowance";
 import { PageHeader } from "./app-shell";
 import { UsagePanel } from "./usage-panel";
 import { Enrollment } from "./enrollment";
@@ -16,7 +17,7 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/billing-types";
-type Data = { subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; shared: unknown[]; canManageTeamBilling: boolean } };
+type Data = { subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
 export function Billing() {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
@@ -132,7 +133,7 @@ export function Billing() {
             <>
               <section className="subscription-account-card">
                 <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{sub.cancel_at_period_end ? "Renewal off" : sub.has_subscription ? sub.status.replaceAll("_", " ") : data.usage.shared.length ? "Team member" : "Free workspace"}</span></div>
-                <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : data.plans.find(p=>p.id===sub.plan)?.name || sub.plan}</h2><p>{sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : sub.has_subscription ? `Current billing period ends ${billingDate(sub.current_period_end)}.` : data.usage.shared.length ? "Your seat is managed by the team owner." : "Explore the workspace, then choose the package that fits."}</p></div>{["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{money(subscriptionTotal(sub.plan,sub.plan==='team'?Math.max(3,sub.seats||3):1))}</strong><span>per month · before tax</span></div>}</div>
+                <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : data.plans.find(p=>p.id===sub.plan)?.name || sub.plan}</h2><p>{sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : sub.has_subscription ? `Current billing period ends ${billingDate(sub.current_period_end)}.` : data.usage.shared.length ? "Your seat is managed by the team owner." : "Explore the workspace, then choose the package that fits."}</p></div>{["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{money(subscriptionTotal(sub.plan,sub.plan==='team'?Math.max(3,sub.seats||3):1))}</strong><span>standard monthly price · discounts shown on invoices</span></div>}</div>
                 <div className="subscription-account-details"><div><span>Paid seats</span><b>{sub.has_subscription ? sub.seats||1 : data.usage.shared.length ? "Managed by your team" : "Not subscribed"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
                 <div className="subscription-account-actions"><button className="billing-secondary" disabled={busy||!data.connected||!sub.has_customer} onClick={()=>void action("portal")}><Icon name="card" size={16}/>Payment details & receipts <Icon name="external" size={14}/></button>{canChangeSubscription(sub)&&<button className="subscription-text-button" disabled={busy||!data.connected} onClick={()=>setConfirm(sub.cancel_at_period_end?"resume":"cancel")}>{sub.cancel_at_period_end?"Resume renewal":"Cancel renewal"}</button>}</div>
               </section>
@@ -144,6 +145,7 @@ export function Billing() {
                   remains available.
                 </p>
               )}
+              <EnvelopeAllowance key={JSON.stringify(data.usage.envelope)} budget={data.usage.envelope} ready={data.checkoutEnabled} onUpdated={()=>void load().catch(e=>setError(e.message))}/>
               <section className="subscription-invoices">
                 <div className="billing-section-heading">
                   <div>

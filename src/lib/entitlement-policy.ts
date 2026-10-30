@@ -1,6 +1,6 @@
 export const planLimits = {
-  individual: { types: 100, calendars: 5, envelopes: 100, workflows: 25 },
-  team: { types: 100, calendars: 5, envelopes: 100, workflows: 25 },
+  individual: { types: 100, calendars: 5, envelopes: 20, workflows: 25 },
+  team: { types: 100, calendars: 5, envelopes: 20, workflows: 25 },
   free: { types: 1, calendars: 1, envelopes: 5, workflows: 0 },
   pro: { types: 10, calendars: 5, envelopes: 25, workflows: 5 },
   business: { types: 50, calendars: 5, envelopes: 100, workflows: 20 },

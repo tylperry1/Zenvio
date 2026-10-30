@@ -1,3 +1,4 @@
+import { envelopeBudget } from "./envelope-usage";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
@@ -53,14 +54,17 @@ export async function entitlementUsage(
       workflows: count.workflows,
     });
   }
+  const { customer: _customer, subscription: _subscription, ...envelope } = await envelopeBudget(user, db);
+  u.envelopes = envelope.sent;
   return {
+    envelope,
     shared,
     canManageTeamBilling: roots.some((r) => r.owner_id === user),
     plan: effective,
     seats,
     limits: {
       ...planLimits[effective],
-      envelopes: planLimits[effective].envelopes,
+      envelopes: envelope.included,
     },
     usage: u,
     paidEnrollmentEnabled: false,
@@ -69,7 +73,7 @@ export async function entitlementUsage(
 export async function requireCapacity(
   db: PoolClient,
   user: string,
-  key: keyof typeof planLimits.free,
+  key: Exclude<keyof typeof planLimits.free, "envelopes">,
   additional = 1,
 ) {
   const roots = (
@@ -88,14 +92,10 @@ export async function requireCapacity(
     throw new ApiError("Workspace membership changed. Retry this action.", 409);
   for (const shared of state.shared) {
     const limit =
-      key === "envelopes"
-        ? 100 * shared.seats
-        : key === "workflows"
-          ? 25
-          : null;
+      key === "workflows" ? 25 : null;
     if (
       limit !== null &&
-      shared[key as "envelopes" | "workflows"] + additional > limit
+      shared.workflows + additional > limit
     )
       throw new ApiError(
         "The shared Teams workspace allowance is reached. Existing records are preserved. Review workspace usage before adding more.",

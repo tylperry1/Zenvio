@@ -6,5 +6,5 @@ export async function billingReadiness() {
     getPool().query("SELECT plan FROM private.subscription_prices WHERE period='monthly' AND plan IN ('individual','team','team_extra')"),
   ]);
   const pricesReady = ["individual", "team", "team_extra"].every((plan) => mappings.rows.some((row) => row.plan === plan));
-  return { connected: Boolean(key), pricesReady, checkoutEnabled: process.env.BILLING_CHECKOUT_ENABLED !== "false" && Boolean(key && webhook && pricesReady) };
+  return { connected: Boolean(key), pricesReady, checkoutEnabled: process.env.BILLING_CHECKOUT_ENABLED === "true" && Boolean(key && webhook && pricesReady) };
 }

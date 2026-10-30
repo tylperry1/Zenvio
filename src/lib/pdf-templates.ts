@@ -1,4 +1,3 @@
-import { requireCapacity } from "./entitlements";
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { ApiError, string, email } from "./server";
@@ -11,7 +10,6 @@ export async function instantiateTemplate(
   contact: string | null = null,
   booking: string | null = null,
 ) {
-  await requireCapacity(db, user, "envelopes");
   const t = (
     await db.query(
       "SELECT t.id,t.name,v.* FROM private.pdf_templates t JOIN private.pdf_template_versions v ON v.template_id=t.id AND v.version=t.current_version WHERE t.id=$1 AND t.user_id=$2 AND NOT t.archived FOR SHARE OF t",

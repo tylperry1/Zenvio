@@ -32,6 +32,7 @@ function load(file, overrides = {}) {
   m.require = (id) =>
     Object.hasOwn(overrides, id)
       ? overrides[id]
+      : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
       : id === "./resend-diagnostics"
         ? resendHelpers
         : require(id);
