@@ -1,3 +1,5 @@
+> Historical upgrade notes: new subscriptions use the current [subscription packages](SUBSCRIPTION_PACKAGES.md). The current 20-per-seat allowance and owner-approved $1 overages supersede the draft-counting policy below; legacy subscription allowances remain preserved.
+
 # Upgrade configuration and release gates
 
 Prepared October 29, 2026. Source implementation is not proof of a live provider integration. See UPGRADE-CHECKLIST.md for release status.

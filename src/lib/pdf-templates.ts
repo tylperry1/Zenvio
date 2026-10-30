@@ -1,4 +1,3 @@
-import { requireCapacity } from "./entitlements";
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { ApiError, string, email } from "./server";
@@ -11,7 +10,10 @@ export async function instantiateTemplate(
   contact: string | null = null,
   booking: string | null = null,
 ) {
-  await requireCapacity(db, user, "envelopes");
+  // Drafts do not use signing allowance; retain a separate storage abuse limit.
+  await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["envelope-upload:"+user]);
+  const drafts = (await db.query("SELECT count(*)::int n FROM private.signature_envelopes WHERE user_id=$1 AND created_at>now()-interval '24 hours'",[user])).rows[0];
+  if (drafts.n >= 30) throw new ApiError("Daily document limit reached. Try again tomorrow.",429);
   const t = (
     await db.query(
       "SELECT t.id,t.name,v.* FROM private.pdf_templates t JOIN private.pdf_template_versions v ON v.template_id=t.id AND v.version=t.current_version WHERE t.id=$1 AND t.user_id=$2 AND NOT t.archived FOR SHARE OF t",

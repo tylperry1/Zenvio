@@ -477,7 +477,8 @@ try {
   );
   const staffUsage = (await request("/api/usage", null, bob.cookie)).data;
   assert.equal(staffUsage.plan, "teams");
-  assert.equal(staffUsage.limits.envelopes, 100);
+  // Teams envelopes are a pooled allowance: per-seat allowance × paid seats.
+  assert.equal(staffUsage.limits.envelopes, 100 * staffUsage.shared[0].seats);
   assert.equal(staffUsage.shared[0].seats, 3);
   assert.equal(
     (

@@ -64,7 +64,15 @@ export async function POST(req: NextRequest) {
       // Expire abandoned checkouts before opening a new one; never create parallel open checkouts.
       const open = await stripe.checkout.sessions.list({customer:local.customer_id,status:"open",limit:100});
       for (const checkout of open.data.filter((s) => s.mode === "subscription" && s.client_reference_id === token)) await stripe.checkout.sessions.expire(checkout.id);
-      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",client_reference_id:token,metadata:{user_id:token,plan},subscription_data:{metadata:{user_id:token,plan}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
+      const reservation = (await db.query("SELECT id,claimed_user_id FROM private.early_access_signups WHERE email=$1 AND offer_version='launch50_3months_v1' FOR UPDATE",[user.email.toLowerCase()])).rows[0];
+      let launchDiscount = false;
+      if (reservation && (!reservation.claimed_user_id || reservation.claimed_user_id === token) && existing.data.length === 0) {
+        const coupon = await stripe.coupons.retrieve("zenvio_launch50_3months_v1");
+        if (!coupon.valid || coupon.percent_off !== 50 || coupon.duration !== "repeating" || coupon.duration_in_months !== 3 || !["zenvio_individual_v1","zenvio_team_v1","zenvio_team_extra_v1"].every(id=>coupon.applies_to?.products.includes(id))) throw new ApiError("Your reserved early-adopter offer needs billing review. No payment has been taken.",503);
+        launchDiscount = true;
+        await db.query("UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",[reservation.id,token]);
+      }
+      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",...(launchDiscount ? {discounts:[{coupon:"zenvio_launch50_3months_v1"}]} : {}),client_reference_id:token,metadata:{user_id:token,plan},subscription_data:{metadata:{user_id:token,plan}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
       await db.query("COMMIT");
       return Response.json({url:checkout.url});
     } catch(e) {await db.query("ROLLBACK");throw e;} finally {db.release();}

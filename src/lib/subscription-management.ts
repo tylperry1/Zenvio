@@ -29,8 +29,9 @@ export async function saveSubscription(
     seats = mappedPlan === "team" ? 3 + (extra?.quantity || 0) : 1;
   }
   const end = (base || legacy)?.current_period_end;
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["entitlements:"+userId]);
   await client.query(
-    "UPDATE private.subscriptions SET subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET envelope_allowance=CASE WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       paid && ["pro", "business", "teams", "individual", "team"].includes(mappedPlan)

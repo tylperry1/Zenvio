@@ -22,6 +22,10 @@ try{
     if(!price){const productId=`zenvio_${offer.id}_v1`;let product;try{product=await stripe.products.retrieve(productId);}catch(e){if(e.code!=='resource_missing')throw e;product=await stripe.products.create({id:productId,name:`Zenvio ${offer.name}`,metadata:{zenvio_offer:offer.id}},{idempotencyKey:productId});}if(product.deleted)throw Error('Subscription product is deleted');price=await stripe.prices.create({product:product.id,currency:'usd',unit_amount:offer.monthly,recurring:{interval:'month'},lookup_key:lookup,transfer_lookup_key:true,metadata:{zenvio_offer:offer.id}},{idempotencyKey:lookup});}
     await db.query("INSERT INTO private.subscription_prices(plan,period,stripe_price_id) VALUES($1,'monthly',$2) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=excluded.stripe_price_id",[offer.id,price.id]);
    }
+   const couponId='zenvio_launch50_3months_v1';
+   let coupon;
+   try{coupon=await stripe.coupons.retrieve(couponId);}catch(e){if(e.code!=='resource_missing')throw e;coupon=await stripe.coupons.create({id:couponId,name:'Early adopter: 50% off first 3 months',percent_off:50,duration:'repeating',duration_in_months:3,applies_to:{products:['zenvio_individual_v1','zenvio_team_v1','zenvio_team_extra_v1']}},{idempotencyKey:couponId});}
+   if(coupon.deleted||coupon.percent_off!==50||coupon.duration!=='repeating'||coupon.duration_in_months!==3)throw Error('Early-adopter coupon needs review');
    console.log('Individual, Teams base, and additional-seat recurring prices verified. Existing subscriptions unchanged.');
    await db.query("COMMIT");
   }catch(error){await db.query("ROLLBACK");throw error;}

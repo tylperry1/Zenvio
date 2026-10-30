@@ -18,6 +18,7 @@ export function AdminNavigation({
       items: [
         ["overview", "grid", "Overview", "/admin"],
         ["accounts", "users", "Accounts", "/admin?view=accounts"],
+        ["early-access", "users", "Early-access signups", "/admin/early-access"],
         [
           "subscriptions",
           "calendar",
