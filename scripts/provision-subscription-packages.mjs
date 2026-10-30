@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import {createDecipheriv,createHash} from 'node:crypto';
 import {individualOffer,teamOffer,extraSeatOffer} from '../src/lib/subscription-offers.mjs';
 if(process.env.VERCEL_ENV!=='production'||!process.env.DATABASE_URL){console.log('Subscription catalog provisioning skipped outside production.');process.exit(0);}
-const pool=new Pool({connectionString:process.env.DATABASE_URL,max:1,connectionTimeoutMillis:15000});
+const pool=new Pool({connectionString:process.env.DATABASE_URL_UNPOOLED||process.env.DATABASE_URL,max:1,connectionTimeoutMillis:15000});
 const db=await pool.connect();
 async function secret(name){const r=await db.query('SELECT ciphertext FROM private.integration_secrets WHERE key=$1',[name]);if(!r.rows[0])return process.env[name]||'';if(!process.env.INTEGRATION_ENCRYPTION_KEY)throw Error('Integration encryption is not configured');const [iv,tag,data]=r.rows[0].ciphertext.split('.');const d=createDecipheriv('aes-256-gcm',createHash('sha256').update(process.env.INTEGRATION_ENCRYPTION_KEY).digest(),Buffer.from(iv,'base64'));d.setAuthTag(Buffer.from(tag,'base64'));return Buffer.concat([d.update(Buffer.from(data,'base64')),d.final()]).toString();}
 try{
@@ -12,7 +12,8 @@ try{
  if(!key||!webhook){console.log('Recurring catalog setup pending: '+[!key?'Stripe secret key':null,!webhook?'subscription webhook signing secret':null].filter(Boolean).join(', ')+'.');}
  else {
   const stripe=new Stripe(key,{timeout:15000,maxNetworkRetries:2});
-  await db.query("SELECT pg_advisory_lock(hashtextextended('subscription-catalog-v1',0))");
+  await db.query("BEGIN");
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended('subscription-catalog-v1',0))");
   try{
    for(const offer of [individualOffer,teamOffer,extraSeatOffer]){
     const lookup=`zenvio_${offer.id}_monthly_${offer.monthly}_v1`;
@@ -22,6 +23,7 @@ try{
     await db.query("INSERT INTO private.subscription_prices(plan,period,stripe_price_id) VALUES($1,'monthly',$2) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=excluded.stripe_price_id",[offer.id,price.id]);
    }
    console.log('Individual, Teams base, and additional-seat recurring prices verified. Existing subscriptions unchanged.');
-  }finally{await db.query("SELECT pg_advisory_unlock(hashtextextended('subscription-catalog-v1',0))");}
+   await db.query("COMMIT");
+  }catch(error){await db.query("ROLLBACK");throw error;}
  }
 }finally{db.release();await pool.end();}
