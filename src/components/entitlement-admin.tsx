@@ -36,17 +36,39 @@ export function EntitlementAdmin() {
     >
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      <section>
-        <h2>Approved policy</h2>
-        {data &&
-          Object.entries(data.policy).map(([plan, limits]) => (
-            <p key={plan}>
-              <b>{plan}</b> ·{" "}
-              {Object.entries(limits as any)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(" · ")}
-            </p>
-          ))}
+      <section className="ent-policy">
+        <h2>Approved plan limits</h2>
+        {data && (
+          <div className="ui-table-wrap">
+            <table className="ui-table">
+              <thead>
+                <tr>
+                  <th>Plan</th>
+                  <th>Booking links</th>
+                  <th>Google accounts</th>
+                  <th>Envelopes / month</th>
+                  <th>Workflows</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(data.policy).map(([plan, limits]: [string, any]) => (
+                  <tr key={plan}>
+                    <td className="ui-cell-strong">
+                      {{ individual: "Individual", team: "Teams", free: "Free", pro: "Pro (legacy)", business: "Business (legacy)", teams: "Teams (legacy)" }[plan] || plan}
+                    </td>
+                    <td>{limits.types}</td>
+                    <td>{limits.calendars}</td>
+                    <td>
+                      {limits.envelopes}
+                      {["individual", "team"].includes(plan) && <span className="ui-cell-sub">per seat</span>}
+                    </td>
+                    <td>{limits.workflows}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
       <section>
         <h2>Stripe recurring price mapping</h2>
@@ -68,12 +90,12 @@ export function EntitlementAdmin() {
           <label>
             Plan
             <select name="plan">
-              <option>individual</option>
-              <option>team</option>
-              <option>team_extra</option>
-              <option>pro</option>
-              <option>business</option>
-              <option>teams</option>
+              <option value="individual">Individual</option>
+              <option value="team">Teams base (3 seats)</option>
+              <option value="team_extra">Teams additional seat</option>
+              <option value="pro">Pro (legacy)</option>
+              <option value="business">Business (legacy)</option>
+              <option value="teams">Teams (legacy)</option>
             </select>
           </label>
           <label>

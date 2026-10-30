@@ -1557,3 +1557,14 @@
   font-size: 14px;
   color: var(--text-secondary);
 }
+.shell .platform-page section.ent-policy,
+.av-frame-content .platform-page section.ent-policy {
+  padding: 0;
+  overflow: hidden;
+}
+.ent-policy h2 {
+  margin: 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
