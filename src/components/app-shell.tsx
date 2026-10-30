@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
+import { CommandPalette, type PaletteItem } from "./command-palette";
 
 type NavItem = {
   id: string;
@@ -12,6 +13,8 @@ type NavItem = {
   href: string;
   // Workspace views live on one route and are addressed by ?view=.
   view?: string;
+  // The demo has no client records API, so it maps to its own view.
+  demoView?: string;
   demo?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
@@ -35,8 +38,7 @@ const groups: NavGroup[] = [
   {
     label: "Clients",
     items: [
-      { id: "contacts", label: "Contacts", icon: "users", href: "/app?view=contacts", view: "contacts", demo: true },
-      { id: "clients", label: "Client records", icon: "contact", href: "/app/clients" },
+      { id: "clients", label: "Clients", icon: "users", href: "/app/clients", demoView: "contacts", demo: true },
       { id: "documents", label: "Documents", icon: "file", href: "/app/documents" },
       { id: "templates", label: "PDF templates", icon: "layers", href: "/app/templates" },
     ],
@@ -62,18 +64,51 @@ const groups: NavGroup[] = [
 
 function hrefFor(item: NavItem, demo: boolean) {
   if (!demo) return item.href;
-  return item.view ? `/demo?view=${item.view}` : "/demo";
+  const view = item.view ?? item.demoView;
+  return view ? `/demo?view=${view}` : "/demo";
 }
 
 function activeItem(pathname: string, view: string | null, demo: boolean) {
   const all = groups.flatMap((g) => g.items);
   if (pathname === "/app" || (demo && pathname === "/demo"))
-    return all.find((i) => i.view === (view || "")) || all[0];
+    return (
+      all.find((i) => i.view === (view || "") || (demo && i.demoView === view)) ||
+      all[0]
+    );
   if (pathname.startsWith("/marketplace"))
     return all.find((i) => i.id === "marketplace");
   return all
     .filter((i) => !i.view && i.href !== "/app")
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
+}
+
+function paletteItems(demo: boolean, admin: boolean): PaletteItem[] {
+  const base = demo ? "/demo" : "/app";
+  const actions: PaletteItem[] = [
+    { id: "new-link", label: "New booking link", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create" },
+    ...(demo
+      ? []
+      : [
+          { id: "new-appointment", label: "New appointment", icon: "plus", href: "/app?view=bookings&new=appointment", group: "Actions", keywords: "booking schedule create" },
+          { id: "new-client", label: "Add client", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create" },
+          { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
+        ]),
+  ];
+  const pages = groups.flatMap((g) =>
+    g.items
+      .filter((i) => !demo || i.demo)
+      .map((i) => ({
+        id: "page-" + i.id,
+        label: i.label,
+        icon: i.icon,
+        href: hrefFor(i, demo),
+        group: "Pages",
+        keywords: g.label,
+      })),
+  );
+  if (admin && !demo)
+    pages.push({ id: "page-admin", label: "Admin console", icon: "shield", href: "/admin", group: "Pages", keywords: "platform" });
+  return [...actions, ...pages];
 }
 
 function groupOf(item?: NavItem) {
@@ -122,21 +157,19 @@ function Breadcrumb({ demo }: { demo: boolean }) {
   const params = useSearchParams();
   const current = activeItem(pathname, params.get("view"), demo);
   const group = groupOf(current);
+  const label =
+    pathname === "/marketplace/orders" ? "Orders" : current?.label || "Overview";
   return (
     <div className="shell-breadcrumb">
       <span>{demo ? "Demo workspace" : "Workspace"}</span>
-      {group && (
+      {group && group !== label && (
         <>
           <Icon name="chevron" size={13} />
           <span>{group}</span>
         </>
       )}
       <Icon name="chevron" size={13} />
-      <b>
-        {pathname === "/marketplace/orders"
-          ? "Orders"
-          : current?.label || "Overview"}
-      </b>
+      <b>{label}</b>
     </div>
   );
 }
@@ -154,7 +187,19 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [search, setSearch] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select, [contenteditable]");
+      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
+        e.preventDefault();
+        setSearch(true);
+      }
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, []);
   const menuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
@@ -281,6 +326,11 @@ export function AppShell({
           <Suspense fallback={<div className="shell-breadcrumb" />}>
             <Breadcrumb demo={demo} />
           </Suspense>
+          <button className="shell-search" onClick={() => setSearch(true)} aria-label="Search (Ctrl+K)">
+            <Icon name="search" size={16} />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
           <div className="shell-topbar-actions">
             {demo ? (
               <Link href="/sign-up" className="shell-button primary small">
@@ -344,6 +394,12 @@ export function AppShell({
           </p>
         )}
         <div className="shell-content">{children}</div>
+        <CommandPalette
+          open={search}
+          onClose={() => setSearch(false)}
+          items={paletteItems(demo, admin)}
+          searchClients={!demo && !!user}
+        />
       </div>
     </div>
   );

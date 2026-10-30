@@ -1,4 +1,5 @@
 "use client";
+import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { PublicPhoto } from "./profile-photo";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -39,7 +40,10 @@ export function BookingPage({
     [confirmation, setConfirmation] = useState<Confirmation | null>(null),
     [zone, setZone] = useState("UTC"),
     [guestName, setGuestName] = useState(""),
-    [copied, setCopied] = useState(false);
+    [copied, setCopied] = useState(false),
+    [captcha, setCaptcha] = useState(""),
+    [attempts, setAttempts] = useState(0);
+  const captchaSiteKey = useCaptchaSiteKey();
   useEffect(() => {
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const controller = new AbortController();
@@ -210,6 +214,7 @@ export function BookingPage({
             company: f.get("company"),
             purpose: f.get("purpose"),
             website: f.get("website"),
+            captcha,
             answers: Object.fromEntries(
               (event?.questions || []).map((q) => [
                 q.id,
@@ -238,6 +243,7 @@ export function BookingPage({
           ? err.message
           : "Unable to save your appointment. Please try again.",
       );
+      setAttempts((n) => n + 1);
     } finally {
       setBusy(false);
     }
@@ -645,6 +651,9 @@ export function BookingPage({
                     <input name="website" tabIndex={-1} autoComplete="off" />
                   </label>
                 </div>
+                {!demo && (
+                  <Captcha siteKey={captchaSiteKey} onToken={setCaptcha} resetKey={attempts} />
+                )}
                 {error && (
                   <p className="notice error" role="alert">
                     {error}

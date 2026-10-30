@@ -7,6 +7,7 @@ import { filterGoogleSlots, runGoogleJobsForHost } from "@/lib/google-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
+import { protectBooking } from "@/lib/booking-protection";
 import {
   backend,
   body,
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
     const start = string(input.starts_at, "appointment time", 40);
     if (!Number.isFinite(Date.parse(start)))
       throw new ApiError("Please choose a valid appointment time.");
+    await protectBooking(request, input.captcha);
     const host = slug(input.host),
       eventSlug = slug(input.event);
     if (!(await filterGoogleSlots(host, eventSlug, [start])).length)

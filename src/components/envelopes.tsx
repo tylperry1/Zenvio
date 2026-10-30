@@ -21,13 +21,7 @@ type Detail = {
   events: { action: string; created_at: string; recipient_id: string }[];
 };
 const colors = ["#4263eb", "#a855f7", "#0891b2", "#d97706", "#059669"];
-export function Envelopes({
-  legacy = false,
-  onLegacy,
-}: {
-  legacy?: boolean;
-  onLegacy: () => void;
-}) {
+export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   const [templateChoices, setTemplateChoices] = useState<
       { id: string; name: string }[]
     >([]),
@@ -158,7 +152,7 @@ export function Envelopes({
       <main>
         <PageHeader
           title="Documents"
-          description="Prepare PDFs, assign signature fields, and follow every recipient."
+          description="Prepare PDFs and agreements, collect signatures, and keep a clear signing record."
           actions={
             <button
               disabled={busy}
@@ -169,23 +163,11 @@ export function Envelopes({
                 setError("");
               }}
             >
-              + New envelope
+              + New PDF document
             </button>
           }
         />
-        <nav className="envelope-tabs">
-          <button
-            className={!legacy ? "active" : ""}
-            onClick={() => {
-              if (legacy) onLegacy();
-            }}
-          >
-            PDF envelopes
-          </button>
-          <button className={legacy ? "active" : ""} onClick={onLegacy}>
-            Text agreements
-          </button>
-        </nav>
+        {tabs}
         {error && (
           <p role="alert" className="billing-error">
             {error}

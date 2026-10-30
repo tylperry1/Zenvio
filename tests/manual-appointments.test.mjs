@@ -22,7 +22,9 @@ m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
 m.require = (id) =>
-  id === "@/lib/intake"
+  id === "@/lib/db"
+    ? { getPool: () => ({ query: async () => ({ rows: [] }) }) }
+    : id === "@/lib/intake"
     ? { intakeAnswers: () => [] }
     : id === "@/lib/lifecycle"
       ? {}

@@ -4,6 +4,8 @@ import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
+import { AccountData } from "./account-data";
+import { BookingLinkPrompt, SetupChecklist, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
 import { Icon } from "./icons";
@@ -50,7 +52,9 @@ function greeting(now: Date, timeZone: string) {
 }
 export function Workspace({ demo = false }: { demo?: boolean }) {
   const router = useRouter();
-  const view = viewFor(useSearchParams().get("view"));
+  const params = useSearchParams();
+  const view = viewFor(params.get("view"));
+  const intent = params.get("new");
   const [data, setData] = useState<WorkspaceData | null>(null),
     [loading, setLoading] = useState(true),
     [fatal, setFatal] = useState(""),
@@ -66,7 +70,36 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [filter, setFilter] = useState("upcoming"),
     [calendar, setCalendar] = useState(false),
     [month, setMonth] = useState(() => new Date()),
-    [selectedDay, setSelectedDay] = useState<number | null>(null);
+    [selectedDay, setSelectedDay] = useState<number | null>(null),
+    [remote, setRemote] = useState<{ bookings: Booking[]; total: number } | null>(null),
+    [bookingPage, setBookingPage] = useState(0);
+  const linkPrompt = useLinkPrompt(data, demo);
+  useEffect(() => setBookingPage(0), [filter, search, calendar]);
+  useEffect(() => {
+    // Real workspaces page through bookings on the server; the demo filters locally.
+    if (demo || view !== "Bookings" || !data) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ filter, q: search, page: String(bookingPage) });
+    if (calendar) {
+      params.set("from", new Date(month.getFullYear(), month.getMonth() - 1, 20).toISOString());
+      params.set("to", new Date(month.getFullYear(), month.getMonth() + 1, 10).toISOString());
+    }
+    const timer = setTimeout(() => {
+      fetch("/api/bookings?" + params, { cache: "no-store", signal: controller.signal })
+        .then(async (r) => {
+          const d = await r.json();
+          if (!r.ok) throw Error(d.error);
+          setRemote(d);
+        })
+        .catch((e) => {
+          if (e.name !== "AbortError") toast(e.message || "Unable to load bookings.", true);
+        });
+    }, search ? 200 : 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [demo, view, filter, search, bookingPage, calendar, month, data]); // eslint-disable-line react-hooks/exhaustive-deps
   async function load() {
     setFatal("");
     try {
@@ -138,12 +171,50 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     setSearch("");
     setSelectedDay(null);
   }, [view]);
+  useEffect(() => {
+    // Quick actions from search open the matching form once data is ready.
+    if (!intent || !data) return;
+    if (intent === "link") setEditing(true);
+    if (intent === "appointment" && !demo) setCreatingAppointment(true);
+    router.replace((demo ? "/demo" : "/app") + (viewSlugs[view] ? `?view=${viewSlugs[view]}` : ""));
+  }, [intent, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Contacts live on the Clients page in a real workspace.
+    if (view === "Contacts" && !demo) router.replace("/app/clients");
+  }, [view, demo, router]);
   function navigate(next: View) {
     const slug = viewSlugs[next];
     router.push((demo ? "/demo" : "/app") + (slug ? `?view=${slug}` : ""));
   }
   function linkFor(event: EventType) {
     return `/book/${data!.profile.slug}/${event.slug}`;
+  }
+  async function copyProfileLink() {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/book/${data!.profile.slug}`,
+      );
+      toast("Booking page link copied. Share it anywhere.");
+    } catch {
+      toast("Couldn’t copy automatically. Open your booking page to share it.", true);
+    }
+  }
+  async function saveSlug(slug: string) {
+    const p = data!.profile;
+    return mutate(
+      {
+        action: "profile",
+        name: p.name,
+        slug,
+        timezone: p.timezone,
+        bio: p.bio || "",
+        headline: p.headline || "",
+        company: p.company || "",
+        accent_color: p.accent_color || "#365CFF",
+      },
+      (d) => ({ ...d, profile: { ...d.profile, slug } }),
+      "Your booking link is ready to share.",
+    );
   }
   async function copy(event: EventType) {
     try {
@@ -404,6 +475,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         ? +new Date(b.starts_at) - +new Date(a.starts_at)
         : +new Date(a.starts_at) - +new Date(b.starts_at),
     );
+  const listBookings = demo ? filteredBookings : (remote?.bookings ?? []);
   return (
     <div className="workspace">
       <div className="workspace-main">
@@ -426,7 +498,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 ? `${greeting(now, data.profile.timezone)}, ${data.profile.name.split(" ")[0]}`
                 : view === "Event types"
                   ? "Booking links"
-                  : view
+                  : view === "Contacts"
+                    ? "Clients"
+                    : view
             }
             description={
               view === "Overview"
@@ -493,6 +567,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: data.profile.timezone })}</span>
                 </div>
               </div>
+              <SetupChecklist
+                data={data}
+                demo={demo}
+                base={demo ? "/demo" : "/app"}
+                onChooseLink={linkPrompt.show}
+                onCopyLink={() => void copyProfileLink()}
+              />
               <div className="stats-grid">
                 {[
                   [
@@ -511,8 +592,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   ],
                   [
                     "users",
-                    "Total contacts",
-                    String(data.contacts.length),
+                    "Total clients",
+                    String(data.contactCount ?? data.contacts.length),
                     "Across your workspace",
                   ],
                   [
@@ -755,7 +836,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                       },
                       (_, i) => {
                         const day = i + 1;
-                        const rows = filteredBookings.filter((b) => {
+                        const rows = listBookings.filter((b) => {
                           const parts = new Intl.DateTimeFormat("en-US", {
                             timeZone: data.profile.timezone,
                             year: "numeric",
@@ -817,7 +898,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 )}
                 {bookingRows(
                   selectedDay
-                    ? filteredBookings.filter((b) => {
+                    ? listBookings.filter((b) => {
                         const date = new Intl.DateTimeFormat("en-CA", {
                           timeZone: data.profile.timezone,
                           year: "numeric",
@@ -829,7 +910,28 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                           `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
                         );
                       })
-                    : filteredBookings,
+                    : listBookings,
+                )}
+                {!demo && !calendar && remote && remote.total > 50 && (
+                  <div className="client-pagination">
+                    <span>
+                      {bookingPage * 50 + 1}–{Math.min((bookingPage + 1) * 50, remote.total)} of {remote.total}
+                    </span>
+                    <button
+                      className="button secondary small"
+                      disabled={!bookingPage}
+                      onClick={() => setBookingPage(bookingPage - 1)}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      className="button secondary small"
+                      disabled={(bookingPage + 1) * 50 >= remote.total}
+                      onClick={() => setBookingPage(bookingPage + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
                 )}
               </div>
               <p className="helper-text">
@@ -1017,6 +1119,18 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               setSelectedDay(null);
             }
             return success;
+          }}
+        />
+      )}
+      {linkPrompt.open && (
+        <BookingLinkPrompt
+          data={data}
+          busy={busy}
+          onClose={linkPrompt.close}
+          onSave={async (slug) => {
+            const saved = await saveSlug(slug);
+            if (saved) linkPrompt.done();
+            return saved;
           }}
         />
       )}
@@ -1891,6 +2005,7 @@ function Settings({
             </Link>
           </div>
         )}
+        {!demo && <AccountData />}
         {demo && (
           <div className="soft-note">
             <h3>A clean slate?</h3>

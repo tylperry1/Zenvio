@@ -1,4 +1,5 @@
 "use client";
+import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { useState, useEffect, useRef } from "react";
 import { Logo } from "./icons";
 export function TeamBooking({
@@ -13,7 +14,10 @@ export function TeamBooking({
   const [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
+    [captcha, setCaptcha] = useState(""),
+    [attempts, setAttempts] = useState(0),
     token = useRef("");
+  const captchaSiteKey = useCaptchaSiteKey();
   useEffect(() => {
     if (accept) {
       token.current =
@@ -79,6 +83,7 @@ export function TeamBooking({
                         organization,
                         event,
                         ...Object.fromEntries(f),
+                        captcha,
                       }),
                     }),
                     d = await r.json();
@@ -91,6 +96,7 @@ export function TeamBooking({
                   setData(null);
                 } catch (e) {
                   setError((e as Error).message);
+                  setAttempts((n) => n + 1);
                 }
               }}
             >
@@ -143,6 +149,7 @@ export function TeamBooking({
                     Email
                     <input name="email" type="email" required />
                   </label>
+                  <Captcha siteKey={captchaSiteKey} onToken={setCaptcha} resetKey={attempts} />
                   <button>Book appointment</button>
                 </>
               )}

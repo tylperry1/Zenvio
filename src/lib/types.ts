@@ -58,6 +58,9 @@ export type WorkspaceData = {
   availability: Availability[];
   bookings: Booking[];
   contacts: Contact[];
+  // Totals across the whole account; the arrays above are bounded.
+  bookingCount?: number;
+  contactCount?: number;
 };
 export type PublicEvent = {
   payment?: {

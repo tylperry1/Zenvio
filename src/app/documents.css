@@ -391,10 +391,6 @@
   border: 0 !important;
   color: #172643 !important;
 }
-.legacy-document-nav {
-  padding: 25px 5vw 0;
-  background: #f7f9fc;
-}
 @media (max-width: 800px) {
   .envelopes-page main,
   .envelope-sign-page main {
