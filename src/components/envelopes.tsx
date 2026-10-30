@@ -2,6 +2,9 @@
 import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
 import { PdfPages } from "./pdf-pages";
+import { Icon } from "./icons";
+import { Modal } from "./modal";
+import { Field as UiField } from "./ui";
 import type { Field, Recipient } from "@/lib/envelopes";
 type Envelope = {
   id: string;
@@ -25,7 +28,8 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   const [templateChoices, setTemplateChoices] = useState<
       { id: string; name: string }[]
     >([]),
-    [templateTarget, setTemplateTarget] = useState("");
+    [templateTarget, setTemplateTarget] = useState(""),
+    [savingTemplate, setSavingTemplate] = useState(false);
   useEffect(() => {
     fetch("/api/pdf-templates")
       .then((r) => r.json())
@@ -367,84 +371,86 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
               </div>
               <div className="envelope-actions">
                 <button
-                  className="billing-secondary"
+                  className="ui-btn ui-btn-ghost"
                   onClick={() => {
                     setDetail(null);
                     setBytes(null);
                   }}
                 >
-                  Back to documents
+                  <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All documents
                 </button>
-                <button
-                  className="billing-secondary"
-                  onClick={async () => {
-                    const name = prompt("Template name", detail.envelope.title);
-                    if (!name) return;
-                    const roles = detail.recipients.map(
-                      (r, i) =>
-                        prompt(
-                          "Role for recipient " + (i + 1),
-                          "Recipient " + (i + 1),
-                        ) || "Recipient " + (i + 1),
-                    );
-                    const templateId = templateTarget;
+                <a
+                  className="ui-btn ui-btn-ghost"
+                  href={"/api/envelopes?id=" + detail.envelope.id + "&pdf=original"}
+                >
+                  <Icon name="download" size={14} /> Original PDF
+                </a>
+                <button className="ui-btn ui-btn-secondary" onClick={() => setSavingTemplate(true)}>
+                  <Icon name="layers" size={14} /> Save as template
+                </button>
+                {detail.envelope.status === "completed" && (
+                  <a
+                    className="ui-btn ui-btn-primary"
+                    href={"/api/envelopes?id=" + detail.envelope.id + "&pdf=completed"}
+                  >
+                    <Icon name="download" size={14} /> Signed PDF
+                  </a>
+                )}
+              </div>
+            </div>
+            {savingTemplate && (
+              <Modal title="Save as template" onClose={() => setSavingTemplate(false)}>
+                <form
+                  className="ui-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
                     const r = await fetch("/api/pdf-templates", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         action: "save_from_envelope",
                         envelope_id: detail.envelope.id,
-                        name,
-                        roles,
-                        ...(templateId ? { id: templateId } : {}),
+                        name: f.get("name"),
+                        roles: detail.recipients.map((_, i) => String(f.get("role-" + i) || "Recipient " + (i + 1))),
+                        ...(templateTarget ? { id: templateTarget } : {}),
                       }),
                     });
                     const d = await r.json();
                     if (!r.ok) setError(d.error);
-                    else
-                      setNotice(
-                        "Template saved. Open PDF templates to use it.",
-                      );
+                    else {
+                      setNotice("Template saved. Open PDF templates to use it.");
+                      setSavingTemplate(false);
+                    }
                   }}
                 >
-                  Save as template / new version
-                </button>
-                <label>
-                  Template destination
-                  <select
-                    value={templateTarget}
-                    onChange={(e) => setTemplateTarget(e.target.value)}
-                  >
-                    <option value="">Create a new template</option>
-                    {templateChoices.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        New version of {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <a
-                  className="button"
-                  href={
-                    "/api/envelopes?id=" + detail.envelope.id + "&pdf=original"
-                  }
-                >
-                  Original PDF
-                </a>
-                {detail.envelope.status === "completed" && (
-                  <a
-                    className="button"
-                    href={
-                      "/api/envelopes?id=" +
-                      detail.envelope.id +
-                      "&pdf=completed"
-                    }
-                  >
-                    Download signed PDF
-                  </a>
-                )}
-              </div>
-            </div>
+                  <UiField label="Save to">
+                    <select value={templateTarget} onChange={(e) => setTemplateTarget(e.target.value)}>
+                      <option value="">A new template</option>
+                      {templateChoices.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          New version of {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </UiField>
+                  <UiField label="Template name">
+                    <input name="name" required maxLength={120} defaultValue={detail.envelope.title} />
+                  </UiField>
+                  {detail.recipients.map((r, i) => (
+                    <UiField key={r.id} label={`Role for ${r.name}`} hint="Shown when the template is used, e.g. Client or Witness.">
+                      <input name={"role-" + i} required maxLength={60} defaultValue={i === 0 ? "Client" : "Recipient " + (i + 1)} />
+                    </UiField>
+                  ))}
+                  <div className="ui-modal-actions">
+                    <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSavingTemplate(false)}>
+                      Cancel
+                    </button>
+                    <button className="ui-btn ui-btn-primary">Save template</button>
+                  </div>
+                </form>
+              </Modal>
+            )}
             <div className="envelope-editor">
               <aside className="envelope-tools">
                 <h3>{draft ? "2. Place fields" : "Recipient progress"}</h3>
@@ -471,14 +477,11 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
                             className={tool === t ? "active" : ""}
                             onClick={() => setTool(t)}
                           >
-                            {t === "signature"
-                              ? "✒ "
-                              : t === "initials"
-                                ? "Aa "
-                                : t === "date"
-                                  ? "▦ "
-                                  : "T "}
-                            {t}
+                            <Icon
+                              name={t === "signature" ? "file" : t === "initials" ? "contact" : t === "date" ? "calendar" : "layers"}
+                              size={15}
+                            />
+                            {t[0].toUpperCase() + t.slice(1)}
                           </button>
                         ),
                       )}
@@ -852,7 +855,9 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
                       "declined",
                       "voided",
                     ].map((s) => (
-                      <option key={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s === "all" ? "All statuses" : s[0].toUpperCase() + s.slice(1)}
+                      </option>
                     ))}
                   </select>
                 </div>

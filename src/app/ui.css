@@ -1613,3 +1613,75 @@
     white-space: normal;
   }
 }
+
+/* Documents editor */
+.shell .envelope-detail .envelope-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.shell .envelope-detail .envelope-heading h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 650;
+}
+.shell .envelope-detail .envelope-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.shell .envelope-editor {
+  grid-template-columns: 300px minmax(0, 1fr) !important;
+  align-items: start;
+}
+.shell .envelope-tools {
+  position: sticky;
+  top: 92px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+.shell .envelope-tools h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+.shell .platform-page .field-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.shell .platform-page .field-tools > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+.shell .platform-page .field-tools > button.active {
+  border-color: var(--action-primary);
+  background: #eef2ff;
+  color: var(--action-primary);
+  box-shadow: 0 0 0 1px var(--action-primary);
+}
+.shell .platform-page .field-properties {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 900px) {
+  .shell .envelope-editor {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .shell .envelope-tools {
+    position: static;
+    max-height: none;
+  }
+}
