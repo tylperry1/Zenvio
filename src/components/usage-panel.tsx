@@ -13,13 +13,14 @@ export function UsagePanel() {
       .catch((e) => setError(e.message));
   }, []);
   return (
-    <section>
-      <h2>Plan usage</h2>
+    <section className="subscription-usage">
+      <span className="subscription-kicker">YOUR INCLUDED CAPACITY</span>
+      <h2>Room to work.</h2>
       {error && <p role="alert">{error}</p>}
       {data && (
         <>
           <p>
-            {data.plan} · {data.seats} paid host allowance
+            {data.plan === "team" ? "Teams" : data.plan === "individual" ? "Individual" : data.plan} · {data.seats} host{data.seats === 1 ? "" : "s"}
           </p>
           {data.shared?.map((s: any) => (
             <p key={s.owner}>
@@ -30,7 +31,7 @@ export function UsagePanel() {
               budget.
             </p>
           ))}
-          <div className="suite-grid">
+          <div className="subscription-usage-grid">
             {Object.keys(data.limits).map((k) => (
               <label key={k}>
                 {k === "types"

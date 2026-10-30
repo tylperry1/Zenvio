@@ -1,3 +1,4 @@
+import { individualOffer, teamOffer, extraSeatOffer } from "./subscription-offers.mjs";
 import {
   createCipheriv,
   createDecipheriv,
@@ -85,5 +86,5 @@ export async function pricing() {
   const { rows } = await getPool().query(
     "SELECT value FROM private.platform_settings WHERE key='pricing'",
   );
-  return rows[0]?.value || [];
+  return [...(rows[0]?.value || []).filter((p: {id:string}) => !["individual", "team", "team_extra"].includes(p.id)), individualOffer, teamOffer, extraSeatOffer];
 }

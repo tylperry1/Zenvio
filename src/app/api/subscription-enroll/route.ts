@@ -1,165 +1,72 @@
 import { NextRequest } from "next/server";
-import {
-  session,
-  sameOrigin,
-  body,
-  failure,
-  string,
-  integer,
-  ApiError,
-} from "@/lib/server";
+import { session, sameOrigin, body, failure, integer, ApiError } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
-import { pricing, integrationValue } from "@/lib/platform-settings";
 import { saveSubscription } from "@/lib/subscription-management";
+import { billingReadiness } from "@/lib/billing-readiness";
+import { individualOffer, teamOffer, extraSeatOffer, subscriptionLines } from "@/lib/subscription-offers.mjs";
 import { appOrigin } from "@/lib/lifecycle";
 export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const { token, user } = await session(),
-      v = await body(req);
-    if (
-      process.env.BILLING_CHECKOUT_ENABLED !== "true" ||
-      !(await integrationValue("STRIPE_WEBHOOK_SECRET"))
-    )
-      throw new ApiError(
-        "Paid enrollment is gated until billing configuration is complete.",
-        503,
-      );
-    const plan = string(v.plan, "plan", 20),
-      period = string(v.period, "billing period", 10);
-    if (
-      !["pro", "business", "teams"].includes(plan) ||
-      !["monthly", "annual"].includes(period) ||
-      v.confirm !== true
-    )
-      throw new ApiError("Review and confirm a valid plan and billing period.");
-    const seats =
-      plan === "teams" ? integer(v.seats, "paid hosts", 3, 1000) : 1;
-    const db = await getPool().connect(),
-      stripe = await stripeClient();
+    const { token, user } = await session(), v = await body(req);
+    if (!["individual", "team"].includes(String(v.plan)) || v.confirm !== true) throw new ApiError("Choose and confirm an Individual or Teams subscription.");
+    if (v.period && v.period !== "monthly") throw new ApiError("These packages use monthly billing.");
+    const plan = String(v.plan);
+    const seats = plan === "team" ? integer(v.seats, "seats", 3, 1000) : 1;
+    const requested = subscriptionLines(plan, seats);
+    if (!(await billingReadiness()).checkoutEnabled) throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+    const db = await getPool().connect(), stripe = await stripeClient();
     try {
       await db.query("BEGIN");
-      await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-        "billing:" + token,
-      ]);
-      const mapping = (
-        await db.query(
-          "SELECT stripe_price_id FROM private.subscription_prices WHERE plan=$1 AND period=$2",
-          [plan, period],
-        )
-      ).rows[0];
-      if (!mapping)
-        throw new ApiError(
-          "This recurring price has not been configured.",
-          503,
-        );
-      const price = await stripe.prices.retrieve(mapping.stripe_price_id),
-        approved = (await pricing()).find((p: any) => p.id === plan);
-      if (
-        !price.active ||
-        price.currency !== "usd" ||
-        price.unit_amount !== approved?.[period] ||
-        price.recurring?.interval !==
-          (period === "annual" ? "year" : "month") ||
-        price.recurring?.interval_count !== 1
-      )
-        throw new ApiError(
-          "Stripe price does not match the current approved site price.",
-          503,
-        );
-      let local = (
-        await db.query(
-          "SELECT * FROM private.subscriptions WHERE user_id=$1 FOR UPDATE",
-          [token],
-        )
-      ).rows[0];
-      if (
-        local?.subscription_id &&
-        ["incomplete", "incomplete_expired"].includes(local.status)
-      )
-        throw new ApiError(
-          "Resolve the existing incomplete subscription in billing before enrolling again.",
-          409,
-        );
-      if (
-        local?.subscription_id &&
-        ["active", "trialing", "past_due", "unpaid"].includes(local.status)
-      ) {
-        const membership = (
-          await db.query(
-            "SELECT count(*)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active",
-            [token],
-          )
-        ).rows[0].n;
-        if (plan === "teams" && membership > seats)
-          throw new ApiError(
-            "Remove or reassign staff before reducing the paid host count.",
-            409,
-          );
-        if (plan !== "teams" && membership > 1)
-          throw new ApiError(
-            "Resolve team memberships before switching to an individual plan.",
-            409,
-          );
-        const current = await stripe.subscriptions.retrieve(
-          local.subscription_id,
-        );
-        if (
-          current.customer !== local.customer_id ||
-          current.metadata.user_id !== token
-        )
-          throw new ApiError("Subscription ownership mismatch.", 409);
-        const updated = await stripe.subscriptions.update(current.id, {
-          items: [
-            { id: current.items.data[0].id, price: price.id, quantity: seats },
-          ],
-          payment_behavior: "pending_if_incomplete",
-          proration_behavior: "create_prorations",
-        });
-        await saveSubscription(db, updated, token);
-        await db.query("COMMIT");
-        return Response.json({
-          ok: true,
-          message:
-            "Plan change requested. Any required payment must complete before new entitlements apply.",
-        });
+      await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["billing:" + token]);
+      let local = (await db.query("SELECT * FROM private.subscriptions WHERE user_id=$1", [token])).rows[0];
+      if (local?.subscription_id) await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["subscription:" + local.subscription_id]);
+      local = (await db.query("SELECT * FROM private.subscriptions WHERE user_id=$1 FOR UPDATE", [token])).rows[0];
+      const lines: {price:string;quantity:number}[] = [];
+      for (const line of requested) {
+        const map = (await db.query("SELECT stripe_price_id FROM private.subscription_prices WHERE plan=$1 AND period='monthly'", [line.plan])).rows[0];
+        if (!map) throw new ApiError("This package is temporarily unavailable.", 503);
+        const price = await stripe.prices.retrieve(map.stripe_price_id);
+        const offer = [individualOffer, teamOffer, extraSeatOffer].find((p) => p.id === line.plan)!;
+        if (!price.active || price.currency !== "usd" || price.unit_amount !== offer.monthly || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) throw new ApiError("The recurring price could not be verified. No payment has been taken.", 503);
+        lines.push({price:price.id,quantity:line.quantity});
+      }
+      if (local?.subscription_id) {
+        await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["subscription:" + local.subscription_id]);
+        const current = await stripe.subscriptions.retrieve(local.subscription_id);
+        const customer = typeof current.customer === "string" ? current.customer : current.customer.id;
+        if (customer !== local.customer_id || current.metadata.user_id !== token) throw new ApiError("Subscription ownership mismatch.", 409);
+        if (["incomplete", "incomplete_expired", "past_due", "unpaid", "paused"].includes(current.status)) throw new ApiError("Resolve your current billing status before changing packages.", 409);
+        if (["active", "trialing"].includes(current.status)) {
+          if (current.cancel_at_period_end || current.pending_update || current.schedule) throw new ApiError("Resolve your scheduled subscription change before updating this package.", 409);
+          await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+token]);
+          const members = (await db.query("SELECT count(DISTINCT user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active", [token])).rows[0].n;
+          if (members > seats) throw new ApiError("Remove or reassign staff before reducing your seat count.", 409);
+          const items = [
+            ...current.items.data.filter((item) => !lines.some((line) => line.price === item.price.id)).map((item) => ({id:item.id,deleted:true as const})),
+            ...lines.map((line) => ({...line,...(current.items.data.find((item) => item.price.id === line.price) ? {id:current.items.data.find((item) => item.price.id === line.price)!.id} : {})})),
+          ];
+          const updated = await stripe.subscriptions.update(current.id, {items,payment_behavior:"pending_if_incomplete",proration_behavior:"always_invoice"});
+          await saveSubscription(db, updated, token);
+          await db.query("COMMIT");
+          return Response.json({ok:true,message:updated.pending_update ? "Payment is required before this change takes effect. Open payment details to complete it." : "Your package has been updated. Stripe has applied any prorated adjustment."});
+        }
       }
       if (!local?.customer_id) {
-        const customer = await stripe.customers.create(
-          {
-            email: user.email,
-            name: user.name,
-            metadata: { zenvio_user_id: token },
-          },
-          { idempotencyKey: "zenvio-customer-" + token },
-        );
-        await db.query(
-          "INSERT INTO private.subscriptions(user_id,customer_id) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET customer_id=$2",
-          [token, customer.id],
-        );
-        local = { customer_id: customer.id };
+        const customer = await stripe.customers.create({email:user.email,name:user.name,metadata:{zenvio_user_id:token}}, {idempotencyKey:"zenvio-customer-"+token});
+        await db.query("INSERT INTO private.subscriptions(user_id,customer_id) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET customer_id=$2", [token,customer.id]);
+        local = {customer_id:customer.id};
       }
-      const checkout = await stripe.checkout.sessions.create({
-        customer: local.customer_id,
-        mode: "subscription",
-        client_reference_id: token,
-        metadata: { user_id: token, plan },
-        subscription_data: { metadata: { user_id: token, plan } },
-        line_items: [{ price: price.id, quantity: seats }],
-        success_url: appOrigin() + "/app/billing?checkout=complete",
-        cancel_url: appOrigin() + "/app/billing",
-      });
+      const existing = await stripe.subscriptions.list({customer:local.customer_id,status:"all",limit:100});
+      if (existing.has_more || existing.data.some(s=>!["canceled","incomplete_expired"].includes(s.status))) throw new ApiError("A subscription already exists for this billing account. Open payment details or wait for its status to refresh before trying again.",409);
+      // Expire abandoned checkouts before opening a new one; never create parallel open checkouts.
+      const open = await stripe.checkout.sessions.list({customer:local.customer_id,status:"open",limit:100});
+      for (const checkout of open.data.filter((s) => s.mode === "subscription" && s.client_reference_id === token)) await stripe.checkout.sessions.expire(checkout.id);
+      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",client_reference_id:token,metadata:{user_id:token,plan},subscription_data:{metadata:{user_id:token,plan}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
       await db.query("COMMIT");
-      return Response.json({ url: checkout.url });
-    } catch (e) {
-      await db.query("ROLLBACK");
-      throw e;
-    } finally {
-      db.release();
-    }
-  } catch (e) {
-    return failure(e);
-  }
+      return Response.json({url:checkout.url});
+    } catch(e) {await db.query("ROLLBACK");throw e;} finally {db.release();}
+  } catch(e) {return failure(e);}
 }

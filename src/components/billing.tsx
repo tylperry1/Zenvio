@@ -4,6 +4,9 @@ import { UsagePanel } from "./usage-panel";
 import { Enrollment } from "./enrollment";
 import { useEffect, useState } from "react";
 import { Modal } from "./modal";
+import Link from "next/link";
+import { Icon } from "./icons";
+import { subscriptionTotal } from "@/lib/subscription-offers.mjs";
 import { InvoiceList } from "./invoice-list";
 import {
   billingDate,
@@ -13,7 +16,7 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/billing-types";
-type Data = { subscription: Subscription; plans: Plan[]; connected: boolean };
+type Data = { subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; shared: unknown[]; canManageTeamBilling: boolean } };
 export function Billing() {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
@@ -91,6 +94,7 @@ export function Billing() {
     }
   }
   const sub = data?.subscription;
+  const managedByTeam=Boolean(data?.usage.shared.length && !data.usage.canManageTeamBilling && !sub?.has_subscription);
   return (
     <div className="platform-page billing-page">
       <main>
@@ -126,59 +130,21 @@ export function Billing() {
           sub &&
           data && (
             <>
-              <section className="billing-current">
-                <div>
-                  <span className="billing-eyebrow">YOUR CURRENT PLAN</span>
-                  <h2>
-                    {data.plans.find((p) => p.id === sub.plan)?.name ||
-                      sub.plan}
-                    <span className="billing-badge">
-                      {sub.cancel_at_period_end
-                        ? "Ending"
-                        : sub.has_subscription
-                          ? sub.status.replaceAll("_", " ")
-                          : "Free workspace"}
-                    </span>
-                  </h2>
-                  <p>
-                    {sub.cancel_at_period_end
-                      ? `Your subscription ends ${billingDate(sub.current_period_end)}. Renewal is turned off.`
-                      : sub.has_subscription
-                        ? `Current billing period ends ${billingDate(sub.current_period_end)}.`
-                        : "No payment method required. Your workspace is on the Free plan."}
-                  </p>
-                </div>
-                <div className="billing-actions">
-                  <button
-                    disabled={busy || !data.connected || !sub.has_customer}
-                    onClick={() => void action("portal")}
-                  >
-                    Payment method & billing details ↗
-                  </button>
-                  {canChangeSubscription(sub) && (
-                    <button
-                      className="billing-secondary"
-                      disabled={busy || !data.connected}
-                      onClick={() =>
-                        setConfirm(
-                          sub.cancel_at_period_end ? "resume" : "cancel",
-                        )
-                      }
-                    >
-                      {sub.cancel_at_period_end
-                        ? "Resume renewal"
-                        : "Cancel subscription"}
-                    </button>
-                  )}
-                </div>
+              <section className="subscription-account-card">
+                <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{sub.cancel_at_period_end ? "Renewal off" : sub.has_subscription ? sub.status.replaceAll("_", " ") : data.usage.shared.length ? "Team member" : "Free workspace"}</span></div>
+                <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : data.plans.find(p=>p.id===sub.plan)?.name || sub.plan}</h2><p>{sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : sub.has_subscription ? `Current billing period ends ${billingDate(sub.current_period_end)}.` : data.usage.shared.length ? "Your seat is managed by the team owner." : "Explore the workspace, then choose the package that fits."}</p></div>{["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{money(subscriptionTotal(sub.plan,sub.plan==='team'?Math.max(3,sub.seats||3):1))}</strong><span>per month · before tax</span></div>}</div>
+                <div className="subscription-account-details"><div><span>Paid seats</span><b>{sub.has_subscription ? sub.seats||1 : data.usage.shared.length ? "Managed by your team" : "Not subscribed"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
+                <div className="subscription-account-actions"><button className="billing-secondary" disabled={busy||!data.connected||!sub.has_customer} onClick={()=>void action("portal")}><Icon name="card" size={16}/>Payment details & receipts <Icon name="external" size={14}/></button>{canChangeSubscription(sub)&&<button className="subscription-text-button" disabled={busy||!data.connected} onClick={()=>setConfirm(sub.cancel_at_period_end?"resume":"cancel")}>{sub.cancel_at_period_end?"Resume renewal":"Cancel renewal"}</button>}</div>
               </section>
+              {sub.has_subscription && !["individual","team"].includes(sub.plan) && <p className="subscription-legacy-note"><Icon name="shield" size={18}/>You’re on a legacy package. Your existing subscription price and benefits stay in place unless you explicitly choose a new package.</p>}
+              {!(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
               {!data.connected && (
                 <p className="billing-note">
                   Online billing is not connected yet. Your current workspace
                   remains available.
                 </p>
               )}
-              <section>
+              <section className="subscription-invoices">
                 <div className="billing-section-heading">
                   <div>
                     <h2>Invoice history</h2>
@@ -213,40 +179,6 @@ export function Billing() {
                   </p>
                 )}
               </section>
-              <div className="billing-section-heading">
-                <div>
-                  <h2>Plans that grow with you</h2>
-                  <p>USD pricing. Paid plan enrollment is not open yet.</p>
-                </div>
-              </div>
-              <div className="platform-plan-grid">
-                {data.plans.map((p) => (
-                  <article
-                    key={p.id}
-                    className={p.id === sub.plan ? "billing-selected" : ""}
-                  >
-                    <small>
-                      {p.id === sub.plan
-                        ? "CURRENT PLAN"
-                        : p.id === "free"
-                          ? "FREE WORKSPACE"
-                          : "PLANNED PLAN"}
-                    </small>
-                    <h3>{p.name}</h3>
-                    <p>
-                      <b>{money(p.monthly)}</b> / month
-                    </p>
-                    <p>{money(p.annual)} billed annually</p>
-                    <span>
-                      {p.seats > 1
-                        ? `Per host · ${p.seats}-host minimum`
-                        : p.id === "free"
-                          ? "No credit card needed"
-                          : "For one scheduling host"}
-                    </span>
-                  </article>
-                ))}
-              </div>
             </>
           )
         )}
@@ -289,8 +221,9 @@ export function Billing() {
             </div>
           </Modal>
         )}
-        <UsagePanel />
-        <Enrollment />
+        <UsagePanel key={`${sub?.plan}:${sub?.seats}:${sub?.status}:${data?.usage.plan}:${data?.usage.seats}`} />
+        <div className="subscription-help"><Icon name="shield" size={20}/><div><b>Clear billing. No surprises.</b><p>Owners control paid seats. Clients and document recipients are free. <Link href="/pricing">Compare packages and limits</Link>.</p></div></div>
+
       </main>
     </div>
   );

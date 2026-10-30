@@ -15,6 +15,7 @@ export type Subscription = {
   cancel_at_period_end?: boolean;
   has_customer?: boolean;
   has_subscription?: boolean;
+  seats?: number;
 };
 export type Invoice = {
   id: string;

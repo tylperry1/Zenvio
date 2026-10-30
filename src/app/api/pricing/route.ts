@@ -1,4 +1,3 @@
-import { pricing } from '@/lib/platform-settings';
-import { failure } from '@/lib/server';
+import { currentOffers, extraSeatOffer } from '@/lib/subscription-offers.mjs';
 export const dynamic='force-dynamic';
-export async function GET(){try{return Response.json({plans:await pricing(),currency:'USD'},{headers:{'Cache-Control':'no-store'}});}catch(e){return failure(e);}}
+export async function GET(){return Response.json({plans:currentOffers,extraSeat:extraSeatOffer,currency:'USD'},{headers:{'Cache-Control':'no-store'}});}

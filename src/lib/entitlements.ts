@@ -19,14 +19,14 @@ export async function entitlementUsage(
   const effective: Plan =
     Object.hasOwn(planLimits, plan) &&
     !(
-      plan === "teams" &&
+      ["teams", "team"].includes(plan) &&
       !r?.effective_plan &&
       !r?.override_plan &&
       (r?.seats || 0) < 3
     )
       ? plan
       : "free";
-  let seats = effective === "teams" ? Math.max(3, r?.seats || 3) : 1;
+  let seats = ["teams", "team"].includes(effective) ? Math.max(3, r?.seats || 3) : 1;
   const u = (
     await db.query(
       `SELECT (SELECT count(*)::int FROM public.event_types e WHERE user_id=$1 AND active AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM private.team_event_staff s WHERE s.personal_event_id=e.id)) types,(SELECT count(*)::int FROM private.google_calendar_connections WHERE user_id=$1) calendars,(SELECT count(*)::int FROM private.signature_envelopes WHERE user_id=$1 AND created_at>=date_trunc('month',now()))+(SELECT count(*)::int FROM private.signing_documents WHERE user_id=$1 AND created_at>=date_trunc('month',now())) envelopes,(SELECT count(*)::int FROM private.workflow_rules WHERE user_id=$1 AND enabled) workflows`,
@@ -36,7 +36,7 @@ export async function entitlementUsage(
   const roots = (
     await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])
   ).rows;
-  if (effective === "teams" && roots.length)
+  if (["teams", "team"].includes(effective) && roots.length)
     seats = roots.find((r) => r.owner_id === user)?.seats || roots[0].seats;
   const shared = [];
   for (const root of roots) {
