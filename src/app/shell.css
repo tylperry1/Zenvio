@@ -1595,3 +1595,12 @@ body {
 .admin-v3.admin-v3 .av-sidebar-bottom > a > svg {
   margin-left: 0;
 }
+@media (max-width: 640px) {
+  .client-list-toolbar {
+    flex-wrap: wrap;
+  }
+  .shell .platform-page label.client-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}

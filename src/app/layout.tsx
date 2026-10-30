@@ -6,6 +6,7 @@ import "./refinements.css";
 import "./documents.css";
 import "./suite.css";
 import "./shell.css";
+import "./workspace-design.css";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

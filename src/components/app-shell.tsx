@@ -201,6 +201,8 @@ export function AppShell({
     return () => document.removeEventListener("keydown", key);
   }, []);
   const menuRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const name = user?.name || (demo ? "Jamie Davis" : "Your account");
   useEffect(() => {
     if (!menu) return;
@@ -217,7 +219,40 @@ export function AppShell({
   }, [menu]);
   useEffect(() => {
     document.body.classList.toggle("shell-locked", open);
-    return () => document.body.classList.remove("shell-locked");
+    if (!open) return;
+    setMenu(false);
+    const sidebar = sidebarRef.current;
+    const controls = () => Array.from(
+      sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)') || [],
+    ).filter((element) => element.getClientRects().length > 0);
+    sidebar?.querySelector<HTMLButtonElement>(".shell-close")?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+      if (event.key !== "Tab") return;
+      const elements = controls();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.body.classList.remove("shell-locked");
+      document.removeEventListener("keydown", keyboard);
+      desktop.removeEventListener("change", closeOnDesktop);
+      navigationButtonRef.current?.focus();
+    };
   }, [open]);
   async function signOut() {
     setError("");
@@ -231,10 +266,10 @@ export function AppShell({
   }
   return (
     <div className="shell" data-nav-open={open}>
-      <aside className="shell-sidebar" aria-label="Main navigation">
+      <aside ref={sidebarRef} id="workspace-navigation" className="shell-sidebar" aria-label="Main navigation">
         <div className="shell-sidebar-head">
           <Link href={demo ? "/demo" : "/app"} className="shell-logo">
-            <Logo />
+            <Logo light />
           </Link>
           <button
             className="shell-icon-button shell-close"
@@ -272,14 +307,18 @@ export function AppShell({
         <button
           className="shell-overlay"
           aria-label="Close navigation"
+          tabIndex={-1}
           onClick={() => setOpen(false)}
         />
       )}
-      <div className="shell-main">
+      <div className="shell-main" inert={open || undefined}>
         <header className="shell-topbar">
           <button
             className="shell-icon-button shell-menu"
+            ref={navigationButtonRef}
             aria-label="Open navigation"
+            aria-controls="workspace-navigation"
+            aria-expanded={open}
             onClick={() => setOpen(true)}
           >
             <Icon name="menu" size={18} />
