@@ -1685,3 +1685,35 @@
     max-height: none;
   }
 }
+
+/* Marketplace */
+.shell .market-hero {
+  padding: 28px 32px;
+}
+.shell .market-hero h2 {
+  font-size: clamp(22px, 2.4vw, 30px);
+}
+.shell .market-hero-mark {
+  transform: rotate(5deg) scale(0.8);
+}
+.shell .platform-page .market-category-tabs button {
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 99px;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+.shell .market-product-card {
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.shell .market-product-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 24px #151b380f;
+}
+.shell .market-cart {
+  top: 92px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}

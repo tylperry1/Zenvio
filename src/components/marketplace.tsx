@@ -80,10 +80,7 @@ export function Marketplace() {
               <br />
               impression count.
             </h2>
-            <p>
-              Marketing essentials and branded merchandise, ordered directly
-              through Zenvio.
-            </p>
+            <p>Business cards, signage, apparel, and branded gifts with your logo — printed and shipped for you.</p>
             <div className="market-hero-pills">
               <span>
                 <Icon name="grid" size={14} /> Print & promotion
