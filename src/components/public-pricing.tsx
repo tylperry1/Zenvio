@@ -28,7 +28,7 @@ export function PublicPricing() {
       </article>
     </div>
     <div className="subscription-calculator">
-      <div><span className="subscription-kicker">NO SEAT-PRICE SURPRISES</span><h3>See your team’s monthly total.</h3><p>Only people who host appointments need seats. Clients and document recipients never need a paid seat.</p></div>
+      <div><span className="subscription-kicker">NO SEAT-PRICE SURPRISES</span><h3>See your team’s monthly total.</h3><p>Each active team member uses a seat, including managers and the owner. Clients and document recipients never need a paid seat.</p></div>
       <label>Total team seats<input type="number" min={3} max={1000} value={seats} onChange={e=>setSeats(Math.min(1000,Math.max(3,Number(e.target.value)||3)))}/></label>
       <div className="subscription-calculation" aria-live="polite"><strong>{money(subscriptionTotal('team',seats))}<small>/month</small></strong><span>{money(teamOffer.monthly)} + {seats-3} × {money(extraSeatOffer.monthly)}</span></div>
     </div>

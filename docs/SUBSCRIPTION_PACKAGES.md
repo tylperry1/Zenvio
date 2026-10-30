@@ -7,7 +7,7 @@ Approved packages (USD, before tax):
 | Individual | $29.99 | 1 |
 | Teams | $49.99 base + $9.99 for each seat above 3 | 3–1,000 |
 
-Examples: 3 seats $49.99; 4 $59.98; 5 $69.97; 10 $119.92. The owner counts as a seat. Clients and signing recipients never need paid seats. New packages are monthly only. Existing legacy subscriptions and their annual/monthly prices are unchanged unless the customer explicitly switches.
+Examples: 3 seats $49.99; 4 $59.98; 5 $69.97; 10 $119.92. Every active team member counts as a seat, including managers and the owner. Clients and signing recipients never need paid seats. New packages are monthly only. Existing legacy subscriptions and their annual/monthly prices are unchanged unless the customer explicitly switches.
 
 Both paid packages: unlimited bookings; 100 active personal event types and 5 connected Google accounts per host; 25 enabled workflows per workspace; client records; appointment payments; PDF templates and signing. Each host has 100 document envelopes per calendar month. Created drafts count; multiple recipients in one envelope do not count separately. Teams also has a shared 100 × seats envelope budget. Allowances do not roll over; no automatic overage charges. Existing records remain available when capacity is reached.
 
