@@ -143,11 +143,12 @@ export async function POST(req: NextRequest) {
         );
         result.id = id;
       } else {
-        const organization = uuid(v.organization),
-          role = await teamRole(db, token, organization, true);
+        const organization = uuid(v.organization);
+        await teamRole(db, token, organization, true);
         await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
           "team:" + organization,
         ]);
+        const role = await teamRole(db, token, organization, true);
         if (v.action === "rename") {
           await db.query("UPDATE private.organizations SET name=$2 WHERE id=$1", [organization,string(v.name,"workspace name",100,2)]);
         } else if (v.action === "revoke-invite") {
@@ -164,9 +165,9 @@ export async function POST(req: NextRequest) {
             if (!["staff","administrator"].includes(String(v.role))) throw new ApiError("Choose Staff or Manager.");
             await db.query("UPDATE private.memberships SET role=$3 WHERE organization_id=$1 AND user_id=$2",[organization,target,v.role]);
           } else {
+            await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+role.owner_id]);
             const usage=await entitlementUsage(role.owner_id,db);
             if (!["team","teams"].includes(usage.plan)||!usage.canManageTeamBilling) throw new ApiError("An active Teams subscription is required.",409);
-            await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+role.owner_id]);
             const count=(await db.query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active AND m.user_id<>$2",[role.owner_id,target])).rows[0].n;
             if(count>=usage.seats) throw new ApiError("The owner must add a seat before reactivating this member.",409);
             await db.query("UPDATE private.memberships SET active=true WHERE organization_id=$1 AND user_id=$2",[organization,target]);
