@@ -703,7 +703,7 @@ try {
     (
       await request(
         "/api/subscription-enroll",
-        { plan: "pro", period: "monthly", confirm: true },
+        { plan: "individual", period: "monthly", confirm: true },
         alice.cookie,
       )
     ).status,
