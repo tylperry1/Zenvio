@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./icons";
+import { LinkProblem } from "./ui";
 import { download } from "@/lib/client";
 type Document = { id: string; title: string; content: string; recipient_name: string; recipient_email: string; sender_name: string; content_hash: string; status: string; signed_at: string | null; signature_name: string | null; receipt_hash: string | null };
 export function SignDocument() {
@@ -20,7 +21,8 @@ export function SignDocument() {
   }, []);
   return <div className="platform-page signing-page"><main>
     <header className="signing-brand"><Logo /><span>Private document signing</span></header>
-    {error && <p role="alert" className="billing-error">{error}</p>}
+    {error && !document && <LinkProblem title="We couldn’t open this document">{error}</LinkProblem>}
+    {error && document && <p role="alert" className="billing-error">{error}</p>}
     {!document && !error && <p>Opening your document…</p>}
     {document && <>
       <div className="signing-introduction"><span className="billing-eyebrow">{document.status === "signed" ? "SIGNING COMPLETE" : "REVIEW & SIGN"}</span><h1>{document.title}</h1><p>{document.sender_name} prepared this agreement for {document.recipient_name} ({document.recipient_email}).</p></div>

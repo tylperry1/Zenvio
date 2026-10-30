@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
-import { Modal } from "./modal";
+import { Alert, Badge, Card, EmptyState, Skeleton, Toggle, formatDateTime, useConfirm } from "./ui";
+
 type Connection = {
   account_sub: string;
   account_email: string;
@@ -20,12 +21,12 @@ type Data = {
   maximumAccounts: number;
   jobs: { pending: number; failed: number };
 };
-export function GoogleCalendarConnection() {
+
+export function GoogleCalendarConnection({ notify }: { notify: (text: string, error?: boolean) => void }) {
   const [data, setData] = useState<Data | null>(null),
-    [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false),
-    [confirm, setConfirm] = useState<Connection | null>(null);
+    [loadError, setLoadError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const { confirm, node: confirmNode } = useConfirm();
   async function load() {
     const r = await fetch("/api/calendars/google", { cache: "no-store" }),
       d = await r.json();
@@ -33,34 +34,19 @@ export function GoogleCalendarConnection() {
     setData(d);
   }
   useEffect(() => {
-    load().catch((e) => setError(e.message));
+    load().catch((e) => setLoadError(e.message));
     const q = new URLSearchParams(window.location.search),
       result = q.get("google");
-    if (result === "connected")
-      setMessage(
-        "Google account connected. Selected calendars are queued for appointment sync.",
-      );
-    if (result === "denied")
-      setError(
-        "Google authorization was cancelled. Existing accounts were kept.",
-      );
-    if (result === "failed")
-      setError(
-        "Google could not be connected. Check setup and permissions, then try again.",
-      );
+    if (result === "connected") notify("Google account connected. Your calendar is being synced.");
+    if (result === "denied") notify("Google authorization was cancelled. Existing accounts were kept.", true);
+    if (result === "failed") notify("Google couldn’t be connected. Check permissions and try again.", true);
     if (result) {
       q.delete("google");
-      window.history.replaceState(
-        null,
-        "",
-        window.location.pathname + (q.size ? "?" + q : ""),
-      );
+      window.history.replaceState(null, "", window.location.pathname + (q.size ? "?" + q : ""));
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function action(action: string, values: Record<string, unknown> = {}) {
     setBusy(true);
-    setError("");
-    setMessage("");
     try {
       const r = await fetch("/api/calendars/google", {
           method: "POST",
@@ -74,266 +60,181 @@ export function GoogleCalendarConnection() {
         return;
       }
       await load();
-      if (action === "check") {
-        if (d.ok) setMessage(d.message);
-        else setError(d.message);
-        return;
-      }
-      setConfirm(null);
-      setMessage(
+      if (action === "check") return notify(d.message, !d.ok);
+      notify(
         action === "disconnect"
           ? d.revocationConfirmed
-            ? "Google account disconnected. Your other accounts are unchanged. Existing Google events remain."
-            : "Disconnected in Zenvio. Remove Zenvio access in that Google account to finish revoking permissions."
+            ? "Google account disconnected. Existing Google events were kept."
+            : "Disconnected in Zenvio. Remove Zenvio’s access in that Google account to finish revoking it."
           : action === "sync"
-            ? `${d.delivered} booking updates processed across selected accounts. Check the pending count for remaining work.`
+            ? `${d.delivered} calendar update${d.delivered === 1 ? "" : "s"} sent to Google.`
             : "Calendar preferences saved.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to update calendars.");
+      notify(e instanceof Error ? e.message : "Unable to update calendars.", true);
     } finally {
       setBusy(false);
     }
   }
+  const full = data ? data.connections.length >= data.maximumAccounts : false;
   return (
-    <section className="google-connection">
-      <div className="billing-section-heading">
-        <div>
-          <span className="billing-eyebrow">CONNECTED ACCOUNTS</span>
-          <h2>
-            <span className="google-mark" aria-hidden="true">
-              G
-            </span>{" "}
-            Google Calendar
-          </h2>
-          <p>
-            Connect up to five Google accounts. Choose each primary calendar for
-            conflict checks and appointment copies.
-          </p>
-        </div>
-        <span className="billing-badge">
-          {data?.connections.length || 0} accounts
+    <Card
+      title={
+        <span className="gc-title">
+          <span className="gc-mark" aria-hidden="true">
+            G
+          </span>
+          Google Calendar
         </span>
-      </div>
-      {error && (
-        <p role="alert" className="billing-error">
-          {error}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
-      {!data ? (
-        <p>Loading calendar accounts…</p>
-      ) : (
-        <>
-          <div className="billing-actions">
+      }
+      description="Zenvio hides times you’re busy in Google and copies new bookings to your calendar."
+      actions={
+        data && (
+          <>
+            {data.connections.length > 0 && (
+              <button className="ui-btn ui-btn-ghost" disabled={busy} onClick={() => void action("sync")}>
+                Sync now
+              </button>
+            )}
             <button
-              disabled={
-                busy ||
-                !data.configured ||
-                data.connections.length >= data.maximumAccounts
-              }
+              className="ui-btn ui-btn-primary"
+              disabled={busy || !data.configured || full}
               onClick={() => void action("connect")}
             >
-              {busy
-                ? "Working…"
-                : data.connections.length
-                  ? "Connect another Google account"
-                  : "Connect Google Calendar"}
+              <Icon name="plus" size={15} />
+              {data.connections.length ? "Add account" : "Connect Google"}
             </button>
-            {data.connections.length > 0 && (
-              <>
-                <button
-                  className="billing-secondary"
-                  disabled={busy}
-                  onClick={() => void action("sync")}
-                >
-                  Sync now / retry pending
-                </button>
-                <button
-                  className="billing-secondary"
-                  disabled={busy}
-                  onClick={() => load().catch((e) => setError(e.message))}
-                >
-                  Refresh status
-                </button>
-              </>
-            )}
-          </div>
-          {!data.configured && (
-            <p className="billing-note">
-              Google Calendar must first be configured by the platform
-              administrator.{" "}
-              {data.isAdmin && (
-                <Link href="/admin/operations?section=integrations">
-                  Admin setup →
-                </Link>
-              )}
-            </p>
-          )}
-          {data.connections.length > 0 && (
-            <p className="calendar-queue-status">
-              {data.jobs.pending} booking updates pending · {data.jobs.failed}{" "}
-              exhausted retries
-            </p>
-          )}
-          <div className="google-account-list">
-            {data.connections.map((c) => (
-              <article className="google-account-card" key={c.account_sub}>
-                <div className="billing-section-heading">
-                  <div>
-                    <h3>{c.account_email}</h3>
-                    <p>
-                      Primary calendar · Last sync:{" "}
-                      {c.last_sync_at
-                        ? new Date(c.last_sync_at).toLocaleString()
-                        : "No updates yet"}
-                    </p>
-                  </div>
-                  <span className="billing-badge">
-                    {c.status === "connected"
-                      ? "Connected"
-                      : "Reconnect required"}
+          </>
+        )
+      }
+      flush
+    >
+      {loadError && (
+        <div className="ui-card-body">
+          <Alert tone="danger">{loadError}</Alert>
+        </div>
+      )}
+      {!data && !loadError && <Skeleton rows={2} />}
+      {data && !data.configured && (
+        <div className="ui-card-body">
+          <Alert tone="info" title="Google Calendar isn’t available yet">
+            The platform administrator needs to finish Google setup first.{" "}
+            {data.isAdmin && <Link href="/admin/operations?section=integrations">Open admin setup</Link>}
+          </Alert>
+        </div>
+      )}
+      {data && data.configured && !data.connections.length && (
+        <EmptyState icon="calendar" title="No Google accounts connected">
+          Connect up to {data.maximumAccounts} Google accounts. Busy times from all of them are combined before guests
+          see open slots.
+        </EmptyState>
+      )}
+      {data && data.connections.length > 0 && (
+        <>
+          <ul className="ui-list">
+            {data.connections.map((c) => {
+              const ok = c.status === "connected";
+              return (
+                <li key={c.account_sub} className="gc-account">
+                  <span className="ui-list-icon">
+                    <Icon name="calendar" size={16} />
                   </span>
-                </div>
-                {c.last_error && <p className="billing-note">{c.last_error}</p>}
-                <form
-                  key={`${c.account_sub}:${c.check_conflicts}:${c.sync_events}`}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void action("settings", {
-                      accountSub: c.account_sub,
-                      checkConflicts: f.get("conflicts") === "on",
-                      syncEvents: f.get("events") === "on",
-                    });
-                  }}
-                >
-                  <label className="market-checkbox">
-                    <input
-                      type="checkbox"
-                      name="conflicts"
-                      disabled={busy}
-                      defaultChecked={c.check_conflicts}
-                    />{" "}
-                    Block busy times from this account
-                  </label>
-                  <label className="market-checkbox">
-                    <input
-                      type="checkbox"
-                      name="events"
-                      disabled={busy}
-                      defaultChecked={c.sync_events}
-                    />{" "}
-                    Copy Zenvio bookings and cancellations to this calendar
-                  </label>
-                  <div className="billing-actions">
-                    <button disabled={busy}>Save preferences</button>
+                  <div className="ui-list-main">
+                    <b>{c.account_email}</b>
+                    <small>
+                      Primary calendar · {c.last_sync_at ? `last synced ${formatDateTime(c.last_sync_at)}` : "not synced yet"}
+                    </small>
+                    {c.last_error && <small className="pay-error">{c.last_error}</small>}
+                    <div className="gc-prefs">
+                      <label>
+                        <Toggle
+                          label="Block busy times from this account"
+                          checked={c.check_conflicts}
+                          disabled={busy}
+                          onChange={(next) =>
+                            void action("settings", {
+                              accountSub: c.account_sub,
+                              checkConflicts: next,
+                              syncEvents: c.sync_events,
+                            })
+                          }
+                        />
+                        Block busy times
+                      </label>
+                      <label>
+                        <Toggle
+                          label="Copy bookings to this calendar"
+                          checked={c.sync_events}
+                          disabled={busy}
+                          onChange={(next) =>
+                            void action("settings", {
+                              accountSub: c.account_sub,
+                              checkConflicts: c.check_conflicts,
+                              syncEvents: next,
+                            })
+                          }
+                        />
+                        Copy bookings here
+                      </label>
+                    </div>
+                  </div>
+                  <Badge tone={ok ? "success" : "warning"}>{ok ? "Connected" : "Reconnect needed"}</Badge>
+                  <div className="gc-actions">
                     <button
-                      type="button"
-                      className="billing-secondary"
+                      className="ui-btn ui-btn-ghost ui-btn-sm"
                       disabled={busy}
-                      onClick={() =>
-                        void action("check", { accountSub: c.account_sub })
-                      }
+                      onClick={() => void action("check", { accountSub: c.account_sub })}
                     >
-                      Check connection
+                      Test
                     </button>
+                    {!ok && (
+                      <button className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => void action("connect")}>
+                        Reconnect
+                      </button>
+                    )}
                     <button
-                      type="button"
-                      className="billing-secondary"
+                      className="ui-btn ui-btn-ghost ui-btn-sm"
                       disabled={busy}
-                      onClick={() => void action("connect")}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: "Disconnect this Google account?",
+                            body: `${c.account_email} will stop blocking busy times and receiving new bookings. Existing events stay in Google; your other accounts aren’t affected.`,
+                            confirmLabel: "Disconnect",
+                            danger: true,
+                          })
+                        )
+                          void action("disconnect", { accountSub: c.account_sub });
+                      }}
                     >
-                      Reconnect account
-                    </button>
-                    <button
-                      type="button"
-                      className="billing-secondary"
-                      disabled={busy}
-                      onClick={() => setConfirm(c)}
-                    >
-                      Disconnect account
+                      Disconnect
                     </button>
                   </div>
-                </form>
-              </article>
-            ))}
-          </div>
-          {!data.connections.length && (
-            <ul className="google-feature-list">
-              <li>
-                <Icon name="check" size={16} /> Check availability across
-                connected Google accounts
-              </li>
-              <li>
-                <Icon name="check" size={16} /> Keep bookings on the calendars
-                you choose
-              </li>
-              <li>
-                <Icon name="check" size={16} /> Manage each account
-                independently
-              </li>
-            </ul>
+                </li>
+              );
+            })}
+          </ul>
+          {(data.jobs.pending > 0 || data.jobs.failed > 0) && (
+            <div className="ui-card-foot gc-queue">
+              <span>
+                {data.jobs.pending} update{data.jobs.pending === 1 ? "" : "s"} waiting to sync
+                {data.jobs.failed > 0 && ` · ${data.jobs.failed} failed after retries`}
+              </span>
+            </div>
           )}
         </>
       )}
-      <div className="google-sync-explainer">
-        <h3>How multiple calendars work</h3>
-        <p>
-          Busy times from every enabled account are combined before guests
-          choose or confirm a time. If an enabled account cannot be checked,
-          booking availability pauses until access is restored or you disable
-          its conflict checking.
-        </p>
-        <p>
-          Bookings are copied to the primary calendar of each account with
-          appointment copies enabled. New connections enable both options. If
-          you only want one destination, turn off appointment copies on your
-          other accounts. Each copy is tracked separately to prevent duplicates
-          during retries.
-        </p>
-        <p>
-          Turning off copies or disconnecting stops future updates for that
-          account; existing Google events remain. Secondary and shared calendars
-          within an account are not selectable in this release.
-        </p>
-        <p>
-          Events include appointment title, location, guest name, and email;
-          private notes stay in Zenvio. Manage appointment changes in Zenvio.
-          Google edits do not reschedule or cancel a Zenvio appointment. Failed
-          updates retry during activity and the daily retry task.
-        </p>
-      </div>
-      {confirm && (
-        <Modal
-          title="Disconnect this Google account?"
-          onClose={() => {
-            if (!busy) setConfirm(null);
-          }}
-        >
-          <p>
-            {confirm.account_email} will stop checking conflicts and receiving
-            updates. Other connected accounts stay connected. Existing events
-            remain in Google.
-          </p>
-          {error && <p role="alert">{error}</p>}
-          <button
-            disabled={busy}
-            onClick={() =>
-              void action("disconnect", { accountSub: confirm.account_sub })
-            }
-          >
-            {busy ? "Disconnecting…" : "Confirm disconnect"}
-          </button>
-          <button
-            className="billing-secondary"
-            disabled={busy}
-            onClick={() => setConfirm(null)}
-          >
-            Keep connected
-          </button>
-        </Modal>
-      )}
-    </section>
+      <details className="gc-details">
+        <summary>How syncing works</summary>
+        <ul>
+          <li>Busy times from every account with blocking on are combined before guests choose a time. If one can’t be checked, booking pauses until access is restored or blocking is turned off.</li>
+          <li>Bookings are copied to the primary calendar of each account with copying on. Turn copying off on accounts you don’t want to fill up.</li>
+          <li>Events include the title, location, guest name, and email. Private notes stay in Zenvio.</li>
+          <li>Make changes in Zenvio — editing or deleting the Google event doesn’t change the appointment.</li>
+          <li>Disconnecting stops future updates; events already in Google stay there.</li>
+        </ul>
+      </details>
+      {confirmNode}
+    </Card>
   );
 }

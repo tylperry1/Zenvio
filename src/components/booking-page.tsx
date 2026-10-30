@@ -259,14 +259,14 @@ export function BookingPage({
       <main className="center-page">
         <Logo />
         <div className="spinner" />
-        <p>Finding a little time…</p>
+        <p>Loading available times…</p>
       </main>
     );
   if (!event)
     return (
       <main className="center-page">
         <Logo />
-        <h1>A little change of plans.</h1>
+        <h1>This page isn’t available</h1>
         <p role="alert">{error || "This booking page is unavailable."}</p>
         <Link href={demo ? "/demo" : "/"} className="button primary">
           {demo ? "Back to demo" : "Visit Zenvio"}{" "}
@@ -426,7 +426,7 @@ export function BookingPage({
             <p className="booking-description">{event.description}</p>
             {event.bio && <p className="booking-bio">{event.bio}</p>}
             <div className="host-footer">
-              <Icon name="link" size={17} /> A little more connection.
+              <Icon name="shield" size={17} /> Secure booking. No account needed.
             </div>
           </aside>
           {details ? (
@@ -691,8 +691,8 @@ export function BookingPage({
             </section>
           ) : (
             <section className="booking-select">
-              <p className="eyebrow">LET’S FIND A LITTLE TIME</p>
-              <h2>Pick a day. Make a connection.</h2>
+              <p className="eyebrow">SELECT A TIME</p>
+              <h2>Choose a day and time</h2>
               <div className="booking-calendar-and-slots">
                 <div className="booking-calendar">
                   <div className="calendar-month-heading">

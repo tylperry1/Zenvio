@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
+import { Icon } from "./icons";
+import { Modal } from "./modal";
+import { Alert, Badge, Field, useConfirm } from "./ui";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
@@ -28,6 +31,7 @@ export function CalendarCenter() {
     [creating, setCreating] = useState(false),
     [selected, setSelected] = useState<any>(null),
     [message, setMessage] = useState("");
+  const { confirm, node: confirmNode } = useConfirm();
   const start = view === "month" ? date.slice(0, 8) + "01" : date,
     days =
       view === "month"
@@ -117,168 +121,179 @@ export function CalendarCenter() {
   return (
     <SuiteShell
       title="Calendar"
-      description="Zenvio appointments and read-only connected calendars, with clear source labels."
+      description="Your Zenvio appointments alongside busy times from connected calendars."
       actions={
-        <button disabled={!workspace} onClick={() => setCreating(true)}>
+        <button className="ui-btn ui-btn-primary" disabled={!workspace} onClick={() => setCreating(true)}>
           + New appointment
         </button>
       }
     >
-      {error && (
-        <p role="alert" className="billing-error">
-          {error}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
-      <section>
-        <div className="calendar-toolbar">
+      {error && <Alert tone="danger">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
+      <div className="cal-toolbar">
+        <div className="cal-nav">
           <button
-            className="calendar-step"
-            onClick={() => setDate(shift(start, -days))}
-            aria-label="Previous period"
+            className="ui-btn ui-btn-secondary"
+            onClick={() => {
+              const p = inZone(new Date(), zone);
+              setDate(`${p.year}-${p.month}-${p.day}`);
+            }}
           >
-            ←
+            Today
           </button>
+          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, -days))} aria-label="Previous period">
+            <Icon name="chevron" size={16} style={{ transform: "rotate(180deg)" }} />
+          </button>
+          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, days))} aria-label="Next period">
+            <Icon name="chevron" size={16} />
+          </button>
+          <h2 className="cal-range">{rangeLabel(start, days, view)}</h2>
           <input
+            className="ui-input cal-date"
             type="date"
-            aria-label="Calendar date"
+            aria-label="Go to date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
           />
-          <button
-            className="calendar-step"
-            onClick={() => setDate(shift(start, days))}
-            aria-label="Next period"
-          >
-            →
-          </button>
-          <select
-            aria-label="Calendar view"
-            value={view}
-            onChange={(e) => setView(e.target.value)}
-          >
-            {["day", "week", "month", "agenda"].map((v) => (
-              <option key={v}>{v}</option>
+        </div>
+        <select className="ui-input cal-view" aria-label="Calendar view" value={view} onChange={(e) => setView(e.target.value)}>
+          {["day", "week", "month", "agenda"].map((v) => (
+            <option key={v} value={v}>
+              {v[0].toUpperCase() + v.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="cal-filters">
+        <select className="ui-input" aria-label="Calendar source" value={account} onChange={(e) => setAccount(e.target.value)}>
+          <option value="all">All calendars</option>
+          <option value="zenvio">Zenvio only</option>
+          {data?.accounts.map((a: any) => (
+            <option key={a.account_sub} value={a.account_sub}>
+              {a.account_email}
+            </option>
+          ))}
+        </select>
+        <select className="ui-input" aria-label="Appointment type" value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="all">All appointment types</option>
+          {workspace?.events.map((e: any) => (
+            <option key={e.id} value={e.id}>
+              {e.title}
+            </option>
+          ))}
+        </select>
+        <select className="ui-input" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="confirmed">Confirmed</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="all">All statuses</option>
+        </select>
+        <label className="cal-zone">
+          <Icon name="globe" size={15} />
+          <input
+            className="ui-input"
+            aria-label="Timezone"
+            value={zone}
+            list="calendar-zones"
+            onChange={(e) => {
+              try {
+                new Intl.DateTimeFormat("en", { timeZone: e.target.value });
+                setZone(e.target.value);
+              } catch {}
+            }}
+          />
+          <datalist id="calendar-zones">
+            {["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"].map((z) => (
+              <option key={z}>{z}</option>
             ))}
-          </select>
-          <label className="calendar-zone">
-            <span>Timezone</span>
-            <input
-              value={zone}
-              list="calendar-zones"
-              onChange={(e) => {
-                try {
-                  new Intl.DateTimeFormat("en", { timeZone: e.target.value });
-                  setZone(e.target.value);
-                } catch {}
-              }}
-            />
-            <datalist id="calendar-zones">
-              {[
-                "UTC",
-                "America/New_York",
-                "America/Chicago",
-                "America/Denver",
-                "America/Los_Angeles",
-                "Europe/London",
-              ].map((z) => (
-                <option key={z}>{z}</option>
-              ))}
-            </datalist>
-          </label>
-        </div>
-        <div className="suite-grid">
-          <label>
-            Calendar source
-            <select
-              value={account}
-              onChange={(e) => setAccount(e.target.value)}
-            >
-              <option value="all">All sources</option>
-              <option value="zenvio">Zenvio only</option>
-              {data?.accounts.map((a: any) => (
-                <option key={a.account_sub} value={a.account_sub}>
-                  {a.account_email}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Appointment type
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="all">All types</option>
-              {workspace?.events.map((e: any) => (
-                <option key={e.id} value={e.id}>
-                  {e.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Status
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="all">All statuses</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-          <a href="/app/team">Team appointments & staff filters →</a>
-        </div>
+          </datalist>
+        </label>
+        <a className="cal-team-link" href="/app/team">
+          Team schedules
+        </a>
+      </div>
         {data?.errors.map((e: any) => (
-          <p role="alert" key={e.account}>
+          <p role="alert" className="ui-alert ui-alert-warning" key={e.account}>
             {e.account}: {e.message}{" "}
             <a href="/app/connections">Manage connection</a>
           </p>
         ))}
-      </section>
+
       {selected && (
-        <section>
-          <h2>{selected.title}</h2>
-          <p>
-            {selected.guest_name} ·{" "}
-            {new Date(selected.starts_at).toLocaleString([], {
-              timeZone: zone,
-            })}
-          </p>
-          <form className="stack-form" onSubmit={move}>
-            <label>
-              Move to a new time · {zone}
-              <input name="time" type="datetime-local" required />
-            </label>
-            <button disabled={busy}>Check availability & reschedule</button>
-          </form>
-          <button
-            className="billing-secondary"
-            disabled={busy}
-            onClick={async () => {
-              if (!confirm("Cancel this appointment?")) return;
-              setBusy(true);
-              try {
-                const r = await fetch("/api/workspace", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "cancel", id: selected.id }),
-                });
-                if (!r.ok) throw Error((await r.json()).error);
-                setSelected(null);
-                await load();
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Cancel appointment
-          </button>
-          <button
-            className="billing-secondary"
-            onClick={() => setSelected(null)}
-          >
-            Close
-          </button>
-        </section>
+        <Modal title={selected.title} onClose={() => !busy && setSelected(null)}>
+          <div className="ui-form">
+            <dl className="ui-dl">
+              <dt>Guest</dt>
+              <dd>{selected.guest_name}</dd>
+              <dt>When</dt>
+              <dd>
+                {new Date(selected.starts_at).toLocaleString([], {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  timeZone: zone,
+                })}
+              </dd>
+              <dt>Status</dt>
+              <dd>
+                <Badge tone={selected.status === "confirmed" ? "success" : "neutral"}>{selected.status}</Badge>
+              </dd>
+            </dl>
+            {selected.status === "confirmed" && (
+              <form className="cal-move" onSubmit={move}>
+                <Field label="Move to" hint={`Times in ${zone.replaceAll("_", " ")}. Availability is checked first.`}>
+                  <input name="time" type="datetime-local" required />
+                </Field>
+                <button className="ui-btn ui-btn-primary" disabled={busy}>
+                  Reschedule
+                </button>
+              </form>
+            )}
+            <div className="ui-modal-actions">
+              {selected.status === "confirmed" && (
+                <button
+                  className="ui-btn ui-btn-danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (
+                      !(await confirm({
+                        title: "Cancel this appointment?",
+                        body: `${selected.guest_name} will be notified.`,
+                        confirmLabel: "Cancel appointment",
+                        danger: true,
+                      }))
+                    )
+                      return;
+                    setBusy(true);
+                    try {
+                      const r = await fetch("/api/workspace", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "cancel", id: selected.id }),
+                      });
+                      if (!r.ok) throw Error((await r.json()).error);
+                      setSelected(null);
+                      setMessage("Appointment cancelled.");
+                      await load();
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Cancel appointment
+                </button>
+              )}
+              <button className="ui-btn ui-btn-secondary" onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
+      {confirmNode}
       {view === "day" || view === "week" ? (
         <TimeGrid
           days={Array.from({ length: days }, (_, i) => shift(start, i))}
@@ -514,4 +529,14 @@ function TimeGrid({
       </div>
     </div>
   );
+}
+
+function rangeLabel(start: string, days: number, view: string) {
+  const d = (iso: string, opts: Intl.DateTimeFormatOptions) =>
+    new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", ...opts });
+  if (view === "month") return d(start, { month: "long", year: "numeric" });
+  if (days === 1) return d(start, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const end = shift(start, days - 1);
+  const sameMonth = start.slice(0, 7) === end.slice(0, 7);
+  return `${d(start, { month: "short", day: "numeric" })} – ${d(end, sameMonth ? { day: "numeric", year: "numeric" } : { month: "short", day: "numeric", year: "numeric" })}`;
 }

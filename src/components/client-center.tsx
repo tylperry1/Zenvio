@@ -6,6 +6,7 @@ import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { Alert, Badge, Card, EmptyState, Field, Tabs, formatDateTime } from "./ui";
 const shortDate = (value: string) =>
   new Date(value).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 export function ClientCenter() {
@@ -76,6 +77,7 @@ export function ClientCenter() {
         d = await r.json();
       if (!r.ok) throw Error(d.error);
       setMessage("Client record updated.");
+      setTimeout(() => setMessage(""), 4000);
       await open(detail.contact.id);
       await load();
     } catch (e) {
@@ -116,13 +118,13 @@ export function ClientCenter() {
       title={detail ? detail.contact.name : "Clients"}
       description={
         detail
-          ? [detail.contact.email, detail.contact.company].filter(Boolean).join(" · ")
+          ? "Client record"
           : "Everyone who has booked with you or that you’ve added, with their appointments, documents, payments, and notes."
       }
       actions={
         detail ? (
-          <button className="billing-secondary" onClick={() => setDetail(null)}>
-            ← All clients
+          <button className="ui-btn ui-btn-secondary" onClick={() => setDetail(null)}>
+            <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
           </button>
         ) : (
           <>
@@ -134,12 +136,8 @@ export function ClientCenter() {
         )
       }
     >
-      {error && (
-        <p role="alert" className="billing-error">
-          {error}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {!detail ? (
         <section className="client-list">
           <div className="client-list-toolbar">
@@ -235,214 +233,18 @@ export function ClientCenter() {
           )}
         </section>
       ) : (
-        <>
-          <section>
-            <div className="client-detail-actions">
-                <button
-                  onClick={async () => {
-                    const r = await fetch("/api/workspace");
-                    const d = await r.json();
-                    if (r.ok) setAppointment(d);
-                    else setError(d.error);
-                  }}
-                >
-                  Schedule appointment
-                </button>
-                <Link href={"/app/templates?contact=" + detail.contact.id}>
-                  Prepare agreement
-                </Link>
-                <Link href="/app/payments">Payments</Link>
-            </div>
-            <details>
-              <summary>Edit client & notes</summary>
-              <form
-                className="stack-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void save({
-                    action: "edit",
-                    ...Object.fromEntries(new FormData(e.currentTarget)),
-                  });
-                }}
-              >
-                <label>
-                  Name
-                  <input
-                    name="name"
-                    required
-                    defaultValue={detail.contact.name}
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    defaultValue={detail.contact.email}
-                  />
-                </label>
-                <label>
-                  Company
-                  <input name="company" defaultValue={detail.contact.company} />
-                </label>
-                <label>
-                  Notes
-                  <textarea
-                    name="notes"
-                    maxLength={2000}
-                    defaultValue={detail.contact.notes}
-                  />
-                </label>
-                <button>Save client</button>
-              </form>
-            </details>
-          </section>
-          <div className="suite-cards">
-            <section>
-              <h2>Appointments</h2>
-              {detail.bookings.map((b: any) => (
-                <article key={b.id}>
-                  <strong>{b.title}</strong>
-                  <p>
-                    {new Date(b.starts_at).toLocaleString()} · {b.status}
-                  </p>
-                  {b.intake_snapshot?.map((q: any) => (
-                    <p key={q.id}>
-                      <b>{q.label}</b>:{" "}
-                      {Array.isArray(q.answer)
-                        ? q.answer.join(", ")
-                        : String(q.answer)}
-                    </p>
-                  ))}
-                </article>
-              ))}
-            </section>
-            <section>
-              <h2>Documents</h2>
-              {detail.envelopes.map((e: any) => (
-                <p key={e.id}>
-                  <Link href={"/app/documents?envelope=" + e.id}>
-                    {e.title}
-                  </Link>{" "}
-                  · {e.status} ·{" "}
-                  {e.recipients
-                    ?.map((r: any) => r.name + ": " + r.status)
-                    .join("; ")}
-                </p>
-              ))}
-              {detail.textDocuments?.map((d: any) => (
-                <p key={d.id}>
-                  <a href={"/api/documents?id=" + d.id + "&download=1"}>
-                    {d.title}
-                  </a>{" "}
-                  · {d.status}
-                </p>
-              ))}
-              <form
-                className="stack-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const raw = String(
-                    new FormData(e.currentTarget).get("document"),
-                  ).split(":");
-                  const item = detail.unlinked?.find(
-                    (d: any) => d.id === raw[1],
-                  );
-                  if (
-                    item &&
-                    confirm(
-                      "Link " +
-                        item.title +
-                        " for " +
-                        item.recipients +
-                        " to " +
-                        detail.contact.name +
-                        "?",
-                    )
-                  )
-                    void save({
-                      action: raw[0] === "text" ? "link_text" : "link_envelope",
-                      envelope_id: raw[1],
-                      document_id: raw[1],
-                    });
-                }}
-              >
-                <label>
-                  Link an existing document
-                  <select name="document" required>
-                    <option value="">Review intended recipients</option>
-                    {detail.unlinked?.map((d: any) => (
-                      <option key={d.id} value={d.kind + ":" + d.id}>
-                        {d.title} · {d.recipients}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button>Review & link document</button>
-              </form>
-            </section>
-            <section>
-              <h2>Payments & refunds</h2>
-              {detail.refunds?.map((r: any) => (
-                <p key={r.id}>
-                  {r.status} refund · ${(r.amount_cents / 100).toFixed(2)} ·{" "}
-                  {r.reason}
-                </p>
-              ))}
-              {detail.payments.map((p: any) => (
-                <p key={p.id}>
-                  {p.status} · ${(p.amount_cents / 100).toFixed(2)} paid / $
-                  {(p.total_cents / 100).toFixed(2)} total · $
-                  {(p.refunded_cents / 100).toFixed(2)} refunded
-                </p>
-              ))}
-              {!detail.payments.length && (
-                <p>No linked appointment payments.</p>
-              )}
-            </section>
-            <section>
-              <h2>Tasks</h2>
-              {detail.tasks.map((t: any) => (
-                <label className="document-checkbox" key={t.id}>
-                  <input
-                    type="checkbox"
-                    checked={t.completed}
-                    onChange={(e) =>
-                      save({
-                        action: "complete_task",
-                        task_id: t.id,
-                        completed: e.target.checked,
-                      })
-                    }
-                  />
-                  {t.title}
-                </label>
-              ))}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void save({
-                    action: "task",
-                    title: new FormData(e.currentTarget).get("title"),
-                  });
-                  e.currentTarget.reset();
-                }}
-              >
-                <input name="title" required aria-label="New client task" />
-                <button>Add task</button>
-              </form>
-            </section>
-          </div>
-          <section>
-            <h2>Activity timeline</h2>
-            {timeline.map((x, i) => (
-              <p key={i}>
-                <time>{new Date(x.date).toLocaleString()}</time> · {x.title}
-              </p>
-            ))}
-          </section>
-        </>
+        <ClientDetail
+          detail={detail}
+          timeline={timeline}
+          busy={busy}
+          onSave={save}
+          onSchedule={async () => {
+            const r = await fetch("/api/workspace");
+            const d = await r.json();
+            if (r.ok) setAppointment(d);
+            else setError(d.error);
+          }}
+        />
       )}
       {adding && (
         <Modal title="Add a client" onClose={() => !busy && setAdding(false)}>
@@ -509,5 +311,339 @@ export function ClientCenter() {
         />
       )}
     </SuiteShell>
+  );
+}
+
+type TimelineItem = { date: string; title: string };
+function ClientDetail({
+  detail,
+  timeline,
+  busy,
+  onSave,
+  onSchedule,
+}: {
+  detail: any;
+  timeline: TimelineItem[];
+  busy: boolean;
+  onSave: (v: any) => Promise<void>;
+  onSchedule: () => void;
+}) {
+  const [tab, setTab] = useState<"activity" | "appointments" | "documents" | "payments" | "tasks">("activity");
+  const [editing, setEditing] = useState(false);
+  const c = detail.contact;
+  const now = Date.now();
+  const upcoming = detail.bookings.filter((b: any) => b.status === "confirmed" && Date.parse(b.starts_at) > now).length;
+  const paid = detail.payments.reduce((n: number, p: any) => n + p.amount_cents - p.refunded_cents, 0);
+  const docs = detail.envelopes.length + (detail.textDocuments?.length || 0);
+  const openTasks = detail.tasks.filter((t: any) => !t.completed).length;
+  return (
+    <div className="ui-split client-detail">
+      <div>
+        <div className="client-stats">
+          {[
+            ["Appointments", detail.bookings.length, upcoming ? `${upcoming} upcoming` : "None upcoming"],
+            ["Documents", docs, `${detail.envelopes.filter((e: any) => e.status === "completed").length} completed`],
+            ["Paid", (paid / 100).toLocaleString("en-US", { style: "currency", currency: "USD" }), `${detail.payments.length} payments`],
+            ["Open tasks", openTasks, `${detail.tasks.length} total`],
+          ].map(([label, value, note]) => (
+            <div key={String(label)}>
+              <span>{label}</span>
+              <b>{value}</b>
+              <small>{note}</small>
+            </div>
+          ))}
+        </div>
+        <Tabs
+          label="Client sections"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: "activity", label: "Activity" },
+            { id: "appointments", label: "Appointments", count: detail.bookings.length },
+            { id: "documents", label: "Documents", count: docs },
+            { id: "payments", label: "Payments", count: detail.payments.length },
+            { id: "tasks", label: "Tasks", count: openTasks || undefined },
+          ]}
+        />
+        {tab === "activity" && (
+          <Card flush>
+            {!timeline.length ? (
+              <EmptyState icon="clock" title="No activity yet" />
+            ) : (
+              <ol className="client-timeline">
+                {timeline.slice(0, 100).map((x, i) => (
+                  <li key={i}>
+                    <span className="client-timeline-dot" />
+                    <div>
+                      <b>{x.title.replace(/^./, (ch) => ch.toUpperCase())}</b>
+                      <small>{formatDateTime(x.date)}</small>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Card>
+        )}
+        {tab === "appointments" && (
+          <Card
+            flush
+            actions={
+              <button className="ui-btn ui-btn-primary ui-btn-sm" onClick={onSchedule}>
+                <Icon name="plus" size={14} /> Schedule
+              </button>
+            }
+            title="Appointments"
+          >
+            {!detail.bookings.length ? (
+              <EmptyState icon="calendar" title="No appointments yet" />
+            ) : (
+              <ul className="ui-list">
+                {detail.bookings.map((b: any) => (
+                  <li key={b.id} className="client-appt">
+                    <span className="ui-list-icon">
+                      <Icon name="calendar" size={16} />
+                    </span>
+                    <div className="ui-list-main">
+                      <b>{b.title}</b>
+                      <small>{formatDateTime(b.starts_at)}</small>
+                      {b.intake_snapshot?.length > 0 && (
+                        <dl className="client-answers">
+                          {b.intake_snapshot.map((q: any) => (
+                            <div key={q.id}>
+                              <dt>{q.label}</dt>
+                              <dd>{Array.isArray(q.answer) ? q.answer.join(", ") : String(q.answer)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                    <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+        {tab === "documents" && (
+          <>
+            <Card
+              title="Documents"
+              flush
+              actions={
+                <Link className="ui-btn ui-btn-primary ui-btn-sm" href={"/app/templates?contact=" + c.id}>
+                  <Icon name="plus" size={14} /> Prepare agreement
+                </Link>
+              }
+            >
+              {!docs ? (
+                <EmptyState icon="file" title="No documents yet" />
+              ) : (
+                <ul className="ui-list">
+                  {detail.envelopes.map((e: any) => (
+                    <li key={e.id}>
+                      <span className="ui-list-icon">
+                        <Icon name="file" size={16} />
+                      </span>
+                      <div className="ui-list-main">
+                        <b>
+                          <Link href={"/app/documents?envelope=" + e.id}>{e.title}</Link>
+                        </b>
+                        <small>{e.recipients?.map((r: any) => `${r.name}: ${r.status}`).join(" · ")}</small>
+                      </div>
+                      <Badge tone={e.status === "completed" ? "success" : "info"}>{e.status.replaceAll("_", " ")}</Badge>
+                    </li>
+                  ))}
+                  {detail.textDocuments?.map((d: any) => (
+                    <li key={d.id}>
+                      <span className="ui-list-icon">
+                        <Icon name="file" size={16} />
+                      </span>
+                      <div className="ui-list-main">
+                        <b>
+                          <a href={"/api/documents?id=" + d.id + "&download=1"}>{d.title}</a>
+                        </b>
+                        <small>Text agreement</small>
+                      </div>
+                      <Badge tone={d.status === "signed" ? "success" : "info"}>{d.status.replaceAll("_", " ")}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            {detail.unlinked?.length > 0 && (
+              <Card title="Link an existing document" description="Attach a document you already sent to this client’s record.">
+                <form
+                  className="client-link-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const raw = String(new FormData(e.currentTarget).get("document")).split(":");
+                    void onSave({
+                      action: raw[0] === "text" ? "link_text" : "link_envelope",
+                      envelope_id: raw[1],
+                      document_id: raw[1],
+                    });
+                  }}
+                >
+                  <select name="document" required className="ui-input">
+                    <option value="">Choose a document</option>
+                    {detail.unlinked.map((d: any) => (
+                      <option key={d.id} value={d.kind + ":" + d.id}>
+                        {d.title} · {d.recipients}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="ui-btn ui-btn-secondary" disabled={busy}>
+                    Link document
+                  </button>
+                </form>
+              </Card>
+            )}
+          </>
+        )}
+        {tab === "payments" && (
+          <Card title="Payments" flush>
+            {!detail.payments.length && !detail.refunds?.length ? (
+              <EmptyState icon="card" title="No payments yet">
+                Payments for paid appointments appear here.
+              </EmptyState>
+            ) : (
+              <div className="ui-table-wrap">
+                <table className="ui-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Paid</th>
+                      <th>Total</th>
+                      <th>Refunded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.payments.map((p: any) => (
+                      <tr key={p.id}>
+                        <td>
+                          <Badge tone={p.status === "paid" ? "success" : "info"}>{p.status.replaceAll("_", " ")}</Badge>
+                        </td>
+                        <td className="ui-cell-strong">${(p.amount_cents / 100).toFixed(2)}</td>
+                        <td>${(p.total_cents / 100).toFixed(2)}</td>
+                        <td>{p.refunded_cents ? `$${(p.refunded_cents / 100).toFixed(2)}` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+        {tab === "tasks" && (
+          <Card title="Tasks" flush>
+            <form
+              className="client-task-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                void onSave({ action: "task", title: new FormData(form).get("title") }).then(() => form.reset());
+              }}
+            >
+              <input name="title" required maxLength={200} className="ui-input" placeholder="Add a task, e.g. Send proposal" aria-label="New task" />
+              <button className="ui-btn ui-btn-primary" disabled={busy}>
+                Add
+              </button>
+            </form>
+            {!detail.tasks.length ? (
+              <EmptyState icon="check" title="No tasks yet" />
+            ) : (
+              <ul className="ui-list">
+                {detail.tasks.map((t: any) => (
+                  <li key={t.id} className={t.completed ? "client-task done" : "client-task"}>
+                    <input
+                      type="checkbox"
+                      checked={t.completed}
+                      aria-label={t.title}
+                      onChange={(e) => void onSave({ action: "complete_task", task_id: t.id, completed: e.target.checked })}
+                    />
+                    <span className="ui-list-main">{t.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+      </div>
+      <aside className="client-profile">
+        <Card>
+          <div className="client-profile-head">
+            <span className="client-avatar client-avatar-lg">
+              {c.name
+                .split(/\s+/)
+                .map((w: string) => w[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase()}
+            </span>
+            <div>
+              <b>{c.name}</b>
+              <small>{c.company || "Client"}</small>
+            </div>
+          </div>
+          {editing ? (
+            <form
+              className="ui-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void onSave({ action: "edit", ...Object.fromEntries(new FormData(e.currentTarget)) }).then(() =>
+                  setEditing(false),
+                );
+              }}
+            >
+              <Field label="Name">
+                <input name="name" required defaultValue={c.name} />
+              </Field>
+              <Field label="Email">
+                <input name="email" type="email" required defaultValue={c.email} />
+              </Field>
+              <Field label="Company">
+                <input name="company" defaultValue={c.company} />
+              </Field>
+              <Field label="Notes">
+                <textarea name="notes" maxLength={2000} rows={5} defaultValue={c.notes} />
+              </Field>
+              <div className="ui-modal-actions">
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+                <button className="ui-btn ui-btn-primary" disabled={busy}>
+                  Save
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <dl className="client-facts">
+                <dt>Email</dt>
+                <dd>
+                  <a href={"mailto:" + c.email}>{c.email}</a>
+                </dd>
+                <dt>Company</dt>
+                <dd>{c.company || "—"}</dd>
+                <dt>Client since</dt>
+                <dd>{new Date(c.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</dd>
+              </dl>
+              <div className="client-notes">
+                <span className="ui-label">Notes</span>
+                <p>{c.notes || "No notes yet."}</p>
+              </div>
+              <div className="client-profile-actions">
+                <button className="ui-btn ui-btn-primary" onClick={onSchedule}>
+                  <Icon name="calendar" size={15} /> Schedule
+                </button>
+                <button className="ui-btn ui-btn-secondary" onClick={() => setEditing(true)}>
+                  Edit details
+                </button>
+              </div>
+            </>
+          )}
+        </Card>
+      </aside>
+    </div>
   );
 }

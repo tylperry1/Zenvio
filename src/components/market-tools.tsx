@@ -268,7 +268,9 @@ export function MarketTools() {
                 "exception",
                 "fulfilled",
               ].map((s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>
+                  {{ manual_pending: "Waiting to submit", submitted_manually: "Submitted to supplier", exception: "Needs attention", fulfilled: "Fulfilled" }[s]}
+                </option>
               ))}
             </select>
           </label>
