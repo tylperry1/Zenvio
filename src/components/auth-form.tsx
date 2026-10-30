@@ -37,10 +37,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       if (data.message) setMessage(data.message);
-      else
-        window.location.assign(
-          data.redirectTo === "/admin" ? "/admin" : "/app",
-        );
+      else {
+        const params=new URLSearchParams(window.location.search);
+        const plan=params.get("plan"), seats=Number(params.get("seats"));
+        const selectedPackage=plan==="individual"||plan==="team";
+        const billingQuery=new URLSearchParams(selectedPackage?{plan}:{});
+        if(plan==="team"&&Number.isInteger(seats)&&seats>=3&&seats<=1000)billingQuery.set("seats",String(seats));
+        window.location.assign(data.redirectTo==="/admin"?"/admin":selectedPackage?"/app/billing?"+billingQuery.toString():"/app");
+      }
     } catch (err) {
       setError(
         err instanceof Error

@@ -221,7 +221,7 @@ export function Billing() {
             </div>
           </Modal>
         )}
-        <UsagePanel />
+        <UsagePanel key={`${sub?.plan}:${sub?.seats}:${sub?.status}:${data?.usage.plan}:${data?.usage.seats}`} />
         <div className="subscription-help"><Icon name="shield" size={20}/><div><b>Clear billing. No surprises.</b><p>Owners control paid seats. Clients and document recipients are free. <Link href="/pricing">Compare packages and limits</Link>.</p></div></div>
 
       </main>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -7,7 +7,8 @@ import { money } from "@/lib/billing-types";
 import { currentOffers, includedFeatures, subscriptionTotal } from "@/lib/subscription-offers.mjs";
 export function Enrollment({enabled=false,currentPlan="free",currentSeats=1,hasSubscription=false,onUpdated}: {enabled?:boolean;currentPlan?:string;currentSeats?:number;hasSubscription?:boolean;onUpdated?:()=>void}) {
   const [plan,setPlan]=useState(currentPlan === 'team' ? 'team' : 'individual'),[seats,setSeats]=useState(Math.max(3,currentSeats)),[review,setReview]=useState(false),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
-  useEffect(()=>{setPlan(currentPlan==='team'?'team':'individual');setSeats(Math.max(3,currentSeats));},[currentPlan,currentSeats]);
+  const initialized=useRef(false);
+  useEffect(()=>{const query=new URLSearchParams(window.location.search);const requested=initialized.current?null:query.get('plan');setPlan(requested==='team'||requested==='individual'?requested:currentPlan==='team'?'team':'individual');const requestedSeats=initialized.current?0:Number(query.get('seats'));initialized.current=true;setSeats(Number.isInteger(requestedSeats)&&requestedSeats>=3&&requestedSeats<=1000?requestedSeats:Math.max(3,currentSeats));},[currentPlan,currentSeats]);
   const count=plan==='team'?seats:1,total=subscriptionTotal(plan,count);
   const unchanged=hasSubscription && currentPlan===plan && (plan!=='team'||currentSeats===seats);
   async function subscribe(){setBusy(true);setError('');try{const r=await fetch('/api/subscription-enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan,seats:count,period:'monthly',confirm:confirmed})}),d=await r.json();if(!r.ok)throw Error(d.error);if(d.url){location.assign(d.url);return;}setMessage(d.message);setReview(false);onUpdated?.();}catch(e){setError(e instanceof Error?e.message:'Unable to update your subscription.');}finally{setBusy(false);}}

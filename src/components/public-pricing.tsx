@@ -23,7 +23,7 @@ export function PublicPricing() {
         <h3>Teams</h3><p>Shared scheduling. Clear roles. One simple bill.</p>
         <div className="subscription-price">{money(teamOffer.monthly)}<span>/ month</span></div>
         <p className="subscription-caption">First 3 seats included. Then {money(extraSeatOffer.monthly)} per extra seat.</p>
-        <Link className="subscription-cta" href="/sign-up?plan=team">Start your team <Icon name="arrow" size={16}/></Link>
+        <Link className="subscription-cta" href={`/sign-up?plan=team&seats=${seats}`}>Start your team <Icon name="arrow" size={16}/></Link>
         <ul>{['Everything in Individual for each host','3 seats included, including the owner','Managers, staff roles & member controls','Shared and round-robin scheduling','Centralized seat management and billing','100 envelopes per host / month; shared workspace budget'].map(feature=><li key={feature}><Icon name="check" size={16}/>{feature}</li>)}</ul>
       </article>
     </div>
