@@ -113,7 +113,7 @@ try {
       }),
     "PDF canvas must contain rendered text",
   );
-  await page.getByLabel("Template destination").waitFor();
+  await page.getByRole("button", { name: "Save as template", exact: true }).waitFor();
   await page.screenshot({
     path: "test-results/upgrade-template-draft-desktop.png",
     fullPage: true,
