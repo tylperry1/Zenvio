@@ -1052,3 +1052,444 @@
   font-weight: 650;
   color: var(--text-primary);
 }
+
+/* Calendar connections */
+.gc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.gc-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  font-weight: 700;
+  color: #4285f4;
+}
+.ui-list > li.gc-account {
+  align-items: flex-start;
+}
+.gc-prefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 10px;
+}
+.gc-prefs label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.gc-actions {
+  display: flex;
+  gap: 4px;
+}
+.gc-queue {
+  justify-content: flex-start;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.gc-details {
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+}
+.gc-details summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.gc-details ul,
+.gc-steps {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.gc-steps b {
+  color: var(--text-primary);
+}
+
+/* Client record */
+.client-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.client-stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.client-stats span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.client-stats b {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.client-stats small {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.client-timeline {
+  margin: 0;
+  padding: 8px 20px;
+  list-style: none;
+}
+.client-timeline li {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+}
+.client-timeline li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 22px;
+  bottom: -10px;
+  width: 1px;
+  background: var(--border);
+}
+.client-timeline-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--surface-subtle);
+}
+.client-timeline b {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.client-timeline small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.ui-list > li.client-appt {
+  align-items: flex-start;
+}
+.client-answers {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fafbfd;
+  font-size: 13px;
+}
+.client-answers dt {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.client-answers dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.client-link-form,
+.client-task-form {
+  display: flex;
+  gap: 8px;
+}
+.client-task-form {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.client-link-form select,
+.client-task-form input {
+  flex: 1;
+}
+.client-task input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+.client-task.done .ui-list-main {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.client-task .ui-list-main {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.client-profile {
+  position: sticky;
+  top: 92px;
+}
+.client-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.client-profile-head b {
+  display: block;
+  font-size: 16px;
+  font-weight: 650;
+}
+.client-profile-head small {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.client-avatar.client-avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+}
+.client-facts {
+  display: grid;
+  gap: 4px 0;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+.client-facts dt {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.client-facts dd {
+  margin: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.client-facts a {
+  color: var(--action-primary);
+}
+.client-notes {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fafbfd;
+}
+.client-notes p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+.client-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+@media (max-width: 1100px) {
+  .client-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .client-profile {
+    position: static;
+    order: -1;
+  }
+}
+
+/* Calendar toolbar */
+.cal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.cal-range {
+  margin: 0 8px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.ui-input.ui-input.ui-input.cal-date {
+  width: 40px;
+  padding: 0 8px;
+  color: transparent;
+  cursor: pointer;
+}
+.ui-input.ui-input.ui-input.cal-date::-webkit-datetime-edit {
+  display: none;
+}
+.ui-input.ui-input.ui-input.cal-view {
+  width: auto;
+}
+.cal-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.cal-filters > select.ui-input {
+  width: auto;
+  max-width: 220px;
+}
+.cal-zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+.cal-zone .ui-input.ui-input.ui-input {
+  width: 190px;
+}
+.cal-team-link {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--action-primary);
+}
+.cal-move {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.cal-move .ui-field {
+  flex: 1;
+}
+@media (max-width: 760px) {
+  .cal-toolbar {
+    flex-wrap: wrap;
+  }
+  .cal-range {
+    font-size: 15px;
+  }
+  .cal-filters > select.ui-input,
+  .cal-zone,
+  .cal-zone .ui-input.ui-input.ui-input {
+    width: 100%;
+    max-width: none;
+  }
+  .cal-team-link {
+    margin-left: 0;
+  }
+}
+.shell .platform-page label.cal-zone.cal-zone {
+  display: inline-flex;
+  flex-direction: row;
+  margin: 0;
+}
+
+/* Native controls, platform-wide */
+.shell input[type="checkbox"],
+.shell input[type="radio"] {
+  accent-color: var(--action-primary);
+}
+.shell input[type="file"] {
+  max-width: 100%;
+  font: 400 13px var(--font-family);
+  color: var(--text-secondary);
+}
+.shell input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-card);
+  font: 600 13px var(--font-family);
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px #151b380d;
+}
+.shell input[type="file"]::file-selector-button:hover {
+  background: #f6f7fb;
+}
+
+/* Legacy classes still used by Documents, Marketplace, and Billing, aligned with the design system. */
+.shell .billing-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 99px;
+  background: #eff1f6;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #4a5571;
+}
+.shell .billing-badge.status-completed,
+.shell .billing-badge.status-signed {
+  background: var(--success-surface);
+  color: var(--success);
+}
+.shell .billing-badge.status-sent,
+.shell .billing-badge.status-awaiting_signature,
+.shell .billing-badge.status-in_progress {
+  background: #e8edff;
+  color: #2948d6;
+}
+.shell .billing-badge.status-voided,
+.shell .billing-badge.status-declined,
+.shell .billing-badge.status-expired {
+  background: var(--error-surface);
+  color: var(--error);
+}
+.shell .platform-page .billing-error,
+.shell .platform-page p[role="alert"]:not(.ui-alert) {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--error-border);
+  border-radius: 10px;
+  background: var(--error-surface);
+  font-size: 13px;
+  color: var(--error);
+}
+.shell .platform-page p[role="status"]:not(.ui-alert) {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--success-border);
+  border-radius: 10px;
+  background: var(--success-surface);
+  font-size: 13px;
+  color: var(--success);
+}
+.shell .platform-page details > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.shell .platform-page .stack-form {
+  display: grid;
+  gap: 14px;
+}
+.shell .platform-page .billing-section-heading h2 {
+  font-size: 16px;
+  font-weight: 650;
+}
+.shell .platform-page .billing-eyebrow,
+.shell .platform-page .subscription-kicker {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
