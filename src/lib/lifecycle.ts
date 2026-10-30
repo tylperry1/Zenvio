@@ -12,7 +12,8 @@ export const appOrigin = () =>
 export async function queueDelivery(
   db: PoolClient,
   input: {
-    user: string;
+    user: string | null;
+    earlyAccess?: string;
     kind: string;
     key: string;
     to: string;
@@ -28,7 +29,7 @@ export async function queueDelivery(
   },
 ) {
   await db.query(
-    `INSERT INTO private.delivery_jobs(user_id,kind,dedupe_key,recipient,subject,payload_ciphertext,run_at,expires_at,booking_id,booking_revision,envelope_id,recipient_id,document_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(dedupe_key) DO NOTHING`,
+    `INSERT INTO private.delivery_jobs(user_id,kind,dedupe_key,recipient,subject,payload_ciphertext,run_at,expires_at,booking_id,booking_revision,envelope_id,recipient_id,document_id,early_access_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(dedupe_key) DO NOTHING`,
     [
       input.user,
       input.kind,
@@ -43,6 +44,7 @@ export async function queueDelivery(
       input.envelope || null,
       input.recipient || null,
       input.document || null,
+      input.earlyAccess || null,
     ],
   );
 }
@@ -111,7 +113,7 @@ export async function materializeReminders(user?: string) {
     db.release();
   }
 }
-export async function drainDeliveries(user?: string, limit = 10) {
+export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: string) {
   const [key, from] = await Promise.all([
     integrationValue("RESEND_API_KEY"),
     integrationValue("AUTH_EMAIL_FROM"),
@@ -123,8 +125,8 @@ export async function drainDeliveries(user?: string, limit = 10) {
     const db = await getPool().connect();
     try {
       const { rows } = await db.query(
-        `SELECT * FROM private.delivery_jobs WHERE status='queued' AND run_at<=now() ${user ? "AND user_id=$1" : ""} ORDER BY run_at LIMIT 1`,
-        user ? [user] : [],
+        `SELECT * FROM private.delivery_jobs WHERE status='queued' AND run_at<=now() ${user ? "AND user_id=$1" : earlyAccess ? "AND early_access_id=$1" : ""} ORDER BY run_at LIMIT 1`,
+        user ? [user] : earlyAccess ? [earlyAccess] : [],
       );
       const j = rows[0];
       if (!j) break;
@@ -152,6 +154,11 @@ export async function drainDeliveries(user?: string, limit = 10) {
           "SELECT id FROM private.signing_documents WHERE id=$1 FOR SHARE",
           [j.document_id],
         );
+      let earlyAccessExists = true;
+      if (j.early_access_id)
+        earlyAccessExists = !!(await db.query(
+          "SELECT id FROM private.early_access_signups WHERE id=$1 FOR SHARE", [j.early_access_id],
+        )).rowCount;
       if (
         !(
           await db.query(
@@ -163,7 +170,7 @@ export async function drainDeliveries(user?: string, limit = 10) {
         await db.query("COMMIT");
         continue;
       }
-      let valid = new Date(j.expires_at).getTime() > Date.now();
+      let valid = earlyAccessExists && new Date(j.expires_at).getTime() > Date.now();
       if (j.booking_id) {
         const b = (
           await db.query(

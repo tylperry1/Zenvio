@@ -1,4 +1,6 @@
-import { NextRequest } from "next/server";
+import { queueReservationConfirmation } from "@/lib/early-access-mail";
+import { drainDeliveries } from "@/lib/lifecycle";
+import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import { sameOrigin, body, email, string, integer, ApiError, failure } from "@/lib/server";
 import { allowAuthAttempt } from "@/lib/auth-rate-limit";
@@ -15,8 +17,15 @@ export async function POST(request: NextRequest) {
   const seats=plan==='team'?integer(input.seats,"seats",3,1000):1;
   const ip=request.headers.get('x-vercel-forwarded-for')?.split(',')[0]||request.headers.get('x-forwarded-for')?.split(',')[0]||'unknown';
   if(!(await allowAuthAttempt('early-access-ip',ip))||!(await allowAuthAttempt('early-access-email',address)))throw new ApiError("Please wait a minute before trying again.",429);
-  // A repeated email never overwrites another person's preferences or offer.
-  await getPool().query("INSERT INTO private.early_access_signups(email,name,plan,seats) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO NOTHING",[address,name,plan,seats]);
+  const db = await getPool().connect();
+  try {
+    await db.query("BEGIN");
+    // Reserve and enqueue together. Repeated submissions never trigger another email.
+    const signup = (await db.query("INSERT INTO private.early_access_signups(email,name,plan,seats) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO NOTHING RETURNING id,name,email",[address,name,plan,seats])).rows[0];
+    if(signup) await queueReservationConfirmation(db, signup);
+    await db.query("COMMIT");
+    if(signup) after(async()=>{try{await drainDeliveries(undefined,1,signup.id);}catch{console.error("Early-access confirmation remains queued for retry.");}});
+  } catch(e) {await db.query("ROLLBACK");throw e;} finally {db.release();}
   return Response.json({ok:true},{headers:{'Cache-Control':'no-store'}});
  } catch(e){return failure(e);}
 }
