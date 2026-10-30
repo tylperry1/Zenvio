@@ -73,7 +73,7 @@ export function AdminNavigation({
   return (
     <aside className="av-sidebar professional-sidebar" data-open={open}>
       <Link href="/admin" className="av-brand" aria-label="Zenvio admin home">
-        <Logo />
+        <Logo light />
       </Link>
       <button
         className="av-mobile-nav-toggle"
