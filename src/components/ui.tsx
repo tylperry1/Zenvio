@@ -311,3 +311,17 @@ export function slugify(text: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
+
+// Full-page message for clients who open a link that can't be used.
+export function LinkProblem({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="ui-link-problem" role="alert">
+      <span className="ui-empty-icon">
+        <Icon name="link" size={22} />
+      </span>
+      <h1>{title}</h1>
+      <p>{children}</p>
+      <small>If the problem continues, ask the sender to share a new link.</small>
+    </div>
+  );
+}

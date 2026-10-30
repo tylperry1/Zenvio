@@ -436,7 +436,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         {loading ? (
           <>
             <div className="spinner" />
-            <p>Making a little space for you…</p>
+            <p>Loading your workspace…</p>
           </>
         ) : (
           <>
@@ -651,7 +651,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                       <Icon name="plus" size={25} />
                     </span>
                     <b>Add a booking link</b>
-                    <p>Create a new event type</p>
+                    <p>Create a new appointment type</p>
                   </button>
                 </div>
               </section>
@@ -706,7 +706,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <Icon name="plus" size={25} />
                   </span>
                   <b>Add a booking link</b>
-                  <p>Create a new event type</p>
+                  <p>Create a new appointment type</p>
                 </button>
               </div>
               <p className="helper-text">
@@ -1042,8 +1042,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <Icon name="users" size={28} />
                     <h3>
                       {search
-                        ? "No matches just yet."
-                        : "Your circle starts here."}
+                        ? "No matching clients"
+                        : "No clients yet"}
                     </h3>
                     <p>
                       {search
@@ -1196,8 +1196,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         <Modal
           title={
             editing === true
-              ? "Make room for a new conversation."
-              : "A few thoughtful details."
+              ? "Set up a new booking link."
+              : "Update this booking link."
           }
           onClose={() => setEditing(null)}
         >
@@ -1515,7 +1515,7 @@ function EventEditor({
         </small>
       </label>
       <label>
-        A little description
+        Description
         <textarea
           name="description"
           defaultValue={event?.description}
@@ -1618,7 +1618,7 @@ function AvailabilityEditor({
         <div className="panel-heading">
           <div>
             <h2>Your weekly hours</h2>
-            <p>A regular rhythm. A little flexibility.</p>
+            <p>When guests can book you each week.</p>
           </div>
           <span className="status">Weekly schedule</span>
         </div>
@@ -1704,7 +1704,7 @@ function AvailabilityEditor({
                 </div>
               ) : (
                 <span className="unavailable-label">
-                  A little time for you.
+                  Unavailable
                 </span>
               )}
             </div>
@@ -1718,7 +1718,7 @@ function AvailabilityEditor({
             <span className="muted">
               {dirty
                 ? "You have unsaved changes."
-                : "Your weekly rhythm, all set."}
+                : "All changes saved."}
             </span>
             <button className="button primary small" disabled={busy || !dirty}>
               {busy ? "Saving…" : "Save availability"}
@@ -1730,7 +1730,7 @@ function AvailabilityEditor({
       <aside className="availability-aside">
         <div className="panel">
           <Icon name="globe" size={23} />
-          <h3>Your corner of the world.</h3>
+          <h3>Timezone</h3>
           <p>All weekly hours use your timezone:</p>
           <b>{timezone.replaceAll("_", " ")}</b>
           <button className="inline-link" onClick={onSettings}>
@@ -1739,7 +1739,7 @@ function AvailabilityEditor({
         </div>
         <div className="soft-note">
           <Icon name="link" size={24} />
-          <h3>Leave a little breathing room.</h3>
+          <h3>Buffers and booking window</h3>
           <p>
             Add buffers to each event type to leave space between conversations.
             Guests can book 2 hours to 90 days ahead.
@@ -1797,7 +1797,7 @@ function Settings({
                 CONNECTED CALENDARS
               </span>
               <h2 id="calendar-settings-title">
-                Make room for every appointment
+                Avoid double-booking
               </h2>
               <p>
                 Connect your Google account to block busy times and add Zenvio
@@ -1894,13 +1894,13 @@ function Settings({
             </small>
           </label>
           <label>
-            A little introduction
+            Introduction
             <textarea
               name="bio"
               rows={3}
               maxLength={500}
               defaultValue={data.profile.bio}
-              placeholder="Tell your guests a little about you…"
+              placeholder="A short introduction for your booking page"
             />
           </label>
           <label>

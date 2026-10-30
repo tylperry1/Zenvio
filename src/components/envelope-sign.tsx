@@ -1,4 +1,5 @@
 "use client";
+import { LinkProblem } from "./ui";
 import { useEffect, useRef, useState } from "react";
 import { PdfPages } from "./pdf-pages";
 import { Logo } from "./icons";
@@ -88,7 +89,8 @@ export function EnvelopeSign() {
         )}
       </header>
       <main>
-        {error && (
+        {error && !data && <LinkProblem title="We couldn’t open this document">{error}</LinkProblem>}
+        {error && data && (
           <p className="billing-error" role="alert">
             {error}
           </p>

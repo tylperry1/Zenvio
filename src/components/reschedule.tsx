@@ -1,4 +1,5 @@
 "use client";
+import { LinkProblem } from "./ui";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./icons";
 export function Reschedule() {
@@ -30,8 +31,14 @@ export function Reschedule() {
     <div className="platform-page">
       <main style={{ maxWidth: 760 }}>
         <Logo />
-        <h1>Manage your appointment</h1>
-        {error && (
+        {error && !booking ? (
+          <LinkProblem title="We couldn’t find this appointment">
+            Open the private link from your booking confirmation email to manage your appointment.
+          </LinkProblem>
+        ) : (
+          <h1>Manage your appointment</h1>
+        )}
+        {error && booking && (
           <p role="alert" className="billing-error">
             {error}
           </p>

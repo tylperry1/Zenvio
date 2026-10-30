@@ -64,7 +64,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
   const title = recover
     ? "A fresh start."
     : mode === "sign-up"
-      ? "Make a little space."
+      ? "Create your workspace."
       : mode === "reset"
         ? "Your new password."
         : "Good to see you again.";
