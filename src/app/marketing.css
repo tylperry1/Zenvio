@@ -307,3 +307,7 @@
 .mk-coming li{padding:4px 10px;border-radius:99px;background:var(--surface-subtle);color:var(--text-secondary)}
 @media(max-width:1000px){.mk-capability-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.mk-capability-grid{grid-template-columns:1fr}.mk-capabilities{padding-top:64px}}
+.mk-legal{padding-bottom:40px}
+.mk-legal p{max-width:980px;font-size:11px;line-height:1.7;color:var(--text-muted);margin:0}
+.mk-legal a{text-decoration:underline}
+.mk-usecases div{flex-wrap:wrap}

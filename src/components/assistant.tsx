@@ -496,7 +496,10 @@ export function AssistantChat({
           <Icon name="send" size={16} />
         </button>
       </form>
-      <p className="as-footnote">AI can make mistakes. Review every preview before you approve it.</p>
+      <p className="as-footnote">
+        AI can make mistakes. Review every preview before you approve it. Not legal, tax or financial advice.{" "}
+        <Link href="/privacy#ai">How your data is used</Link>
+      </p>
       {confirmNode}
       {toast.node}
     </div>

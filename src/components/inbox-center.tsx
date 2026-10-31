@@ -535,7 +535,11 @@ function Composer({
         </button>
       </div>
       {hasContact && !sms.ok && channel !== "note" && <p className="inbox-composer-hint">Text messages: {sms.detail}</p>}
-      {channel === "sms" && sms.ok && <p className="inbox-composer-hint">Sends from {sms.sender}.</p>}
+      {channel === "sms" && sms.ok && (
+        <p className="inbox-composer-hint">
+          Sends from {sms.sender}. Only text clients who agreed to receive texts; replies of STOP are honored automatically.
+        </p>
+      )}
       <textarea
         className="ui-input"
         rows={3}
