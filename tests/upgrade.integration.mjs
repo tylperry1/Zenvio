@@ -147,12 +147,17 @@ try {
     "Test scheduling",
   );
   const lifecycle = (await request("/api/lifecycle", null, alice.cookie)).data;
-  const jobs = (
-    await db.query("SELECT * FROM private.delivery_jobs WHERE booking_id=$1", [
-      bookingId,
-    ])
-  ).rows;
-  assert(jobs.length >= 2);
+  // Booking notifications are materialized by Next after(); the HTTP response
+  // deliberately precedes that durable background work. Wait for its observable
+  // result rather than racing the response against the queue insertion.
+  let jobs = [];
+  const reminderDeadline = Date.now() + 5000;
+  do {
+    jobs = (await db.query("SELECT * FROM private.delivery_jobs WHERE booking_id=$1", [bookingId])).rows;
+    if (jobs.length >= 2) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  } while (Date.now() < reminderDeadline);
+  assert(jobs.length >= 2, "booking reminders must be durably queued within five seconds");
   assert(!JSON.stringify(lifecycle).includes("payload_ciphertext"));
   assert(!JSON.stringify(jobs).includes(booked.data.cancel_token));
   const foreignMove = await request(
