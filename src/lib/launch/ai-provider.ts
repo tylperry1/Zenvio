@@ -38,9 +38,12 @@ export async function aiProviderConfigured(c: AiProviderConfig) {
 function blocks(m: Message): Block[] { return typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content; }
 export function geminiContents(messages: Message[]) {
     const names = new Map<string, string>();
+    const providerIds=new Map<string,string|undefined>();
     return messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: blocks(m).map(b => {
-            if (b.type === "tool_use")
+            if (b.type === "tool_use") {
                 names.set(b.id!, b.name!);
+                providerIds.set(b.id!,b._gemini ? (b._gemini as {functionCall?:{id?:string}}).functionCall?.id : b.id);
+            }
             if (b._gemini)
                 return b._gemini;
             if (b.type === "tool_use") {
@@ -48,7 +51,7 @@ export function geminiContents(messages: Message[]) {
                 return { functionCall: { id: b.id, name: b.name, args: b.input } };
             }
             if (b.type === "tool_result")
-                return { functionResponse: { id: b.tool_use_id, name: names.get(b.tool_use_id!), response: { result: b.content, isError: b.is_error === true } } };
+                return { functionResponse: { ...(providerIds.get(b.tool_use_id!)?{id:providerIds.get(b.tool_use_id!)}:{}), name: names.get(b.tool_use_id!), response: { result: b.content, isError: b.is_error === true } } };
             return { text: b.text || "" };
         }) }));
 }
