@@ -181,7 +181,7 @@ Source baseline: e65f4f6. This is a source inventory, not authorization certific
 
 ## Applied-migration policy
 
-Existing migration files 001–040 are unchanged. New proposed files are 041–045. Preview skips account migrations while sharing production configuration; isolated CI applies and tests all pending files.
+Existing migration files 001–040 are unchanged. New proposed files are 041–046. Preview skips account migrations while sharing production configuration; isolated CI applies and tests all pending files.
 
 ## Shared frontend inventory
 
@@ -258,3 +258,5 @@ Existing migration files 001–040 are unchanged. New proposed files are 041–0
 ## Existing commercial flags
 
 BILLING_CHECKOUT_ENABLED, APPOINTMENT_PAYMENTS_ENABLED, TWILIO_MESSAGING_ENABLED, and integration_features are preserved. New provider flags and environment-specific AI settings are documented in LAUNCH_OPERATIONS.md.
+
+Additional backend routes: `/api/bookings/waitlists` (session/CSRF), `/api/bookings/waitlists/offer` (private token/CSRF/IP limits), `/api/bookings/attendance` (session/CSRF/owner/end-time checks). Source service: `src/lib/launch/waitlists.ts`.

@@ -61,3 +61,5 @@ Implemented but live-provider-unverified: Gemini/Workers AI abstraction and spen
 | 25 | AI / advanced automation | Provider abstraction and approval/usage controls implemented; real models/terms acceptance blocked |
 
 No entire partially implemented category is relabeled Verified complete based only on source presence.
+
+Waitlist/attendance delta: owner-scoped opt-in lists, durable cancellation offers, expiring hashed offer tokens, idempotent acceptance and audited ended-appointment attendance/policy APIs are implemented. Frontend offer review and live email acceptance are still required. Classes/capacity, paid waitlists and automatic no-show fees are not implemented.

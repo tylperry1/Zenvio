@@ -16,7 +16,7 @@ All existing APIs retain session authorization, same-origin mutation protection 
 | Booking links | /book/[host]/[event], /api/book, /api/reschedule | Existing scoped, concurrent-reservation contracts retained |
 | Calendar connections | /api/calendars, /api/calendars/google, /api/calendars/microsoft | Existing session and OAuth state; reconnect is a blocker, never empty availability |
 | Subscriptions and payments | /api/billing, /api/appointment-payments | Existing pricing and flags; no live test charges; financial snapshots authoritative |
-| Waitlists / recurring bookings | launch/contracts.ts | Proposed contract only until endpoints explicitly implemented; never infer capability from type presence |
+| Waitlists / recurring bookings | /api/bookings/waitlists, /api/bookings/waitlists/offer, /api/bookings/recurring | Consented free-appointment cancellation offers and atomic free series; frontend adoption pending |
 | Packages / memberships | launch/contracts.ts, /api/growth/balances | Ledger balances scoped to authenticated owner; signed settlement or explicit audited adjustment for credit |
 | Gift cards / loyalty | launch/contracts.ts, /api/growth/balances | Separate currency and unit; transactionally serialized redemption; no raw gift-card secret returned in analytics |
 | Customer journeys | /api/workflows | Existing supported triggers only; no arbitrary code/tool execution |
@@ -42,3 +42,10 @@ Frontend must handle disabled/blocked/uncertain states. SMS accepted is not deli
 - Intake questions gain optional `includeInCalendar:true`; default absent preserves private snapshots. Export restricts types.
 
 No frontend adoption is implied by API implementation. See LAUNCH_OPERATIONS.md for exact activation boundaries and unsupported flows.
+
+### Waitlists and attendance
+
+- `/api/bookings/waitlists` GET lists the owner's most recent 100 entries. POST join `{action:"join",eventId,contactId,preferredFrom,preferredUntil,emailOptIn:true,consentEvidence}`; cancel `{action:"cancel",id}`. Requires an owned client and active free event.
+- `/api/bookings/waitlists/offer` POST `{action:"read"|"accept",token,answers?}` uses a private 64-character token, same-origin and IP limits. Offer metadata contains title/time/expiry and `reservationPolicy:"first_confirmed"`. Accept atomically reserves with existing booking constraints and returns bookingId; repeated acceptance is idempotent. 410 expired, 409 conflict. No fees or exclusive hold.
+- With `WAITLIST_OFFERS_ENABLED=true`, the durable scheduler processes canceled slots and queues one opt-in email offer per cancellation. Links use `#waitlist_offer=<token>` to avoid putting bearer tokens in request URLs. Frontend must read the fragment and render offer review/intake/acceptance; this backend branch does not edit that page.
+- `/api/bookings/attendance` GET lists ended appointments. POST attendance `{action:"attendance",bookingId,status:"attended"|"no_show"|"unknown",reason}` or policy `{action:"policy",eventId,policy,reason}`. Only the owning user can write; future appointments cannot be marked; no automated no-show fee.
