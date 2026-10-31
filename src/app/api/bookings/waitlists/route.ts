@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
             const count = (await db.query("select count(*)::int n from private.appointment_waitlists where user_id=$1 and state in ('waiting','offered')", [token])).rows[0].n;
             if (count >= 100)
                 throw new ApiError('This workspace has reached its active waitlist limit.', 429);
-            const r = (await db.query("insert into private.appointment_waitlists(user_id,event_id,contact_id,preferred_from,preferred_until,email_opt_in,consent_evidence) values($1,$2,$3,$4,$5,true,$6) on conflict(user_id,event_id,contact_id) where state in ('waiting','offered') do update set preferred_from=$4,preferred_until=$5,email_opt_in=true,consent_evidence=$6 returning id,state", [token, eventId, contactId, from, until, evidence])).rows[0];
+            const r = (await db.query("insert into private.appointment_waitlists(user_id,event_id,contact_id,preferred_from,preferred_until,email_opt_in,consent_evidence) values($1,$2,$3,$4,$5,true,$6) on conflict(user_id,event_id,contact_id) where state in ('waiting','offered') do update set preferred_from=$4,preferred_until=$5,email_opt_in=true,consent_evidence=$6,state='waiting' returning id,state", [token, eventId, contactId, from, until, evidence])).rows[0];
+            await db.query("update private.waitlist_offers set state='cancelled' where waitlist_id=$1 and state='offered'",[r.id]);
             await db.query('commit');
             return Response.json({ entry: r }, { status: 201 });
         }

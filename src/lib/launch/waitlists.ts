@@ -50,7 +50,7 @@ export async function materializeWaitlistOffers(limit = 5) {
     order by w.created_at,w.id limit 1 for update of w skip locked`, [event.event_id, event.user_id, start])).rows[0];
             if (entry) {
                 const token = randomBytes(32).toString("hex"), expires = new Date(Math.min(Date.now() + 30 * 60000, Date.parse(start) - 2 * 3600000));
-                const offer = (await db.query("insert into private.waitlist_offers(waitlist_id,slot_event_id,token_hash,expires_at) values($1,$2,$3,$4) returning id", [entry.id, event.id, hash(token), expires])).rows[0];
+                const offer = (await db.query("insert into private.waitlist_offers(waitlist_id,slot_event_id,token_hash,expires_at,recipient_email,recipient_name) values($1,$2,$3,$4,$5,$6) returning id", [entry.id, event.id, hash(token), expires,entry.email,entry.name])).rows[0];
                 const key = "waitlist-offer:" + offer.id;
                 await queueDelivery(db, { user: event.user_id, kind: "waitlist_offer", key, to: entry.email, subject: "An appointment time is available: " + event.title, text: `${entry.name},\n\nA requested appointment time is available at ${start}.\nReview this offer before ${expires.toISOString()}:\n${appOrigin()}/book/${event.host_slug}/${event.event_slug}#waitlist_offer=${token}\n\nThis is an invitation to book, not an exclusive reservation. The first completed booking secures the time.`, expires });
                 await db.query("update private.delivery_jobs set waitlist_offer_id=$2 where dedupe_key=$1", [key, offer.id]);
@@ -103,9 +103,10 @@ export async function acceptWaitlistOffer(token: string, answers: unknown) {
         }
         if (!row || row.state !== "offered" || row.waitlist_state !== "offered" || new Date(row.expires_at).getTime() <= Date.now())
             throw new ApiError("This appointment offer has expired or is unavailable.", 410);
+        if(!row.recipient_email||row.recipient_email!==row.email)throw new ApiError("Client details changed. Request a new appointment offer.",409);
         if (row.payment_mode !== "free" || new Date(row.starts_at).getTime() !== Date.parse(start))
             throw new ApiError("Offer changed; review the current booking page.", 409);
-        const result = (await db.query("select public.reserve_booking_intake($1,$2,$3,$4,$5,'','','','',$6) result", [row.host_slug, row.event_slug, start, row.name, row.email, JSON.stringify(intakeAnswers(row.intake_questions || [], answers))])).rows[0].result;
+        const result = (await db.query("select public.reserve_booking_intake($1,$2,$3,$4,$5,'','','','',$6) result", [row.host_slug, row.event_slug, start, row.recipient_name, row.recipient_email, JSON.stringify(intakeAnswers(row.intake_questions || [], answers))])).rows[0].result;
         await scheduleBooking(db, result.id);
         await db.query("update private.waitlist_offers set state='booked',booking_id=$2 where id=$1", [row.id, result.id]);
         await db.query("update private.appointment_waitlists set state='booked' where id=$1", [row.waitlist_id]);
