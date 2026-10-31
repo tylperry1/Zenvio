@@ -17,7 +17,7 @@ function fixture(existing){
  };
  const client={query,release(){released++;}};
  const filename=path.resolve("src/lib/payment-requests.ts"),m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));
- m.require=id=>id==="./db"?{getPool:()=>({query,connect:async()=>client})}:id==="./appointment-payments"?{appointmentPaymentsReady:async()=>true}:id==="./lifecycle"?{appOrigin:()=>"https://fixture.invalid"}:id==="./server"?{ApiError}:id==="./billing"?{stripeClient:async()=>({checkout:{sessions:{retrieve:async()=>existing,create:async(_body,options)=>{created++;key=options.idempotencyKey;return {id:"cs_test_new",url:"https://checkout.stripe.com/fixture"};}}}})}:{};
+ m.require=id=>id==="./db"?{getPool:()=>({query,connect:async()=>client})}:id==="./appointment-payments"?{appointmentPaymentsReady:async()=>true}:id==="./lifecycle"?{appOrigin:()=>"https://fixture.invalid"}:id==="./server"?{ApiError}:id==="./billing"?{stripeClient:async()=>({checkout:{sessions:{retrieve:async(_id,params,options)=>{assert.deepEqual(params,{});assert.equal(options.stripeAccount,"acct_test");return existing;},create:async(_body,options)=>{created++;key=options.idempotencyKey;return {id:"cs_test_new",url:"https://checkout.stripe.com/fixture"};}}}})}:{};
  m._compile(ts.transpileModule(fs.readFileSync(filename,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);
  return {...m.exports,get created(){return created;},get key(){return key;},get released(){return released;}};
 }

@@ -41,7 +41,7 @@ export async function checkoutForRequest(requestId: string, scope: { userId: str
   if (!ready.ready) throw new ApiError(ready.reason!, 503);
   const stripe = await stripeClient();
   if (r.checkout_id) {
-    const existing = await stripe.checkout.sessions.retrieve(r.checkout_id, {stripeAccount: ready.account});
+    const existing = await stripe.checkout.sessions.retrieve(r.checkout_id, {}, {stripeAccount: ready.account});
     if (existing.metadata?.zenvio_payment_request !== r.id || existing.amount_total !== r.amount_cents || existing.currency !== r.currency)
       throw new ApiError("Payment request requires billing review.",409);
     if (existing.status === "open" && existing.url) {
