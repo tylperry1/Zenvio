@@ -1,4 +1,4 @@
-import { microsoftBusyForHost } from "./microsoft-calendar";
+import { microsoftBusyForHost,runMicrosoftJobs } from "./microsoft-calendar";
 import { getPool } from "./db";
 import { backend, ApiError } from "./server";
 import { googleBusyForHost, overlapsBusy, runGoogleJobs } from "./google-calendar";
@@ -65,5 +65,6 @@ export async function afterBookingChange(userId: string) {
     materializeReminders(userId).then(() => drainDeliveries(userId)),
     deliverBookingEmails(),
     runGoogleJobs(userId),
+    runMicrosoftJobs(userId),
   ]);
 }

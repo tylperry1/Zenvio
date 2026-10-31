@@ -50,7 +50,7 @@ export async function POST(request:NextRequest){
       await db.query("update private.sms_outbox set state=$2,finished_at=now() where id=$1 and state<>'delivered' and (state<>'failed' or $2='delivered')",[out.id,state]);
       await db.query(`update private.message_records set state=$2,provider_event_at=$3,delivered_at=case when $2='delivered' then $3 else delivered_at end
         where id::text=$1 and user_id=$4 and state<>'delivered' and (provider_event_at is null or provider_event_at<=$3)`,[out.reference,state==="accepted"?"provider_accepted":state,at.toISOString(),out.user_id]);
-      await db.query("update private.thread_messages set status=$2 where id::text=$1 and status<>'delivered'",[out.reference,state==="accepted"?"sent":state]);
+      await db.query("update private.thread_messages set status=$2 where id::text=$1 and status<>'delivered' and (status<>'failed' or $2='delivered')",[out.reference,state==="accepted"?"sent":state]);
       if(p.cost?.currency==="USD"&&/^\d+(\.\d{1,6})?$/.test(String(p.cost.amount))){const micros=Math.round(Number(p.cost.amount)*1e6);if(Number.isSafeInteger(micros)&&out.usage_id)await db.query("update private.provider_usage_reservations set state='settled',actual_micros=$2,units=1,settled_at=now() where id=$1",[out.usage_id,micros]);await db.query("update private.message_records set provider_cost_micros=$2,provider_cost_currency='USD' where id::text=$1",[out.reference,micros]);}
     }
     await db.query("update private.provider_webhook_events set processed_at=now() where provider='telnyx' and provider_event_id=$1",[data.id]);await db.query("commit");return new Response(null,{status:204});

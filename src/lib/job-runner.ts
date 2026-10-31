@@ -2,7 +2,8 @@ import { drainSmsOutbox } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { materializeBookingNotifications, mailReady } from "./mail";
-import { drainCalendarCleanup } from "./google-calendar";
+import { drainCalendarCleanup,runGoogleJobs } from "./google-calendar";
+import {runMicrosoftJobs} from "./microsoft-calendar";
 import { scheduleWorkflows } from "./workflows";
 import {
   materializeReminders,
@@ -49,6 +50,7 @@ export async function processScheduledJobs() {
   try {
     await drainSmsOutbox();
     await drainCalendarCleanup();
+    await Promise.all([runGoogleJobs(undefined,5),runMicrosoftJobs(undefined,5)]);
     await purgeExpiredDeliverySecrets();
     await materializeBookingNotifications();
     await materializeReminders();

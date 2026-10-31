@@ -172,7 +172,8 @@ function runnerFixture({ busy = false, configured = true } = {}) {
         mailReady: async () => configured,
         materializeBookingNotifications: call("booking-notifications"),
       },
-      "./google-calendar": { drainCalendarCleanup: call("calendar-cleanup") },
+      "./google-calendar": { drainCalendarCleanup: call("calendar-cleanup"),runGoogleJobs:call("google-sync") },
+      "./microsoft-calendar": {runMicrosoftJobs:call("microsoft-sync")},
       "./workflows": { scheduleWorkflows: call("workflows") },
       "./lifecycle": {
         purgeExpiredDeliverySecrets: call("purge"),
@@ -202,6 +203,8 @@ test("scheduler records bounded successful work and never labels missing mail co
     [
       "sms-outbox",
       "calendar-cleanup",
+      "google-sync",
+      "microsoft-sync",
       "purge",
       "booking-notifications",
       "reminders",

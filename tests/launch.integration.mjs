@@ -1,6 +1,8 @@
 // Provider-free financial integrity fixtures; disposable localhost only.
 import assert from 'node:assert/strict';
 import {Pool} from 'pg';
+import {PDFDocument} from 'pdf-lib';
+import {createHash} from 'node:crypto';
 const origin=process.env.TEST_APP_URL||'http://localhost:3100',url=process.env.TEST_DATABASE_URL;
 if(!url||!['localhost','127.0.0.1'].includes(new URL(url).hostname)||!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Disposable localhost fixture required');
 const db=new Pool({connectionString:url});
@@ -28,5 +30,30 @@ try{
  await db.query("insert into private.contact_consents(user_id,phone_e164,scope,status,source,country_code) values($1,'+15125550123','appointment','opted_in','written','US')",[owner]);
  assert.equal((await call('/api/admin/launch/metrics',null,a.cookie)).status,403);
  assert.equal((await call('/api/admin/launch/providers',null,a.cookie)).status,403);
- console.log('Launch ledger concurrency, idempotency, reversal, E.164 and tenant fixtures passed.');
+ const pdf=await PDFDocument.create();pdf.addPage([612,792]);const form=new FormData();form.set('title','Sequential launch fixture');form.set('pdf',new File([new Uint8Array(await pdf.save())],'fixture.pdf',{type:'application/pdf'}));form.set('recipients',JSON.stringify([{name:'First Signer',email:`first-${suffix}@example.com`},{name:'Second Signer',email:`second-${suffix}@example.com`}]));
+ const uploaded=await fetch(origin+'/api/envelopes',{method:'POST',headers:{Origin:origin,Cookie:a.cookie},body:form});assert.equal(uploaded.status,201);const envelopeId=(await uploaded.json()).id;
+ const detail=(await call('/api/envelopes?id='+envelopeId,null,a.cookie)).data,recipients=detail.recipients;
+ assert.equal((await call('/api/envelopes',{action:'routing',id:envelopeId,mode:'sequential',recipientIds:recipients.map(r=>r.id)},a.cookie)).status,200);
+ const fields=recipients.map((r,i)=>({id:'sig'+i,recipient:r.id,page:0,x:0.1,y:0.2+i*0.2,width:0.5,height:0.1,type:'signature',label:'Signature',required:true}));
+ const sent=await call('/api/envelopes',{action:'send',id:envelopeId,fields,email_delivery:false},a.cookie);assert.equal(sent.status,200);
+ const tokens=sent.data.links.map(l=>l.path.split('token=')[1]);
+ assert.equal((await call('/api/envelope-sign',{action:'read',token:tokens[1]})).status,409);
+ const first=await call('/api/envelope-sign',{action:'read',token:tokens[0]});assert.equal(first.status,200);
+ assert.equal((await call('/api/envelope-sign',{action:'sign',token:tokens[0],name:'First Signer',consent:true,content_hash:first.data.envelope.content_hash,answers:{}})).status,200);
+ const second=await call('/api/envelope-sign',{action:'read',token:tokens[1]});assert.equal(second.status,200);
+ assert.equal((await call('/api/envelope-sign',{action:'sign',token:tokens[1],name:'Second Signer',consent:true,content_hash:second.data.envelope.content_hash,answers:{}})).status,200);
+ const evidence=(await db.query('select completed_pdf,completed_pdf_hash from private.signature_envelopes where id=$1',[envelopeId])).rows[0];assert.ok(evidence.completed_pdf?.length>1000);assert.equal(createHash('sha256').update(evidence.completed_pdf).digest('hex'),evidence.completed_pdf_hash);
+ await assert.rejects(db.query("update private.signature_envelopes set completed_pdf_hash='tampered' where id=$1",[envelopeId]),/completed_evidence_immutable/);
+ const event=(await db.query("select e.id,e.slug,p.slug host,p.timezone from public.event_types e join public.profiles p on p.id=e.user_id where e.user_id=$1 and e.active limit 1",[owner])).rows[0];
+ await db.query("update public.availability set enabled=true where user_id=$1",[owner]);
+ const slot=(await db.query("select starts_at from public.public_slots($1,$2,current_date+7) limit 1",[event.host,event.slug])).rows[0];assert.ok(slot);
+ const seriesInput={eventId:event.id,startsAt:new Date(slot.starts_at).toISOString(),timezone:event.timezone,count:3,interval:'weekly',idempotencyKey:'series-fixture-'+suffix,name:'Recurring Client',email:`recurring-${suffix}@example.com`,answers:{}};
+ const series=await call('/api/bookings/recurring',seriesInput,a.cookie);assert.equal(series.status,201,JSON.stringify(series.data));assert.equal(series.data.bookingIds.length,3);
+ const repeated=await call('/api/bookings/recurring',seriesInput,a.cookie);assert.equal(repeated.status,200);assert.deepEqual(repeated.data.bookingIds,series.data.bookingIds);
+ assert.equal((await call('/api/bookings/recurring',{...seriesInput,count:2},a.cookie)).status,409);
+ assert.equal((await call('/api/bookings/recurring',{...seriesInput,idempotencyKey:'foreign-series-'+suffix},b.cookie)).status,404);
+ const before=Number((await db.query('select count(*) n from public.bookings where user_id=$1',[owner])).rows[0].n);
+ assert.equal((await call('/api/bookings/recurring',{...seriesInput,idempotencyKey:'conflict-series-'+suffix},a.cookie)).status,409);
+ assert.equal(Number((await db.query('select count(*) n from public.bookings where user_id=$1',[owner])).rows[0].n),before);
+ console.log('Launch ledger, signing evidence, recurring-series atomicity/idempotency, E.164 and tenant fixtures passed.');
 }finally{await db.end();}
