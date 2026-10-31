@@ -54,9 +54,26 @@ export function sameOrigin(request: NextRequest) {
 export async function body(request: NextRequest) {
     if (!request.headers.get("content-type")?.includes("application/json"))
         throw new ApiError("Expected a JSON request.", 415);
-    const raw = await request.text();
-    if (raw.length > 16384)
+    const maxBytes = 16384;
+    if (Number(request.headers.get("content-length")) > maxBytes)
         throw new ApiError("This request is too large.", 413);
+    const reader = request.body?.getReader();
+    if (!reader) throw new ApiError("Invalid request.");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > maxBytes) {
+                await reader.cancel();
+                throw new ApiError("This request is too large.", 413);
+            }
+            chunks.push(value);
+        }
+    } finally { reader.releaseLock(); }
+    const raw = Buffer.concat(chunks).toString("utf8");
     try {
         const parsed = JSON.parse(raw);
         if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
@@ -114,3 +131,4 @@ export function failure(error: unknown) {
     console.error("Zenvio request failed", error instanceof Error ? error.name : "UnknownError");
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
 }
+

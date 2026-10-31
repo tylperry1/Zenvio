@@ -1,3 +1,4 @@
+import { microsoftBusyForHost } from "@/lib/microsoft-calendar";
 import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import {
@@ -67,7 +68,10 @@ export async function POST(r: NextRequest) {
             new Date(b.starts_at).getTime() +
             b.buffer * 60000,
         ).toISOString();
-        const busy = await googleBusyForHost(b.slug, start, end);
+        const busy = [
+          ...await googleBusyForHost(b.slug, start, end),
+          ...await microsoftBusyForHost(b.slug, start, end),
+        ];
         if (overlapsBusy(start, end, busy))
           throw new ApiError("That time is no longer available.", 409);
         const result = (
@@ -106,3 +110,4 @@ export async function POST(r: NextRequest) {
     return failure(e);
   }
 }
+

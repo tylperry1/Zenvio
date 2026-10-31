@@ -135,25 +135,58 @@ async function graphRequest(userId:string,accountId:string,path:string,options:R
   return response;
 }
 
+// calendarView supports both personal and work accounts. getSchedule requires SMTP
+// addresses and does not support delegated personal accounts. Never treat a failed
+// or truncated availability response as an empty calendar.
 export async function microsoftBusy(userId:string,accountId:string,start:string,end:string):Promise<CalendarBusyPeriod[]> {
-  const response=await graphRequest(userId,accountId,"/me/calendar/getSchedule",{method:"POST",body:JSON.stringify({
-    schedules:["me"],startTime:{dateTime:start,timeZone:"UTC"},endTime:{dateTime:end,timeZone:"UTC"},availabilityViewInterval:15})});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok || !Array.isArray(data.value)) throw new ApiError("Microsoft availability is temporarily unavailable.",503);
-  const items=data.value[0]?.scheduleItems || [];
-  const busy=items.filter((item:any)=>item.status!=="free").map((item:any)=>({
-    start:new Date(item.start.dateTime+"Z").toISOString(),end:new Date(item.end.dateTime+"Z").toISOString()}));
+  const mapped = await getPool().query(
+    "select event_id from private.microsoft_calendar_events where user_id=$1 and account_id=$2",
+    [userId,accountId]);
+  const exported = new Set(mapped.rows.map((row) => row.event_id));
+  const query = new URLSearchParams({startDateTime:start,endDateTime:end,
+    "$top":"500","$select":"id,start,end,isCancelled,showAs"});
+  let path = "/me/calendarView?" + query;
+  const busy:CalendarBusyPeriod[] = [];
+  for (let page=0; path; page++) {
+    if (page >= 100) throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+    const response=await graphRequest(userId,accountId,path,{headers:{Prefer:'outlook.timezone="UTC"'}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok || !Array.isArray(data.value))
+      throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+    for (const item of data.value) {
+      if (item.isCancelled || item.showAs === "free" || exported.has(item.id)) continue;
+      const utc = (value: unknown) => {
+        if (typeof value !== "string") throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+        const date = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + "Z");
+        if (!Number.isFinite(date.getTime())) throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+        return date.toISOString();
+      };
+      const period = {start:utc(item.start?.dateTime),end:utc(item.end?.dateTime)};
+      if (period.end <= period.start) throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+      busy.push(period);
+    }
+    path = "";
+    if (data["@odata.nextLink"]) {
+      const next = new URL(data["@odata.nextLink"]);
+      if (next.origin !== "https://graph.microsoft.com" || next.pathname !== "/v1.0/me/calendarView")
+        throw new ApiError("Microsoft availability is temporarily unavailable.",503);
+      path = next.pathname.slice("/v1.0".length) + next.search;
+    }
+  }
   await getPool().query("update private.microsoft_calendar_connections set last_sync_at=now(),last_error=null where user_id=$1 and account_id=$2",[userId,accountId]);
   return busy;
 }
 
 export async function microsoftBusyForHost(host:string,start:string,end:string) {
   const {rows}=await getPool().query(
-    `select p.id,c.account_id from public.profiles p
+    `select p.id,c.account_id,c.status from public.profiles p
       join private.microsoft_calendar_connections c on c.user_id=p.id
-     where p.slug=$1 and c.check_conflicts and c.status='connected'`,[host]);
+     where p.slug=$1 and c.check_conflicts`,[host]);
   const combined:CalendarBusyPeriod[]=[];
-  for(const row of rows) combined.push(...await microsoftBusy(row.id,row.account_id,start,end));
+  for(const row of rows) {
+    if (row.status !== "connected") throw new ApiError("Calendar availability is temporarily unavailable. Contact the host.",503);
+    combined.push(...await microsoftBusy(row.id,row.account_id,start,end));
+  }
   return combined;
 }
 
@@ -251,3 +284,4 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
  }
  return completed;
 }
+

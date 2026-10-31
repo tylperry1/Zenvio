@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description:
     "Less back-and-forth. More possibility. Share a booking link, manage your availability, and keep appointments and client relationships together.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://zenvio-two.vercel.app",
+    process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com",
   ),
   applicationName: "Zenvio",
   icons: {
@@ -73,3 +73,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const escape = (s: string) =>
   s
     .replace(/\\/g, "\\\\")
-    .replace(/\r?\n/g, "\\n")
+    .replace(/\r\n|[\r\n]/g, "\\n")
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 const date = (s: string) =>
@@ -74,3 +74,4 @@ export async function GET(request: NextRequest) {
     return failure(e);
   }
 }
+

@@ -1,3 +1,4 @@
+import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { getPool } from "@/lib/db";
 import { intakeAnswers } from "@/lib/intake";
 import { materializeReminders, drainDeliveries } from "@/lib/lifecycle";
@@ -131,7 +132,8 @@ export async function POST(request: NextRequest) {
         if (!Number.isFinite(Date.parse(start)))
           throw new ApiError("Choose a valid appointment time.");
         if (
-          !(await filterGoogleSlots(profile.slug, event.slug, [start])).length
+          !(await filterMicrosoftSlots(profile.slug, event.slug,
+            await filterGoogleSlots(profile.slug, event.slug, [start]))).length
         )
           throw new ApiError(
             "That time is no longer available. Choose another time.",
@@ -302,3 +304,4 @@ export async function POST(request: NextRequest) {
     return failure(error);
   }
 }
+
