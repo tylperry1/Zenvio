@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminSubscriptions } from "./admin-subscriptions";
-import { Modal } from "./modal";
 import { AdminMarketplace } from "./admin-marketplace";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminConnections } from "./admin-connections";
+import { AdminPricing } from "./admin-pricing";
+import { AdminUsersActivity } from "./admin-users-activity";
 import { useCan } from "./admin-access";
 import { Icon } from "./icons";
 type Plan = {
@@ -75,10 +76,6 @@ export function Operations({ initialView }: { initialView?: string }) {
       ? initialView
       : "subscriptions",
   );
-  const [pendingUser, setPendingUser] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
   const [data, setData] = useState<Data | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -141,18 +138,18 @@ export function Operations({ initialView }: { initialView?: string }) {
                       : view === "integrations"
                         ? "Connections"
                         : view === "pricing"
-                          ? "Plans & pricing"
+                          ? "Pricing"
                           : "Users & activity"}
               </h1>
               <p>
                 {view === "pricing"
-                  ? "Control plan pricing across Zenvio, with a clear view of every rate."
+                  ? "Published packages, Stripe synchronization, usage allowances and legacy rates in one place."
                   : view === "integrations"
                     ? "Every third-party service Zenvio runs on, with encrypted, write-only credentials."
                     : view === "health"
                       ? "Monitor platform availability, delivery, and service configuration."
                       : view === "users"
-                        ? "Manage account access and review recent platform activity."
+                        ? "Who uses Zenvio, how actively, on which plan, and every administrative change."
                         : view === "subscriptions"
                           ? "Review customers, renewals, and billing activity."
                           : "Manage products, suppliers, orders, and fulfillment."}
@@ -323,192 +320,10 @@ export function Operations({ initialView }: { initialView?: string }) {
                   save={save}
                 />
               )}
-              {view === "pricing" && (
-                <section className="av-panel pricing-editor">
-                  <div className="pricing-editor-heading">
-                    <div>
-                      <span className="billing-eyebrow">PRICING CONTROL</span>
-                      <h2>One clear price for every plan</h2>
-                      <p>Review approved monthly packages and manage legacy rates in USD.</p>
-                    </div>
-                    <span className="pricing-currency">USD · $</span>
-                  </div>
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      await save({ action: "pricing", plans: data.pricing });
-                    }}
-                  >
-                    <div className="pricing-editor-grid">
-                      {data.pricing.map((plan, i) => (
-                        <article
-                          className={`pricing-editor-card ${plan.id === "pro" ? "featured" : ""}`}
-                          key={plan.id}
-                        >
-                          <div className="pricing-card-heading">
-                            <h3>{plan.name}{["pro","business","teams"].includes(plan.id) ? " (legacy)" : ""}</h3>
-                            <span>
-                              {i === 0
-                                ? "Always free"
-                                : plan.id === "teams"
-                                  ? "Per host"
-                                  : "Per month"}
-                            </span>
-                          </div>
-                          <p className="pricing-plan-description">
-                            {i === 0
-                              ? "The starting point for scheduling."
-                              : plan.id === "pro"
-                                ? "More flexibility for independent hosts."
-                                : plan.id === "teams"
-                                  ? "Coordinated scheduling across your team."
-                                  : "Tools for growing businesses."}
-                          </p>
-                          {(["monthly", "annual"] as const).map((period) => (
-                            <label key={period}>
-                              <span>
-                                {period === "monthly"
-                                  ? "Monthly price"
-                                  : ["individual","team","team_extra"].includes(plan.id) ? "Annual billing unavailable" : "Annual total"}
-                              </span>
-                              <div className="pricing-money-input">
-                                <span aria-hidden="true">$</span>
-                                <input
-                                  aria-label={`${plan.name} ${period} USD`}
-                                  type="number"
-                                  min={0}
-                                  max={period === "monthly" ? 10000 : 120000}
-                                  step="0.01"
-                                  required
-                                  disabled={i === 0 || busy || ["individual","team","team_extra"].includes(plan.id)}
-                                  value={(plan[period] / 100).toString()}
-                                  onChange={(e) =>
-                                    setData({
-                                      ...data,
-                                      pricing: data.pricing.map((p, index) =>
-                                        index === i
-                                          ? {
-                                              ...p,
-                                              [period]: Math.round(
-                                                Number(e.target.value) * 100,
-                                              ),
-                                            }
-                                          : p,
-                                      ),
-                                    })
-                                  }
-                                />
-                              </div>
-                            </label>
-                          ))}
-                          <div className="pricing-card-footer">
-                            {["individual","team","team_extra"].includes(plan.id)
-                              ? "Approved monthly package · no annual commitment"
-                              : i === 0
-                              ? "No payment required"
-                              : plan.id === "teams"
-                                ? "Three-host minimum"
-                                : plan.monthly > 0 &&
-                                    plan.annual < plan.monthly * 12
-                                  ? `${Math.round((1 - plan.annual / (plan.monthly * 12)) * 100)}% annual savings`
-                                  : "Annual billing available"}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                    <div className="pricing-save-bar">
-                      <p>
-                        <Icon name="shield" size={17} /> Legacy display rates are editable here. Approved monthly packages are shown above.
-                        Existing subscriptions keep their current price.
-                      </p>
-                      <button disabled={busy}>
-                        {busy ? "Saving…" : "Save pricing"}
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
+              {view === "pricing" && <AdminPricing />}
               {view === "subscriptions" && <AdminSubscriptions />}
-              {view === "users" && (
-                <section className="av-panel" style={{ padding: 24 }}>
-                  <h2>User management</h2>
-                  <p>
-                    Latest 100 accounts. Use Accounts in the admin overview to
-                    search all workspaces and manage appointment types.
-                  </p>
-                  {data.users.map((u) => (
-                    <div
-                      key={u.id}
-                      style={{ padding: 12, borderBottom: "1px solid #dce5ff" }}
-                    >
-                      <b>{u.name}</b> · {u.email} ·{" "}
-                      {u.emailVerified ? "Verified" : "Unverified"}
-                      <button
-                        disabled={busy}
-                        onClick={() => {
-                          setPendingUser({ id: u.id, name: u.name });
-                        }}
-                      >
-                        Sign out all sessions
-                      </button>
-                    </div>
-                  ))}
-                  <h2>Configuration activity</h2>
-                  {data.activity.length ? (
-                    data.activity.map((a, i) => (
-                      <p key={i}>
-                        {a.action.replaceAll("_", " ")} ·{" "}
-                        {new Date(a.created_at).toLocaleString()}
-                      </p>
-                    ))
-                  ) : (
-                    <p>No configuration changes yet.</p>
-                  )}
-                </section>
-              )}
+              {view === "users" && <AdminUsersActivity />}
             </>
-          )}
-          {pendingUser && (
-            <Modal
-              title={`Sign out ${pendingUser.name}?`}
-              onClose={() => {
-                if (!busy) setPendingUser(null);
-              }}
-            >
-              <p>
-                All current sessions will end. The user can sign in again with
-                their password.
-              </p>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (
-                    await save({
-                      action: "revoke-sessions",
-                      userId: pendingUser.id,
-                      reason: String(
-                        new FormData(e.currentTarget).get("reason"),
-                      ),
-                    })
-                  )
-                    setPendingUser(null);
-                }}
-              >
-                <label>
-                  Reason
-                  <textarea
-                    name="reason"
-                    required
-                    minLength={5}
-                    maxLength={500}
-                    rows={3}
-                  />
-                </label>
-                <button disabled={busy}>
-                  {busy ? "Signing out…" : "Confirm sign out"}
-                </button>
-              </form>
-            </Modal>
           )}
         </main>
       </div>
