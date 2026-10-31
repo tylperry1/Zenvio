@@ -1,5 +1,9 @@
 "use client";
 import { ProfilePhoto } from "./profile-photo";
+import { BookingDesign } from "./booking-design";
+import { IntakeAnswers } from "./intake-answers";
+import { AskZenvio } from "./assistant";
+import { SendBookingLinkDialog } from "./send-booking-link";
 import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -63,6 +67,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<EventType | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
+  const [sendingLink, setSendingLink] = useState<string | null>(null);
   const [editing, setEditing] = useState<EventType | true | null>(null),
     [contactModal, setContactModal] = useState(false),
     [selectedBooking, setSelectedBooking] = useState<Booking | null>(null),
@@ -311,9 +316,16 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           /{profile?.slug}/{event.slug}
         </div>
         <div className="event-card-footer">
-          <button className="inline-link" onClick={() => void copy(event)}>
-            <Icon name="link" size={15} /> Copy link
-          </button>
+          <span className="event-share-actions">
+            <button className="inline-link" onClick={() => void copy(event)}>
+              <Icon name="link" size={15} /> Copy link
+            </button>
+            {!demo && event.active && (
+              <button className="inline-link" onClick={() => setSendingLink(event.slug)}>
+                <Icon name="send" size={15} /> Send
+              </button>
+            )}
+          </span>
           <div>
             <button
               className="subtle-button"
@@ -1134,6 +1146,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           }}
         />
       )}
+      {sendingLink && (
+        <SendBookingLinkDialog slug={sendingLink} onClose={() => setSendingLink(null)} onSent={(m) => toast(m)} />
+      )}
       {deleting && (
         <Modal
           title="Delete this appointment type?"
@@ -1381,6 +1396,20 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 </div>
               )}
             </dl>
+            <IntakeAnswers answers={selectedBooking.intake_snapshot} className="client-answers booking-answers" />
+            {!demo && (
+              <div className="booking-detail-actions">
+                <AskZenvio
+                  className="ui-btn ui-btn-secondary ui-btn-sm"
+                  context={{ type: "appointment", id: selectedBooking.id, label: selectedBooking.guest_name }}
+                />
+                {selectedBooking.contact_id && (
+                  <Link className="ui-btn ui-btn-secondary ui-btn-sm" href={`/app/inbox?contact=${selectedBooking.contact_id}`}>
+                    <Icon name="message" size={14} /> Message
+                  </Link>
+                )}
+              </div>
+            )}
             <button
               className="button secondary full"
               onClick={() =>
@@ -2018,6 +2047,11 @@ function Settings({
           </div>
         )}
       </aside>
+      {!demo && (
+        <div className="settings-design">
+          <BookingDesign profile={data.profile} notify={onShare} />
+        </div>
+      )}
     </div>
   );
 }

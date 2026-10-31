@@ -31,6 +31,9 @@ jobs:
       INTEGRATION_ENCRYPTION_KEY: isolated-upgrade-encryption-secret-123456789
       TEST_REAL_POSTGRES: "true"
       CRON_SECRET: isolated-upgrade-job-runner-secret
+      # The assistant talks to the scripted mock model started by the 2.1 tests, never the real API.
+      ANTHROPIC_BASE_URL: http://127.0.0.1:4010
+      ANTHROPIC_API_KEY: isolated-mock-model-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,6 +52,8 @@ jobs:
           for n in $(seq 1 30); do curl -fsS http://localhost:3100/sign-in > /dev/null && break; sleep 1; done
       - run: node tests/upgrade.integration.mjs
       - run: node tests/upgrade.browser.mjs
+      - run: node tests/experience.integration.mjs
+      - run: node tests/experience.browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

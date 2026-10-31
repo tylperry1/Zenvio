@@ -5,6 +5,7 @@ import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
 import { CommandPalette, type PaletteItem } from "./command-palette";
+import { AssistantLauncher } from "./assistant";
 
 type NavItem = {
   id: string;
@@ -16,6 +17,8 @@ type NavItem = {
   // The demo has no client records API, so it maps to its own view.
   demoView?: string;
   demo?: boolean;
+  // Shown only when the workspace uses a trade preset.
+  jobs?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -24,6 +27,8 @@ const groups: NavGroup[] = [
     label: "",
     items: [
       { id: "overview", label: "Overview", icon: "home", href: "/app", view: "", demo: true },
+      { id: "assistant", label: "Assistant", icon: "sparkles", href: "/app/assistant" },
+      { id: "inbox", label: "Inbox", icon: "message", href: "/app/inbox" },
     ],
   },
   {
@@ -39,6 +44,7 @@ const groups: NavGroup[] = [
     label: "Clients",
     items: [
       { id: "clients", label: "Clients", icon: "users", href: "/app/clients", demoView: "contacts", demo: true },
+      { id: "jobs", label: "Jobs & estimates", icon: "briefcase", href: "/app/jobs", jobs: true },
       { id: "documents", label: "Documents", icon: "file", href: "/app/documents" },
       { id: "templates", label: "PDF templates", icon: "layers", href: "/app/templates" },
     ],
@@ -62,6 +68,8 @@ const groups: NavGroup[] = [
   },
 ];
 
+const visible = (item: NavItem, demo: boolean, jobs: boolean) => (!demo || item.demo) && (!item.jobs || jobs);
+
 function hrefFor(item: NavItem, demo: boolean) {
   if (!demo) return item.href;
   const view = item.view ?? item.demoView;
@@ -82,7 +90,7 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
 }
 
-function paletteItems(demo: boolean, admin: boolean): PaletteItem[] {
+function paletteItems(demo: boolean, admin: boolean, jobs: boolean): PaletteItem[] {
   const base = demo ? "/demo" : "/app";
   const actions: PaletteItem[] = [
     { id: "new-link", label: "New booking link", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create" },
@@ -92,11 +100,13 @@ function paletteItems(demo: boolean, admin: boolean): PaletteItem[] {
           { id: "new-appointment", label: "New appointment", icon: "plus", href: "/app?view=bookings&new=appointment", group: "Actions", keywords: "booking schedule create" },
           { id: "new-client", label: "Add client", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create" },
           { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
+          { id: "ask-assistant", label: "Ask Zenvio Assistant", icon: "sparkles", href: "/app/assistant", group: "Actions", keywords: "ai help chat" },
+          { id: "feedback", label: "Send feedback", icon: "feedback", href: "/app/feedback", group: "Actions", keywords: "bug idea suggestion" },
         ]),
   ];
   const pages = groups.flatMap((g) =>
     g.items
-      .filter((i) => !demo || i.demo)
+      .filter((i) => visible(i, demo, jobs))
       .map((i) => ({
         id: "page-" + i.id,
         label: i.label,
@@ -117,9 +127,11 @@ function groupOf(item?: NavItem) {
 
 function Navigation({
   demo,
+  jobs,
   onNavigate,
 }: {
   demo: boolean;
+  jobs: boolean;
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
@@ -128,7 +140,7 @@ function Navigation({
   return (
     <>
       {groups.map((group) => {
-        const items = group.items.filter((i) => !demo || i.demo);
+        const items = group.items.filter((i) => visible(i, demo, jobs));
         if (!items.length) return null;
         return (
           <div className="shell-nav-group" key={group.label || "home"}>
@@ -158,7 +170,11 @@ function Breadcrumb({ demo }: { demo: boolean }) {
   const current = activeItem(pathname, params.get("view"), demo);
   const group = groupOf(current);
   const label =
-    pathname === "/marketplace/orders" ? "Orders" : current?.label || "Overview";
+    pathname === "/marketplace/orders"
+      ? "Orders"
+      : pathname === "/app/feedback"
+        ? "Feedback"
+        : current?.label || "Overview";
   return (
     <div className="shell-breadcrumb">
       <span>{demo ? "Demo workspace" : "Workspace"}</span>
@@ -178,11 +194,13 @@ export function AppShell({
   user,
   admin = false,
   demo = false,
+  jobs = false,
   children,
 }: {
   user: { name: string; email: string } | null;
   admin?: boolean;
   demo?: boolean;
+  jobs?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -281,7 +299,7 @@ export function AppShell({
         </div>
         <nav className="shell-nav">
           <Suspense fallback={null}>
-            <Navigation demo={demo} onNavigate={() => setOpen(false)} />
+            <Navigation demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
           </Suspense>
         </nav>
         <div className="shell-sidebar-foot">
@@ -375,6 +393,11 @@ export function AppShell({
                       <Icon name="shield" size={16} /> Admin console
                     </Link>
                   )}
+                  {!demo && (
+                    <Link role="menuitem" href="/app/feedback" onClick={() => setMenu(false)}>
+                      <Icon name="feedback" size={16} /> Send feedback
+                    </Link>
+                  )}
                   <Link role="menuitem" href="/" onClick={() => setMenu(false)}>
                     <Icon name="globe" size={16} /> Zenvio website
                   </Link>
@@ -394,10 +417,11 @@ export function AppShell({
           </p>
         )}
         <div className="shell-content">{children}</div>
+        {!demo && user && <AssistantLauncher />}
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}
-          items={paletteItems(demo, admin)}
+          items={paletteItems(demo, admin, jobs)}
           searchClients={!demo && !!user}
         />
       </div>

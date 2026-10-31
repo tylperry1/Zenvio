@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
 import { PublicPhoto } from "./profile-photo";
+import { networkLabel } from "./booking-design";
 import { readDemo } from "@/lib/demo";
 import type { PublicProfileData } from "@/lib/types";
 export function BookingProfile({ host }: { host: string }) {
@@ -83,15 +84,26 @@ export function BookingProfile({ host }: { host: string }) {
           }
         >
           <section className="bp-profile" aria-label="Host profile">
-            <div className="bp-cover">
-              <span />
-              <span />
-              <span />
+            <div className={`bp-cover${data.profile.has_cover ? " has-image" : ""}`}>
+              {data.profile.has_cover ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/api/profile/images?host=${encodeURIComponent(host)}&kind=cover`} alt="" />
+              ) : (
+                <>
+                  <span />
+                  <span />
+                  <span />
+                </>
+              )}
             </div>
             <div className="bp-person">
               <span className="bp-avatar" aria-hidden="true">
                 <PublicPhoto host={host} name={data.profile.name}/>
               </span>
+              {data.profile.has_logo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="bp-logo" src={`/api/profile/images?host=${encodeURIComponent(host)}&kind=logo`} alt={`${data.profile.company || data.profile.name} logo`} />
+              )}
               <span className="bp-welcome">LET’S MAKE TIME TO CONNECT</span>
               <h1>{data.profile.name}</h1>
               {data.profile.headline && (
@@ -107,6 +119,26 @@ export function BookingProfile({ host }: { host: string }) {
                 {data.profile.bio ||
                   "Choose an appointment below and find a time that works for you."}
               </p>
+              {data.profile.location && (
+                <p className="bp-company">
+                  <Icon name="globe" size={15} />
+                  {data.profile.location}
+                </p>
+              )}
+              {(data.profile.website || (data.profile.social_links || []).length > 0) && (
+                <nav className="bp-links" aria-label="Links">
+                  {data.profile.website && (
+                    <a href={data.profile.website} target="_blank" rel="noopener noreferrer nofollow">
+                      <Icon name="external" size={13} /> Website
+                    </a>
+                  )}
+                  {(data.profile.social_links || []).map((l) => (
+                    <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer nofollow">
+                      {networkLabel(l.network)}
+                    </a>
+                  ))}
+                </nav>
+              )}
               <div className="bp-timezone">
                 <Icon name="globe" size={15} />
                 <span>
@@ -122,6 +154,12 @@ export function BookingProfile({ host }: { host: string }) {
             </div>
           </section>
           <section className="bp-appointments">
+            {data.profile.booking_instructions && (
+              <div className="booking-instructions bp-instructions">
+                <b>Before you book</b>
+                <p>{data.profile.booking_instructions}</p>
+              </div>
+            )}
             <div className="bp-section-title">
               <p>YOUR NEXT CONVERSATION STARTS HERE</p>
               <h2>What would you like to book?</h2>

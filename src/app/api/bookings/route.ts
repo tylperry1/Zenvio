@@ -4,7 +4,7 @@ import { failure, session, string, ApiError } from "@/lib/server";
 export const dynamic = "force-dynamic";
 const PAGE = 50;
 const columns =
-  "b.id,b.event_id,b.guest_name,b.guest_email,b.notes,b.guest_phone,b.guest_company,b.meeting_purpose,b.starts_at,b.ends_at,b.status";
+  "b.id,b.event_id,b.contact_id,b.intake_snapshot,b.guest_name,b.guest_email,b.notes,b.guest_phone,b.guest_company,b.meeting_purpose,b.starts_at,b.ends_at,b.status";
 // Paginated appointment history, so lists are not limited by the workspace payload.
 export async function GET(request: NextRequest) {
   try {

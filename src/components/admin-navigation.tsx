@@ -19,6 +19,7 @@ export function AdminNavigation({
         ["overview", "grid", "Overview", "/admin"],
         ["accounts", "users", "Accounts", "/admin?view=accounts"],
         ["early-access", "users", "Early-access signups", "/admin/early-access"],
+        ["feedback", "feedback", "Feedback", "/admin/feedback"],
         [
           "subscriptions",
           "calendar",
@@ -48,6 +49,7 @@ export function AdminNavigation({
           "/admin/operations?section=integrations",
         ],
         ["pricing", "spark", "Pricing", "/admin/operations?section=pricing"],
+        ["assistant", "sparkles", "AI assistant", "/admin/assistant"],
         [
           "entitlements",
           "shield",

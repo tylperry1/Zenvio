@@ -1,6 +1,7 @@
 "use client";
 import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { PublicPhoto } from "./profile-photo";
+import { FilePicker, useGuestUploads } from "./service-request";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
@@ -42,8 +43,10 @@ export function BookingPage({
     [guestName, setGuestName] = useState(""),
     [copied, setCopied] = useState(false),
     [captcha, setCaptcha] = useState(""),
-    [attempts, setAttempts] = useState(0);
+    [attempts, setAttempts] = useState(0),
+    [files, setFiles] = useState<Record<string, { id: string; filename: string }[]>>({});
   const captchaSiteKey = useCaptchaSiteKey();
+  const uploads = useGuestUploads(host);
   useEffect(() => {
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const controller = new AbortController();
@@ -76,7 +79,7 @@ export function BookingPage({
           );
           const d = await r.json();
           if (!r.ok) throw new Error(d.error);
-          setEvent({ ...d.event, payment: d.payment });
+          setEvent({ ...d.event, payment: d.payment, instructions: d.instructions });
         }
       } catch (e) {
         if (!controller.signal.aborted)
@@ -215,14 +218,17 @@ export function BookingPage({
             purpose: f.get("purpose"),
             website: f.get("website"),
             captcha,
+            uploadKey: uploads.key,
             answers: Object.fromEntries(
               (event?.questions || []).map((q) => [
                 q.id,
-                q.type === "checkbox"
+                q.type === "checkbox" || q.type === "consent"
                   ? f.get("intake_" + q.id) === "on"
                   : q.type === "multiple_choice"
                     ? f.getAll("intake_" + q.id)
-                    : f.get("intake_" + q.id),
+                    : q.type === "file"
+                      ? (files[q.id] || []).map((x) => x.id)
+                      : f.get("intake_" + q.id),
               ]),
             ),
           }),
@@ -425,6 +431,12 @@ export function BookingPage({
             </div>
             <p className="booking-description">{event.description}</p>
             {event.bio && <p className="booking-bio">{event.bio}</p>}
+            {event.instructions && (
+              <div className="booking-instructions">
+                <b>Before you book</b>
+                <p>{event.instructions}</p>
+              </div>
+            )}
             <div className="host-footer">
               <Icon name="shield" size={17} /> Secure booking. No account needed.
             </div>
@@ -564,7 +576,32 @@ export function BookingPage({
                     placeholder="Preparation notes, accessibility needs, or other helpful details…"
                   />
                 </label>
-                {event?.questions?.map((q) => (
+                {event?.questions?.map((q) =>
+                  q.type === "consent" ? (
+                    <label key={q.id} className="intake-consent">
+                      <input type="checkbox" name={"intake_" + q.id} required={q.required} />
+                      <span>
+                        {q.label}
+                        {q.required ? " *" : ""}
+                      </span>
+                    </label>
+                  ) : q.type === "file" ? (
+                    <div key={q.id} className="intake-file">
+                      <span>
+                        {q.label}
+                        {q.required ? " *" : " (optional)"}
+                      </span>
+                      <FilePicker
+                        files={files[q.id] || []}
+                        onAdd={async (file) => {
+                          const up = await uploads.upload(file);
+                          setFiles((x) => ({ ...x, [q.id]: [...(x[q.id] || []), up] }));
+                        }}
+                        onRemove={(id) => setFiles((x) => ({ ...x, [q.id]: (x[q.id] || []).filter((y) => y.id !== id) }))}
+                        label="Add file"
+                      />
+                    </div>
+                  ) : (
                   <label key={q.id}>
                     {q.label}
                     {q.required ? " *" : " (optional)"}
@@ -580,7 +617,7 @@ export function BookingPage({
                         required={q.required}
                         maxLength={2000}
                       />
-                    ) : q.type === "single_choice" ? (
+                    ) : q.type === "single_choice" || q.type === "dropdown" ? (
                       <select name={"intake_" + q.id} required={q.required}>
                         <option value="">Choose…</option>
                         {q.options.map((o) => (
@@ -600,6 +637,10 @@ export function BookingPage({
                           </label>
                         ))}
                       </span>
+                    ) : q.type === "phone" ? (
+                      <input name={"intake_" + q.id} type="tel" required={q.required} maxLength={40} autoComplete="tel" />
+                    ) : q.type === "address" ? (
+                      <input name={"intake_" + q.id} required={q.required} maxLength={300} autoComplete="street-address" />
                     ) : (
                       <input
                         name={"intake_" + q.id}
@@ -608,7 +649,8 @@ export function BookingPage({
                       />
                     )}
                   </label>
-                ))}
+                  ),
+                )}
                 {event.payment && event.payment.payment_mode !== "free" && (
                   <div className="booking-payment-notice">
                     <strong>

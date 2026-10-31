@@ -6,7 +6,10 @@ import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
-import { Alert, Badge, Card, EmptyState, Field, Tabs, formatDateTime } from "./ui";
+import { Alert, Badge, Card, CopyField, EmptyState, Field, Tabs, formatDateTime } from "./ui";
+import { AskZenvio } from "./assistant";
+import { IntakeAnswers } from "./intake-answers";
+import { SendBookingLinkDialog } from "./send-booking-link";
 const shortDate = (value: string) =>
   new Date(value).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 export function ClientCenter() {
@@ -20,7 +23,26 @@ export function ClientCenter() {
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [appointment, setAppointment] = useState<any>(null),
+    [shareLink, setShareLink] = useState(false),
+    [portal, setPortal] = useState<string | null>(null),
     [busy, setBusy] = useState(false);
+  async function portalLink() {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/portal/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: detail.contact.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error);
+      setPortal(d.url);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function load() {
     const r = await fetch(
         "/api/clients?" + new URLSearchParams({ q: query, page: String(page) }),
@@ -123,9 +145,24 @@ export function ClientCenter() {
       }
       actions={
         detail ? (
-          <button className="ui-btn ui-btn-secondary" onClick={() => setDetail(null)}>
-            <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
-          </button>
+          <>
+            <button className="ui-btn ui-btn-ghost" onClick={() => setDetail(null)}>
+              <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
+            </button>
+            <AskZenvio
+              className="ui-btn ui-btn-ghost"
+              context={{ type: "client", id: detail.contact.id, label: detail.contact.name }}
+            />
+            <button className="ui-btn ui-btn-ghost" disabled={busy} onClick={() => void portalLink()}>
+              <Icon name="globe" size={14} /> Portal link
+            </button>
+            <Link className="ui-btn ui-btn-secondary" href={`/app/inbox?contact=${detail.contact.id}`}>
+              <Icon name="message" size={14} /> Message
+            </Link>
+            <button className="ui-btn ui-btn-primary" onClick={() => setShareLink(true)}>
+              <Icon name="link" size={14} /> Send booking link
+            </button>
+          </>
         ) : (
           <>
             <a className="billing-secondary" href="/api/clients?export=csv">
@@ -282,6 +319,24 @@ export function ClientCenter() {
           </form>
         </Modal>
       )}
+      {shareLink && detail && (
+        <SendBookingLinkDialog
+          client={{ id: detail.contact.id, name: detail.contact.name, email: detail.contact.email }}
+          onClose={() => setShareLink(false)}
+          onSent={(m) => setMessage(m)}
+        />
+      )}
+      {portal && (
+        <Modal title="Client portal link" onClose={() => setPortal(null)}>
+          <div className="ui-stack">
+            <p className="lc-muted">
+              {detail?.contact.name} can use this private link for 30 days to see appointments, documents, estimates and
+              payment requests, and to message you. Anyone with the link can open it, so share it only with this client.
+            </p>
+            <CopyField label="Portal link" value={portal} />
+          </div>
+        </Modal>
+      )}
       {appointment && (
         <CreateAppointment
           data={appointment}
@@ -406,16 +461,7 @@ function ClientDetail({
                     <div className="ui-list-main">
                       <b>{b.title}</b>
                       <small>{formatDateTime(b.starts_at)}</small>
-                      {b.intake_snapshot?.length > 0 && (
-                        <dl className="client-answers">
-                          {b.intake_snapshot.map((q: any) => (
-                            <div key={q.id}>
-                              <dt>{q.label}</dt>
-                              <dd>{Array.isArray(q.answer) ? q.answer.join(", ") : String(q.answer)}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      )}
+                      <IntakeAnswers answers={b.intake_snapshot} />
                     </div>
                     <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
                   </li>

@@ -23,6 +23,8 @@ m.require = (id) =>
     ? {}
     : id === "@/lib/booking-protection"
       ? { protectBooking: async () => {} }
+    : id === "@/lib/guest-uploads"
+      ? { claimUploads: async () => [], uploadKey: (v) => v, uploadKeyHash: (v) => v }
     : id === "@/lib/workflows"
       ? {}
       : id === "@/lib/lifecycle"

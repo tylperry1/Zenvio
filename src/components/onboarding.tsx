@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { industries } from "@/lib/contractor";
 import type { WorkspaceData } from "@/lib/types";
 
 const DISMISSED_KEY = "zenvio-setup-dismissed";
@@ -68,6 +69,7 @@ export function BookingLinkPrompt({
       ? suggestSlug(data.profile.company || data.profile.name)
       : data.profile.slug,
   );
+  const [industry, setIndustry] = useState("general");
   const valid = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length >= 3;
   const origin = typeof window === "undefined" ? "" : window.location.host;
   return (
@@ -76,7 +78,14 @@ export function BookingLinkPrompt({
         className="link-prompt"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (valid) await onSave(value);
+          if (!valid) return;
+          if (industry !== "general")
+            await fetch("/api/profile/details", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "industry", industry }),
+            }).catch(() => {});
+          if ((await onSave(value)) && industry !== "general") window.location.reload();
         }}
       >
         <p>
@@ -100,6 +109,19 @@ export function BookingLinkPrompt({
         </label>
         <small id="link-prompt-help">
           Lowercase letters, numbers, and hyphens. At least 3 characters.
+        </small>
+        <label>
+          What kind of business is this?
+          <select value={industry} onChange={(e) => setIndustry(e.target.value)}>
+            {industries.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <small>
+          Trades get job requests, estimates, work authorization and deposits. You can change this in Settings.
         </small>
         <div className="link-prompt-actions">
           <button type="button" className="button secondary small" disabled={busy} onClick={onClose}>
