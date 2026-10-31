@@ -21,6 +21,7 @@ export const integrationFields = {
   MICROSOFT_CLIENT_SECRET: "Microsoft OAuth client secret",
   TURNSTILE_SITE_KEY: "Cloudflare Turnstile site key (booking CAPTCHA)",
   TURNSTILE_SECRET_KEY: "Cloudflare Turnstile secret key (booking CAPTCHA)",
+  ANTHROPIC_API_KEY: "Anthropic API key (Zenvio Assistant)",
 } as const;
 export type IntegrationKey = keyof typeof integrationFields;
 function key() {
