@@ -127,7 +127,10 @@ try {
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'pricing',plans:tampered}})).status,409);
  const plans=ops.data.pricing.map(p=>p.id==='pro'?{...p,monthly:650}:p);
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'pricing',plans}})).status,200);
- assert.equal((await request('/api/pricing')).data.plans.find(p=>p.id==='pro').monthly,650);
+ assert.equal((await request('/api/admin/operations',{cookie:owner.cookie})).data.pricing.find(p=>p.id==='pro').monthly,650);
+ const publicPrices=(await request('/api/pricing')).data;
+ assert.deepEqual(publicPrices.plans.map(p=>[p.id,p.monthly]),[['individual',2999],['team',4999]]);
+ assert.equal(publicPrices.extraSeat.monthly,999);
  assert.equal((await request('/api/billing',{cookie:member.cookie})).data.subscription.plan,'free');
  assert.equal((await request('/api/marketplace',{cookie:member.cookie})).status,200);
  assert.equal((await request('/api/calendars',{method:'POST',cookie:member.cookie,data:{action:'connect'}})).status,200);

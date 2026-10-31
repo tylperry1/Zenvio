@@ -463,7 +463,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                           key={plan.id}
                         >
                           <div className="pricing-card-heading">
-                            <h3>{plan.name}</h3>
+                            <h3>{plan.name}{["pro","business","teams"].includes(plan.id) ? " (legacy)" : ""}</h3>
                             <span>
                               {i === 0
                                 ? "Always free"
@@ -519,7 +519,9 @@ export function Operations({ initialView }: { initialView?: string }) {
                             </label>
                           ))}
                           <div className="pricing-card-footer">
-                            {i === 0
+                            {["individual","team","team_extra"].includes(plan.id)
+                              ? "Approved monthly package · no annual commitment"
+                              : i === 0
                               ? "No payment required"
                               : plan.id === "teams"
                                 ? "Three-host minimum"
@@ -533,8 +535,8 @@ export function Operations({ initialView }: { initialView?: string }) {
                     </div>
                     <div className="pricing-save-bar">
                       <p>
-                        <Icon name="shield" size={17} /> New checkouts use these
-                        rates. Existing subscriptions keep their current price.
+                        <Icon name="shield" size={17} /> Legacy display rates are editable here. Approved monthly packages are shown above.
+                        Existing subscriptions keep their current price.
                       </p>
                       <button disabled={busy}>
                         {busy ? "Saving…" : "Save pricing"}

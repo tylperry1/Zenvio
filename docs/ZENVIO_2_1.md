@@ -1,5 +1,7 @@
 # Zenvio 2.1 — AI experience, messaging, portal and contractor workflows
 
+> October 31 QA status: the 2.1 source described below is included in production baseline `864dcb6`. References below to its original unmerged branch are historical. Implementation presence does not verify live providers. See [the current QA audit](qa/ZENVIO_2_0_FULL_QA_AUDIT.md) for release evidence and outstanding acceptance gates.
+
 Branch: `feat/zenvio-ai-experience` (baseline `aa0deee`). Not merged or deployed. Everything below is additive: migration `037_ai_experience.sql` adds tables and columns, and no applied migration was changed.
 
 ## What shipped
@@ -66,3 +68,4 @@ New private tables: `ai_conversations`, `ai_messages`, `ai_actions` (audit log),
 - Calendar invites don’t include intake answers; answers are in appointment details and client records.
 - File questions aren’t available on paid appointment types yet.
 - The assistant can’t create documents or send signature requests; it can report their status.
+

@@ -1,5 +1,7 @@
 # Zenvio roadmap and release synopsis
 
+> October 31 QA status: the 2.1 source described below is included in production baseline `864dcb6`. References below to its original unmerged branch are historical. Implementation presence does not verify live providers. See [the current QA audit](qa/ZENVIO_2_0_FULL_QA_AUDIT.md) for release evidence and outstanding acceptance gates.
+
 Upgrade release deployed to https://gozenvio.com at implementation commit `6721523` on October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
 
 ## Zenvio 2.1 (branch `feat/zenvio-ai-experience`, not yet released)
@@ -61,3 +63,4 @@ Migrations 017–032 are additive upgrades; existing migrations 001–016 are un
 - True bidirectional editing of external calendars and expanded provider/calendar selection beyond supported primary-calendar integration.
 - Contracted supplier catalog/inventory/submission/returns adapters and real marketplace catalog expansion.
 - Further workflow actions only after explicit implementation, authorization design and tests.
+

@@ -15,6 +15,8 @@ try{
  assert.equal((await db.query('SELECT name,timezone FROM public.profiles WHERE id=$1',[tempId])).rows[0].name,'Updated User');
  const deleted=await request('/api/admin/users',{cookie:owner.cookie,data:{action:'delete',id:tempId,confirmation:'temp-updated@example.com',reason:'Delete disposable test user'}});assert.equal(deleted.status,200,JSON.stringify(deleted.data));assert.equal((await db.query('SELECT 1 FROM public."user" WHERE id=$1',[tempId])).rowCount,0);
  const memberWorkspace=(await request('/api/workspace',{cookie:member.cookie})).data;
+ // This standalone fixture owns its appointment type; leave the prior account fixture's records intact but inactive.
+ await db.query('UPDATE public.event_types SET active=false WHERE user_id=$1',[memberWorkspace.profile.id]);
  const eventId=(await db.query("INSERT INTO public.event_types(user_id,title,slug,duration,buffer,location,color,active) VALUES($1,'Manual test','manual-test',30,0,'Test','#365CFF',true) RETURNING id",[memberWorkspace.profile.id])).rows[0].id;
  let slot;
  for(let i=1;i<8;i++){const day=new Date(Date.now()+i*86400000).toISOString().slice(0,10);const slots=await request('/api/book?'+new URLSearchParams({host:memberWorkspace.profile.slug,event:'manual-test',date:day}));if(slots.data.slots?.length){slot=slots.data.slots[0];break;}}
@@ -46,3 +48,4 @@ try{
  assert.equal((await request('/api/admin/users',{cookie:owner.cookie,data:{action:'delete',id:memberId,reason:'Test deletion guard',confirmation:'member@example.com'}})).status,409);
  console.log('PASS documents: private ownership, hashed tokens, consent/hash checks, one concurrent signature, immutable signed records, downloads, void/expiry, deletion retention.');
 }catch(e){console.error(e);process.exitCode=1;}finally{await db.end();}
+

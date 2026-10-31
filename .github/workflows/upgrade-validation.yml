@@ -98,7 +98,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - run: node tests/upgrade-migrations.integration.mjs
