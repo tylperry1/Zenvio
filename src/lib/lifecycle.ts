@@ -272,6 +272,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           },
           body: JSON.stringify({
             from: from.trim(),
+            ...(j.reply_to?{reply_to:j.reply_to}:{}),
             to: j.recipient,
             subject: j.subject,
             text: unsealSecret(j.payload_ciphertext),

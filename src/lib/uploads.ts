@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { ApiError } from "./server";
 
 // Reads a raw upload body with a hard size cap, without trusting Content-Length.
-export async function readUpload(request: Request, max: number, label = "file") {
+export async function readUpload(request: Pick<Request,"headers"|"body">, max: number, label = "file") {
   if (Number(request.headers.get("content-length")) > max + 1024)
     throw new ApiError(`Choose a ${label} under ${Math.round(max / 1000000)} MB.`, 413);
   const reader = request.body?.getReader();

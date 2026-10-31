@@ -8,6 +8,7 @@ import {
 import { getPool } from "./db";
 export const integrationFields = {
   RESEND_API_KEY: "Resend API key",
+  RESEND_INBOUND_WEBHOOK_SECRET: "Resend inbound email webhook signing secret",
   RESEND_WEBHOOK_SECRET: "Resend webhook signing secret",
   AUTH_EMAIL_FROM: "Verified sender email",
   STRIPE_SECRET_KEY: "Stripe secret key",
