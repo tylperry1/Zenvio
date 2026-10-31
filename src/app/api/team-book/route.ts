@@ -1,3 +1,4 @@
+import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import {
@@ -58,7 +59,8 @@ export async function GET(r: NextRequest) {
           s.event_slug,
           raw.map((r) => new Date(r.starts_at).toISOString()),
         );
-        free.forEach((t) => slots.add(t));
+        const available = await filterMicrosoftSlots(s.host_slug, s.event_slug, free);
+        available.forEach((t) => slots.add(t));
       } catch {
         /* An unavailable staff calendar is never offered. */
       }
@@ -91,7 +93,8 @@ export async function POST(req: NextRequest) {
     for (const s of d.staff) {
       try {
         if (
-          (await filterGoogleSlots(s.host_slug, s.event_slug, [start])).length
+          (await filterMicrosoftSlots(s.host_slug, s.event_slug,
+            await filterGoogleSlots(s.host_slug, s.event_slug, [start]))).length
         )
           candidates.push(s);
       } catch {}
@@ -165,3 +168,4 @@ export async function POST(req: NextRequest) {
     return failure(e);
   }
 }
+

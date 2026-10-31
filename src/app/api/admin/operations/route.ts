@@ -1,3 +1,4 @@
+import { individualOffer, teamOffer, extraSeatOffer } from "@/lib/subscription-offers.mjs";
 import {
   ResendDeliveryError,
   emailDiagnostics,
@@ -184,9 +185,18 @@ export async function POST(request: NextRequest) {
         token,
       );
     } else if (input.action === "pricing") {
-      if (!Array.isArray(input.plans) || input.plans.length !== 4)
-        throw new ApiError("Supply all four plans.");
-      const plans = input.plans.map((p: any, i: number) => {
+      if (!Array.isArray(input.plans) || ![4,7].includes(input.plans.length))
+        throw new ApiError("Supply all four legacy plans and, optionally, the three approved package rates.");
+      if (input.plans.length === 7) {
+        for (const offer of [individualOffer,teamOffer,extraSeatOffer]) {
+          const matches = input.plans.filter((p: any) => p?.id === offer.id);
+          if (matches.length !== 1 || matches[0].monthly !== offer.monthly || matches[0].annual !== offer.annual || matches[0].seats !== offer.seats)
+            throw new ApiError("Approved Individual and Teams package rates cannot be changed through legacy pricing controls.",409);
+        }
+      }
+      const legacy = input.plans.filter((p: any) => ["free","pro","business","teams"].includes(p?.id));
+      if (legacy.length !== 4) throw new ApiError("Supply all four legacy plans.");
+      const plans = legacy.map((p: any, i: number) => {
         if (
           !p ||
           typeof p !== "object" ||
@@ -234,3 +244,4 @@ export async function POST(request: NextRequest) {
     return failure(e);
   }
 }
+

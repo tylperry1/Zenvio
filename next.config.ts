@@ -21,7 +21,15 @@ const config: NextConfig = {
           },
         ],
       },
+      {
+        source: "/:path(app|admin|api|portal|sign|cancel|reschedule|reset-password|sign-in|sign-up|team|request|book|demo|marketplace)/:rest*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
     ];
   },
 };
 export default config;
+

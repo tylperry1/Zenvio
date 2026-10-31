@@ -24,10 +24,14 @@ export async function paymentRequestReadiness(userId: string) {
 }
 
 export async function checkoutForRequest(requestId: string, scope: { userId: string; contactId: string; email: string; portalToken: string }) {
+  const db = await getPool().connect();
+  try {
+  await db.query("BEGIN");
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["payment-request:" + requestId]);
   const r = (
-    await getPool().query(
+    await db.query(
       `SELECT r.*,j.title job_title FROM private.payment_requests r JOIN private.jobs j ON j.id=r.job_id
-        WHERE r.id=$1 AND r.user_id=$2 AND j.contact_id=$3`,
+        WHERE r.id=$1 AND r.user_id=$2 AND j.contact_id=$3 FOR UPDATE OF r`,
       [requestId, scope.userId, scope.contactId],
     )
   ).rows[0];
@@ -36,6 +40,17 @@ export async function checkoutForRequest(requestId: string, scope: { userId: str
   const ready = await paymentRequestReadiness(scope.userId);
   if (!ready.ready) throw new ApiError(ready.reason!, 503);
   const stripe = await stripeClient();
+  if (r.checkout_id) {
+    const existing = await stripe.checkout.sessions.retrieve(r.checkout_id, {}, {stripeAccount: ready.account});
+    if (existing.metadata?.zenvio_payment_request !== r.id || existing.amount_total !== r.amount_cents || existing.currency !== r.currency)
+      throw new ApiError("Payment request requires billing review.",409);
+    if (existing.status === "open" && existing.url) {
+      await db.query("COMMIT");
+      return existing.url;
+    }
+    if (existing.status !== "expired")
+      throw new ApiError("This payment is processing or complete. Refresh its status before trying again.",409);
+  }
   const feeBps = Number(process.env.CONNECT_FEE_BPS || 0);
   if (!Number.isInteger(feeBps) || feeBps < 0 || feeBps > 10000)
     throw new ApiError("Platform commission configuration requires review.", 503);
@@ -64,10 +79,15 @@ export async function checkoutForRequest(requestId: string, scope: { userId: str
       success_url: back + "?payment=processing",
       cancel_url: back + "?payment=cancelled",
     },
-    { stripeAccount: ready.account, idempotencyKey: `payment-request-${r.id}-${Math.floor(Date.now() / 600000)}` },
+    { stripeAccount: ready.account, idempotencyKey: `payment-request-${r.id}-${r.checkout_id || "initial"}` },
   );
-  await getPool().query("UPDATE private.payment_requests SET checkout_id=$2,checkout_url=$3 WHERE id=$1", [r.id, session.id, session.url]);
+  await db.query("UPDATE private.payment_requests SET checkout_id=$2,checkout_url=$3 WHERE id=$1", [r.id, session.id, session.url]);
+  await db.query("COMMIT");
   return session.url as string;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally { db.release(); }
 }
 
 // Confirms open requests with Stripe. Only a completed, paid session marks a request paid.
@@ -104,3 +124,4 @@ export async function syncPaymentRequests(userId: string, jobId?: string) {
     }
   }
 }
+

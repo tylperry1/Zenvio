@@ -1,3 +1,4 @@
+import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { assertMemberControl } from "@/lib/team-member-policy";
 import {
   filterGoogleSlots,
@@ -346,9 +347,10 @@ export async function POST(req: NextRequest) {
               )
             ).rowCount ||
             !(
-              await filterGoogleSlots(s.host_slug, s.event_slug, [
-                new Date(b.starts_at).toISOString(),
-              ])
+              await filterMicrosoftSlots(s.host_slug, s.event_slug,
+                await filterGoogleSlots(s.host_slug, s.event_slug, [
+                  new Date(b.starts_at).toISOString(),
+                ]))
             ).length
           )
             throw new ApiError(
@@ -409,3 +411,4 @@ export async function POST(req: NextRequest) {
     return failure(e);
   }
 }
+

@@ -87,7 +87,7 @@ export function icsContent({
   const escape = (s) =>
     String(s)
       .replace(/\\/g, "\\\\")
-      .replace(/\r?\n/g, "\\n")
+      .replace(/\r\n|[\r\n]/g, "\\n")
       .replace(/;/g, "\\;")
       .replace(/,/g, "\\,");
   const stamp = (s) =>
@@ -114,3 +114,4 @@ export function icsContent({
     "",
   ].join("\r\n");
 }
+

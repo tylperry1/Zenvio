@@ -89,3 +89,10 @@ test("escapes calendar values so notes cannot inject calendar events", () => {
   );
   assert(result.includes("DTSTART:20261102T150000Z"));
 });
+test("calendar text escapes bare carriage returns as well as LF and CRLF", () => {
+  const result = icsContent({id:"test",title:"Call\rBEGIN:VEVENT",starts_at:"2026-11-02T15:00:00Z",ends_at:"2026-11-02T15:30:00Z",description:"one\r\ntwo\nthree\rfour"});
+  assert(result.includes("SUMMARY:Call\\nBEGIN:VEVENT"));
+  assert(result.includes("DESCRIPTION:one\\ntwo\\nthree\\nfour"));
+  assert(!result.replaceAll("\r\n", "").includes("\r"));
+});
+

@@ -116,16 +116,21 @@ try {
  assert.equal((await request('/api/admin/operations')).status,401);
  assert.equal((await request('/api/admin/operations',{cookie:member.cookie})).status,403);
  const ops=await request('/api/admin/operations',{cookie:owner.cookie});assert.equal(ops.status,200,JSON.stringify(ops.data));
- assert.equal(ops.data.pricing.length,4);assert.equal(ops.data.health.database.ok,true);
+ assert.deepEqual(ops.data.pricing.map(p=>p.id),["free","pro","business","teams","individual","team","team_extra"]);assert.equal(ops.data.health.database.ok,true);
  const credential='isolated-provider-secret-for-test';
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'integration',key:'GOOGLE_CLIENT_SECRET',value:credential}})).status,200);
  const masked=await request('/api/admin/operations',{cookie:owner.cookie});assert(!JSON.stringify(masked.data).includes(credential));
  const encrypted=await db.query("SELECT ciphertext FROM private.integration_secrets WHERE key='GOOGLE_CLIENT_SECRET'");assert(!encrypted.rows[0].ciphertext.includes(credential));
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'integration',key:'DATABASE_URL',value:'forbidden'}})).status,400);
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,originHeader:'https://untrusted.example',data:{action:'pricing',plans:ops.data.pricing}})).status,403);
+ const tampered=ops.data.pricing.map(p=>p.id==='individual'?{...p,monthly:1}:p);
+ assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'pricing',plans:tampered}})).status,409);
  const plans=ops.data.pricing.map(p=>p.id==='pro'?{...p,monthly:650}:p);
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'pricing',plans}})).status,200);
- assert.equal((await request('/api/pricing')).data.plans.find(p=>p.id==='pro').monthly,650);
+ assert.equal((await request('/api/admin/operations',{cookie:owner.cookie})).data.pricing.find(p=>p.id==='pro').monthly,650);
+ const publicPrices=(await request('/api/pricing')).data;
+ assert.deepEqual(publicPrices.plans.map(p=>[p.id,p.monthly]),[['individual',2999],['team',4999]]);
+ assert.equal(publicPrices.extraSeat.monthly,999);
  assert.equal((await request('/api/billing',{cookie:member.cookie})).data.subscription.plan,'free');
  assert.equal((await request('/api/marketplace',{cookie:member.cookie})).status,200);
  assert.equal((await request('/api/calendars',{method:'POST',cookie:member.cookie,data:{action:'connect'}})).status,200);
@@ -190,3 +195,4 @@ try {
  assert.equal((await request('/api/workspace',{cookie:member.cookie})).status,401);
  console.log('PASS: owner setup and single use, signup/sign-in/sign-out, schema provisioning, database role checks and revocation, account isolation, origin checks, booking concurrency/cancellation, admin controls/audit, password hashing and shared auth throttling.');
 } finally {await db.end();}
+

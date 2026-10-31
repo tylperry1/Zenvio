@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import Module from "node:module";
 import ts from "typescript";
-let blocked = false,
+let microsoftBlocked = false,
+  blocked = false,
   unavailable = false,
   reservations = 0,
   foreign = false,
@@ -22,7 +23,9 @@ m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
 m.require = (id) =>
-  id === "@/lib/db"
+  id === "@/lib/microsoft-calendar"
+    ? { filterMicrosoftSlots: async (_h, _e, slots) => microsoftBlocked ? [] : slots }
+    : id === "@/lib/db"
     ? { getPool: () => ({ query: async () => ({ rows: [] }) }) }
     : id === "@/lib/intake"
     ? { intakeAnswers: () => [] }
@@ -108,6 +111,7 @@ const request = () =>
     }),
   });
 beforeEach(() => {
+  microsoftBlocked = false;
   blocked = false;
   unavailable = false;
   reservations = 0;
@@ -137,5 +141,12 @@ test("manual appointment derives the host and event from the signed-in workspace
 test("manual appointment rejects another user appointment type before reservation", async () => {
   foreign = true;
   assert.equal((await POST(request())).status, 404);
+  assert.equal(reservations, 0);
+});
+
+
+test("Microsoft conflicts reject a manual appointment before reservation", async () => {
+  microsoftBlocked = true;
+  assert.equal((await POST(request())).status, 409);
   assert.equal(reservations, 0);
 });
