@@ -1,6 +1,6 @@
 import {drainClassCancellations} from "./launch/classes";
 import {materializeWaitlistOffers} from "./launch/waitlists";
-import { drainSmsOutbox } from "./launch/sms-outbox";
+import { drainSmsOutbox, materializeSmsReminders } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { materializeBookingNotifications, mailReady } from "./mail";
@@ -50,6 +50,7 @@ export async function processScheduledJobs() {
   if (!lease.rowCount)
     return { busy: true, configured: await mailReady(), sent: 0 };
   try {
+    await materializeSmsReminders();
     await drainSmsOutbox();
     await drainClassCancellations();
     await drainCalendarCleanup();
