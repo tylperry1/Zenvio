@@ -97,3 +97,45 @@ export type BusinessAnalytics = {
     currency: string | null;
     revenueSource: "stripe_reconciled" | "unavailable";
 };
+
+/** Wire contract: POST /api/growth/checkout. Prices are always resolved server-side. */
+export type GrowthCheckoutRequest = {
+  offerId: string;
+  idempotencyKey: string;
+  name: string;
+  email: string;
+  recipientEmail?: string;
+  coupon?: string;
+  captcha?: string;
+};
+export type GrowthCheckoutResponse = { url: string; orderId: string };
+export type GrowthOfferKind = "package" | "membership" | "gift_card";
+/** Public GET /api/growth/offers?host= uses database-style field names. */
+export type PublicGrowthOffer = {
+  id: string;
+  kind: GrowthOfferKind;
+  title: string;
+  description: string;
+  price_cents: number;
+  credit_units: number;
+  unit: string;
+};
+export type PublicGrowthOffersResponse = {
+  offers: PublicGrowthOffer[];
+  checkoutEnabled: boolean;
+};
+/** Credit admission is owner-only; public enrollment requires booking protection. */
+export type ClassEnrollmentRequest = {
+  action: "enroll";
+  sessionId: string;
+  idempotencyKey: string;
+  name: string;
+  email: string;
+  captcha?: string;
+  applyCredits?: boolean;
+  contactId?: string;
+  balanceAccountId?: string;
+};
+export type ClassCancellationRequest = { action: "cancel"; token: string };
+export type GiftCardRedemptionRequest = { code: string; name: string; email: string };
+export type GiftCardRedemptionResponse = { redeemed: true; duplicate: boolean };
