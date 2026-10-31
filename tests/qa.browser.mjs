@@ -15,7 +15,7 @@ try {
   const pages=[await guest.newPage(),await member.newPage(),await admin.newPage()];
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
-    [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call"]],
+    [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
     [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback"]],
     [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/feedback","/admin/marketplace-tools","/admin/team"]],
   ];

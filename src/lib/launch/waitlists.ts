@@ -52,7 +52,7 @@ export async function materializeWaitlistOffers(limit = 5) {
                 const token = randomBytes(32).toString("hex"), expires = new Date(Math.min(Date.now() + 30 * 60000, Date.parse(start) - 2 * 3600000));
                 const offer = (await db.query("insert into private.waitlist_offers(waitlist_id,slot_event_id,token_hash,expires_at,recipient_email,recipient_name) values($1,$2,$3,$4,$5,$6) returning id", [entry.id, event.id, hash(token), expires,entry.email,entry.name])).rows[0];
                 const key = "waitlist-offer:" + offer.id;
-                await queueDelivery(db, { user: event.user_id, kind: "waitlist_offer", key, to: entry.email, subject: "An appointment time is available: " + event.title, text: `${entry.name},\n\nA requested appointment time is available at ${start}.\nReview this offer before ${expires.toISOString()}:\n${appOrigin()}/book/${event.host_slug}/${event.event_slug}#waitlist_offer=${token}\n\nThis is an invitation to book, not an exclusive reservation. The first completed booking secures the time.`, expires });
+                await queueDelivery(db, { user: event.user_id, kind: "waitlist_offer", key, to: entry.email, subject: "An appointment time is available: " + event.title, text: `${entry.name},\n\nA requested appointment time is available at ${start}.\nReview this offer before ${expires.toISOString()}:\n${appOrigin()}/waitlist-offer#token=${token}\n\nThis is an invitation to book, not an exclusive reservation. The first completed booking secures the time.`, expires });
                 await db.query("update private.delivery_jobs set waitlist_offer_id=$2 where dedupe_key=$1", [key, offer.id]);
                 await db.query("update private.appointment_waitlists set state='offered' where id=$1", [entry.id]);
                 offered++;
@@ -71,12 +71,12 @@ export async function materializeWaitlistOffers(limit = 5) {
     return { offered, enabled: true };
 }
 export async function readWaitlistOffer(token: string) {
-    const row = (await getPool().query(`select o.id,o.state,o.expires_at,s.starts_at,e.title,e.slug event_slug,p.slug host_slug from private.waitlist_offers o
+    const row = (await getPool().query(`select o.id,o.state,o.expires_at,s.starts_at,e.title,e.intake_questions,e.slug event_slug,p.slug host_slug from private.waitlist_offers o
   join private.appointment_waitlists w on w.id=o.waitlist_id join private.waitlist_slot_events s on s.id=o.slot_event_id
   join public.event_types e on e.id=w.event_id join public.profiles p on p.id=w.user_id where o.token_hash=$1 and w.state<>'cancelled'`, [hash(token)])).rows[0];
     if (!row || row.state !== "offered" || new Date(row.expires_at).getTime() <= Date.now())
         throw new ApiError("This appointment offer has expired or is unavailable.", 410);
-    return { id: row.id, title: row.title, startsAt: row.starts_at, expiresAt: row.expires_at, bookingUrl: `/book/${row.host_slug}/${row.event_slug}`, reservationPolicy: "first_confirmed" };
+    return { id: row.id, title: row.title, startsAt: row.starts_at, expiresAt: row.expires_at, bookingUrl: `/book/${row.host_slug}/${row.event_slug}`, reservationPolicy: "first_confirmed", intakeQuestions: row.intake_questions || [] };
 }
 export async function acceptWaitlistOffer(token: string, answers: unknown) {
     if (process.env.WAITLIST_OFFERS_ENABLED !== "true")
@@ -106,6 +106,7 @@ export async function acceptWaitlistOffer(token: string, answers: unknown) {
         if(!row.recipient_email||row.recipient_email!==row.email)throw new ApiError("Client details changed. Request a new appointment offer.",409);
         if (row.payment_mode !== "free" || new Date(row.starts_at).getTime() !== Date.parse(start))
             throw new ApiError("Offer changed; review the current booking page.", 409);
+        if ((row.intake_questions || []).some((q: {type:string}) => q.type==='file')) throw new ApiError("Contact the host to complete this appointment's file requirements.",409);
         const result = (await db.query("select public.reserve_booking_intake($1,$2,$3,$4,$5,'','','','',$6) result", [row.host_slug, row.event_slug, start, row.recipient_name, row.recipient_email, JSON.stringify(intakeAnswers(row.intake_questions || [], answers))])).rows[0].result;
         await scheduleBooking(db, result.id);
         await db.query("update private.waitlist_offers set state='booked',booking_id=$2 where id=$1", [row.id, result.id]);

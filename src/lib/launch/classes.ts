@@ -108,7 +108,7 @@ export async function registerClass(id: string, input: {
             const debit = await applyBalanceEntry(db, { userId: s.user_id, accountId: account.id, delta: -s.credit_cost, reference: 'class-debit:' + r.id, reason: 'Class registration ' + s.title });
             await db.query('update private.class_registrations set debit_entry_id=$2 where id=$1', [r.id, debit.id]);
         }
-        await queueDelivery(db, { user: s.user_id, kind: 'class_confirmation', key: 'class-confirmation:' + r.id, to: input.email, subject: 'Class confirmed: ' + s.title, text: `${input.name},\n\nYour place in ${s.title} is confirmed.\nStarts: ${new Date(s.starts_at).toISOString()}\nEnds: ${new Date(s.ends_at).toISOString()}\n\nPrivate cancellation reference: ${secret}\nUse your class registration page to manage this reservation.`, expires: new Date(s.ends_at) });
+        await queueDelivery(db, { user: s.user_id, kind: 'class_confirmation', key: 'class-confirmation:' + r.id, to: input.email, subject: 'Class confirmed: ' + s.title, text: `${input.name},\n\nYour place in ${s.title} is confirmed.\nStarts: ${new Date(s.starts_at).toISOString()}\nEnds: ${new Date(s.ends_at).toISOString()}\n\nManage this registration: ${appOrigin()}/class-cancel#token=${secret}`, expires: new Date(s.ends_at) });
         await db.query('commit');
         return { id: r.id, state: 'confirmed', cancelToken: secret, duplicate: false };
     }
