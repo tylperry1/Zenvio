@@ -1,3 +1,4 @@
+import { microsoftBusyForHost } from "./microsoft-calendar";
 import { getPool } from "./db";
 import { backend, ApiError } from "./server";
 import { googleBusyForHost, overlapsBusy, runGoogleJobs } from "./google-calendar";
@@ -39,7 +40,7 @@ export async function hostRescheduleBooking(userId: string, bookingId: string, s
     const end = new Date(
       Date.parse(start) + new Date(b.ends_at).getTime() - new Date(b.starts_at).getTime() + b.buffer * 60000,
     ).toISOString();
-    if (overlapsBusy(start, end, await googleBusyForHost(b.slug, start, end)))
+    if (overlapsBusy(start, end, [...await googleBusyForHost(b.slug, start, end), ...await microsoftBusyForHost(b.slug,start,end)]))
       throw new ApiError("That time is no longer available.", 409);
     const result = (
       await db.query("SELECT private.move_booking($1,$2,$3,$4) result", [b.id, start, userId, null])

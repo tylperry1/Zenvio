@@ -1,3 +1,4 @@
+import { subscriptionRevenue } from "./launch/revenue";
 import type Stripe from "stripe";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
@@ -9,6 +10,10 @@ export async function saveSubscription(
   userId: string,
 ) {
   const paid = ["active", "trialing"].includes(subscription.status);
+  const revenue=subscriptionRevenue(subscription);
+  await client.query(`insert into private.subscription_revenue_snapshots(user_id,subscription_id,currency,mrr_cents,status,complete,issue)
+    values($1,$2,$3,$4,$5,$6,$7) on conflict(user_id) do update set subscription_id=$2,currency=$3,mrr_cents=$4,status=$5,complete=$6,issue=$7,reconciled_at=now()`,
+    [userId,revenue.subscriptionId,revenue.currency,revenue.mrrCents,revenue.status,revenue.complete,revenue.issue]);
   const items = subscription.items.data;
   const mappings = (await client.query(
     "SELECT plan,period,stripe_price_id FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[])",

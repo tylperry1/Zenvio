@@ -1,3 +1,4 @@
+import { queueSms, telnyxReadiness } from "./launch/sms-outbox";
 // SMS transport contract consumed by the messaging center and the assistant.
 //
 // SMS delivery, Twilio, sender numbers, consent records and message balances are owned by
@@ -41,7 +42,8 @@ const unavailable: SmsTransport = {
   },
 };
 
-let transport: SmsTransport = unavailable;
+const shared: SmsTransport = {readiness:telnyxReadiness,send:queueSms};
+let transport: SmsTransport = shared;
 // Hook for the shared transport (and tests) to register the real implementation.
 export function registerSmsTransport(next: SmsTransport | null) {
   transport = next ?? unavailable;

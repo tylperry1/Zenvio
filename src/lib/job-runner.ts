@@ -1,3 +1,4 @@
+import { drainSmsOutbox } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { materializeBookingNotifications, mailReady } from "./mail";
@@ -46,6 +47,7 @@ export async function processScheduledJobs() {
   if (!lease.rowCount)
     return { busy: true, configured: await mailReady(), sent: 0 };
   try {
+    await drainSmsOutbox();
     await drainCalendarCleanup();
     await purgeExpiredDeliverySecrets();
     await materializeBookingNotifications();

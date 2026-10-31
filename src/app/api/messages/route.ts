@@ -1,6 +1,7 @@
+import { queueSms } from "@/lib/launch/sms-outbox";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
-import { sendTwilioSms, normalizeE164 } from "@/lib/twilio";
+import { normalizeE164 } from "@/lib/twilio";
 import {
   ApiError,
   body,
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       const message = await client.query(
         `insert into private.message_records
           (thread_id,user_id,channel,direction,state,body,provider,idempotency_key)
-         values($1,$2,'sms','outbound','sending',$3,'twilio',$4) returning id`,
+         values($1,$2,'sms','outbound','sending',$3,'telnyx',$4) returning id`,
         [thread.rows[0].id, token, messageBody, idempotencyKey],
       );
       messageId = message.rows[0].id;
@@ -101,18 +102,9 @@ export async function POST(request: NextRequest) {
     } finally {
       client.release();
     }
-    const callback = new URL(
-      "/api/messaging/twilio",
-      process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
-    ).toString();
-    const sent = await sendTwilioSms({ userId: token, to, body: messageBody, statusCallback: callback });
-    await getPool().query(
-      `update private.message_records
-          set state='provider_accepted',provider_message_id=$2,sent_at=now()
-        where id=$1 and user_id=$3 and state='sending'`,
-      [messageId, sent.providerMessageId, token],
-    );
-    return Response.json({ message: { id: messageId, state: "provider_accepted" } }, { status: 202 });
+    const queued = await queueSms({ userId:token,to,body:messageBody,reference:messageId! });
+    await getPool().query("update private.message_records set state='queued' where id=$1 and user_id=$2 and state='sending'",[messageId,token]);
+    return Response.json({ message: { id: messageId, state: "queued", detail:queued.detail } }, { status: 202 });
   } catch (error) {
     if (messageId)
       await getPool()

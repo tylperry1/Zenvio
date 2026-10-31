@@ -26,6 +26,17 @@ export const integrationFields = {
   TWILIO_MESSAGING_SERVICE_SID: "Twilio messaging service SID",
   TURNSTILE_SITE_KEY: "Cloudflare Turnstile site key (booking CAPTCHA)",
   TURNSTILE_SECRET_KEY: "Cloudflare Turnstile secret key (booking CAPTCHA)",
+  GEMINI_API_KEY: "Google Gemini API key",
+  CLOUDFLARE_AI_TOKEN: "Cloudflare Workers AI API token",
+  CLOUDFLARE_ACCOUNT_ID: "Cloudflare account ID",
+  TELNYX_API_KEY: "Telnyx API key",
+  TELNYX_PUBLIC_KEY: "Telnyx webhook Ed25519 public key",
+  DAILY_API_KEY: "Daily API key",
+  UPLOAD_SCANNER_KEY: "Private upload scanner API key",
+  R2_ACCESS_KEY_ID: "Cloudflare R2 access key ID",
+  R2_SECRET_ACCESS_KEY: "Cloudflare R2 secret access key",
+  R2_ACCOUNT_ID: "Cloudflare R2 account ID",
+  R2_BUCKET: "Cloudflare R2 private bucket",
   ANTHROPIC_API_KEY: "Anthropic API key (Zenvio Assistant)",
 } as const;
 export type IntegrationKey = keyof typeof integrationFields;

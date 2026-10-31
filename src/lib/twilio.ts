@@ -52,10 +52,10 @@ export async function twilioConfigured() {
 export async function assertSmsConsent(userId: string, phone: string) {
   const { rows } = await getPool().query(
     `select scope,status from private.contact_consents
-      where user_id=$1 and phone_e164=$2 and scope in ('transactional','appointment')`,
+      where user_id=$1 and phone_e164=$2 and scope in ('transactional','appointment','marketing')`,
     [userId, normalizeE164(phone)],
   );
-  if (!rows.some((row) => row.status === "opted_in"))
+  if (!rows.some((row) => row.status === "opted_in" && ["transactional","appointment"].includes(row.scope)))
     throw new ApiError("SMS consent is required before sending this message.", 409);
   if (rows.some((row) => row.status === "opted_out"))
     throw new ApiError("This contact has opted out of SMS.", 409);
