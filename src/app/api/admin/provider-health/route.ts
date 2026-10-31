@@ -21,9 +21,9 @@ export async function GET() {
            from private.delivery_jobs group by provider_status`,
       ),
       getPool().query(
-        `select registration_state,messaging_enabled,count(*)::int count
+        `select provider,registration_state,messaging_enabled,count(*)::int count
            from private.sms_provider_connections
-          group by registration_state,messaging_enabled`,
+          group by provider,registration_state,messaging_enabled`,
       ),
       getPool().query(
         `select provider,count(*) filter(where processed_at is null)::int pending,
@@ -49,7 +49,8 @@ export async function GET() {
             diagnostics: await emailDiagnostics(),
             delivery: email.rows,
           },
-          twilio: { configured: await twilioConfigured(), connections: sms.rows },
+          twilio: { configured: await twilioConfigured(), connections: sms.rows.filter(row=>row.provider==='twilio') },
+          telnyx: {connections:sms.rows.filter(row=>row.provider==='telnyx'),activationDetailsPath:"/api/admin/launch/providers"},
           webhooks: webhooks.rows,
         },
         featureFlags: settings.rows[0]?.value || {},
