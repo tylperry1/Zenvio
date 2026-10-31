@@ -2,6 +2,20 @@
 
 Upgrade release deployed to https://gozenvio.com at implementation commit `6721523` on October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
 
+## Zenvio 2.1 (branch `feat/zenvio-ai-experience`, not yet released)
+
+Implementation details, security model, database changes and shared-backend dependencies: [ZENVIO_2_1.md](ZENVIO_2_1.md).
+
+| Area | State on the branch |
+| --- | --- |
+| Zenvio Assistant (panel, full page, contextual actions, approval-gated actions, audit log, usage limits) | Implemented and tested with a scripted model; needs `ANTHROPIC_API_KEY` in the integration vault. |
+| Messaging center and “Send booking link” | Implemented for email, portal replies and internal notes. Text messaging waits on the shared SMS transport (temporary adapter reports it as not connected). |
+| Customer portal | Implemented (private, expiring, revocable links). |
+| Contractor workflows (presets, service requests, jobs, estimates, work authorization, payment requests) | Implemented; card payment follows the existing appointment-payments gate. |
+| Booking page personalization and advanced intake | Implemented. |
+| Feedback and admin feedback inbox | Implemented. |
+| Video meetings | Adapter and status only — activation blocked until a provider is contracted and configured. |
+
 ## Implemented product features
 
 | Area | Release behavior |
@@ -39,6 +53,8 @@ The release includes 65 unit checks, a real-Postgres retained-record migration f
 Migrations 017–032 are additive upgrades; existing migrations 001–016 are unchanged. Compatibility checks retain booking identity/cancellation tokens, contact links and notes, signed agreement content/receipts, subscription identity and existing active types above new limits. Production auth and integration-encryption secrets must never be regenerated for this release.
 
 ## Outstanding product work
+
+- Zenvio 2.1: connect the shared SMS transport and messaging schema, contract a video provider, capture inbound email replies, add intake answers to calendar invites, allow file questions on paid appointment types.
 
 - Provider activation/verification listed above; these are not represented as live integrations.
 - Sequential signing, drawn/uploaded signature capture, independent recipient identity verification and advanced retention/export administration.
