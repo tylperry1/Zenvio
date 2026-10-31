@@ -17,10 +17,14 @@ Target commercial launch: November 2, 2026. The audit and design rules are in [U
 | Admin → Pricing | Rebuilt: current versus retired packages, Stripe mapping status, launch-gate readiness, Teams seat calculator, envelope allowances and overages, early-access offer, honest annual-savings logic, edit → review → publish with a diff, change history. Uses the existing audited save path; approved package rates stay code constants. |
 | Admin → Users & activity | Rebuilt on real data: total, active, new and paying KPIs; signup and daily-active charts; plan distribution; searchable, filterable, paginated user table; account drawer with sessions and admin history; guarded sign-out-everywhere; formula-safe CSV export; searchable configuration and admin activity log with event-type filter. |
 | Admin navigation | Fits on 900px-tall screens. |
+| Admin → Entitlements, Early access, Health | Rebuilt on the design system. Overrides use account search instead of raw IDs. |
+| Admin → Subscriptions, Personalization | Status colors, compact rows, consistent form styling; logic unchanged. |
+| Public | Team invitation steps, guest-friendly team booking copy, legal-page contents. |
+| Mobile PWA | Manifest (starts at `/app`, with shortcuts), install card with iOS instructions, service worker caching only hashed build assets and brand images, static offline page. Pages, APIs and client, payment and signing data are never cached (enforced by `tests/pwa.test.mjs`). |
 
 ### Next (no new backend required)
 
-Migrate the remaining admin pages, the workspace app (dashboard, calendar, clients, inbox, documents, jobs, payments, billing, settings) and the public booking flows onto the design system; then do the `/team/accept` layout, legal-page navigation and the PWA manifest/install shell.
+Migrate the workspace app screens (already consistent on the older `ui` kit) to `ds` primitives as polish, and merge the admin audit view into Users & activity.
 
 ### Waiting on Codex backend contracts
 
