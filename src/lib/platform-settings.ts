@@ -11,6 +11,7 @@ export const integrationFields = {
   RESEND_WEBHOOK_SECRET: "Resend webhook signing secret",
   AUTH_EMAIL_FROM: "Verified sender email",
   STRIPE_SECRET_KEY: "Stripe secret key",
+  STRIPE_GROWTH_WEBHOOK_SECRET: "Stripe customer-product webhook signing secret",
   STRIPE_CONNECT_WEBHOOK_SECRET:
     "Stripe Connect appointment-payment webhook signing secret",
   STRIPE_WEBHOOK_SECRET: "Stripe subscription webhook signing secret",

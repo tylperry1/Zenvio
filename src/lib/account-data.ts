@@ -5,6 +5,10 @@ import { ApiError } from "./server";
 type Query = { sql: string; key: string };
 // Everything a person's account holds that they can take with them.
 const exportQueries: Query[] = [
+  {key:"customer_offers",sql:"SELECT id,kind,title,description,price_cents,credit_units,unit,active FROM private.growth_offers WHERE user_id=$1"},
+  {key:"customer_product_orders",sql:"SELECT id,offer_id,contact_id,amount_cents,state,paid_at,created_at FROM private.growth_orders WHERE user_id=$1"},
+  {key:"customer_memberships",sql:"SELECT order_id,status,current_period_end FROM private.growth_memberships WHERE user_id=$1"},
+  {key:"customer_settlements",sql:"SELECT id,order_id,amount_paid_cents,credits,refunded_cents,refunded_credits,credit_debt,created_at FROM private.growth_settlements WHERE user_id=$1"},
   {key:"class_sessions",sql:"SELECT id,event_id,title,description,capacity,state,starts_at,ends_at,credit_cost,credit_unit FROM private.class_sessions WHERE user_id=$1"},
   {key:"class_registrations",sql:"SELECT id,session_id,contact_id,name,email,state,created_at,cancelled_at FROM private.class_registrations WHERE user_id=$1"},
   {key:"booking_series",sql:"SELECT id,event_id,timezone,recurrence,starts_at,booking_ids,created_at FROM private.booking_series WHERE user_id=$1"},
@@ -56,7 +60,7 @@ export async function deletionBlockers(userId: string) {
              AND status IN ('active','trialing','past_due','unpaid','incomplete')) AS subscription,
       EXISTS(SELECT 1 FROM private.organizations WHERE owner_id=$1) AS team,
       (EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.microsoft_calendar_connections WHERE user_id=$1)) AS google,
-      (EXISTS(SELECT 1 FROM private.class_sessions WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.sms_outbox WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_accounts WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.booking_series WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.subscription_revenue_snapshots WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.appointment_waitlists WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_entries WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.provider_usage_reservations WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.message_records WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.stored_files WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.video_rooms WHERE user_id=$1)) AS retained_launch_records,
+      (EXISTS(SELECT 1 FROM private.growth_offers WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.growth_coupons WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.class_sessions WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.sms_outbox WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_accounts WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.booking_series WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.subscription_revenue_snapshots WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.appointment_waitlists WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_entries WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.provider_usage_reservations WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.message_records WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.stored_files WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.video_rooms WHERE user_id=$1)) AS retained_launch_records,
       EXISTS(SELECT 1 FROM private.host_payment_accounts WHERE user_id=$1) AS payouts,
       (EXISTS(SELECT 1 FROM private.appointment_payments WHERE user_id=$1)
         OR EXISTS(SELECT 1 FROM private.marketplace_orders WHERE user_id=$1)) AS payments,
