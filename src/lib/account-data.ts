@@ -5,7 +5,7 @@ import { ApiError } from "./server";
 type Query = { sql: string; key: string };
 // Everything a person's account holds that they can take with them.
 const exportQueries: Query[] = [
-  { key: "profile", sql: "SELECT id,name,slug,timezone,bio,headline,company,accent_color,created_at FROM public.profiles WHERE id=$1" },
+  { key: "profile", sql: "SELECT id,name,slug,timezone,bio,headline,company,accent_color,website,location,social_links,booking_instructions,industry,created_at FROM public.profiles WHERE id=$1" },
   { key: "account", sql: 'SELECT email,name,"emailVerified","createdAt" FROM public."user" WHERE id=$1' },
   { key: "appointment_types", sql: "SELECT * FROM public.event_types WHERE user_id=$1 ORDER BY created_at" },
   { key: "availability", sql: "SELECT day,enabled,start_time,end_time FROM public.availability WHERE user_id=$1 ORDER BY day" },
@@ -18,6 +18,14 @@ const exportQueries: Query[] = [
   { key: "subscription", sql: "SELECT plan,status,current_period_end,cancel_at_period_end FROM private.subscriptions WHERE user_id=$1" },
   { key: "appointment_payments", sql: "SELECT id,booking_id,status,amount_cents,total_cents,refunded_cents,currency,created_at FROM private.appointment_payments WHERE user_id=$1" },
   { key: "marketplace_orders", sql: "SELECT id,status,payment_status,total_cents,created_at FROM private.marketplace_orders WHERE user_id=$1" },
+  { key: "messages", sql: "SELECT t.contact_id,m.direction,m.channel,m.author_name,m.body,m.status,m.created_at FROM private.message_threads t JOIN private.thread_messages m ON m.thread_id=t.id WHERE t.user_id=$1 ORDER BY m.created_at" },
+  { key: "message_templates", sql: "SELECT name,body,created_at FROM private.message_templates WHERE user_id=$1" },
+  { key: "jobs", sql: "SELECT id,contact_id,booking_id,title,category,address,description,preferred_time,status,source,created_at,completed_at FROM private.jobs WHERE user_id=$1 ORDER BY created_at" },
+  { key: "estimates", sql: "SELECT id,job_id,number,title,line_items,subtotal_cents,tax_cents,total_cents,deposit_cents,notes,authorization_terms,status,approved_name,sent_at,decided_at FROM private.estimates WHERE user_id=$1 ORDER BY number" },
+  { key: "payment_requests", sql: "SELECT id,job_id,kind,description,amount_cents,currency,status,paid_at,created_at FROM private.payment_requests WHERE user_id=$1" },
+  { key: "assistant_conversations", sql: "SELECT c.title,m.role,m.content,m.created_at FROM private.ai_conversations c JOIN private.ai_messages m ON m.conversation_id=c.id WHERE c.user_id=$1 ORDER BY m.created_at" },
+  { key: "assistant_actions", sql: "SELECT tool,preview,status,result,error,created_at,decided_at,completed_at FROM private.ai_actions WHERE user_id=$1 ORDER BY created_at" },
+  { key: "feedback", sql: "SELECT category,message,page,status,admin_note,created_at FROM private.feedback WHERE user_id=$1" },
 ];
 
 export async function exportAccount(userId: string) {

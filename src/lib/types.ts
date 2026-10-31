@@ -42,6 +42,8 @@ export type Booking = {
   status: "confirmed" | "cancelled";
   title?: string;
   location?: string;
+  contact_id?: string | null;
+  intake_snapshot?: (import("./intake").Question & { answer: unknown })[];
 };
 export type Contact = {
   id: string;
@@ -70,6 +72,7 @@ export type PublicEvent = {
     refund_policy: string;
   };
   questions?: import("./intake").Question[];
+  instructions?: string;
   host: string;
   host_slug: string;
   timezone: string;
@@ -81,8 +84,16 @@ export type PublicEvent = {
   color: string;
 };
 
+export type ProfileExtras = {
+  website?: string;
+  location?: string;
+  social_links?: { network: string; url: string }[];
+  booking_instructions?: string;
+  has_cover?: boolean;
+  has_logo?: boolean;
+};
 export type PublicProfileData = {
-  profile: Omit<Profile, "id">;
+  profile: Omit<Profile, "id"> & ProfileExtras;
   events: Pick<
     EventType,
     "slug" | "title" | "description" | "duration" | "location" | "color"

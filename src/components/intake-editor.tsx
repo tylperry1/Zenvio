@@ -1,15 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Question } from "@/lib/intake";
 import { Icon } from "./icons";
 import { EmptyState, Field } from "./ui";
+import { contractorIndustry, contractorIntakeTemplate } from "@/lib/contractor";
 
 const types: [Question["type"], string][] = [
   ["short_text", "Short answer"],
   ["long_text", "Paragraph"],
   ["single_choice", "Choose one"],
+  ["dropdown", "Dropdown (services, categories)"],
   ["multiple_choice", "Choose several"],
   ["checkbox", "Confirmation checkbox"],
+  ["phone", "Phone number"],
+  ["address", "Address"],
+  ["file", "File or photo upload"],
+  ["consent", "Consent statement"],
 ];
 
 export function IntakeEditor({
@@ -17,13 +23,24 @@ export function IntakeEditor({
   onSave,
   onCancel,
   busy = false,
+  industry: initialIndustry,
 }: {
   event: { id: string; intake_questions: Question[] };
+  industry?: string;
   onSave: (questions: Question[]) => Promise<unknown> | void;
   onCancel?: () => void;
   busy?: boolean;
 }) {
   const [questions, setQuestions] = useState<Question[]>(event.intake_questions);
+  const [industry, setIndustry] = useState(initialIndustry);
+  useEffect(() => {
+    if (initialIndustry) return;
+    // Trade businesses get a ready-made job intake template.
+    fetch("/api/profile/details", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.industry && setIndustry(d.industry))
+      .catch(() => {});
+  }, [initialIndustry]);
   const edit = (id: string, v: Partial<Question>) =>
     setQuestions(questions.map((q) => (q.id === id ? { ...q, ...v } : q)));
   const move = (index: number, by: number) => {
@@ -115,7 +132,15 @@ export function IntakeEditor({
                   />
                   Required
                 </label>
-                {["single_choice", "multiple_choice"].includes(q.type) && (
+                {q.type === "file" && (
+                  <p className="ui-hint intake-type-note">
+                    Guests can attach up to 5 photos or PDFs (5 MB each). Not available on paid appointment types.
+                  </p>
+                )}
+                {q.type === "consent" && (
+                  <p className="ui-hint intake-type-note">Write the full statement as the question; guests tick a box to agree.</p>
+                )}
+                {["single_choice", "multiple_choice", "dropdown"].includes(q.type) && (
                   <Field label="Options" hint="One per line" wide>
                     <textarea
                       rows={3}
@@ -138,6 +163,19 @@ export function IntakeEditor({
         >
           <Icon name="plus" size={14} /> Add question
         </button>
+        {industry && contractorIndustry(industry) && (
+          <button
+            type="button"
+            className="ui-btn ui-btn-ghost ui-btn-sm"
+            onClick={() => {
+              const template = contractorIntakeTemplate(industry);
+              const existing = new Set(questions.map((q) => q.id));
+              setQuestions([...questions, ...template.filter((q) => !existing.has(q.id))].slice(0, 15));
+            }}
+          >
+            <Icon name="briefcase" size={14} /> Add job intake template
+          </button>
+        )}
         <span className="ui-hint">{questions.length} of 15</span>
         <div className="intake-footer-actions">
           {onCancel && (

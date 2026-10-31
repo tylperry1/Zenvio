@@ -40,7 +40,7 @@ export async function GET() {
         // paged through /api/bookings.
         getPool()
           .query(
-            "SELECT id,event_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
+            "SELECT id,event_id,contact_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,intake_snapshot,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
             [token],
           )
           .then((r) => r.rows),

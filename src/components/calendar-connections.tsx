@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "./app-shell";
 import { GoogleCalendarConnection } from "./google-calendar-connection";
+import { VideoMeetings } from "./video-meetings";
 import { Icon } from "./icons";
 import { Card, CopyField, EmptyState, Skeleton, useConfirm, useToast } from "./ui";
 
@@ -123,6 +124,7 @@ export function CalendarConnections() {
             </EmptyState>
           )}
         </Card>
+        <VideoMeetings />
         {confirmNode}
         {toast.node}
       </main>
