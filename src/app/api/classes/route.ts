@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) { try {
     if (input.action !== 'create')
         throw new ApiError('Invalid class operation.');
     const start = string(input.startsAt, 'start', 40), unit = string(input.creditUnit || 'SERVICE', 'credit unit', 24);
-    if (!Number.isFinite(Date.parse(start)) || !/^[A-Z_]{2,24}$/.test(unit))
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(start) || !Number.isFinite(Date.parse(start)) || !/^[A-Z_]{2,24}$/.test(unit))
         throw new ApiError('Invalid class time or credit unit.');
     const row = await createClass(token, { eventId: uuid(input.eventId), title: string(input.title, 'class title', 150, 2), description: string(input.description || '', 'description', 2000, 0), startsAt: new Date(start).toISOString(), capacity: integer(input.capacity, 'capacity', 1, 500), published: input.published === true, creditCost: integer(input.creditCost ?? 0, 'credit cost', 0, 1000000), creditUnit: unit });
     after(() => afterBookingChange(token));
