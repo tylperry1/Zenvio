@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
         );
       } else if (input.action === "sms-connection") {
         const userId = string(input.userId, "account", 64);
+        const existingSms=(await client.query("select provider from private.sms_provider_connections where user_id=$1 for update",[userId])).rows[0];
+        if(existingSms?.provider==='telnyx')throw new ApiError("Use the Telnyx sender configuration endpoint to change this connection.",409);
         const sender = normalizeE164(string(input.senderNumber, "sender number", 20));
         const state = string(input.registrationState, "registration state", 20);
         if (!["unregistered", "pending", "approved", "rejected", "not_required"].includes(state))
