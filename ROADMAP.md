@@ -8,7 +8,7 @@ Read docs/ROADMAP.md and docs/qa/ZENVIO_2_0_FULL_QA_AUDIT.md for historical feat
 | Google/Microsoft calendars | Implemented but unverified live | OAuth/refresh acceptance; external editing incomplete |
 | Stripe Billing/Connect | Blocked by external configuration | Approved catalog and test-mode lifecycle acceptance |
 | Email queue/webhooks/inbound | Implemented but unverified live | Verified inbound domain, separate secret, sender and reply acceptance |
-| SMS / Telnyx | Implemented but unverified live | Approved sender/campaign, delivery/consent acceptance; automated reminders incomplete |
+| SMS / Telnyx | Implemented but unverified live | Approved sender/campaign, delivery/consent acceptance; automatic reminders implemented behind a separate flag |
 | AI / Gemini / Workers AI | Implemented but unverified live | Model/tool/privacy approval and budget acceptance |
 | Daily / R2 | Implemented but unverified live | Private-room/storage/scanner acceptance; actual video usage incomplete |
 | Packages / gift cards / membership / coupons | Implemented but unverified | Latest settlement/concurrency CI and separate gated Connect checkout acceptance |
@@ -66,3 +66,5 @@ Waitlist/attendance delta: owner-scoped opt-in lists, durable cancellation offer
 ## October 31 implementation reconciliation
 
 The later implementation supersedes older “not started” statements above: classes/capacity and credit admission are implemented with migrations 049–050; package checkout, monthly membership grants, gift-card redemption, coupons and proportional refund recovery are implemented with migration 051; authenticated inbound email threading is implemented with migration 052. No live-provider acceptance is implied. Checkout requires separate release-validation and live flags; inbound replies require a verified domain and separate signing secret. Frontend forms remain integration work.
+
+Customer journeys now available in the release candidate: `/app/growth`, `/shop/[host]`, `/gift-card`, `/purchase/complete`, `/classes/[id]`, `/class-cancel` and `/waitlist-offer`. Automated SMS reminders now use the durable outbox with explicit appointment consent and current-booking checks, disabled by default. Class creation currently exposes free sessions; credit admission remains an owner API. Full external-provider acceptance, advanced growth/workflow and supplier scope remain open.
