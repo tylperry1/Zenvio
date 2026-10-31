@@ -12,6 +12,8 @@ export async function telnyxReadiness(input: {
 }): Promise<SmsReadiness> {
     if (process.env.TELNYX_MESSAGING_ENABLED !== "true" || !await telnyxConfigured())
         return { ok: false, reason: "provider_disabled", detail: "Telnyx messaging has not passed activation." };
+    const features=(await getPool().query("select value from private.platform_settings where key='integration_features'")).rows[0]?.value;
+    if(features?.sms!==true)return {ok:false,reason:"provider_disabled",detail:"SMS is suspended by the platform administrator."};
     const to = normalizeE164(input.to);
     if (!input.body.trim() || input.body.length > 1600)
         throw new ApiError("Write 1–1,600 SMS characters.");

@@ -23,6 +23,8 @@ The existing Anthropic dependency remains for compatibility; new providers use d
 Required secrets: `TELNYX_API_KEY`, `TELNYX_PUBLIC_KEY` (base64 raw Ed25519 public key).
 Required flags/bounds: `TELNYX_MESSAGING_ENABLED=true`, `TELNYX_MAX_SEGMENT_MICROS`, `TELNYX_MONTHLY_CAP_MICROS`, `TELNYX_WORKSPACE_CAP_MICROS`; zero/missing caps prevent dispatch. Limits are USD microdollars; e.g. 1,000,000 = $1. No default price or spend allowance is invented.
 
+The existing master-admin `integration_features.sms` switch must also be explicitly enabled and is rechecked before dispatch; disabling it suspends queued sends.
+
 Configure signed inbound and delivery callbacks at `https://gozenvio.com/api/messaging/telnyx` in the approved messaging profile. Master-admin `POST /api/admin/launch/sms` binds a user, sender and messaging profile. It checks that the phone number is active and mapped to that profile in Telnyx. `registrationReference` and `confirmation:"CARRIER_APPROVAL_VERIFIED"` record **operator attestation** of actual carrier approval; the endpoint does not certify 10DLC approval independently. Do not attest until approved by the carrier.
 
 `/api/messaging/consents` records scoped, evidenced consent. STOP revokes all three scopes; START only restores transactional/appointment scopes. Marketing opt-in is never inferred from START. Existing Twilio messages and consent records remain. Twilio's old implementation remains in source for controlled rollback; there is no automatic provider fallback.

@@ -45,3 +45,7 @@ test('Telnyx failed processing rolls back its event claim so the provider can re
  const route=loader({'next/server':{},db:{getPool:()=>({connect:async()=>fake})},'platform-settings':{integrationValue:async()=>pub},twilio:{normalizeE164:x=>x,twilioKeyword:()=>null},uploads:{readUpload:async()=>Buffer.from(payload)},messaging:{ensureContactThread:async()=>{}}})('src/app/api/messaging/telnyx/route.ts');
  assert.equal((await route.POST({headers:new Headers({'telnyx-timestamp':time,'telnyx-signature-ed25519':signature})})).status,503);assert.equal(calls.at(-1),'rollback');assert.equal(calls.includes('commit'),false);
 });
+test('Platform SMS suspension blocks consent checks and network dispatch',async()=>{
+ const prior=process.env.TELNYX_MESSAGING_ENABLED;process.env.TELNYX_MESSAGING_ENABLED='true';
+ try{const service=loader({db:{getPool:()=>({query:async()=>({rows:[{value:{sms:false}}]})})},'platform-settings':{integrationValue:async()=> 'configured'},twilio:{assertSmsConsent:async()=>{throw Error('must not check consent')},normalizeE164:x=>x}})('src/lib/launch/sms-outbox.ts');const ready=await service.telnyxReadiness({userId:'owner',to:'+15125550123',body:'hello'});assert.equal(ready.ok,false);assert.match(ready.detail,/suspended/);}finally{if(prior===undefined)delete process.env.TELNYX_MESSAGING_ENABLED;else process.env.TELNYX_MESSAGING_ENABLED=prior;}
+});
