@@ -8,7 +8,21 @@ import {
   type Subscription,
   type Invoice,
 } from "@/lib/billing-types";
-type Account = Subscription & { user_id: string; name: string; email: string };
+type Account = Subscription & {
+  user_id: string;
+  name: string;
+  email: string;
+  override_plan: string | null;
+  override_expires: string | null;
+  override_reason: string | null;
+};
+const planName = (plan: string) =>
+  ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams", pro: "Pro", business: "Business" })[plan] || plan;
+const inMonths = (n: number) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + n);
+  return d.toISOString().slice(0, 10);
+};
 type Data = {
   accounts: Account[];
   total: number;
@@ -157,6 +171,7 @@ export function AdminSubscriptions() {
             <option value="free">Free</option>
             <option value="ending">Ending</option>
             <option value="attention">Needs attention</option>
+            <option value="override">Granted plan access</option>
           </select>
         </form>
         {message && <p role="status">{message}</p>}
@@ -195,12 +210,21 @@ export function AdminSubscriptions() {
                             {s.email}
                           </small>
                         </td>
-                        <td className="billing-capitalize">{s.plan}</td>
+                        <td>
+                          {planName(s.override_plan || s.plan)}
+                          {s.override_plan && (
+                            <small className="billing-cell-detail">
+                              Granted until {billingDate(s.override_expires)}
+                            </small>
+                          )}
+                        </td>
                         <td>
                           <span className="billing-badge">
                             {s.has_subscription
                               ? s.status.replaceAll("_", " ")
-                              : "Free"}
+                              : s.override_plan
+                                ? "Granted"
+                                : "Free"}
                           </span>
                         </td>
                         <td>
@@ -270,8 +294,11 @@ export function AdminSubscriptions() {
           <p>{selected.email}</p>
           <div className="billing-detail-grid">
             <div>
-              <small>Plan</small>
-              <b>{selected.plan}</b>
+              <small>Plan in effect</small>
+              <b>
+                {planName(selected.override_plan || selected.plan)}
+                {selected.override_plan && ` (granted until ${billingDate(selected.override_expires)})`}
+              </b>
             </div>
             <div>
               <small>Status</small>
@@ -343,6 +370,14 @@ export function AdminSubscriptions() {
                 : "This account has no paid subscription. No cancellation is needed."}
             </p>
           )}
+          <PlanAccess
+            account={selected}
+            onDone={(text) => {
+              setMessage(text);
+              setSelected(null);
+              setRevision((n) => n + 1);
+            }}
+          />
           <h3>Invoices</h3>
           <button
             className="billing-secondary"
@@ -374,5 +409,98 @@ export function AdminSubscriptions() {
         </Modal>
       )}
     </>
+  );
+}
+
+// Give an account plan access without charging it (comp, trial extension, support fix),
+// or remove that access. Saved as an audited, expiring override.
+function PlanAccess({ account, onDone }: { account: Account; onDone: (message: string) => void }) {
+  const [plan, setPlan] = useState(account.override_plan || (account.plan === "free" ? "individual" : account.plan)),
+    [expires, setExpires] = useState(account.override_expires ? String(account.override_expires).slice(0, 10) : inMonths(1)),
+    [reason, setReason] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function send(action: "grant" | "revoke") {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/admin/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, userId: account.user_id, plan, expires, reason }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error);
+      onDone(
+        action === "grant"
+          ? `${account.name} now has ${planName(plan)} access until ${billingDate(new Date(expires).toISOString())}.`
+          : `Granted access removed. ${account.name} is back on their ${planName(account.plan)} plan.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to update plan access.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form
+      className="plan-access"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void send("grant");
+      }}
+    >
+      <h3>Plan access</h3>
+      <p>
+        Give this account a plan without charging it — for a comp, a trial extension or a support fix. It overrides the
+        Stripe plan until the end date, then the account returns to its paid or Free plan.
+        {account.override_reason && ` Current reason: ${account.override_reason}`}
+      </p>
+      {error && (
+        <p role="alert" className="billing-error">
+          {error}
+        </p>
+      )}
+      <div className="plan-access-grid">
+        <label>
+          Plan
+          <select value={plan} onChange={(e) => setPlan(e.target.value)}>
+            <option value="individual">Individual</option>
+            <option value="team">Teams</option>
+            <option value="free">Free (limit to Free)</option>
+          </select>
+        </label>
+        <label>
+          Until
+          <input
+            type="date"
+            required
+            min={inMonths(0)}
+            max={new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10)}
+            value={expires}
+            onChange={(e) => setExpires(e.target.value)}
+          />
+        </label>
+      </div>
+      <div className="plan-access-presets">
+        {[1, 3, 6, 12].map((n) => (
+          <button type="button" key={n} className="billing-secondary" onClick={() => setExpires(n === 12 ? new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10) : inMonths(n))}>
+            {n === 12 ? "1 year" : `${n} month${n === 1 ? "" : "s"}`}
+          </button>
+        ))}
+      </div>
+      <label>
+        Reason (kept in the audit log)
+        <input required minLength={5} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <div className="plan-access-actions">
+        {account.override_plan && (
+          <button type="button" className="billing-secondary" disabled={busy || reason.trim().length < 5} onClick={() => void send("revoke")}>
+            Remove granted access
+          </button>
+        )}
+        <button disabled={busy}>{busy ? "Saving…" : account.override_plan ? "Update access" : "Grant access"}</button>
+      </div>
+    </form>
   );
 }
