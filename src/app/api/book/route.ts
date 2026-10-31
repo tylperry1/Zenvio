@@ -4,6 +4,7 @@ import { intakeAnswers } from "@/lib/intake";
 import { scheduleWorkflows } from "@/lib/workflows";
 import { materializeReminders, drainDeliveries } from "@/lib/lifecycle";
 import { filterGoogleSlots, runGoogleJobsForHost } from "@/lib/google-calendar";
+import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
         event,
         data.map((s: { starts_at: string }) => s.starts_at),
       );
+      slots = await filterMicrosoftSlots(host,event,slots);
     }
     return Response.json(
       {
@@ -93,7 +95,8 @@ export async function POST(request: NextRequest) {
     await protectBooking(request, input.captcha);
     const host = slug(input.host),
       eventSlug = slug(input.event);
-    if (!(await filterGoogleSlots(host, eventSlug, [start])).length)
+    const googleSlots=await filterGoogleSlots(host,eventSlug,[start]);
+    if (!(await filterMicrosoftSlots(host,eventSlug,googleSlots)).length)
       throw new ApiError(
         "That time is no longer available. Please choose another time.",
         409,

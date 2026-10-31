@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";import fs from "node:fs";import test from "node:test";
+test("Microsoft OAuth uses PKCE, one-use state and encrypted offline tokens",()=>{const s=fs.readFileSync("src/lib/microsoft-calendar.ts","utf8");
+ assert.match(s,/code_challenge_method: "S256"/);assert.match(s,/delete from private\.microsoft_calendar_oauth/i);
+ assert.match(s,/sealSecret\(tokens\.access_token\)/);assert.match(s,/tokens\.refresh_token/);assert.doesNotMatch(s,/console\.log/);});
+test("Microsoft routes derive account ownership from the session",()=>{const s=fs.readFileSync("src/app/api/calendars/microsoft/route.ts","utf8");
+ assert.match(s,/const \{token\}=await session\(\)/);assert.match(s,/where user_id=\$1 and account_id=\$2/i);assert.match(s,/sameOrigin\(request\)/);});
+test("Microsoft migration queues additive booking updates without changing prior migrations",()=>{const sql=fs.readFileSync("postgres/migrations/038_microsoft_calendar.sql","utf8");
+ assert.match(sql,/create table private\.microsoft_calendar_connections/i);assert.match(sql,/after update of starts_at,ends_at,status/i);
+ assert.match(sql,/revoke all on private\.microsoft_calendar_oauth/i);});
+test("Microsoft adapter synchronizes booking lifecycle and exposes read-only overlays",()=>{const s=fs.readFileSync("src/lib/microsoft-calendar.ts","utf8");
+ assert.match(s,/export async function runMicrosoftJobs/);assert.match(s,/method:mapped\?"PATCH":"POST"/);assert.match(s,/method:"DELETE"/);assert.match(s,/zenvioBookingId/);
+ assert.match(s,/export async function microsoftEvents/);assert.match(s,/readOnly:true as const/);});

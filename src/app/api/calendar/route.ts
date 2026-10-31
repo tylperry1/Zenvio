@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { session, failure, string, uuid, ApiError } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { calendarDisplay } from "@/lib/google-calendar";
+import { microsoftEvents } from "@/lib/microsoft-calendar";
 export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
@@ -19,6 +20,12 @@ export async function GET(req: NextRequest) {
     const accounts = (
       await getPool().query(
         "SELECT account_sub,account_email FROM private.google_calendar_connections WHERE user_id=$1",
+        [token],
+      )
+    ).rows;
+    const microsoftAccounts = (
+      await getPool().query(
+        "SELECT account_id,account_email FROM private.microsoft_calendar_connections WHERE user_id=$1",
         [token],
       )
     ).rows;
@@ -71,8 +78,18 @@ export async function GET(req: NextRequest) {
         });
       }
     }
+    for (const a of microsoftAccounts) {
+      if (selected && selected !== a.account_id) continue;
+      try {
+        events.push(...(await microsoftEvents(token,a.account_id,from,to)).map((e)=>({
+          ...e,user_id:token,sourceLabel:"Microsoft · "+a.account_email,
+        })));
+      } catch (e) {
+        errors.push({account:a.account_email,message:e instanceof ApiError?e.message:"Calendar unavailable."});
+      }
+    }
     return Response.json(
-      { events, accounts, errors, members },
+      { events, accounts:[...accounts,...microsoftAccounts.map((a)=>({account_sub:a.account_id,account_email:a.account_email,provider:"microsoft"}))], errors, members },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

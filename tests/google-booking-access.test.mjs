@@ -52,6 +52,8 @@ m.require = (id) =>
                       },
                       runGoogleJobsForHost: async () => {},
                     }
+                  : id === "@/lib/microsoft-calendar"
+                    ? { filterMicrosoftSlots: async (_h, _e, slots) => slots }
                   : id === "@/lib/server"
                     ? {
                         ApiError,

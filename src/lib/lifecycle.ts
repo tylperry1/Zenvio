@@ -7,6 +7,7 @@ import {
   unsealSecret,
 } from "./platform-settings";
 import { ApiError } from "./server";
+import { createHash } from "node:crypto";
 export const appOrigin = () =>
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 export async function queueDelivery(
@@ -227,6 +228,18 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       if (!valid) {
         await db.query(
           "UPDATE private.delivery_jobs SET status='cancelled',payload_ciphertext=NULL WHERE id=$1",
+          [j.id],
+        );
+        await db.query("COMMIT");
+        continue;
+      }
+      const suppressed = await db.query(
+        "select 1 from private.email_suppressions where email_hash=$1",
+        [createHash("sha256").update(String(j.recipient).trim().toLowerCase()).digest("hex")],
+      );
+      if (suppressed.rowCount) {
+        await db.query(
+          "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,last_error='Email delivery is suppressed after a provider complaint or bounce.' WHERE id=$1",
           [j.id],
         );
         await db.query("COMMIT");
