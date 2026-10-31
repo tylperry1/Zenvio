@@ -4,7 +4,9 @@ import Link from "next/link";
 import { AdminSubscriptions } from "./admin-subscriptions";
 import { Modal } from "./modal";
 import { AdminMarketplace } from "./admin-marketplace";
-import { AdminNavigation } from "./admin-navigation";
+import { AdminNavigation, AdminTopbar } from "./admin-navigation";
+import { AdminConnections } from "./admin-connections";
+import { useCan } from "./admin-access";
 import { Icon } from "./icons";
 type Plan = {
   id: string;
@@ -50,7 +52,16 @@ type Data = {
   }[];
   activity: { action: string; created_at: string }[];
 };
+const tabs = [
+  ["subscriptions", "Subscriptions", "subscriptions"],
+  ["marketplace", "Marketplace", "marketplace"],
+  ["users", "Users & activity", "accounts"],
+  ["integrations", "Connections", "integrations"],
+  ["pricing", "Pricing", "pricing"],
+  ["health", "Health", "health"],
+] as const;
 export function Operations({ initialView }: { initialView?: string }) {
+  const can = useCan();
   const [view, setView] = useState(
     initialView &&
       [
@@ -102,28 +113,20 @@ export function Operations({ initialView }: { initialView?: string }) {
     }
   }
   return (
-    <div className="admin-v3 platform-page operations-page">
+    <div className="admin-v3 acx platform-page operations-page">
       <AdminNavigation view={view} />
       <div className="av-body">
-        <header className="av-topbar">
-          <div>
-            <span>Admin console</span>
-            <Icon name="chevron" size={13} />
-            <b>
-              {view === "marketplace"
-                ? "Marketplace"
-                : view.charAt(0).toUpperCase() + view.slice(1)}
-            </b>
-          </div>
-          <div>
-            <span className="av-access-badge">
-              <Icon name="shield" size={13} /> Master admin
-            </span>
-            <Link href="/app" className="av-workspace-link">
-              My dashboard <Icon name="arrow" size={14} />
-            </Link>
-          </div>
-        </header>
+        <AdminTopbar
+          current={
+            view === "marketplace"
+              ? "Marketplace"
+              : view === "integrations"
+                ? "Connections"
+                : view === "users"
+                  ? "Users & activity"
+                  : view.charAt(0).toUpperCase() + view.slice(1)
+          }
+        />
         <main className="av-content">
           <div className="av-page-heading">
             <div>
@@ -136,7 +139,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                     : view === "health"
                       ? "System health"
                       : view === "integrations"
-                        ? "Integrations & API access"
+                        ? "Connections"
                         : view === "pricing"
                           ? "Plans & pricing"
                           : "Users & activity"}
@@ -145,7 +148,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                 {view === "pricing"
                   ? "Control plan pricing across Zenvio, with a clear view of every rate."
                   : view === "integrations"
-                    ? "Connect your services and manage credentials in one secure place."
+                    ? "Every third-party service Zenvio runs on, with encrypted, write-only credentials."
                     : view === "health"
                       ? "Monitor platform availability, delivery, and service configuration."
                       : view === "users"
@@ -164,14 +167,9 @@ export function Operations({ initialView }: { initialView?: string }) {
             </Link>
           </div>
           <nav className="operations-tabs" aria-label="Platform sections">
-            {[
-              ["subscriptions", "Subscriptions"],
-              ["marketplace", "Marketplace"],
-              ["users", "Users & activity"],
-              ["integrations", "Integrations"],
-              ["pricing", "Pricing"],
-              ["health", "Health"],
-            ].map(([id, label]) => (
+            {tabs
+              .filter(([, , permission]) => can(permission))
+              .map(([id, label]) => (
               <button
                 key={id}
                 aria-pressed={view === id}
@@ -317,128 +315,13 @@ export function Operations({ initialView }: { initialView?: string }) {
                 </section>
               )}
               {view === "integrations" && (
-                <section
-                  className="av-panel"
-                  style={{ padding: 24, marginBottom: 24 }}
-                >
-                  <h2>Integration credentials</h2>
-                  <p>
-                    Booking email: {data.emailDelivery.sent} sent ·{" "}
-                    {data.emailDelivery.pending} pending ·{" "}
-                    {data.emailDelivery.failed} exhausted retries.
-                  </p>
-                  <button
-                    disabled={busy}
-                    onClick={() => void save({ action: "test-email" })}
-                  >
-                    Send test email to my admin address
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => void save({ action: "retry-emails" })}
-                  >
-                    Process pending booking emails
-                  </button>
-                  <p>
-                    Values are encrypted at rest and never returned to this
-                    screen. Save a replacement to rotate a key. Use test Stripe
-                    keys until billing has been verified.
-                  </p>
-                  {data.integrations.map((field) => (
-                    <form
-                      key={field.key}
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 12,
-                        alignItems: "center",
-                        padding: "12px 0",
-                        borderBottom: "1px solid #e7eaf2",
-                      }}
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        const form = e.currentTarget;
-                        const value = String(new FormData(form).get("value"));
-                        if (
-                          await save({
-                            action: "integration",
-                            key: field.key,
-                            value,
-                          })
-                        )
-                          form.reset();
-                      }}
-                    >
-                      <label style={{ flex: "1 1 240px" }} htmlFor={field.key}>
-                        {field.label}
-                        <small style={{ display: "block" }}>
-                          {field.configured
-                            ? "Configured · value hidden"
-                            : "Not connected"}
-                        </small>
-                      </label>
-                      <input
-                        id={field.key}
-                        name="value"
-                        type="password"
-                        autoComplete="new-password"
-                        required
-                        maxLength={4096}
-                        placeholder={
-                          field.configured ? "Replacement value" : "Enter value"
-                        }
-                        style={{ padding: 10, flex: "1 1 220px" }}
-                      />
-                      <button disabled={busy || !data.health.encryption.ok}>
-                        Save
-                      </button>
-                    </form>
-                  ))}
-                  <p>
-                    Calendar feed subscriptions are available in workspace
-                    settings. Google Calendar uses the OAuth client credentials
-                    here. Microsoft OAuth is still being prepared.
-                  </p>
-                  <div className="google-admin-setup">
-                    <h3>Google Calendar setup</h3>
-                    <ol>
-                      <li>
-                        Enable the Google Calendar API in your Google Cloud
-                        project.
-                      </li>
-                      <li>
-                        Configure the OAuth consent screen for Zenvio and create
-                        a Web application OAuth client.
-                      </li>
-                      <li>
-                        Register{" "}
-                        <code>
-                          https://gozenvio.com/api/calendars/google/callback
-                        </code>{" "}
-                        as an authorized redirect URI, then save the client ID
-                        and secret here.
-                      </li>
-                      <li>
-                        In Testing mode, add your Google account as a test user.
-                        Public access may require Google app verification.
-                      </li>
-                      <li>
-                        Open Dashboard → Settings → Calendar connections and
-                        connect your Google account.
-                      </li>
-                    </ol>
-                    <a
-                      href="https://console.cloud.google.com/apis/credentials"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Google Cloud credentials ↗
-                    </a>
-                  </div>
-                  <p>
-                    Stripe webhook URL: <code>/api/billing/webhook</code>.
-                  </p>
-                </section>
+                <AdminConnections
+                  fields={data.integrations}
+                  emailDelivery={data.emailDelivery}
+                  encryptionReady={data.health.encryption.ok}
+                  busy={busy}
+                  save={save}
+                />
               )}
               {view === "pricing" && (
                 <section className="av-panel pricing-editor">

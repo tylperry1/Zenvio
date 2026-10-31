@@ -13,7 +13,7 @@ import { optionSchema } from "@/lib/personalization";
 export const dynamic = "force-dynamic";
 export async function GET() {
   try {
-    await adminSession();
+    await adminSession("marketplace");
     const products = (
       await getPool().query(
         "SELECT id,title,personalization_options,artwork_allowed FROM private.marketplace_products ORDER BY title",
@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const { token } = await adminSession(),
+    const { token } = await adminSession("marketplace"),
       v = await body(req),
       db = await getPool().connect();
     try {

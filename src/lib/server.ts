@@ -13,10 +13,10 @@ export function configuration() {
     if (!configured())
         throw new ApiError("Account services are not connected in this environment.", 503);
 }
-export async function backend(path: string, options: RequestInit = {}, userId?: string): Promise<any> {
+export async function backend(path: string, options: RequestInit = {}, userId?: string, adminScope?: string): Promise<any> {
     configuration();
     try {
-        return await postgresBackend(path, options, userId);
+        return await postgresBackend(path, options, userId, adminScope);
     }
     catch (error) {
         const e = error as {
