@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
       { id: "automation", label: "Reminders & workflows", icon: "bell", href: "/app/automation" },
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & classes", icon: "bag", href: "/app/growth" },
+      { id: "marketing", label: "Marketing & reviews", icon: "spark", href: "/app/marketing" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
     ],

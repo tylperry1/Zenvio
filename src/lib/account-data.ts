@@ -40,6 +40,10 @@ const exportQueries: Query[] = [
   { key: "assistant_conversations", sql: "SELECT c.title,m.role,m.content,m.created_at FROM private.ai_conversations c JOIN private.ai_messages m ON m.conversation_id=c.id WHERE c.user_id=$1 ORDER BY m.created_at" },
   { key: "assistant_actions", sql: "SELECT tool,preview,status,result,error,created_at,decided_at,completed_at FROM private.ai_actions WHERE user_id=$1 ORDER BY created_at" },
   { key: "feedback", sql: "SELECT category,message,page,status,admin_note,created_at FROM private.feedback WHERE user_id=$1" },
+  { key: "booking_sources", sql: "SELECT booking_id,source,medium,campaign,referrer_host,created_at FROM private.booking_sources WHERE user_id=$1" },
+  { key: "booking_page_views", sql: "SELECT day,source,views FROM private.booking_page_views WHERE user_id=$1 ORDER BY day" },
+  { key: "reviews", sql: "SELECT booking_id,rating,comment,display_name,public_consent,hidden_reason,owner_reply,replied_at,created_at FROM private.reviews WHERE user_id=$1" },
+  { key: "review_requests", sql: "SELECT booking_id,recipient_email,sent_at,expires_at,used_at,created_at FROM private.review_requests WHERE user_id=$1" },
 ];
 
 export async function exportAccount(userId: string) {

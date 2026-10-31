@@ -245,3 +245,116 @@
 .pwa-install-btn { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--action-primary); color: #fff; font-weight: 600; font-size: 13px; }
 .pwa-close { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #c4cce6; }
 .pwa-close:hover { background: #ffffff14; color: #fff; }
+
+/* Public review page (.rv) */
+.rv-page { min-height: 100svh; display: grid; justify-items: center; align-content: start; gap: 28px; padding: 48px 16px; background: linear-gradient(180deg, #f5f7ff, var(--surface-page) 320px); }
+.rv-card { width: 100%; max-width: 520px; padding: 28px; background: #fff; border: 1px solid var(--ds-line); border-radius: 18px; box-shadow: var(--ds-elev-2); }
+.rv-card form { display: grid; gap: 18px; }
+.rv-eyebrow { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--action-primary); }
+.rv-card h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.rv-meta { margin: -12px 0 0; font-size: 14px; color: var(--text-muted); }
+.rv-stars { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; border: 0; flex-wrap: wrap; }
+.rv-stars legend { width: 100%; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+.rv-stars label { position: relative; cursor: pointer; font-size: 38px; line-height: 1; color: #d6dbe7; transition: transform .1s, color .1s; }
+.rv-stars label.on { color: #f5a524; }
+.rv-stars label:hover { transform: scale(1.08); }
+.rv-stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rv-stars label:has(input:focus-visible) { outline: 2px solid var(--action-primary); outline-offset: 2px; border-radius: 6px; }
+.rv-stars output { margin-left: 10px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.rv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.rv-field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.rv-field span { font-weight: 400; color: var(--text-muted); }
+.rv-field textarea, .rv-field input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font: 400 14px var(--font-family); }
+.rv-field textarea:focus, .rv-field input:focus { outline: none; border-color: var(--action-primary); box-shadow: 0 0 0 3px #365cff1f; }
+.rv-check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text-secondary); }
+.rv-check-row input { margin-top: 3px; accent-color: var(--action-primary); width: 16px; height: 16px; }
+.rv-note { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.rv-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--error-surface); color: var(--error); font-size: 13px; }
+.rv-card button { height: 46px; border: 0; border-radius: 12px; background: var(--action-primary); color: #fff; font: 600 15px var(--font-family); cursor: pointer; }
+.rv-card button:disabled { opacity: .5; }
+.rv-done { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 8px 0; }
+.rv-done p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+.rv-done a { margin-top: 8px; font-weight: 600; color: var(--action-primary); }
+.rv-check { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--success-surface); color: var(--success); font-size: 26px; font-weight: 700; }
+
+/* Public reviews on booking profiles (.pr) */
+.pr { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--ds-line); }
+.pr-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.pr-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.pr-score { display: flex; align-items: baseline; gap: 8px; }
+.pr-score b { font-size: 22px; font-weight: 700; }
+.pr-score span, .pr-meta span { color: #f5a524; letter-spacing: 1px; }
+.pr-score small { font-size: 13px; color: var(--text-muted); }
+.pr ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pr li { padding: 14px 16px; border: 1px solid var(--ds-line); border-radius: 12px; background: #fff; }
+.pr-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.pr-meta b { font-size: 14px; }
+.pr-meta small { font-size: 12px; color: var(--text-muted); }
+.pr li p { margin: 8px 0 0; font-size: 14px; color: var(--text-secondary); line-height: 1.55; overflow-wrap: anywhere; }
+.pr li .pr-reply { padding: 10px 12px; border-radius: 10px; background: var(--ds-surface-muted); font-size: 13px; }
+.pr-note { margin: 12px 0 0; font-size: 12px; color: var(--text-muted); }
+
+/* Marketing & reviews workspace (.mk) */
+.mk { display: grid; gap: 16px; max-width: 1280px; margin: 0 auto; }
+.mk .ds-page-header, .mk .ds-notice, .mk .ds-kpis, .mk .ds-grid-2 { margin: 0; }
+.mk > .ds-segmented { justify-self: start; }
+.mk-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mk-stack { display: grid; gap: 16px; }
+.mk-toolbar { display: flex; justify-content: flex-end; }
+.mk-pad { padding: 20px; }
+.mk-form { display: grid; gap: 14px; }
+.mk-chips { display: flex; flex-wrap: wrap; gap: 6px; font-weight: 400; }
+.ds-root.ds-root .mk-chips button { height: 32px; min-height: 0; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ds-line); background: #fff; color: var(--text-secondary); font-size: 12.5px; font-weight: 500; }
+.ds-root.ds-root .mk-chips button[aria-pressed=true] { background: var(--text-primary); border-color: var(--text-primary); color: #fff; }
+.ds-root.ds-root .mk input { height: 38px; min-height: 0; padding: 0 12px; margin: 0; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 14px; font-weight: 400; width: 100%; }
+.mk-link { display: flex; gap: 8px; align-items: center; padding: 8px 8px 8px 12px; border: 1px solid #c9d5ff; border-radius: 10px; background: #f5f7ff; }
+.mk-link code { flex: 1; min-width: 0; font-size: 12.5px; overflow-wrap: anywhere; color: var(--text-primary); }
+.mk-qr { display: grid; justify-items: center; gap: 12px; }
+.mk-qr-img { width: 200px; height: 200px; padding: 8px; border: 1px solid var(--ds-line); border-radius: 14px; background: #fff; }
+.mk-qr-img svg { width: 100%; height: 100%; display: block; }
+.mk-qr-actions { display: flex; gap: 8px; }
+.mk-qr small { font-size: 12px; color: var(--text-muted); }
+.mk-snippet { display: grid; gap: 10px; }
+.mk-snippet pre { margin: 0; padding: 12px; border-radius: 10px; background: #0e1330; color: #dfe5ff; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
+.mk-snippet .ds-btn { justify-self: start; }
+.ds-root.ds-root .mk-muted { margin: 10px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.mk-muted code { font-size: 11.5px; background: #f1f3f8; padding: 1px 5px; border-radius: 4px; }
+.mk-muted-inline { color: var(--text-muted); font-size: 11.5px; }
+.mk-preview { margin-top: 12px; padding: 16px; border: 1px dashed var(--ds-line); border-radius: 10px; text-align: center; }
+.mk-preview span { display: inline-block; padding: 12px 20px; border-radius: 999px; background: #365cff; color: #fff; font: 600 15px var(--font-family); }
+.mk-strong { color: var(--text-primary); font-weight: 600; }
+.mk-campaigns { margin-top: 18px; border-top: 1px solid var(--ds-line-soft); padding-top: 14px; }
+.mk-campaigns h3 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+.mk-campaigns ul, .mk-ask, .mk-reviews, .mk-dist { list-style: none; margin: 0; padding: 0; }
+.mk-campaigns li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 13px; }
+.mk-campaigns li span { flex: 1; color: var(--text-primary); }
+.mk-campaigns small { color: var(--text-muted); }
+.mk-ask li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--ds-line-soft); }
+.mk-ask li:last-child { border-bottom: 0; }
+.mk-ask b { display: block; font-size: 13.5px; }
+.mk-ask small { display: block; font-size: 12px; color: var(--text-muted); }
+.mk-dist { display: grid; gap: 8px; }
+.mk-dist li { display: grid; grid-template-columns: 36px 1fr 32px; gap: 10px; align-items: center; font-size: 13px; }
+.mk-dist i { height: 8px; border-radius: 999px; background: #eef1f7; overflow: hidden; }
+.mk-dist em { display: block; height: 100%; background: #f5a524; border-radius: inherit; }
+.mk-dist b { text-align: right; font-variant-numeric: tabular-nums; }
+.mk-reviews { display: grid; gap: 12px; }
+.mk-reviews li { padding: 14px 16px; border: 1px solid var(--ds-line); border-radius: 12px; }
+.mk-reviews li.hidden { background: var(--ds-surface-muted); }
+.mk-review-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.mk-review-head b { font-size: 14px; }
+.mk-review-head small { font-size: 12px; color: var(--text-muted); }
+.mk-review-badges { margin-left: auto; }
+.mk-stars { color: #f5a524; letter-spacing: 1px; }
+.ds-root.ds-root .mk-reviews p { margin: 8px 0 0; font-size: 14px; color: var(--text-secondary); line-height: 1.55; overflow-wrap: anywhere; }
+.ds-root.ds-root .mk-reviews .mk-reply { padding: 10px 12px; border-radius: 10px; background: #f5f7ff; font-size: 13px; }
+.mk-review-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.ds-root.ds-root .mk-hide { height: 32px; font-size: 12.5px; }
+.mk-reply-form { display: grid; gap: 8px; margin-top: 10px; }
+.mk-reply-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font: 14px var(--font-family); }
+.mk-reply-form div { display: flex; justify-content: flex-end; gap: 6px; }
+.mk-share-link { display: block; padding: 12px; border-radius: 10px; background: #f1f3f8; font-size: 12.5px; overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .mk-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .mk-link { flex-direction: column; align-items: stretch; } .mk-ask li { padding: 12px 16px; } }
+/* Long tokens (file names, IDs) must wrap inside narrow KPI cards. */
+.ds-kpi p, .ds-kpi strong, .ds-dl dd { overflow-wrap: anywhere; }

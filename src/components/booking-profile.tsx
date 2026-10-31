@@ -1,4 +1,6 @@
 "use client";
+import { captureAttribution } from "@/lib/attribution-client";
+import { PublicReviews } from "./public-reviews";
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
@@ -12,6 +14,7 @@ export function BookingProfile({ host }: { host: string }) {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
+    captureAttribution(host);
     async function load() {
       setLoading(true);
       setError("");
@@ -227,6 +230,7 @@ export function BookingProfile({ host }: { host: string }) {
               <Icon name="globe" size={15} /> Available times are shown in your
               timezone when you choose an appointment.
             </p>
+            {host !== "demo" && <PublicReviews host={host} />}
           </section>
         </main>
       )}
