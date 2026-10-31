@@ -4,25 +4,24 @@ Read docs/ROADMAP.md and docs/qa/ZENVIO_2_0_FULL_QA_AUDIT.md for historical feat
 
 | Area | Status | Remaining acceptance / implementation |
 |---|---|---|
-| Auth, booking, tenant boundaries | Implemented but unverified on branch | Existing isolated fixtures and provider acceptance |
-| Google/Microsoft calendars | Implemented but unverified | Real OAuth/refresh/DST/cancel; authorized external edits incomplete |
-| Stripe Billing/Connect | Blocked by external configuration | Test-mode lifecycle and approved price/catalog readiness |
-| Email queue/webhooks | Implemented but unverified | Authorized Resend delivery and inbound routing absent |
-| Shared SMS / Telnyx | Incomplete | Connect both inbox stores, signed callbacks, consent, uncertain send handling |
-| Configurable AI / Gemini / Workers AI | Incomplete | Provider abstraction, approval preservation, cost limits |
-| Daily video | Not started | Private rooms, scoped join tokens and configuration gate |
-| R2 private storage | Not started | Private adapter and scanning acceptance; retain current files |
-| Packages / gift cards / loyalty | Not started | Serialized ledger, balances, redemptions and reversal evidence |
-| Membership billing | Not started | Stripe settlement mapping and lifecycle |
-| Recurrence / classes / waitlists | Incomplete | Transactional series/capacity and cancellation offers |
-| Workflows / proposals / invoices | Implemented but unverified | Reuse durable queue; advanced actions incomplete |
-| Sequential/drawn signing | Incomplete | Recipient ordering, evidence and finalized document integrity |
-| Identity verification | Not started | Provider architecture; no verified identity claims |
-| Supplier automation | Blocked by external configuration | Real supplier agreement, account and purchasing acceptance |
-| Admin metrics / controls | Incomplete | Real usage/cost counts, environment-specific provider policy |
-| Widgets / mini-sites | Incomplete | Existing public booking pages; new typed config only |
-| Export/deletion | Incomplete | Additional messaging/provider records, retention rules |
-| Shared contracts | Implemented but unverified | docs/LAUNCH_CONTRACTS.md + src/lib/launch/contracts.ts |
+| Auth, booking, tenant boundaries | Verified complete in isolated baseline CI | Final revision and real-provider acceptance required |
+| Google/Microsoft calendars | Implemented but unverified live | OAuth/refresh acceptance; external editing incomplete |
+| Stripe Billing/Connect | Blocked by external configuration | Approved catalog and test-mode lifecycle acceptance |
+| Email queue/webhooks/inbound | Implemented but unverified live | Verified inbound domain, separate secret, sender and reply acceptance |
+| SMS / Telnyx | Implemented but unverified live | Approved sender/campaign, delivery/consent acceptance; automated reminders incomplete |
+| AI / Gemini / Workers AI | Implemented but unverified live | Model/tool/privacy approval and budget acceptance |
+| Daily / R2 | Implemented but unverified live | Private-room/storage/scanner acceptance; actual video usage incomplete |
+| Packages / gift cards / membership / coupons | Implemented but unverified | Latest settlement/concurrency CI and separate gated Connect checkout acceptance |
+| Loyalty | Incomplete | Internal ledger exists; rewards/referrals/reviews/journeys incomplete |
+| Recurrence / classes / waitlists | Implemented but unverified live | Free recurrence, capacity, credit admission and cancellation offers; paid recurrence/exclusive holds incomplete |
+| Locations / travel buffers | Not started | Multi-location and service-area rules |
+| Workflows / invoices | Incomplete | Existing durable workflows retained; advanced journeys/payment schedules incomplete |
+| Sequential/drawn signing | Implemented but unverified live | Isolated ordering/evidence tests pass; independent identity provider incomplete |
+| Supplier automation | Blocked by external configuration | Real catalog reads only; ordering/returns/refunds incomplete |
+| Admin metrics / controls | Incomplete | Actual aggregate/provider data implemented; cohorts and full usage/margins incomplete |
+| Widgets / mini-sites | Incomplete | Existing public booking pages; new backend configuration incomplete |
+| Export/deletion | Implemented but unverified | Additional histories and retention blockers require final revision CI |
+| Shared contracts | Implemented but unverified | Published contracts; frontend adoption and complete forms remain |
 
 All unsupported capabilities remain disabled. “Verified complete” requires final-revision evidence and, for providers, real authorized acceptance.
 
@@ -63,3 +62,7 @@ Implemented but live-provider-unverified: Gemini/Workers AI abstraction and spen
 No entire partially implemented category is relabeled Verified complete based only on source presence.
 
 Waitlist/attendance delta: owner-scoped opt-in lists, durable cancellation offers, expiring hashed offer tokens, idempotent acceptance and audited ended-appointment attendance/policy APIs are implemented. Frontend offer review and live email acceptance are still required. Classes/capacity, paid waitlists and automatic no-show fees are not implemented.
+
+## October 31 implementation reconciliation
+
+The later implementation supersedes older “not started” statements above: classes/capacity and credit admission are implemented with migrations 049–050; package checkout, monthly membership grants, gift-card redemption, coupons and proportional refund recovery are implemented with migration 051; authenticated inbound email threading is implemented with migration 052. No live-provider acceptance is implied. Checkout requires separate release-validation and live flags; inbound replies require a verified domain and separate signing secret. Frontend forms remain integration work.

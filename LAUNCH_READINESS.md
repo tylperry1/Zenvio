@@ -50,7 +50,16 @@ Original macOS checkout uses dataless cloud Git objects; shell GitHub DNS fails.
 
 ## Explicit remaining scope
 
-Full original roadmap is not complete. Group/classes/capacity, exclusive waitlist holds, automated no-show fee charging, travel/service-area/multi-location rules, paid recurrence, subscriptions for customer memberships, gift-card checkout, coupons/rewards/referrals/reviews/conversion journeys, advanced workflow/payment schedules, external calendar editing, email inbound routing, automated SMS reminders, supplier ordering/returns/refunds and actual Daily usage ingestion remain incomplete or not started. The provider interfaces and internal ledgers do not substitute for those workflows. See ROADMAP.md.
+The full roadmap remains incomplete. External calendar editing, automated SMS reminders, exclusive waitlist holds, automatic no-show fees, multi-location/travel/service areas, paid recurring appointments, rewards/referrals/reviews/conversion journeys, advanced payment schedules, supplier ordering/returns/refunds, actual Daily usage ingestion and new widgets/mini-sites still require implementation or acceptance. Customer commerce and inbound email now exist but require final-revision CI, frontend adoption and authorized provider tests.
+
+## October 31 continuation
+
+- Classes/group sessions reserve the organizer once, enforce capacity transactionally, support credit admission and return credits on cancellation. Backend run 41240292002 and combined frontend run 41240308864 passed both CI jobs.
+- Customer commerce adds server-priced packages, monthly memberships, gift cards, coupon reservations, signed Connect reconciliation, exactly-once credit grants and proportional refund recovery. Spent refunded credits freeze debits and record debt; no additional charge is made.
+- Inbound email uses separate signed webhooks, provider-reported authentication, private reply aliases and exact participant matching. HTML-only messages are quarantined and attachments withheld.
+- Commerce CI found a nullable Stripe amount type error; an explicit numeric guard was committed. Final backend and integration reruns are pending.
+- Review branches: backend PR #15; unchanged Claude frontend PR #16; combined staging-review PR #17. No production merge or promotion.
+- Additive migrations 049–052 supplement 041–048. No previously applied migration was rewritten.
 
 ## Migration and deployment policy
 
