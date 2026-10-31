@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegister } from "@/components/pwa";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "./platform.css";
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
     ],
   },
   manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Zenvio", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     siteName: "Zenvio",
@@ -63,6 +65,7 @@ export const metadata: Metadata = {
     images: ["/brand/og-share.png"],
   },
 };
+export const viewport: Viewport = { themeColor: "#151B38" };
 export default function RootLayout({
   children,
 }: {
@@ -70,7 +73,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }

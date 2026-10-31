@@ -1,4 +1,5 @@
 "use client";
+import { InstallPrompt } from "./pwa";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
@@ -417,6 +418,7 @@ export function AppShell({
           </p>
         )}
         <div className="shell-content">{children}</div>
+        {!demo && <InstallPrompt />}
         {!demo && user && <AssistantLauncher />}
         <CommandPalette
           open={search}
