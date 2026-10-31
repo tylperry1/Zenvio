@@ -6,7 +6,7 @@ Audit date: October 31, 2026 (America/New_York). Baseline: `864dcb6fb18af0da866a
 
 The platform has substantial implemented scheduling, signing, CRM, team, administration, messaging and contractor workflows. It is not certified ready for unrestricted paid launch: actual Stripe test-mode transactions, real email delivery, real calendar OAuth, supplier fulfillment, production database recovery and field accessibility/performance remain unverified. Source presence and passing mocked tests are not provider acceptance evidence.
 
-This audit found and repaired Microsoft conflict-check gaps, Microsoft availability failing open, invalid provider webhook responses, lost webhook retries, an inaccurate signing allowance, unbounded JSON buffering, calendar carriage-return escaping, missing crawl controls and a mobile authentication heading defect. No production fixture accounts, customer messages, charges or destructive database operations were used. No secrets or migrations were changed.
+This audit found and repaired Microsoft conflict-check gaps, Microsoft availability failing open, invalid provider webhook responses, lost webhook retries, an inaccurate signing allowance, unbounded JSON buffering, calendar carriage-return escaping, missing crawl controls and a mobile authentication heading defect. No production fixture accounts, customer messages, charges or destructive database operations were used. No secrets were changed. One additive migration (040) repairs complimentary Teams seats; all previously applied migrations are untouched.
 
 The initial release candidate passed unit tests, retained-record Postgres migration checks, build, typecheck, API integration, scheduling concurrency, signing, team workflows and existing browser suites. Its expanded responsive test failed on the hidden mobile authentication H1. That failure was investigated and fixed, not waived. Final evidence is recorded in the release section as checks finish.
 
@@ -79,6 +79,8 @@ Related code commits: `66333945cb509d583c1fbc523db3b73d62f9654d` (availability/r
 | ZQA-015 | P2 | Master-admin pricing | Pricing() returns four legacy plans plus three approved package rates; UI submitted seven and handler required four, so Save failed. | Handler validates all seven when supplied, protects approved package amounts, and saves four legacy rates; approved package inputs read-only. Integration tests assert all seven IDs, reject package tampering, and retain legacy edit assertions. |
 | ZQA-016 | P3 | Standalone marketplace integration harness | Newly executed legacy test could not import ./personalization through its TypeScript transpilation harness. | Harness loads the real personalization implementation with the existing validated test helpers; no stock/ownership/payment assertion removed. |
 
+| ZQA-017 | P2 | Complimentary Teams workspaces | Migration 039 sets effective_plan for admins/employees, but team_entitlement_roots omitted these grants; team creation checks canManageTeamBilling and rejects them. | Additive 040 aligns shared roots with enabled master/employee Teams grants; real-Postgres tests cover creation, three seats and suspension revocation. Existing migration files untouched. |
+
 No P0 breach or cross-tenant exploit was demonstrated. This is not proof of absence of vulnerabilities.
 
 ## Test results and evidence
@@ -108,7 +110,7 @@ CI scripts: Node test runner for unit/mock tests; real Postgres disposable migra
 - Uploads enforce streaming caps, content detection and re-encode images to remove metadata. General PDF attachments are downloads; signing PDFs receive stricter validation. Malware scanning of arbitrary PDFs is not provided/verified.
 - Integration vault uses authenticated encryption with per-value random IVs and stable server-held encryption key. No key material was printed, replaced, rotated or committed.
 - Stripe and provider webhook signatures are checked before state mutation. Added behavioral Stripe invalid-signature/duplicate/foreign-account tests and fixed callback transaction boundaries.
-- No migration changes, resets, truncations or production writes were made for tests. CI applies existing files to disposable databases and checks retained booking/contact/signing/subscription compatibility.
+- No applied migrations, resets, truncations or production writes were made for tests. Additive migration 040 replaces only the shared entitlement lookup; it does not update or delete existing records. CI applies existing files to disposable databases and checks retained booking/contact/signing/subscription compatibility.
 - Production backup/PITR configuration, restore rehearsal, real query plans, row counts, production orphan/duplicate scans and production checksums were not accessed; they remain **unable to verify**. A deployment build succeeding does not prove a restorable backup.
 - CSP still permits inline scripts/styles for Next.js; nonce-based CSP, automated contrast scanning and broader abuse/load testing remain follow-up work. No destructive penetration tests performed.
 - Build logs show package engines `>=22` allows Vercel to choose Node 26 despite project settings saying Node 24; CI uses Node 22. These builds ran successfully, but pinning and aligning runtimes remains a release-reproducibility follow-up.
@@ -157,3 +159,5 @@ Designated Stripe test accounts/keys/Connect onboarding; provider OAuth test acc
 ## Concurrent production update incorporated
 
 During the audit, PR #14 merged as `37ad86e46ff1d7d0a2601a824af682febda26dac`, adding the admin console redesign, employee permissions and migration 039. The QA branch incorporates that exact main commit with both parents preserved. Three overlapping files (server helpers, admin operations API and operations UI) were merged without dropping either set of changes. The already-landed migration is unchanged. Supplemental source count: 44 pages, 78 API entrypoints, 41 Postgres migration files. New delegated-access behavior is included in unit tests, an added isolated staff permission/revocation integration fixture, and the admin Team screen in responsive checks. No real employee invitation is sent by QA.
+
+Migration 040 safety: CREATE OR REPLACE of the existing private shared-root function with its signature/grants retained. Existing paid and override predicates are preserved; enabled platform roles and complimentary employee Teams grants are added. No backfill or destructive statement. Real-Postgres CI applies it from scratch and through retained-record upgrade checks before release.
