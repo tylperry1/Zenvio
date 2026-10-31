@@ -7,7 +7,7 @@ const statuses = ["new", "reviewing", "planned", "done", "declined"];
 
 export async function GET(request: NextRequest) {
   try {
-    await adminSession();
+    await adminSession("feedback");
     const params = request.nextUrl.searchParams;
     const shot = params.get("screenshot");
     if (shot) {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { user } = await adminSession();
+    const { user } = await adminSession("feedback");
     const input = await body(request);
     const status = String(input.status);
     if (!statuses.includes(status)) throw new ApiError("Choose a valid status.");

@@ -13,7 +13,7 @@ import { planLimits, entitlementUsage } from "@/lib/entitlements";
 export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
-    await adminSession();
+    await adminSession("entitlements");
     const user = req.nextUrl.searchParams.get("user");
     return Response.json(
       {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const { token } = await adminSession(),
+    const { token } = await adminSession("entitlements"),
       v = await body(req),
       db = await getPool().connect();
     try {

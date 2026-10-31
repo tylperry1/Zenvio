@@ -56,6 +56,7 @@ jobs:
       - run: node tests/experience.integration.mjs
       - run: node tests/experience.browser.mjs
       - run: node tests/qa.browser.mjs
+      - run: node tests/staff-access.integration.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

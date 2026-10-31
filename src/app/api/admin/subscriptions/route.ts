@@ -7,7 +7,7 @@ import { failure, integer, string, uuid, ApiError } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
-    await adminSession();
+    await adminSession("subscriptions");
     const q = request.nextUrl.searchParams;
     if (q.get("userId"))
       return Response.json(await billingDetails(uuid(q.get("userId"))), {
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token } = await adminSession();
+    const { token } = await adminSession("subscriptions");
     const v = await body(request);
     const userId = uuid(v.userId);
     const reason = string(v.reason, "reason", 500, 5);

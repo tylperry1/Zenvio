@@ -302,3 +302,7 @@ Additional regression: `tests/payment-request-checkout.test.mjs` — mocked paym
 | `vercel.json` | Deployment/cron configuration |
 | `package.json`, `package-lock.json`, `tsconfig.json` | Dependencies/scripts/type checking |
 | `supabase/` | Legacy migration/admin artifacts; current runtime uses dedicated Postgres |
+
+## Concurrent PR #14 additions
+
+Baseline `37ad86e` is incorporated into the audit branch. New source entries: `src/app/admin/team/page.tsx` (/admin/team), `src/app/api/admin/team/route.ts` (/api/admin/team), `src/lib/admin-sections.ts`, `src/components/admin-access.tsx`, `admin-connections.tsx`, `admin-team.tsx`, `src/app/admin/layout.tsx`, `src/app/admin/team/layout.tsx`, `postgres/migrations/039_staff_access.sql`, and `tests/admin-team.test.mjs`. Existing admin routes now enforce per-area employee permissions. `tests/staff-access.integration.mjs` tests real-Postgres delegation, redaction and revocation; actual invitation delivery remains unverified.

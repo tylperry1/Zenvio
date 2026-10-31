@@ -14,7 +14,7 @@ const db={query:async(sql,args)=>{queries.push({sql,args});
 const cache=new Map();
 function load(file){const filename=path.resolve(file);if(cache.has(filename))return cache.get(filename).exports;
  const m=new Module(filename);cache.set(filename,m);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const original=m.require.bind(m);
- m.require=id=>id==='@/lib/admin'?{adminSession:async()=>{if(!authorized)throw new (load('src/lib/server.ts').ApiError)('Forbidden',403);return {token:owner};}}:
+ m.require=id=>id==='@/lib/admin'?{adminSession:async()=>{if(!authorized)throw new (load('src/lib/server.ts').ApiError)('Forbidden',403);return {token:owner,access:{role:'master_admin',permissions:[]}};}}:
  id==='@/lib/db'||id==='./db'?{databaseConfigured:()=>true,getPool:()=>({connect:async()=>db})}:
  id==='@/lib/server'?load('src/lib/server.ts'):id==='./auth'||id==='@/lib/auth'?{getAuth:()=>({}),mailConfigured:()=>false}:id==='./postgres-backend'?{postgresBackend:async()=>{}}:original(id);
  m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText,filename);return m.exports;
@@ -28,3 +28,17 @@ test('deletion preserves orders, billing, upcoming appointments, and pending syn
 test('eligible deletion commits the removal and an audit record',async()=>{assert.equal((await POST(request())).status,200);assert.ok(queries.some(q=>q.sql.startsWith('DELETE FROM public.')));assert.ok(queries.some(q=>q.sql.includes('INSERT INTO private.operation_log')));assert.equal(queries.at(-1).sql,'COMMIT');});
 test('email edits revoke sessions and update both account and profile',async()=>{assert.equal((await POST(request({action:'edit',name:'New Name',email:'new@example.com',timezone:'America/New_York'}))).status,200);assert.ok(queries.some(q=>q.sql.startsWith('UPDATE public.profiles')));assert.ok(queries.some(q=>q.sql.startsWith('DELETE FROM public.session')));assert.ok(queries.some(q=>q.sql.includes('emailVerified')));});
 test('invalid timezone rolls back without updating the account',async()=>{assert.equal((await POST(request({action:'edit',name:'New Name',email:'member@example.com',timezone:'Invalid/Zone'}))).status,400);assert.ok(!queries.some(q=>q.sql.startsWith('UPDATE')));assert.equal(queries.at(-1).sql,'ROLLBACK');});
+test('employees with account access cannot change other Zenvio team accounts',async()=>{
+ const original=load('src/app/api/admin/users/route.ts');
+ // Reload with a staff session to exercise the employee-protection branch.
+ const filename=path.resolve('src/app/api/admin/users/route.ts');cache.delete(filename);
+ const saved=Module.prototype.require;
+ const staffAdmin={adminSession:async()=>({token:owner,access:{role:'staff',permissions:['accounts']}})};
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));
+ m.require=id=>id==='@/lib/admin'?staffAdmin:id==='@/lib/db'?{getPool:()=>({connect:async()=>db})}:id==='@/lib/server'?load('src/lib/server.ts'):id==='@/lib/auth'?{getAuth:()=>({}),mailConfigured:()=>false}:saved.call(m,id);
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText,filename);
+ const r=await m.exports.POST(request());
+ assert.equal(r.status,409);
+ assert.ok(!queries.some(q=>q.sql.startsWith('DELETE')));
+ assert.ok(original);
+});

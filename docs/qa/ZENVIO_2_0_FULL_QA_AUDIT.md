@@ -153,3 +153,7 @@ Sequential/drawn signing, emailed team invitations and ownership transfer; riche
 ### External blockers
 
 Designated Stripe test accounts/keys/Connect onboarding; provider OAuth test accounts and API permissions; verified Resend sender/key and owner-authorized recipient; Twilio registration/consent/provider acceptance; supplier/video contracts; Neon backup/recovery access; production observability/field metrics. Independent remediation and CI continue without activating these integrations.
+
+## Concurrent production update incorporated
+
+During the audit, PR #14 merged as `37ad86e46ff1d7d0a2601a824af682febda26dac`, adding the admin console redesign, employee permissions and migration 039. The QA branch incorporates that exact main commit with both parents preserved. Three overlapping files (server helpers, admin operations API and operations UI) were merged without dropping either set of changes. The already-landed migration is unchanged. Supplemental source count: 44 pages, 78 API entrypoints, 41 Postgres migration files. New delegated-access behavior is included in unit tests, an added isolated staff permission/revocation integration fixture, and the admin Team screen in responsive checks. No real employee invitation is sent by QA.

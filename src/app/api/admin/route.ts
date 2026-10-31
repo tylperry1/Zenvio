@@ -5,8 +5,9 @@ import { ApiError, backend, body, failure, integer, sameOrigin, string, uuid, } 
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
     try {
-        const { token } = await adminSession();
         const q = request.nextUrl.searchParams;
+        const scope = q.get("view") === "audit" ? "audit" : "accounts";
+        const { token } = await adminSession(scope);
         const page = integer(Number(q.get("page") || 0), "page", 0, 100000);
         let path = "/rest/v1/rpc/admin_overview";
         let values: Record<string, unknown> = {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
             page_size: 25,
         };
         if (q.get("view") === "insights") {
-            const insights = await backend("/rest/v1/rpc/admin_insights", { method: "POST", body: "{}" }, token);
+            const insights = await backend("/rest/v1/rpc/admin_insights", { method: "POST", body: "{}" }, token, scope);
             return Response.json({ ...insights, services: { database: true, authentication: true, account_email: await mailReady() } }, { headers: { "Cache-Control": "no-store" } });
         }
         if (q.get("view") === "audit") {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
             path = "/rest/v1/rpc/admin_account_detail";
             values = { account_id: uuid(q.get("account")) };
         }
-        const result = await backend(path, { method: "POST", body: JSON.stringify(values) }, token);
+        const result = await backend(path, { method: "POST", body: JSON.stringify(values) }, token, scope);
         return Response.json(result, { headers: { "Cache-Control": "no-store" } });
     }
     catch (error) {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         sameOrigin(request);
-        const { token } = await adminSession();
+        const { token } = await adminSession("accounts");
         const input = await body(request);
         if (input.action !== "event-status" || typeof input.active !== "boolean")
             throw new ApiError("Invalid admin action.");
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
                 enabled: input.active,
                 reason: string(input.reason, "reason", 500, 5),
             }),
-        }, token);
+        }, token, "accounts");
         return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     }
     catch (error) {

@@ -107,6 +107,7 @@ const functions: Record<
   cancel_booking: { args: ["cancellation_token"], scalar: true },
   account_schema_version: { args: [], scalar: true },
   current_platform_role: { args: [], scalar: true, private: true },
+  current_staff_access: { args: [], scalar: true, private: true },
   admin_insights: { args: [], scalar: true, private: true },
   admin_overview: {
     args: ["page_number", "search_query", "page_size"],
@@ -130,6 +131,7 @@ export async function postgresBackend(
   path: string,
   options: RequestInit = {},
   userId?: string,
+  adminScope?: string,
 ) {
   const url = new URL(path, "https://internal.invalid"),
     parts = url.pathname.split("/");
@@ -139,6 +141,11 @@ export async function postgresBackend(
     await db.query("select set_config('zenvio.user_id',$1,true)", [
       userId || "",
     ]);
+    // Only set after the route authorized this console area (see lib/admin.ts).
+    if (adminScope)
+      await db.query("select set_config('zenvio.admin_scope',$1,true)", [
+        adminScope,
+      ]);
     await db.query(
       userId ? "set local role authenticated" : "set local role anon",
     );

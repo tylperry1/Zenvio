@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Platform-wide assistant switch and limits, per-account overrides, usage and the action audit trail.
 export async function GET() {
   try {
-    await adminSession();
+    await adminSession("assistant");
     const pool = getPool();
     const [policy, configured, usage, top, overrides, actions] = await Promise.all([
       assistantPolicy(),
@@ -44,7 +44,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { user } = await adminSession();
+    const { user } = await adminSession("assistant");
     const input = await body(request);
     const pool = getPool();
     if (input.action === "policy") {

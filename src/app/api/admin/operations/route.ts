@@ -6,7 +6,7 @@ import {
 import { deliverBookingEmails, sendAccountMail } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { changeSubscription } from "@/lib/subscription-management";
-import { adminSession } from "@/lib/admin";
+import { adminSession, canAccess, type StaffPermission } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import {
   integrationFields,
@@ -23,9 +23,18 @@ import {
   uuid,
 } from "@/lib/server";
 export const dynamic = "force-dynamic";
+const sections: StaffPermission[] = [
+  "subscriptions",
+  "marketplace",
+  "accounts",
+  "integrations",
+  "pricing",
+  "health",
+];
 export async function GET() {
   try {
-    await adminSession();
+    const { access } = await adminSession(sections);
+    const can = (p: StaffPermission) => canAccess(access, p);
     const start = Date.now();
     await getPool().query("SELECT 1");
     const health = {
@@ -62,10 +71,12 @@ export async function GET() {
     const { rows: queue } = await getPool().query(
       "SELECT (SELECT min(created_at) FROM (SELECT created_at FROM private.delivery_jobs WHERE status='queued' UNION ALL SELECT created_at FROM private.email_outbox WHERE sent_at IS NULL AND migrated_at IS NULL) q) oldest_pending,(SELECT max(sent_at) FROM(SELECT sent_at FROM private.delivery_jobs UNION ALL SELECT sent_at FROM private.email_outbox) s) last_sent",
     );
+    const ops = can("health") || can("integrations");
     return Response.json(
       {
+        access: { role: access.role, permissions: access.permissions },
         health,
-        emailDiagnostics: await emailDiagnostics(),
+        emailDiagnostics: can("health") ? await emailDiagnostics() : undefined,
         healthDetails: {
           checkedAt: new Date().toISOString(),
           nodeVersion: process.version,
@@ -76,11 +87,11 @@ export async function GET() {
           oldestPendingEmail: queue[0]?.oldest_pending,
           lastEmailSent: queue[0]?.last_sent,
         },
-        integrations,
-        pricing: await pricing(),
-        subscriptions,
-        activity,
-        users,
+        integrations: ops ? integrations : [],
+        pricing: can("pricing") ? await pricing() : [],
+        subscriptions: can("subscriptions") ? subscriptions : [],
+        activity: can("accounts") ? activity : [],
+        users: can("accounts") ? users : [],
         emailDelivery: emailDelivery[0],
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -92,8 +103,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token, user } = await adminSession();
     const input = await body(request);
+    const needed: Record<string, StaffPermission> = {
+      "test-email": "integrations",
+      "retry-emails": "integrations",
+      "revoke-sessions": "accounts",
+      "subscription-cancel": "subscriptions",
+      "subscription-resume": "subscriptions",
+      integration: "integrations",
+      pricing: "pricing",
+    };
+    if (typeof input.action !== "string" || !Object.hasOwn(needed, input.action))
+      throw new ApiError("Unknown action.");
+    const { token, user, access } = await adminSession(needed[input.action]);
     if (input.action === "test-email") {
       await sendAccountMail(
         user.email,
@@ -107,6 +129,17 @@ export async function POST(request: NextRequest) {
       if (target === token)
         throw new ApiError("Use Sign out to end your own session.");
       const reason = string(input.reason, "reason", 500, 5);
+      if (access.role !== "master_admin") {
+        const privileged = await getPool().query(
+          "SELECT 1 FROM private.platform_roles WHERE user_id=$1 UNION ALL SELECT 1 FROM private.staff_members WHERE user_id=$1",
+          [target],
+        );
+        if (privileged.rowCount)
+          throw new ApiError(
+            "Only the master admin can sign out Zenvio admin accounts.",
+            403,
+          );
+      }
       const client = await getPool().connect();
       try {
         await client.query("BEGIN");

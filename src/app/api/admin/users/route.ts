@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token } = await adminSession();
+    const { token, access } = await adminSession("accounts");
     const input = await body(request),
       id = uuid(input.id);
     const reason = string(input.reason, "reason", 500, 5);
@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
       )
         throw new ApiError(
           "Master admin accounts are protected. Use your own Settings to update your profile.",
+          409,
+        );
+      const staff = await client.query(
+        "SELECT user_id FROM private.staff_members WHERE user_id=$1",
+        [id],
+      );
+      if (staff.rowCount && access.role !== "master_admin")
+        throw new ApiError(
+          "Zenvio employee accounts can only be changed by the master admin.",
           409,
         );
       if (input.action === "delete") {
