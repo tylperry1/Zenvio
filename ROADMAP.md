@@ -68,3 +68,20 @@ Waitlist/attendance delta: owner-scoped opt-in lists, durable cancellation offer
 The later implementation supersedes older “not started” statements above: classes/capacity and credit admission are implemented with migrations 049–050; package checkout, monthly membership grants, gift-card redemption, coupons and proportional refund recovery are implemented with migration 051; authenticated inbound email threading is implemented with migration 052. No live-provider acceptance is implied. Checkout requires separate release-validation and live flags; inbound replies require a verified domain and separate signing secret. Frontend forms remain integration work.
 
 Customer journeys now available in the release candidate: `/app/growth`, `/shop/[host]`, `/gift-card`, `/purchase/complete`, `/classes/[id]`, `/class-cancel` and `/waitlist-offer`. Automated SMS reminders now use the durable outbox with explicit appointment consent and current-booking checks, disabled by default. Class creation currently exposes free sessions; credit admission remains an owner API. Full external-provider acceptance, advanced growth/workflow and supplier scope remain open.
+
+
+## Marketing, attribution and reviews (Claude branch `launch/claude-experience`)
+
+Migration 055 adds `private.booking_sources`, `private.booking_page_views`, `private.review_requests` and `private.reviews`. It is additive and changes no earlier migration or contract.
+
+- `/api/book` records a validated source after a successful reservation, inside `after()` with errors swallowed. Booking behavior is unchanged.
+- New routes:
+  - `POST /api/marketing/visit` (public, same-origin, throttled, aggregate only)
+  - `GET /api/marketing/sources` (owner)
+  - `GET/POST /api/reviews` (owner)
+  - `POST /api/reviews/submit` (token)
+  - `GET /api/reviews/public` (published summary)
+- New pages: `/app/marketing` and `/review` (token in fragment). `public/widget.js` adds a floating booking button.
+- Account export includes the new histories.
+- Review emails use the existing Resend key. Without it, owners get a private link to share.
+- Status: implemented and verified end to end against a local Postgres in a production build. Live email delivery is unverified.
