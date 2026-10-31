@@ -43,6 +43,14 @@ export async function scheduleWorkflows(user?: string) {
               )
             ).rows;
       for (const b of sources) {
+        const at = r.trigger === "before_appointment"
+          ? new Date(new Date(b.starts_at).getTime() - r.minutes * 60000)
+          : r.trigger === "after_appointment"
+            ? new Date(new Date(b.ends_at).getTime() + r.minutes * 60000)
+            : new Date();
+        // Email jobs carry run_at. Tasks and document creation execute here, so
+        // leave them unclaimed until their trigger time actually arrives.
+        if (!["email_guest", "email_host"].includes(r.action) && at.getTime() > Date.now()) continue;
         const key = `workflow:${r.id}:${b.kind === "text" ? "text:" : ""}${b.id}:${r.trigger === "after_booking" ? 0 : b.revision || 0}`;
         const run = await db.query(
           "INSERT INTO private.workflow_runs(rule_id,user_id,booking_id,envelope_id,dedupe_key,document_id,status) VALUES($1,$2,$3,$4,$5,$6,'queued') ON CONFLICT(dedupe_key) DO UPDATE SET last_error=NULL WHERE private.workflow_runs.status='queued' RETURNING id",
@@ -60,12 +68,6 @@ export async function scheduleWorkflows(user?: string) {
         if (!run.rowCount) continue;
         await db.query("SAVEPOINT workflow_action");
         try {
-          const at =
-            r.trigger === "before_appointment"
-              ? new Date(new Date(b.starts_at).getTime() - r.minutes * 60000)
-              : r.trigger === "after_appointment"
-                ? new Date(new Date(b.ends_at).getTime() + r.minutes * 60000)
-                : new Date();
           if (r.action === "email_guest" || r.action === "email_host") {
             const to = r.action === "email_host" ? r.host_email : b.guest_email;
             if (!to) throw Error("Workflow recipient unavailable");
