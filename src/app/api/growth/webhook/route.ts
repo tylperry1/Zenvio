@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
                 if (!order || order.snapshot.kind !== 'membership' || sub.metadata.zenvio_owner !== order.user_id)
                     throw Error('invalid_growth_membership');
                 const customer = typeof sub.customer === 'string' ? sub.customer : sub.customer.id, period = sub.items?.data?.[0]?.current_period_end;
-                await db.query('insert into private.growth_memberships(order_id,user_id,stripe_subscription_id,stripe_customer_id,status,current_period_end) values($1,$2,$3,$4,$5,$6) on conflict(order_id) do update set status=$5,current_period_end=$6,updated_at=now()', [order.id, order.user_id, sub.id, customer, sub.status, period ? new Date(period * 1000) : null]);
+                await db.query('insert into private.growth_memberships(order_id,user_id,stripe_subscription_id,stripe_customer_id,status,current_period_end,cancel_at_period_end) values($1,$2,$3,$4,$5,$6,$7) on conflict(order_id) do update set status=$5,current_period_end=$6,cancel_at_period_end=$7,updated_at=now()', [order.id, order.user_id, sub.id, customer, sub.status, period ? new Date(period * 1000) : null,sub.cancel_at_period_end===true]);
                 if (event.type === 'invoice.paid' && invoice.status === 'paid' && ['subscription_create', 'subscription_cycle'].includes(invoice.billing_reason)) {
                     const pi = invoice.payment_intent ? typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent.id : null;
                     // Modern Stripe invoices expose payments separately; reconcile their real PaymentIntent.

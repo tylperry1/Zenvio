@@ -16,7 +16,7 @@ try {
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
-    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback"]],
+    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth"]],
     [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/feedback","/admin/marketplace-tools","/admin/team"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
@@ -42,6 +42,24 @@ try {
       }
     }
   }
+  // Customer-product UI acceptance stays in the isolated fixture: no provider checkout.
+  await pages[1].goto(origin+"/app/growth");
+  const offerForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create an offer",exact:true})});
+  await offerForm.locator('[name="title"]').fill("QA service package");
+  await offerForm.locator('[name="description"]').fill("Three service visits. Contact the business for eligible services.");
+  await offerForm.locator('[name="priceCents"]').fill("7500");
+  await offerForm.locator('[name="creditUnits"]').fill("3");
+  await offerForm.locator('[name="unit"]').fill("VISITS");
+  await offerForm.getByRole("button",{name:"Save draft offer"}).click();
+  await pages[1].getByRole("status").filter({hasText:"Offer saved as a draft"}).waitFor();
+  const offerCard=pages[1].locator("article").filter({has:pages[1].getByRole("heading",{name:"QA service package",exact:true})});
+  await offerCard.getByRole("button",{name:"Publish offer",exact:true}).click();
+  await pages[1].getByRole("status").filter({hasText:"Offer published"}).waitFor();
+  const business=(await (await member.request.get(origin+"/api/workspace")).json()).profile.slug;
+  await pages[0].goto(origin+"/shop/"+encodeURIComponent(business));
+  await pages[0].getByRole("heading",{name:"QA service package",exact:true}).waitFor();
+  assert.equal(await pages[0].getByRole("button",{name:"Review offer",exact:true}).isDisabled(),true,"unvalidated checkout stays disabled");
+  await pages[0].screenshot({path:"test-results/customer-offers-mobile.png",fullPage:true});
   for (const route of ["/api/workspace","/api/clients","/api/account","/api/billing"]) {
     for (let sample=0;sample<5;sample++) {
       const start=performance.now();
