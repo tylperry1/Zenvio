@@ -166,6 +166,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
   return {
     operations,
     runner: load("src/lib/job-runner.ts", {
+      "./launch/waitlists": {materializeWaitlistOffers:call("waitlist-offers")},
       "./launch/sms-outbox": { drainSmsOutbox: call("sms-outbox") },
       "./db": { getPool: () => pool },
       "./mail": {
@@ -209,6 +210,7 @@ test("scheduler records bounded successful work and never labels missing mail co
       "booking-notifications",
       "reminders",
       "workflows",
+      "waitlist-offers",
       "delivery",
     ],
   );

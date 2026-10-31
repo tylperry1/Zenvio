@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {Pool} from 'pg';
 import {PDFDocument} from 'pdf-lib';
-import {createHash} from 'node:crypto';
+import {createHash,createDecipheriv} from 'node:crypto';
 import ts from 'typescript';
 import fs from 'node:fs';
 import Module from 'node:module';
@@ -71,5 +71,15 @@ try{
  const before=Number((await db.query('select count(*) n from public.bookings where user_id=$1',[owner])).rows[0].n);
  assert.equal((await call('/api/bookings/recurring',{...seriesInput,idempotencyKey:'conflict-series-'+suffix},a.cookie)).status,409);
  assert.equal(Number((await db.query('select count(*) n from public.bookings where user_id=$1',[owner])).rows[0].n),before);
- console.log('Launch ledger, signing evidence, recurring-series atomicity/idempotency, E.164 and tenant fixtures passed.');
+ const waitlist=await call('/api/bookings/waitlists',{action:'join',eventId:event.id,contactId:contact.id,preferredFrom:new Date(Date.parse(series.data.startsAt[0])-60000).toISOString(),preferredUntil:new Date(Date.parse(series.data.startsAt[0])+86400000).toISOString(),emailOptIn:true,consentEvidence:'Client requested an appointment cancellation offer by email.'},a.cookie);assert.equal(waitlist.status,201,JSON.stringify(waitlist.data));
+ assert.equal((await call('/api/bookings/waitlists',{action:'join',eventId:event.id,contactId:contact.id,preferredFrom:series.data.startsAt[0],preferredUntil:new Date(Date.parse(series.data.startsAt[0])+86400000).toISOString(),emailOptIn:true,consentEvidence:'Not the owning account'},b.cookie)).status,404);
+ const cancelled=(await db.query('select cancel_token from public.bookings where id=$1',[series.data.bookingIds[0]])).rows[0];assert.equal((await call('/api/cancel',{token:cancelled.cancel_token})).status,200);
+ const jobs=await fetch(origin+'/api/jobs',{headers:{Authorization:'Bearer '+process.env.CRON_SECRET}});assert.ok([200,503].includes(jobs.status));
+ const offer=(await db.query('select o.*,j.payload_ciphertext from private.waitlist_offers o join private.delivery_jobs j on j.waitlist_offer_id=o.id where o.waitlist_id=$1',[waitlist.data.entry.id])).rows[0];assert.ok(offer,'durable cancellation offer was queued');
+ const [iv,tag,data]=offer.payload_ciphertext.split('.').map(v=>Buffer.from(v,'base64')),key=createHash('sha256').update(process.env.INTEGRATION_ENCRYPTION_KEY).digest(),cipher=createDecipheriv('aes-256-gcm',key,iv);cipher.setAuthTag(tag);const message=Buffer.concat([cipher.update(data),cipher.final()]).toString(),offerToken=message.match(/waitlist_offer=([a-f0-9]{64})/)[1];
+ assert.equal((await call('/api/bookings/waitlists/offer',{action:'read',token:offerToken})).status,200);
+ const accepted=await call('/api/bookings/waitlists/offer',{action:'accept',token:offerToken,answers:{}});assert.equal(accepted.status,200,JSON.stringify(accepted.data));assert.ok(accepted.data.bookingId);
+ const again=await call('/api/bookings/waitlists/offer',{action:'accept',token:offerToken,answers:{}});assert.equal(again.data.bookingId,accepted.data.bookingId);assert.equal(again.data.duplicate,true);
+ assert.equal((await call('/api/bookings/attendance',{action:'attendance',bookingId:accepted.data.bookingId,status:'no_show',reason:'Premature marking must fail'},a.cookie)).status,409);
+ console.log('Launch ledger, signing, recurrence, cancellation waitlist, offer acceptance/idempotency, attendance gates and tenant fixtures passed.');
 }finally{await db.end();}

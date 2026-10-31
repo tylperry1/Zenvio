@@ -29,6 +29,7 @@ jobs:
       MASTER_ADMIN_SETUP_TOKEN: isolated-upgrade-owner-token-123456789
       TEST_OWNER_TOKEN: isolated-upgrade-owner-token-123456789
       INTEGRATION_ENCRYPTION_KEY: isolated-upgrade-encryption-secret-123456789
+      WAITLIST_OFFERS_ENABLED: "true"
       TEST_REAL_POSTGRES: "true"
       CRON_SECRET: isolated-upgrade-job-runner-secret
       # The assistant talks to the scripted mock model started by the 2.1 tests, never the real API.
@@ -88,6 +89,7 @@ jobs:
       MASTER_ADMIN_SETUP_TOKEN: isolated-upgrade-owner-token-123456789
       TEST_OWNER_TOKEN: isolated-upgrade-owner-token-123456789
       INTEGRATION_ENCRYPTION_KEY: isolated-upgrade-encryption-secret-123456789
+      WAITLIST_OFFERS_ENABLED: "true"
       TEST_REAL_POSTGRES: "true"
       CRON_SECRET: isolated-upgrade-job-runner-secret
       # The assistant talks to the scripted mock model started by the 2.1 tests, never the real API.

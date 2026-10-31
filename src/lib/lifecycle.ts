@@ -200,6 +200,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
             [j.workflow_rule_id],
           )
         ).rowCount;
+      if(j.waitlist_offer_id) valid &&= !!(await db.query("select 1 from private.waitlist_offers o join private.appointment_waitlists w on w.id=o.waitlist_id where o.id=$1 and o.state='offered' and o.expires_at>now() and w.state='offered' and w.email_opt_in",[j.waitlist_offer_id])).rowCount;
       if (j.envelope_id && j.kind !== "document_complete") {
         const e = (
           await db.query(

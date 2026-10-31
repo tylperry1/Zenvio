@@ -1,3 +1,4 @@
+import {materializeWaitlistOffers} from "./launch/waitlists";
 import { drainSmsOutbox } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
@@ -55,6 +56,7 @@ export async function processScheduledJobs() {
     await materializeBookingNotifications();
     await materializeReminders();
     await scheduleWorkflows();
+    await materializeWaitlistOffers();
     const result = await drainDeliveries(undefined, 20);
     if (!result.configured) throw Error("mail_unconfigured");
     await pool.query(
