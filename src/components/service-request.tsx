@@ -238,7 +238,10 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 {busy ? "Sending…" : "Send request"}
               </button>
               <p className="ui-hint">
-                Your details go only to {info.business}. See our <Link href="/privacy">privacy policy</Link>.
+                By sending this request, you share these details and photos with {info.business} so they can respond. Zenvio
+                provides this form on their behalf and isn’t a party to any work or quote. See our{" "}
+                <Link href="/privacy">Privacy Policy</Link> and <Link href="/terms">Terms</Link>. Don’t include payment card
+                numbers or other sensitive information.
               </p>
             </form>
           </>

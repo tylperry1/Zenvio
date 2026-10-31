@@ -2177,3 +2177,52 @@
   flex-direction: row;
   align-items: center;
 }
+
+/* Legal pages: lists, provider table, anchors */
+.legal-page ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.legal-page li {
+  margin: 4px 0;
+}
+.legal-page a {
+  color: var(--action-primary);
+}
+.legal-page h2[id] {
+  scroll-margin-top: 24px;
+}
+.legal-table {
+  width: 100%;
+  margin: 8px 0 16px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.legal-table th,
+.legal-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-align: left;
+  vertical-align: top;
+}
+.legal-table th {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .legal-page {
+    padding: 0 18px 50px;
+  }
+  .legal-table th:nth-child(3),
+  .legal-table td:nth-child(3) {
+    display: none;
+  }
+}
+.portal-esign {
+  margin: 0;
+  font-size: 12px;
+}

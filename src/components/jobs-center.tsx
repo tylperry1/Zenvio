@@ -803,7 +803,10 @@ function EstimateEditor({ jobId, estimate, onClose, onSaved }: { jobId: string; 
         <Field label="Notes for the customer">
           <textarea className="ui-input" rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
-        <Field label="Work authorization terms" hint="Shown to the customer when they approve.">
+        <Field
+          label="Work authorization terms"
+          hint="Shown to the customer when they approve. You’re responsible for terms and notices your state requires (for example, cancellation rights). Zenvio doesn’t provide legal advice."
+        >
           <textarea className="ui-input" rows={3} maxLength={4000} value={terms} onChange={(e) => setTerms(e.target.value)} />
         </Field>
         <div className="ui-modal-actions">

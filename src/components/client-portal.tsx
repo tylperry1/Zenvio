@@ -259,6 +259,9 @@ export function ClientPortal({ token }: { token: string }) {
                         ))}
                     </ul>
                   )}
+                  {data.paymentsAvailable && data.payments.some((p) => p.status === "requested") && (
+                    <p className="portal-muted">Payments are processed securely by Stripe. Zenvio doesn’t store your card details.</p>
+                  )}
                   {!data.paymentsAvailable && data.payments.some((p) => p.status === "requested") && (
                     <p className="portal-muted">Online payment isn’t available for this provider yet. Contact them to pay another way.</p>
                   )}
@@ -283,6 +286,9 @@ export function ClientPortal({ token }: { token: string }) {
             </div>
             <p className="portal-foot">
               This private link is for {data.client.name}. Don’t forward it — anyone with it can see this page.
+              <br />
+              Provided by Zenvio on behalf of {data.host.name}, who is responsible for its services, estimates and charges.{" "}
+              <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link>
             </p>
           </>
         )}
@@ -412,8 +418,15 @@ function EstimateView({ estimate: e, onDecide }: { estimate: Estimate; onDecide:
           </Field>
           <label className="portal-agree">
             <input type="checkbox" checked={agree} onChange={(x) => setAgree(x.target.checked)} />
-            <span>I approve this estimate and authorize the work described{e.authorization_terms ? " under the terms above" : ""}.</span>
+            <span>
+              I approve this estimate and authorize the work described{e.authorization_terms ? " under the terms above" : ""}. I agree to
+              sign electronically, and my typed name is my signature.
+            </span>
           </label>
+          <p className="portal-muted portal-esign">
+            Your approval is recorded with the date and time and shared with your provider. You can ask your provider for a
+            paper copy or to sign another way instead. Zenvio isn’t a party to this estimate.
+          </p>
           <div className="portal-approve-actions">
             <button type="button" className="ui-btn ui-btn-ghost" disabled={busy} onClick={() => void decide(false)}>
               Decline

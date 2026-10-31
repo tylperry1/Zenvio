@@ -117,7 +117,10 @@ export function FeedbackCenter() {
                   </label>
                 ))}
               </fieldset>
-              <Field label="Details" hint={category === "bug" ? "What did you expect, and what happened instead?" : undefined}>
+              <Field
+                label="Details"
+                hint={`${category === "bug" ? "What did you expect, and what happened instead? " : ""}Don’t include passwords, card numbers or clients’ sensitive information.`}
+              >
                 <textarea className="ui-input" rows={5} required maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} />
               </Field>
               <div className="ui-field">
