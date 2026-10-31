@@ -23,6 +23,7 @@ export async function applyBalanceEntry(db: PoolClient, input: {
     const account = (await db.query("select * from private.customer_balance_accounts where id=$1 and user_id=$2 for update", [input.accountId, input.userId])).rows[0];
     if (!account)
         throw new ApiError("Balance account not found.", 404);
+    if(input.delta<0&&account.frozen)throw new ApiError("Credits are suspended pending refund reconciliation.",409);
     if (input.delta < 0 && account.expires_at && Date.parse(account.expires_at) <= Date.now())
         throw new ApiError("These credits have expired.", 409);
     const next = Number(account.balance) + input.delta;
