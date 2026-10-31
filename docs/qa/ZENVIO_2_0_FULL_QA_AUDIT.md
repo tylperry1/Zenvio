@@ -8,7 +8,7 @@ The platform has substantial implemented scheduling, signing, CRM, team, adminis
 
 This audit found and repaired Microsoft conflict-check gaps, Microsoft availability failing open, invalid provider webhook responses, lost webhook retries, an inaccurate signing allowance, unbounded JSON buffering, calendar carriage-return escaping, missing crawl controls and a mobile authentication heading defect. No production fixture accounts, customer messages, charges or destructive database operations were used. No secrets were changed. One additive migration (040) repairs complimentary Teams seats; all previously applied migrations are untouched.
 
-The initial release candidate passed unit tests, retained-record Postgres migration checks, build, typecheck, API integration, scheduling concurrency, signing, team workflows and existing browser suites. Its expanded responsive test failed on the hidden mobile authentication H1. That failure was investigated and fixed, not waived. Final evidence is recorded in the release section as checks finish.
+The verified fixes are deployed; live-provider acceptance remains gated. The initial release candidate passed unit tests, retained-record Postgres migration checks, build, typecheck, API integration, scheduling concurrency, signing, team workflows and existing browser suites. Its expanded responsive test failed on the hidden mobile authentication H1. That failure was investigated and fixed, not waived. Final observed evidence is recorded in the release section.
 
 ## Discovery and scope
 
@@ -93,7 +93,7 @@ No P0 breach or cross-tenant exploit was demonstrated. This is not proof of abse
 | Local offline npm ci | Failed ENOTCACHED (xtend); direct GitHub clone failed DNS. Existing installed dependencies could support targeted tests only. |
 | Initial isolated CI run [41229984406](https://github.com/tylperry1/Zenvio/actions/runs/41229984406) | npm test, retained-record migrations, production build, typecheck, upgrade API/concurrency, upgrade browser, experience API and experience browser passed. Expanded QA browser failed hidden sign-in H1; fixed and rerun. |
 | Intermediate full CI [41230342711](https://github.com/tylperry1/Zenvio/actions/runs/41230342711) | 152/152 unit checks; zero dependency vulnerabilities; migrations, build, typecheck, upgrade/experience API+browser and 174 responsive page/viewport combinations passed. |
-| Final isolated CI | Rerun required after payment-request repair and report addition; see final evidence below. |
+| Final isolated CI [41232377912](https://github.com/tylperry1/Zenvio/actions/runs/41232377912) | Both jobs passed on source `6f5078c`: 166 unit tests, zero reported vulnerabilities, retained-record migrations, build/typecheck, current and all five standalone integration fixtures, 210 responsive combinations, staff permission/redaction/revocation and complimentary Teams creation/seat/revocation checks. |
 | Lint | No repository lint command/configuration. Not marked passed; TypeScript checking is separate. |
 | Real Stripe test mode | Not executed: no designated test keys/accounts supplied to isolated test environment. Mock webhook/price/quota tests are not real payment acceptance. No real charges attempted. |
 | Real Resend delivery/verification/reset/team invitation | Not executed: no designated recipient/provider fixture. No customer mail sent. |
@@ -137,7 +137,7 @@ Source-level performance opportunities remain: public booking GET repeats event 
 
 First preview: `66333945cb509d583c1fbc523db3b73d62f9654d`, `https://zenvio-5fn6613qp-tyler-perrys-projects.vercel.app`, deployment `dpl_8uhPU1Ty2Tr6mnkoc5oUHAv27EuM`, READY. This preview deliberately has account services disabled and cannot verify authenticated workflows. Those run against disposable Postgres in CI.
 
-Final commit, CI, preview/production deployment IDs, read-only smoke results and log scan are appended below once observed. An API READY state alone is not a full journey pass. The Vercel custom-domain fetch helper could not resolve gozenvio.com; browser access worked. This is a tool limitation, not evidence of a public outage.
+Final observed implementation and verification evidence is appended below. An API READY state alone is not a full journey pass. The Vercel custom-domain fetch helper could not resolve gozenvio.com; browser access worked. This is a tool limitation, not evidence of a public outage.
 
 ## Remaining work
 
@@ -161,3 +161,50 @@ Designated Stripe test accounts/keys/Connect onboarding; provider OAuth test acc
 During the audit, PR #14 merged as `37ad86e46ff1d7d0a2601a824af682febda26dac`, adding the admin console redesign, employee permissions and migration 039. The QA branch incorporates that exact main commit with both parents preserved. Three overlapping files (server helpers, admin operations API and operations UI) were merged without dropping either set of changes. The already-landed migration is unchanged. Supplemental source count: 44 pages, 78 API entrypoints, 41 Postgres migration files. New delegated-access behavior is included in unit tests, an added isolated staff permission/revocation integration fixture, and the admin Team screen in responsive checks. No real employee invitation is sent by QA.
 
 Migration 040 safety: CREATE OR REPLACE of the existing private shared-root function with its signature/grants retained. Existing paid and override predicates are preserved; enabled platform roles and complimentary employee Teams grants are added. No backfill or destructive statement. Real-Postgres CI applies it from scratch and through retained-record upgrade checks before release.
+
+## Defect-to-commit traceability
+
+| Defects | Implementation commit |
+|---|---|
+| ZQA-001, 002, 005, 006, 007, 009, 010 | `66333945cb509d583c1fbc523db3b73d62f9654d` |
+| ZQA-003, 004, 008 | `8063abcee1b92f4b8a08097195f598ba09de5830` |
+| ZQA-011, 016 | `3644a0a98d45072ce1bc7a256f94d0ad462e13fa` |
+| ZQA-012 | `dea2644866a08adcb9c2f54a7245381930f58565`; SDK argument corrected in `e28a73ae002e9fdbe044287c3ab4c8a734e07375` |
+| ZQA-013 | Open; no resolution commit claimed |
+| ZQA-014, 015 | `211e8a68a4d2135280a42b3c2ccd2db2d563c481` |
+| ZQA-017 | `6f5078cdfc8377531f3a62e8913ddf2e3a7e9003` |
+
+Additional release-gate history: candidate `dea2644` failed build due an incorrect Stripe SDK request-options argument introduced during remediation; `e28a73a` fixes it and extends the assertion. Run `41230997955` passed the current release suites but standalone fixtures exposed unavailable-event/pricing defects and a stale loader. Run `41231516826` passed 204 layout checks while standalone assertions/setup still needed alignment; run `41231786217` subsequently passed both jobs. These failures were investigated rather than waived.
+
+## Final CI, performance and screenshot evidence
+
+Final tested source: `6f5078cdfc8377531f3a62e8913ddf2e3a7e9003`. Both jobs in [run 41232377912](https://github.com/tylperry1/Zenvio/actions/runs/41232377912) passed. The 166 tests in each job are the same unit suite, not 332 unique tests.
+
+- Production build, typecheck, zero reported dependency vulnerabilities, retained-record migration checks and current API/concurrency/browser suites passed.
+- All five standalone integration scripts passed: accounts, documents, envelopes, Google Calendar and marketplace.
+- Staff integration passed scoped SQL reads, response redaction, no team/key/price escalation, immediate permission revocation, complimentary master/employee Teams creation, three-seat allowance and suspension revocation.
+- [Final screenshots and responsive/timing JSON](https://github.com/tylperry1/Zenvio/actions/runs/41232377912/artifacts/13053814407): **210 page/viewport combinations** over all six widths, including the admin operations subviews and new Team page. No page-error or overflow assertion failed.
+- Preview `dpl_HguGNmW1Ueae1c7XuLpzXGqJfyov`, [zenvio-7h4ru5udi-tyler-perrys-projects.vercel.app](https://zenvio-7h4ru5udi-tyler-perrys-projects.vercel.app), was READY with the tested SHA. Browser smoke confirmed landing/sign-in, preview robots blocking and health reporting accounts deliberately not configured.
+
+These API measurements are five sequential samples per authenticated route on a GitHub runner with a small disposable database and no provider calls. They are **not production latency, load tests, field CWV or before/after benchmarks**. Navigation TTFB/DOMContentLoaded/load samples are in the artifact JSON.
+
+| API | Median | Maximum | Samples |
+|---|---:|---:|---:|
+| /api/workspace | 8.6 ms | 24.0 ms | 5 |
+| /api/clients | 6.4 ms | 8.0 ms | 5 |
+| /api/account | 5.6 ms | 6.8 ms | 5 |
+| /api/billing | 12.3 ms | 14.5 ms | 5 |
+
+Shared first-load JavaScript in the final CI build: **103 kB**. No reduction versus baseline is claimed.
+
+## Verified production release
+
+- [PR #13](https://github.com/tylperry1/Zenvio/pull/13) merged as `853c837aa20301a0da988d9ca17879f1a7107846`. Its tree `afa3f2bf8d1502c31f3350b73c357e8a06647e0d` exactly matches the tested source tree.
+- Production deployment `dpl_5bfsWeyh3oGkZWGYoBoW2VSdXYQ7`: [zenvio-qqmvqph9u-tyler-perrys-projects.vercel.app](https://zenvio-qqmvqph9u-tyler-perrys-projects.vercel.app), target **production**, state **READY**. Verified actual [gozenvio.com](https://gozenvio.com) after readiness.
+- Build logs explicitly confirm `Applied 040_staff_team_entitlements.sql` and successful compilation. Migration 040 is the only new migration relative to incorporated main; migration 039 and every earlier migration remain unchanged. The final source has 44 pages, 78 API entrypoints and 42 Postgres migration files.
+- Actual-domain browser smoke: landing loads; canonical is https://gozenvio.com; corrected 20-envelope text exists and stale 100-document claim is absent; Pricing loads; robots has sensitive-route exclusions and a sitemap URL; sitemap XML loads. Health reports status ok/accounts configured, which is a configuration check rather than full provider/database health.
+- Unauthenticated /api/account, /api/admin and /api/teams show sign-in-required errors. /app and /admin redirect to /sign-in. At 375px sign-in has a visible H1 and zero horizontal overflow.
+- No production customer fixtures, test messages, charges, staff invitations or supplier transactions were created. State-changing journey acceptance ran against isolated fixtures.
+- Runtime scan for this deployment, 18:56–19:11 UTC: three error-level stderr entries were PostgreSQL driver SSL-mode compatibility warnings, on /api/config, /app and /api/account. No application failure was identified in those inspected records. This is a limited observed window, not a claim of zero platform errors. Warning cleanup remains a P3 follow-up; no connection secret was changed and TLS was not weakened.
+- Production /api/jobs remains uncalled: automatic approval review rejected the check because it could process operational work. Scheduler authorization/lease behavior passed in isolated tests.
+- This documentation-only update follows the verified implementation release. Live Stripe/Resend/OAuth acceptance, supplier/video activation, comprehensive account export/retention, full WCAG/field performance and backup/restore evidence remain open. Passing CI and deployment do not convert those gaps into verified functionality.
