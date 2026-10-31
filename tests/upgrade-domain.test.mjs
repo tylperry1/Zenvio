@@ -33,6 +33,7 @@ function load(file, overrides = {}) {
     Object.hasOwn(overrides, id)
       ? overrides[id]
       : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
+      : id === "./microsoft-calendar" ? { filterMicrosoftSlots: async (_hostId, _email, slots) => slots }
       : id === "./resend-diagnostics"
         ? resendHelpers
         : require(id);
@@ -438,6 +439,8 @@ test("delivery first-attempt timestamp survives an acceptance followed by transa
   const db = {
     query: async (sql) => {
       queries.push(sql);
+      if (sql.includes("private.email_suppressions"))
+        return { rows: [], rowCount: 0 };
       if (sql.startsWith("SELECT * FROM private.delivery_jobs"))
         return { rows: [job], rowCount: 1 };
       if (
