@@ -81,6 +81,15 @@ create table private.provider_webhook_events(
   primary key(provider,provider_event_id)
 );
 
+create table private.email_suppressions(
+  email_hash text primary key,
+  reason text not null check(reason in ('bounce','complaint','manual')),
+  provider text not null default 'resend' check(provider='resend'),
+  provider_event_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table private.provider_connection_health(
   provider text not null,
   user_id text references public."user"(id) on delete cascade,
@@ -108,7 +117,7 @@ create table private.sms_provider_connections(
 revoke all on private.messaging_threads, private.message_records,
   private.communication_templates, private.contact_consents,
   private.provider_webhook_events, private.provider_connection_health,
-  private.sms_provider_connections
+  private.sms_provider_connections, private.email_suppressions
   from public,anon,authenticated;
 
 commit;

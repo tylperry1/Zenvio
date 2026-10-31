@@ -7,6 +7,7 @@ import {
 } from "./platform-settings";
 import { ApiError, string, email } from "./server";
 import { filterGoogleSlots } from "./google-calendar";
+import { filterMicrosoftSlots } from "./microsoft-calendar";
 import { scheduleBooking, appOrigin, queueDelivery } from "./lifecycle";
 export async function appointmentPaymentsReady() {
   return (
@@ -26,7 +27,8 @@ export async function createAppointmentCheckout(
       "Appointment payments are not configured. No payment has been taken.",
       503,
     );
-  if (!(await filterGoogleSlots(host, event, [start])).length)
+  const googleSlots=await filterGoogleSlots(host,event,[start]);
+  if (!(await filterMicrosoftSlots(host,event,googleSlots)).length)
     throw new ApiError("This time is unavailable.", 409);
   const stripe = await stripeClient(),
     db = await getPool().connect();
