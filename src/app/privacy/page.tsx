@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/icons";
+import { LegalToc } from "@/components/legal-toc";
 export const metadata = { title: "Privacy Policy" };
 
 const providers = [
@@ -23,6 +24,7 @@ export default function Page() {
       </Link>
       <h1>Privacy Policy</h1>
       <p>Effective October 31, 2026</p>
+      <LegalToc />
       <p>
         This policy explains what information Zenvio collects, how we use it, who we share it with, and the choices and
         rights you have. It covers our website, the Zenvio workspace, public booking and service-request pages, client

@@ -26,22 +26,33 @@ export function TeamBooking({
     }
   }, [accept]);
   return (
-    <div className="platform-page">
-      <main style={{ maxWidth: 700 }}>
+    <div className="platform-page tb-page">
+      <main>
         <Logo />
         <h1>{accept ? "Join your team" : "Book with our team"}</h1>
+        {accept && <p className="tb-lede">You've been invited to a Zenvio team workspace.</p>}
         {error && <p role="alert">{error}</p>}
         {message && <p role="status">{message}</p>}
         {accept ? (
-          <section>
-            <p>
-              Sign in using the email that received this private invitation
-              before accepting.
-            </p>
-            <a href="/sign-in" target="_blank" rel="noreferrer">
-              Sign in in another tab
-            </a>
+          <section className="tb-steps">
+            <ol>
+              <li>
+                <span>1</span>
+                <div>
+                  <b>Sign in with the invited email</b>
+                  <p>Use the same address that received this private invitation. Opens in a new tab so this link keeps working.</p>
+                  <a className="tb-link" href="/sign-in" target="_blank" rel="noreferrer">
+                    Sign in in a new tab ↗
+                  </a>
+                </div>
+              </li>
+              <li>
+                <span>2</span>
+                <div>
+                  <b>Accept the invitation</b>
+                  <p>You'll land on your team page. Your personal booking links stay as they are.</p>
             <button
+              className="tb-primary"
               onClick={async () => {
                 try {
                   const r = await fetch("/api/teams", {
@@ -62,13 +73,15 @@ export function TeamBooking({
             >
               Accept invitation
             </button>
+                </div>
+              </li>
+            </ol>
           </section>
         ) : (
           <section>
             <p>
-              Available staff are assigned fairly using the
-              least-recently-assigned member; ties use a stable member order.
-              Unavailable calendars are never offered.
+              Choose a time and we'll match you with an available team
+              member. You'll get a confirmation email with the details.
             </p>
             <form
               className="stack-form"
