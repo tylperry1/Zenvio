@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import {Pool} from 'pg';
 import {PDFDocument} from 'pdf-lib';
 import {createHash} from 'node:crypto';
+import ts from 'typescript';
+import fs from 'node:fs';
+import Module from 'node:module';
+import path from 'node:path';
 const origin=process.env.TEST_APP_URL||'http://localhost:3100',url=process.env.TEST_DATABASE_URL;
 if(!url||!['localhost','127.0.0.1'].includes(new URL(url).hostname)||!['localhost','127.0.0.1'].includes(new URL(origin).hostname))throw Error('Disposable localhost fixture required');
 const db=new Pool({connectionString:url});
@@ -44,6 +48,18 @@ try{
  assert.equal((await call('/api/envelope-sign',{action:'sign',token:tokens[1],name:'Second Signer',consent:true,content_hash:second.data.envelope.content_hash,answers:{}})).status,200);
  const evidence=(await db.query('select completed_pdf,completed_pdf_hash from private.signature_envelopes where id=$1',[envelopeId])).rows[0];assert.ok(evidence.completed_pdf?.length>1000);assert.equal(createHash('sha256').update(evidence.completed_pdf).digest('hex'),evidence.completed_pdf_hash);
  await assert.rejects(db.query("update private.signature_envelopes set completed_pdf_hash='tampered' where id=$1",[envelopeId]),/completed_evidence_immutable/);
+ // Run real spending reservation logic against Postgres; never contact a provider.
+ const filename=path.resolve('src/lib/launch/provider-policy.ts'),module=new Module(filename);
+ class FixtureApiError extends Error{constructor(message,status){super(message);this.status=status;}}
+ module.require=id=>id==='../db'?{getPool:()=>db}:id==='../server'?{ApiError:FixtureApiError}:{};
+ module._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);
+ const reserve=module.exports.reserveUsage,provider='launch-fixture-'+suffix;
+ const reservations=await Promise.allSettled([1,2].map(()=>reserve({userId:owner,provider,micros:2,platformCap:3,workspaceCap:3})));
+ assert.equal(reservations.filter(x=>x.status==='fulfilled').length,1);assert.equal(reservations.find(x=>x.status==='rejected').reason.status,429);
+ const reservation=reservations.find(x=>x.status==='fulfilled').value;await module.exports.uncertainUsage(reservation);
+ await assert.rejects(reserve({userId:owner,provider,micros:2,platformCap:3,workspaceCap:3}),/spending limit/);
+ await module.exports.settleUsage(reservation,{micros:1,input:2,output:3});
+ assert.ok(await reserve({userId:owner,provider,micros:2,platformCap:3,workspaceCap:3}));
  const event=(await db.query("select e.id,e.slug,p.slug host,p.timezone from public.event_types e join public.profiles p on p.id=e.user_id where e.user_id=$1 and e.active limit 1",[owner])).rows[0];
  await db.query("update public.availability set enabled=true where user_id=$1",[owner]);
  const slot=(await db.query("select starts_at from public.public_slots($1,$2,current_date+7) limit 1",[event.host,event.slug])).rows[0];assert.ok(slot);
