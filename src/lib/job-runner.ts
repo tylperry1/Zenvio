@@ -1,3 +1,4 @@
+import {drainClassCancellations} from "./launch/classes";
 import {materializeWaitlistOffers} from "./launch/waitlists";
 import { drainSmsOutbox } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
@@ -50,6 +51,7 @@ export async function processScheduledJobs() {
     return { busy: true, configured: await mailReady(), sent: 0 };
   try {
     await drainSmsOutbox();
+    await drainClassCancellations();
     await drainCalendarCleanup();
     await Promise.all([runGoogleJobs(undefined,5),runMicrosoftJobs(undefined,5)]);
     await purgeExpiredDeliverySecrets();

@@ -81,5 +81,13 @@ try{
  const accepted=await call('/api/bookings/waitlists/offer',{action:'accept',token:offerToken,answers:{}});assert.equal(accepted.status,200,JSON.stringify(accepted.data));assert.ok(accepted.data.bookingId);
  const again=await call('/api/bookings/waitlists/offer',{action:'accept',token:offerToken,answers:{}});assert.equal(again.data.bookingId,accepted.data.bookingId);assert.equal(again.data.duplicate,true);
  assert.equal((await call('/api/bookings/attendance',{action:'attendance',bookingId:accepted.data.bookingId,status:'no_show',reason:'Premature marking must fail'},a.cookie)).status,409);
- console.log('Launch ledger, signing, recurrence, cancellation waitlist, offer acceptance/idempotency, attendance gates and tenant fixtures passed.');
+ const classSlot=(await db.query("select starts_at from public.public_slots($1,$2,current_date+10) limit 1",[event.host,event.slug])).rows[0];assert.ok(classSlot);
+ const classInput={action:'create',eventId:event.id,title:'Capacity fixture',startsAt:new Date(classSlot.starts_at).toISOString(),capacity:1,published:true,creditCost:0};
+ const classCreated=await call('/api/classes',classInput,a.cookie);assert.equal(classCreated.status,201,JSON.stringify(classCreated.data));const classId=classCreated.data.session.id;
+ const registrations=await Promise.all([1,2].map(i=>call('/api/classes/enroll',{action:'enroll',sessionId:classId,idempotencyKey:crypto.randomUUID(),name:'Guest '+i,email:`class-${i}-${suffix}@example.com`})));assert.deepEqual(registrations.map(r=>r.status).sort(),[201,409]);
+ const registration=registrations.find(r=>r.status===201).data;assert.equal((await call('/api/classes/enroll',{action:'cancel',token:registration.cancelToken})).status,200);assert.equal((await call('/api/classes/enroll',{action:'cancel',token:registration.cancelToken})).status,200);
+ assert.equal((await call('/api/classes?id='+classId,null)).data.session.remaining,1);
+ assert.equal((await call('/api/classes',{action:'cancel',id:classId},b.cookie)).status,404);
+ assert.equal((await call('/api/classes',{action:'cancel',id:classId},a.cookie)).status,200);
+ console.log('Launch ledger, signing, recurrence, waitlists, class capacity/cancellation and tenant fixtures passed.');
 }finally{await db.end();}

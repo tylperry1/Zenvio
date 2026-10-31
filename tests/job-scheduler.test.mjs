@@ -166,6 +166,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
   return {
     operations,
     runner: load("src/lib/job-runner.ts", {
+      "./launch/classes": {drainClassCancellations:call("class-cancellations")},
       "./launch/waitlists": {materializeWaitlistOffers:call("waitlist-offers")},
       "./launch/sms-outbox": { drainSmsOutbox: call("sms-outbox") },
       "./db": { getPool: () => pool },
@@ -203,6 +204,7 @@ test("scheduler records bounded successful work and never labels missing mail co
     good.operations.filter((x) => typeof x === "string"),
     [
       "sms-outbox",
+      "class-cancellations",
       "calendar-cleanup",
       "google-sync",
       "microsoft-sync",
