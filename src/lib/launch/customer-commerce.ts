@@ -74,7 +74,7 @@ export async function createGrowthCheckout(input: {
             throw new ApiError('This checkout is no longer open. Refresh its payment status.', 409);
         }
         const metadata = { zenvio_growth_order: order.id, zenvio_owner: order.user_id };
-        const session = await stripe.checkout.sessions.create({ mode: snapshot.kind === 'membership' ? 'subscription' : 'payment', customer_email: snapshot.email, line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount_cents, product_data: { name: snapshot.title }, ...(snapshot.kind === 'membership' ? { recurring: { interval: 'month' as const } } : {}) } }], metadata, ...(snapshot.kind === 'membership' ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }), success_url: appOrigin() + '/app/billing?growth_order=' + order.id, cancel_url: appOrigin() + '/pricing', expires_at: Math.floor(new Date(order.expires_at).getTime() / 1000) }, { stripeAccount: order.stripe_account_id, idempotencyKey: 'growth-checkout:' + order.id });
+        const session = await stripe.checkout.sessions.create({ mode: snapshot.kind === 'membership' ? 'subscription' : 'payment', customer_email: snapshot.email, line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount_cents, product_data: { name: snapshot.title }, ...(snapshot.kind === 'membership' ? { recurring: { interval: 'month' as const } } : {}) } }], metadata, ...(snapshot.kind === 'membership' ? { subscription_data: { metadata } } : { payment_intent_data: { metadata } }), success_url: appOrigin() + '/purchase/complete', cancel_url: appOrigin() + '/purchase/complete', expires_at: Math.floor(new Date(order.expires_at).getTime() / 1000) }, { stripeAccount: order.stripe_account_id, idempotencyKey: 'growth-checkout:' + order.id });
         if (!session.url)
             throw new ApiError('Checkout could not be confirmed.', 503);
         await db.query('update private.growth_orders set stripe_session_id=$2 where id=$1', [order.id, session.id]);
@@ -105,7 +105,7 @@ export async function settleGrowthPayment(db: PoolClient, order: any, reference:
     if (order.snapshot.kind === 'gift_card') {
         const code = randomBytes(24).toString('hex');
         await db.query('insert into private.growth_gift_cards(order_id,settlement_id,user_id,code_hash,code_ciphertext,value) values($1,$2,$3,$4,$5,$6)', [order.id, settlement.id, order.user_id, hash(code), sealSecret(code), order.snapshot.credits]);
-        await queueDelivery(db, { user: order.user_id, kind: 'gift_card_issued', key: 'gift-card:' + order.id, to: order.recipient_email, subject: 'Your gift card: ' + order.snapshot.title, text: `A gift card has been purchased for you.\nValue: ${order.snapshot.credits} ${order.snapshot.unit} minor units.\nPrivate redemption code: ${code}\nKeep this code private and redeem it through the business's gift-card form.` });
+        await queueDelivery(db, { user: order.user_id, kind: 'gift_card_issued', key: 'gift-card:' + order.id, to: order.recipient_email, subject: 'Your gift card: ' + order.snapshot.title, text: `A gift card has been purchased for you.\nValue: ${order.snapshot.credits} ${order.snapshot.unit} minor units.\nPrivate redemption code: ${code}\nKeep this code private and redeem it at ${appOrigin()}/gift-card.` });
     }
     else {
         const entry = await creditAccount(db, order, order.snapshot.credits, 'growth-grant:' + settlement.id);
