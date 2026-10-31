@@ -1,3 +1,4 @@
+import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { requireCapacity } from "./entitlements";
 import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -479,7 +480,7 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
             summary: job.title,
             visibility: "private",
             location: job.location,
-            description: `Zenvio appointment\nGuest: ${job.guest_name}\nEmail: ${job.guest_email}\nManage this appointment in Zenvio.`,
+            description: `Zenvio appointment\nGuest: ${job.guest_name}\nEmail: ${job.guest_email}\nManage this appointment in Zenvio.`+(calendarIntakeSummary(job.intake_snapshot)?"\n\nBooking details:\n"+calendarIntakeSummary(job.intake_snapshot):""),
             start: { dateTime: new Date(job.starts_at).toISOString() },
             end: { dateTime: new Date(job.ends_at).toISOString() },
             extendedProperties: {

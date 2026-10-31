@@ -29,6 +29,7 @@ jobs:
       MASTER_ADMIN_SETUP_TOKEN: isolated-upgrade-owner-token-123456789
       TEST_OWNER_TOKEN: isolated-upgrade-owner-token-123456789
       INTEGRATION_ENCRYPTION_KEY: isolated-upgrade-encryption-secret-123456789
+      WAITLIST_OFFERS_ENABLED: "true"
       TEST_REAL_POSTGRES: "true"
       CRON_SECRET: isolated-upgrade-job-runner-secret
       # The assistant talks to the scripted mock model started by the 2.1 tests, never the real API.
@@ -51,6 +52,7 @@ jobs:
         run: |
           npm start -- --hostname localhost --port 3100 > /tmp/zenvio-fixture-server.log 2>&1 &
           for n in $(seq 1 30); do curl -fsS http://localhost:3100/sign-in > /dev/null && break; sleep 1; done
+      - run: node tests/launch.integration.mjs
       - run: node tests/upgrade.integration.mjs
       - run: node tests/upgrade.browser.mjs
       - run: node tests/experience.integration.mjs
@@ -87,6 +89,7 @@ jobs:
       MASTER_ADMIN_SETUP_TOKEN: isolated-upgrade-owner-token-123456789
       TEST_OWNER_TOKEN: isolated-upgrade-owner-token-123456789
       INTEGRATION_ENCRYPTION_KEY: isolated-upgrade-encryption-secret-123456789
+      WAITLIST_OFFERS_ENABLED: "true"
       TEST_REAL_POSTGRES: "true"
       CRON_SECRET: isolated-upgrade-job-runner-secret
       # The assistant talks to the scripted mock model started by the 2.1 tests, never the real API.

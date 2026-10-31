@@ -11,6 +11,7 @@ export const integrationFields = {
   RESEND_WEBHOOK_SECRET: "Resend webhook signing secret",
   AUTH_EMAIL_FROM: "Verified sender email",
   STRIPE_SECRET_KEY: "Stripe secret key",
+  STRIPE_GROWTH_WEBHOOK_SECRET: "Stripe customer-product webhook signing secret",
   STRIPE_CONNECT_WEBHOOK_SECRET:
     "Stripe Connect appointment-payment webhook signing secret",
   STRIPE_WEBHOOK_SECRET: "Stripe subscription webhook signing secret",
@@ -26,6 +27,18 @@ export const integrationFields = {
   TWILIO_MESSAGING_SERVICE_SID: "Twilio messaging service SID",
   TURNSTILE_SITE_KEY: "Cloudflare Turnstile site key (booking CAPTCHA)",
   TURNSTILE_SECRET_KEY: "Cloudflare Turnstile secret key (booking CAPTCHA)",
+  GEMINI_API_KEY: "Google Gemini API key",
+  CLOUDFLARE_AI_TOKEN: "Cloudflare Workers AI API token",
+  CLOUDFLARE_ACCOUNT_ID: "Cloudflare account ID",
+  TELNYX_API_KEY: "Telnyx API key",
+  TELNYX_PUBLIC_KEY: "Telnyx webhook Ed25519 public key",
+  DAILY_API_KEY: "Daily API key",
+  PRINTFUL_API_KEY: "Printful private store token",
+  UPLOAD_SCANNER_KEY: "Private upload scanner API key",
+  R2_ACCESS_KEY_ID: "Cloudflare R2 access key ID",
+  R2_SECRET_ACCESS_KEY: "Cloudflare R2 secret access key",
+  R2_ACCOUNT_ID: "Cloudflare R2 account ID",
+  R2_BUCKET: "Cloudflare R2 private bucket",
   ANTHROPIC_API_KEY: "Anthropic API key (Zenvio Assistant)",
 } as const;
 export type IntegrationKey = keyof typeof integrationFields;

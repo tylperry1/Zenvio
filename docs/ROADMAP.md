@@ -4,6 +4,38 @@
 
 Upgrade release deployed to https://gozenvio.com at implementation commit `6721523` on October 28, 2026. Deployment and verification are tracked in [PR #1](https://github.com/tylperry1/Zenvio/pull/1). This document describes the release implementation; a provider integration is not production verified merely because its controls are deployed. See [configuration and release gates](UPGRADE-CONFIGURATION.md) and [validation checklist](UPGRADE-CHECKLIST.md).
 
+## Zenvio 3.0 launch experience (branch `launch/claude-experience`, in review)
+
+Target commercial launch: November 2, 2026. The audit and design rules are in [UX_AUDIT.md](../UX_AUDIT.md) and [DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md).
+
+### Shipped on the branch
+
+| Area | State |
+| --- | --- |
+| Route audit | All 44 page routes inventoried. 42 captured at desktop, tablet and mobile with overflow and error checks; 0 overflow, 0 page errors. |
+| Design system | Tokens and shared primitives (`design-system.css`, `ds.tsx`). |
+| Admin → Pricing | Rebuilt: current versus retired packages, Stripe mapping status, launch-gate readiness, Teams seat calculator, envelope allowances and overages, early-access offer, honest annual-savings logic, edit → review → publish with a diff, change history. Uses the existing audited save path; approved package rates stay code constants. |
+| Admin → Users & activity | Rebuilt on real data: total, active, new and paying KPIs; signup and daily-active charts; plan distribution; searchable, filterable, paginated user table; account drawer with sessions and admin history; guarded sign-out-everywhere; formula-safe CSV export; searchable configuration and admin activity log with event-type filter. |
+| Admin navigation | Fits on 900px-tall screens. |
+
+### Next (no new backend required)
+
+Migrate the remaining admin pages, the workspace app (dashboard, calendar, clients, inbox, documents, jobs, payments, billing, settings) and the public booking flows onto the design system; then do the `/team/accept` layout, legal-page navigation and the PWA manifest/install shell.
+
+### Waiting on Codex backend contracts
+
+These need server APIs that do not exist in the repository yet. UI will not be shown as available until each contract lands and is configured.
+
+| Capability | Missing contract |
+| --- | --- |
+| SMS inbox actions (booking/reminder/document/payment links, consent capture, delivery status, opt-out) | Telnyx transport and delivery webhooks. Types already exist in `integration-contracts.ts`; the adapter does not. |
+| Embedded video meetings | Daily room/token provider. |
+| Recurring bookings, service packages, memberships, gift cards, coupons, loyalty, referrals, waitlists, no-show policies | Data model, billing and enforcement services. |
+| Booking widgets, QR codes, mini sites, reviews, source attribution, conversion dashboards | Attribution capture and public-site services. |
+| Customer-journey workflow builder (deposits, review requests, rebooking) | Additional workflow triggers/actions beyond the current validated set. |
+| AI receptionist, quota display by provider | Usage/quota read API and receptionist channel. |
+| Push notifications | Web Push key management and subscription storage. |
+
 ## Zenvio 2.1 (branch `feat/zenvio-ai-experience`, not yet released)
 
 Implementation details, security model, database changes and shared-backend dependencies: [ZENVIO_2_1.md](ZENVIO_2_1.md).

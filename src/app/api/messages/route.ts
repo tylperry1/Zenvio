@@ -1,6 +1,7 @@
+import { queueSms } from "@/lib/launch/sms-outbox";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
-import { sendTwilioSms, normalizeE164 } from "@/lib/twilio";
+import { normalizeE164 } from "@/lib/twilio";
 import {
   ApiError,
   body,
@@ -63,6 +64,15 @@ export async function POST(request: NextRequest) {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `sms-rate:${token}`,
       ]);
+      const existing = await client.query(
+        "select id,state,provider_message_id,body,(select participant_address from private.messaging_threads t where t.id=message_records.thread_id) destination from private.message_records where user_id=$1 and idempotency_key=$2",
+        [token, idempotencyKey],
+      );
+      if (existing.rows[0]) {
+        if(existing.rows[0].body!==messageBody||existing.rows[0].destination!==to)throw new ApiError("This message reference was already used for different content.",409);
+        await client.query("commit");
+        return Response.json({ message: existing.rows[0], duplicate: true });
+      }
       const rate = await client.query(
         `select count(*)::int count from private.message_records
           where user_id=$1 and channel='sms' and direction='outbound'
@@ -71,14 +81,6 @@ export async function POST(request: NextRequest) {
       );
       if (rate.rows[0].count >= 60)
         throw new ApiError("SMS hourly limit reached. Try again later.", 429);
-      const existing = await client.query(
-        "select id,state,provider_message_id from private.message_records where user_id=$1 and idempotency_key=$2",
-        [token, idempotencyKey],
-      );
-      if (existing.rows[0]) {
-        await client.query("commit");
-        return Response.json({ message: existing.rows[0], duplicate: true });
-      }
       const thread = await client.query(
         `insert into private.messaging_threads(user_id,channel,participant_address)
          values($1,'sms',$2)
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
       const message = await client.query(
         `insert into private.message_records
           (thread_id,user_id,channel,direction,state,body,provider,idempotency_key)
-         values($1,$2,'sms','outbound','sending',$3,'twilio',$4) returning id`,
+         values($1,$2,'sms','outbound','sending',$3,'telnyx',$4) returning id`,
         [thread.rows[0].id, token, messageBody, idempotencyKey],
       );
       messageId = message.rows[0].id;
@@ -101,18 +103,9 @@ export async function POST(request: NextRequest) {
     } finally {
       client.release();
     }
-    const callback = new URL(
-      "/api/messaging/twilio",
-      process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
-    ).toString();
-    const sent = await sendTwilioSms({ userId: token, to, body: messageBody, statusCallback: callback });
-    await getPool().query(
-      `update private.message_records
-          set state='provider_accepted',provider_message_id=$2,sent_at=now()
-        where id=$1 and user_id=$3 and state='sending'`,
-      [messageId, sent.providerMessageId, token],
-    );
-    return Response.json({ message: { id: messageId, state: "provider_accepted" } }, { status: 202 });
+    const queued = await queueSms({ userId:token,to,body:messageBody,reference:messageId! });
+    await getPool().query("update private.message_records set state='queued' where id=$1 and user_id=$2 and state='sending'",[messageId,token]);
+    return Response.json({ message: { id: messageId, state: "queued", detail:queued.detail } }, { status: 202 });
   } catch (error) {
     if (messageId)
       await getPool()

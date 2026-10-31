@@ -17,6 +17,7 @@ export type Question = {
   type: (typeof questionTypes)[number];
   required: boolean;
   options: string[];
+  includeInCalendar?: boolean;
 };
 const choice = (type: string) => ["single_choice", "multiple_choice", "dropdown"].includes(type);
 export const MAX_UPLOADS_PER_QUESTION = 5;
@@ -48,6 +49,7 @@ export function intakeQuestions(value: unknown): Question[] {
       type,
       required: v.required === true,
       options,
+      ...(v.includeInCalendar===true?{includeInCalendar:true}:{}),
     } as Question;
   });
   if (new Set(q.map((v) => v.id)).size !== q.length)

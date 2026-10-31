@@ -96,3 +96,17 @@ test("calendar text escapes bare carriage returns as well as LF and CRLF", () =>
   assert(!result.replaceAll("\r\n", "").includes("\r"));
 });
 
+
+test('calendar invitations include only explicitly approved safe intake fields',async()=>{
+ const {calendarIntakeSummary}=await import('../src/lib/calendar-invitation.mjs');
+ assert.equal(calendarIntakeSummary([{label:'Service',type:'dropdown',answer:'Consultation',includeInCalendar:true},{label:'Private note',type:'short_text',answer:'secret'},{label:'Phone',type:'phone',answer:'private',includeInCalendar:true},{label:'Document',type:'file',answer:['private-url'],includeInCalendar:true}]),'Service: Consultation');
+ assert.equal(calendarIntakeSummary(null),'');
+});
+test('recurring appointments preserve local time across DST and reject gaps',async()=>{
+ const {recurrenceStarts}=await import('../src/lib/recurrence.mjs');
+ const starts=recurrenceStarts('2026-10-26T14:00:00Z','America/New_York',3,'weekly');
+ assert.deepEqual(starts,['2026-10-26T14:00:00.000Z','2026-11-02T15:00:00.000Z','2026-11-09T15:00:00.000Z']);
+ assert.throws(()=>recurrenceStarts('2026-03-01T07:30:00Z','America/New_York',2,'weekly'),/daylight-saving/);
+ assert.throws(()=>recurrenceStarts('2026-10-25T05:30:00Z','America/New_York',2,'weekly'),/ambiguous/);
+ assert.throws(()=>recurrenceStarts('2026-01-31T10:00:00Z','UTC',2,'monthly'),/does not exist/);
+});

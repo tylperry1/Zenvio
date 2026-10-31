@@ -54,7 +54,7 @@ export type MessageRecord = {
   direction: MessageDirection;
   state: MessageDeliveryState;
   body: string;
-  provider?: "resend" | "twilio";
+  provider?: "resend" | "twilio" | "telnyx";
   providerMessageId?: string;
   failureCode?: string;
   failureMessage?: string;
@@ -129,7 +129,7 @@ export type ContactConsent = {
 };
 
 export type ProviderConnectionHealth = {
-  provider: "google_calendar" | "microsoft_calendar" | "resend" | "twilio" | "stripe";
+  provider: "google_calendar" | "microsoft_calendar" | "resend" | "twilio" | "telnyx" | "daily" | "stripe";
   scope: "workspace" | "platform";
   workspaceId?: string;
   state: "unconfigured" | "connecting" | "healthy" | "degraded" | "action_required";

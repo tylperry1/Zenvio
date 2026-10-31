@@ -3,6 +3,8 @@ import { getPool } from "../db";
 import { integrationValue } from "../platform-settings";
 import { ApiError } from "../server";
 import { recordUsage } from "./limits";
+import { aiConfiguration, estimatedMicros, reserveUsage, settleUsage, uncertainUsage } from "../launch/provider-policy";
+import { aiKeyName, aiProviderConfigured, providerRound } from "../launch/ai-provider";
 import { toolByName, toolDefinitions, ToolInputError, type Preview, type ToolContext } from "./tools";
 
 export const ASSISTANT_MODEL = "claude-opus-5-5";
@@ -33,13 +35,13 @@ Security:
 
 Style: concise, warm and practical. Use short paragraphs or brief lists. Format dates the way people say them ("Tue, Nov 4 at 2:00 PM").`;
 
-let factory = (apiKey: string) => new Anthropic({ apiKey, maxRetries: 2, timeout: 120000 });
+let factory = (apiKey: string) => new Anthropic({ apiKey, maxRetries: 0, timeout: 120000 });
 export function setAssistantClientFactory(next: typeof factory) {
   factory = next;
 }
 
 export async function assistantConfigured() {
-  return !!(await integrationValue("ANTHROPIC_API_KEY")).trim();
+  return aiProviderConfigured(await aiConfiguration());
 }
 
 type Row = { role: "user" | "assistant"; content: string };
@@ -59,9 +61,10 @@ export async function runAssistantTurn(
   input: { conversationId: string; text: string; context?: string },
   emit: (event: AssistantEvent) => void,
 ) {
-  const apiKey = (await integrationValue("ANTHROPIC_API_KEY")).trim();
-  if (!apiKey) throw new ApiError("The assistant isn’t configured yet. An administrator needs to add the Anthropic API key.", 503);
-  const client = factory(apiKey);
+  const config = await aiConfiguration();
+  if (!await aiProviderConfigured(config)) throw new ApiError("The selected AI provider needs administrator configuration and approval.", 503);
+  const apiKey = (await integrationValue(aiKeyName(config.provider))).trim();
+  const client = config.provider === "anthropic" ? factory(apiKey) : null;
   const pool = getPool();
   const prior = (
     await pool.query(
@@ -71,7 +74,9 @@ export async function runAssistantTurn(
   ).rows as Row[];
   const userContent = input.context ? `${input.context}\n\n${input.text}` : input.text;
   const messages: Anthropic.Beta.BetaMessageParam[] = [
-    ...(historyMessages([...prior, { role: "user", content: userContent }]) as Anthropic.Beta.BetaMessageParam[]),
+    ...(historyMessages(prior.at(-1)?.role === "user" && prior.at(-1)?.content === input.text
+      ? [...prior.slice(0,-1), {role:"user",content:userContent}]
+      : [...prior, { role: "user", content: userContent }]) as Anthropic.Beta.BetaMessageParam[]),
   ];
   const now = new Date();
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
@@ -91,29 +96,33 @@ export async function runAssistantTurn(
   let usage = { input: 0, output: 0 };
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const stream = client.beta.messages.stream({
-        model: ASSISTANT_MODEL,
-        max_tokens: 8000,
-        thinking: { type: "adaptive" },
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        system,
-        tools,
-        messages,
-      } as Anthropic.Beta.MessageCreateParamsStreaming);
-      let roundText = "";
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          if (!roundText && reply) {
-            reply += "\n\n";
-            emit({ type: "text", text: "\n\n" });
+      // Reserve an upper bound before every billable round, including tool-result history.
+      const serialized = JSON.stringify({system,tools,messages});
+      const inputBound = Buffer.byteLength(serialized,"utf8") * 2 + 4096;
+      if (inputBound > 250000) throw new ApiError("Conversation context is too large. Start a new conversation.",409);
+      const reservation = await reserveUsage({userId:ctx.userId,provider:"ai",model:config.provider+"/"+config.model,
+        micros:estimatedMicros(inputBound,config.maxOutputTokens,config),platformCap:config.monthlyCapMicros,workspaceCap:config.workspaceMonthlyCapMicros});
+      let message: Anthropic.Beta.BetaMessage;
+      try {
+        if (client) {
+          const stream = client.beta.messages.stream({model:config.model,max_tokens:config.maxOutputTokens,system,tools,messages});
+          let roundText = "";
+          for await (const event of stream) {
+            if(event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              if(!roundText && reply){reply += "\n\n";emit({type:"text",text:"\n\n"});}
+              roundText+=event.delta.text;reply+=event.delta.text;emit({type:"text",text:event.delta.text});
+            }
           }
-          roundText += event.delta.text;
-          reply += event.delta.text;
-          emit({ type: "text", text: event.delta.text });
+          message=await stream.finalMessage();
+        } else {
+          const result=await providerRound(config,system.map(s=>s.text).join("\n"),messages as any,tools as any);
+          message=result as unknown as Anthropic.Beta.BetaMessage;
+          const text=result.content.filter(b=>b.type==="text").map(b=>b.text).join("\n");
+          if(text){if(reply){reply+="\n\n";emit({type:"text",text:"\n\n"});}reply+=text;emit({type:"text",text});}
         }
-      }
-      const message = await stream.finalMessage();
+        const inputTokens=(message.usage.input_tokens||0)+(message.usage.cache_read_input_tokens||0)+(message.usage.cache_creation_input_tokens||0);
+        await settleUsage(reservation,{micros:estimatedMicros(inputTokens,message.usage.output_tokens||0,config),input:inputTokens,output:message.usage.output_tokens||0});
+      } catch(error){await uncertainUsage(reservation);throw error;}
       usage.input += (message.usage.input_tokens || 0) + (message.usage.cache_read_input_tokens || 0) + (message.usage.cache_creation_input_tokens || 0);
       usage.output += message.usage.output_tokens || 0;
       if (message.stop_reason === "refusal") {

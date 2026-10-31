@@ -1,3 +1,5 @@
+import {sealSecret} from "@/lib/platform-settings";
+import {assertSignerTurn} from "@/lib/launch/signing";
 import { recordEnvelopeSend } from "@/lib/envelope-usage";
 import {
   queueEnvelopeInvitation,
@@ -45,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (!e) throw new ApiError("Document not found.", 404);
     const recipients = (
       await getPool().query(
-        "SELECT id,name,email,status,signature_name,signed_at,receipt_hash,answers FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
+        "SELECT id,name,email,status,signature_name,signed_at,receipt_hash,answers,signing_order FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
         [id],
       )
     ).rows;
@@ -76,7 +78,7 @@ export async function GET(req: NextRequest) {
         [id],
       )
     ).rows;
-    const { pdf, user_id, ...envelope } = e;
+    const { pdf, completed_pdf, user_id, ...envelope } = e;
     const deliveries = (
       await getPool().query(
         "SELECT id,recipient_id,recipient,kind,status,provider_status,last_error,sent_at,run_at FROM private.delivery_jobs WHERE envelope_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100",
@@ -181,12 +183,17 @@ export async function POST(req: NextRequest) {
       if (!e) throw new ApiError("Document not found.", 404);
       const recipients = (
         await db.query(
-          "SELECT id,name,email,status,link_ciphertext FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
+          "SELECT id,name,email,status,link_ciphertext,signing_order FROM private.signature_recipients WHERE envelope_id=$1 ORDER BY id",
           [id],
         )
       ).rows;
       let links: { name: string; email: string; path: string }[] = [];
-      if (input.action === "save" || input.action === "send") {
+      if(input.action === "routing") {
+        if(e.status!=="draft") throw new ApiError("Only draft signing order can be changed.",409);
+        if(!["parallel","sequential"].includes(String(input.mode))||!Array.isArray(input.recipientIds)||input.recipientIds.length!==recipients.length||new Set(input.recipientIds).size!==recipients.length||input.recipientIds.some(id=>!recipients.some(r=>r.id===id)))throw new ApiError("Specify every recipient exactly once.");
+        for(const [index,recipientId] of input.recipientIds.entries())await db.query("update private.signature_recipients set signing_order=$2 where id=$1 and envelope_id=$3",[recipientId,input.mode==="sequential"?index+1:1,e.id]);
+        await db.query("update private.signature_envelopes set signing_mode=$2 where id=$1",[e.id,input.mode]);
+      } else if (input.action === "save" || input.action === "send") {
         if (e.status !== "draft")
           throw new ApiError("Only drafts can be changed.", 409);
         const fields = fieldsInput(input.fields, recipients, e.pages.length);
@@ -211,13 +218,14 @@ export async function POST(req: NextRequest) {
             "UPDATE private.signature_envelopes SET reminder_days=$2 WHERE id=$1",
             [e.id, e.reminder_days],
           );
+          await db.query("update private.signature_envelopes set email_delivery_enabled=$2 where id=$1",[e.id,input.email_delivery===true]);
           for (const recipient of recipients) {
             const secret = signingToken();
             await db.query(
-              "UPDATE private.signature_recipients SET token_hash=$2 WHERE id=$1",
-              [recipient.id, hash(secret)],
+              "UPDATE private.signature_recipients SET token_hash=$2,link_ciphertext=$3 WHERE id=$1",
+              [recipient.id, hash(secret),sealSecret(secret)],
             );
-            if (input.email_delivery === true)
+            if (input.email_delivery === true && (e.signing_mode!=="sequential" || recipient.signing_order===1))
               await queueEnvelopeInvitation(
                 db,
                 { ...e, expires_at: new Date(Date.now() + 14 * 86400000) },
@@ -240,6 +248,7 @@ export async function POST(req: NextRequest) {
           (r) => r.id === uuid(input.recipient_id),
         );
         if (!recipient) throw new ApiError("Recipient not found.", 404);
+        await assertSignerTurn(db,e,recipient);
         await resendEnvelope(db, e, recipient);
       } else if (input.action === "void") {
         if (!["draft", "sent"].includes(e.status))

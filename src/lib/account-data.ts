@@ -5,6 +5,20 @@ import { ApiError } from "./server";
 type Query = { sql: string; key: string };
 // Everything a person's account holds that they can take with them.
 const exportQueries: Query[] = [
+  {key:"customer_offers",sql:"SELECT id,kind,title,description,price_cents,credit_units,unit,active FROM private.growth_offers WHERE user_id=$1"},
+  {key:"customer_product_orders",sql:"SELECT id,offer_id,contact_id,amount_cents,state,paid_at,created_at FROM private.growth_orders WHERE user_id=$1"},
+  {key:"customer_memberships",sql:"SELECT order_id,status,current_period_end FROM private.growth_memberships WHERE user_id=$1"},
+  {key:"customer_settlements",sql:"SELECT id,order_id,amount_paid_cents,credits,refunded_cents,refunded_credits,credit_debt,created_at FROM private.growth_settlements WHERE user_id=$1"},
+  {key:"class_sessions",sql:"SELECT id,event_id,title,description,capacity,state,starts_at,ends_at,credit_cost,credit_unit FROM private.class_sessions WHERE user_id=$1"},
+  {key:"class_registrations",sql:"SELECT id,session_id,contact_id,name,email,state,created_at,cancelled_at FROM private.class_registrations WHERE user_id=$1"},
+  {key:"booking_series",sql:"SELECT id,event_id,timezone,recurrence,starts_at,booking_ids,created_at FROM private.booking_series WHERE user_id=$1"},
+  {key:"appointment_waitlists",sql:"SELECT id,event_id,contact_id,preferred_from,preferred_until,email_opt_in,state,created_at FROM private.appointment_waitlists WHERE user_id=$1"},
+  {key:"shared_messages",sql:"SELECT id,thread_id,channel,direction,state,body,provider,provider_message_id,sent_at,delivered_at,received_at,created_at FROM private.message_records WHERE user_id=$1 ORDER BY created_at"},
+  {key:"communication_consents",sql:"SELECT phone_e164,scope,status,source,country_code,recorded_at,revoked_at FROM private.contact_consents WHERE user_id=$1"},
+  {key:"customer_balances",sql:"SELECT id,contact_id,kind,unit,balance,expires_at,created_at FROM private.customer_balance_accounts WHERE user_id=$1"},
+  {key:"customer_balance_ledger",sql:"SELECT id,account_id,delta,balance_after,reference,reason,reversal_of,created_at FROM private.customer_balance_entries WHERE user_id=$1 ORDER BY created_at"},
+  {key:"private_file_metadata",sql:"SELECT id,filename,content_type,byte_size,sha256,scan_status,state,created_at FROM private.stored_files WHERE user_id=$1"},
+  {key:"video_meetings",sql:"SELECT booking_id,provider,starts_at,expires_at,created_at FROM private.video_rooms WHERE user_id=$1"},
   { key: "profile", sql: "SELECT id,name,slug,timezone,bio,headline,company,accent_color,website,location,social_links,booking_instructions,industry,created_at FROM public.profiles WHERE id=$1" },
   { key: "account", sql: 'SELECT email,name,"emailVerified","createdAt" FROM public."user" WHERE id=$1' },
   { key: "appointment_types", sql: "SELECT * FROM public.event_types WHERE user_id=$1 ORDER BY created_at" },
@@ -45,7 +59,8 @@ export async function deletionBlockers(userId: string) {
       EXISTS(SELECT 1 FROM private.subscriptions WHERE user_id=$1 AND subscription_id IS NOT NULL
              AND status IN ('active','trialing','past_due','unpaid','incomplete')) AS subscription,
       EXISTS(SELECT 1 FROM private.organizations WHERE owner_id=$1) AS team,
-      EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1) AS google,
+      (EXISTS(SELECT 1 FROM private.google_calendar_connections WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.microsoft_calendar_connections WHERE user_id=$1)) AS google,
+      (EXISTS(SELECT 1 FROM private.growth_offers WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.growth_coupons WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.class_sessions WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.sms_outbox WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_accounts WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.booking_series WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.subscription_revenue_snapshots WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.appointment_waitlists WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.customer_balance_entries WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.provider_usage_reservations WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.message_records WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.stored_files WHERE user_id=$1) OR EXISTS(SELECT 1 FROM private.video_rooms WHERE user_id=$1)) AS retained_launch_records,
       EXISTS(SELECT 1 FROM private.host_payment_accounts WHERE user_id=$1) AS payouts,
       (EXISTS(SELECT 1 FROM private.appointment_payments WHERE user_id=$1)
         OR EXISTS(SELECT 1 FROM private.marketplace_orders WHERE user_id=$1)) AS payments,
@@ -55,6 +70,7 @@ export async function deletionBlockers(userId: string) {
   );
   const r = rows[0],
     blockers: { id: string; message: string; href?: string }[] = [];
+  if(r.retained_launch_records) blockers.push({id:"retained_records",message:"Messaging, usage, stored files or credit history needs a retention review. Contact support to close your account."});
   if (r.admin)
     blockers.push({ id: "admin", message: "Platform administrator accounts can’t be deleted here." });
   if (r.subscription)
@@ -62,7 +78,7 @@ export async function deletionBlockers(userId: string) {
   if (r.team)
     blockers.push({ id: "team", message: "You own a team workspace. Remove it or hand it over first.", href: "/app/team" });
   if (r.google)
-    blockers.push({ id: "google", message: "Disconnect Google Calendar so Zenvio can revoke its access.", href: "/app/connections" });
+    blockers.push({ id: "google", message: "Disconnect your Google and Microsoft calendars before closing the account.", href: "/app/connections" });
   if (r.payouts)
     blockers.push({ id: "payouts", message: "Your account has a connected payout account. Contact support to close it." });
   if (r.payments)
