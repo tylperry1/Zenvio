@@ -29,19 +29,31 @@ export async function POST(request: NextRequest) {
   const status = (params.MessageStatus || params.SmsStatus || "inbound").toLowerCase();
   const eventId = `${sid}:${status}`;
   const digest = createHash("sha256").update(raw).digest("hex");
-  const inserted = await getPool().query(
-    `insert into private.provider_webhook_events(provider,provider_event_id,event_type,payload_digest)
-     values('twilio',$1,$2,$3) on conflict do nothing returning provider_event_id`,
-    [eventId, status, digest],
-  );
-  if (!inserted.rowCount) return new Response("", { status: 204 });
+  const client = await getPool().connect();
   try {
+    await client.query("begin");
+    const inserted = await client.query(
+      `insert into private.provider_webhook_events(provider,provider_event_id,event_type,payload_digest)
+       values('twilio',$1,$2,$3) on conflict do nothing returning provider_event_id`,
+      [eventId, status, digest],
+    );
+    if (!inserted.rowCount) {
+      const previous = await client.query(
+        "select processed_at from private.provider_webhook_events where provider='twilio' and provider_event_id=$1 for update",
+        [eventId],
+      );
+      if (!previous.rows[0]) throw new Error("webhook_claim_missing");
+      if (previous.rows[0].processed_at) {
+        await client.query("commit");
+        return new Response(null, { status: 204 });
+      }
+    }
     if (status !== "inbound") {
       const mapped = ["delivered", "undelivered", "failed", "sent", "queued"].includes(status)
         ? status
         : "unknown";
       const state = mapped === "delivered" ? "delivered" : ["undelivered", "failed"].includes(mapped) ? "failed" : "provider_accepted";
-      await getPool().query(
+      await client.query(
         `update private.message_records
             set state=$2,delivered_at=case when $2='delivered' then now() else delivered_at end,
                 failure_code=case when $2='failed' then $3 else failure_code end,
@@ -53,16 +65,14 @@ export async function POST(request: NextRequest) {
       const from = normalizeE164(params.From || "");
       const to = normalizeE164(params.To || "");
       const messageBody = (params.Body || "").trim().slice(0, 1600);
-      const connection = await getPool().query(
+      const connection = await client.query(
         "select user_id from private.sms_provider_connections where sender_number=$1 and messaging_enabled=true",
         [to],
       );
       if (!connection.rows[0]) throw new Error("unknown_sms_destination");
       const userId = connection.rows[0].user_id;
       const keyword = twilioKeyword(messageBody);
-      const client = await getPool().connect();
-      try {
-        await client.query("begin");
+
         if (keyword === "stop")
           await client.query(
             `insert into private.contact_consents(user_id,phone_e164,scope,status,source,country_code,revoked_at)
@@ -92,24 +102,22 @@ export async function POST(request: NextRequest) {
            on conflict(provider,provider_message_id) where provider_message_id is not null do nothing`,
           [thread.rows[0].id, userId, messageBody || keyword || "Inbound message", sid],
         );
-        await client.query("commit");
-      } catch (error) {
-        await client.query("rollback");
-        throw error;
-      } finally {
-        client.release();
-      }
     }
-    await getPool().query(
+    await client.query(
       "update private.provider_webhook_events set processed_at=now() where provider='twilio' and provider_event_id=$1",
       [eventId],
     );
-    return new Response("", { status: 204 });
+    await client.query("commit");
+    return new Response(null, { status: 204 });
   } catch (error) {
+    await client.query("rollback");
     await getPool().query(
       "update private.provider_webhook_events set last_error='Webhook processing failed.' where provider='twilio' and provider_event_id=$1",
       [eventId],
-    );
+    ).catch(() => {});
     return Response.json({ error: "Webhook processing failed." }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
+

@@ -25,6 +25,7 @@ try {
       for(const route of routes){
         const response=await page.goto(origin+route);
         assert.equal(response.status(),200,route);
+        console.log(`QA page ${route} at ${width}px`);
         await page.locator("h1").first().waitFor();
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);

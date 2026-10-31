@@ -76,11 +76,11 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
         </Link>
         <div>
           <span className="auth-flower">✳</span>
-          <h1>
+          <h2>
             Good things,
             <br />
             on the calendar.
-          </h1>
+          </h2>
           <p>Less back-and-forth. More possibility.</p>
         </div>
         <small>CLEAR & CONNECTED</small>
@@ -95,7 +95,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               ? "A LITTLE MORE POSSIBILITY"
               : "YOUR TIME, TOGETHER"}
           </p>
-          <h2>{title}</h2>
+          <h1>{title}</h1>
           <p>
             {recover
               ? "Enter your email and we’ll send a reset link."
@@ -246,3 +246,4 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     </main>
   );
 }
+

@@ -28,17 +28,28 @@ export async function POST(request: NextRequest) {
   const state = resendDeliveryState(event.type || "");
   const providerId = event.data?.email_id;
   if (!state || !providerId || providerId.length > 200)
-    return new Response("", { status: 204 });
+    return new Response(null, { status: 204 });
   const digest = createHash("sha256").update(payload).digest("hex");
-  const inserted = await getPool().query(
-    `insert into private.provider_webhook_events(provider,provider_event_id,event_type,payload_digest)
-     values('resend',$1,$2,$3) on conflict do nothing returning provider_event_id`,
-    [id, event.type, digest],
-  );
-  if (!inserted.rowCount) return new Response("", { status: 204 });
   const client = await getPool().connect();
   try {
     await client.query("begin");
+    // Claim and apply atomically so a failed attempt remains retryable.
+    const inserted = await client.query(
+      `insert into private.provider_webhook_events(provider,provider_event_id,event_type,payload_digest)
+       values('resend',$1,$2,$3) on conflict do nothing returning provider_event_id`,
+      [id, event.type, digest],
+    );
+    if (!inserted.rowCount) {
+      const previous = await client.query(
+        "select processed_at from private.provider_webhook_events where provider='resend' and provider_event_id=$1 for update",
+        [id],
+      );
+      if (!previous.rows[0]) throw new Error("webhook_claim_missing");
+      if (previous.rows[0].processed_at) {
+        await client.query("commit");
+        return new Response(null, { status: 204 });
+      }
+    }
     await client.query(
       `update private.delivery_jobs
           set provider_status=$2,
@@ -68,7 +79,7 @@ export async function POST(request: NextRequest) {
       [id],
     );
     await client.query("commit");
-    return new Response("", { status: 204 });
+    return new Response(null, { status: 204 });
   } catch {
     await client.query("rollback");
     await getPool()
@@ -82,3 +93,4 @@ export async function POST(request: NextRequest) {
     client.release();
   }
 }
+
