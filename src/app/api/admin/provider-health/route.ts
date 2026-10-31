@@ -21,9 +21,9 @@ export async function GET() {
            from private.delivery_jobs group by provider_status`,
       ),
       getPool().query(
-        `select registration_state,messaging_enabled,count(*)::int count
+        `select provider,registration_state,messaging_enabled,count(*)::int count
            from private.sms_provider_connections
-          group by registration_state,messaging_enabled`,
+          group by provider,registration_state,messaging_enabled`,
       ),
       getPool().query(
         `select provider,count(*) filter(where processed_at is null)::int pending,
@@ -49,7 +49,8 @@ export async function GET() {
             diagnostics: await emailDiagnostics(),
             delivery: email.rows,
           },
-          twilio: { configured: await twilioConfigured(), connections: sms.rows },
+          twilio: { configured: await twilioConfigured(), connections: sms.rows.filter(row=>row.provider==='twilio') },
+          telnyx: {connections:sms.rows.filter(row=>row.provider==='telnyx'),activationDetailsPath:"/api/admin/launch/providers"},
           webhooks: webhooks.rows,
         },
         featureFlags: settings.rows[0]?.value || {},
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
         );
       } else if (input.action === "sms-connection") {
         const userId = string(input.userId, "account", 64);
+        const existingSms=(await client.query("select provider from private.sms_provider_connections where user_id=$1 for update",[userId])).rows[0];
+        if(existingSms?.provider==='telnyx')throw new ApiError("Use the Telnyx sender configuration endpoint to change this connection.",409);
         const sender = normalizeE164(string(input.senderNumber, "sender number", 20));
         const state = string(input.registrationState, "registration state", 20);
         if (!["unregistered", "pending", "approved", "rejected", "not_required"].includes(state))

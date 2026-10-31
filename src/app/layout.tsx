@@ -10,6 +10,7 @@ import "./workspace-design.css";
 import "./ui.css";
 import "./experience.css";
 import "./subscriptions.css";
+import "./design-system.css";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

@@ -1,3 +1,4 @@
+import { queueSms, telnyxReadiness } from "./launch/sms-outbox";
 // SMS transport contract consumed by the messaging center and the assistant.
 //
 // SMS delivery, Twilio, sender numbers, consent records and message balances are owned by
@@ -41,7 +42,8 @@ const unavailable: SmsTransport = {
   },
 };
 
-let transport: SmsTransport = unavailable;
+const shared: SmsTransport = {readiness:telnyxReadiness,send:queueSms};
+let transport: SmsTransport = shared;
 // Hook for the shared transport (and tests) to register the real implementation.
 export function registerSmsTransport(next: SmsTransport | null) {
   transport = next ?? unavailable;
@@ -61,7 +63,7 @@ export function normalizePhone(value: string) {
 
 export async function smsReadiness(userId: string, phone: string, body: string): Promise<SmsReadiness> {
   // Report the workspace-wide blocker first so screens don't ask for a phone number that can't be used.
-  if (transport === unavailable)
+  if (transport === unavailable || (transport === shared && process.env.TELNYX_MESSAGING_ENABLED !== "true"))
     return { ok: false, reason: "provider_disabled", detail: smsBlockedCopy.provider_disabled };
   if (!phone.trim()) return { ok: false, reason: "no_phone", detail: smsBlockedCopy.no_phone };
   const to = normalizePhone(phone);

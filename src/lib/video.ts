@@ -1,3 +1,4 @@
+import { dailyConfigured } from "./launch/daily";
 // Video meeting provider adapter.
 //
 // Zenvio does not ship a video provider yet. Providers register here once real credentials and
@@ -22,6 +23,7 @@ export function _resetVideoProviders() {
 }
 
 export async function videoStatus() {
+  if (await dailyConfigured()) return {available:true as const,provider:"daily",name:"Daily",appointmentAccessPath:"/api/video/meetings"};
   for (const p of providers)
     if (await p.configured().catch(() => false)) return { available: true as const, provider: p.id, name: p.name };
   return {

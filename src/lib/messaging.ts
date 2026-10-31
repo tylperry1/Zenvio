@@ -1,3 +1,4 @@
+import {threadReplyAddress} from "./launch/inbound-email";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { appOrigin, queueDelivery } from "./lifecycle";
@@ -103,6 +104,8 @@ export async function sendThreadMessage(
       subject: `New message from ${name}`,
       text,
     });
+    const replyTo=await threadReplyAddress(db,t.id,t.user_id,t.email);
+    if(replyTo)await db.query("update private.delivery_jobs set reply_to=$2 where dedupe_key=$1",[key,replyTo]);
     job = (await db.query("SELECT id FROM private.delivery_jobs WHERE dedupe_key=$1", [key])).rows[0]?.id || null;
     status = "queued";
   } else if (input.channel === "sms") {

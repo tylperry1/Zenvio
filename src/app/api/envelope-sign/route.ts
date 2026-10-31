@@ -1,3 +1,4 @@
+import {assertSignerTurn,drawnSignature,queueNextSigner} from "@/lib/launch/signing";
 import { scheduleWorkflows } from "@/lib/workflows";
 import { queueEnvelopeCompletion } from "@/lib/document-delivery";
 import { drainDeliveries } from "@/lib/lifecycle";
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
           [lookup.rows[0].id],
         )
       ).rows[0];
+      if(e.status!=="completed") await assertSignerTurn(db,e,r);
       if (input.action === "sign" || input.action === "decline") {
         if (!["pending", "viewed"].includes(r.status) || e.status !== "sent")
           throw new ApiError("This recipient has already responded.", 409);
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
             if (!/^[\x20-\x7e]*$/.test(answers[f.id]))
               throw new ApiError("Use Latin characters in PDF fields.");
           }
+        const drawing=await drawnSignature(input.signatureImage);
         const at = new Date().toISOString(),
           receipt = hash(
             JSON.stringify({
@@ -115,12 +118,15 @@ export async function POST(req: NextRequest) {
               at,
               answers,
               consent: signingConsent,
+              signatureImageHash:drawing?.hash||null,
             }),
           );
         await db.query(
           "UPDATE private.signature_recipients SET status='signed',signature_name=$2,signed_at=$3,receipt_hash=$4,answers=$5 WHERE id=$1",
           [r.id, name, at, receipt, JSON.stringify(answers)],
+
         );
+        if(drawing)await db.query("update private.signature_recipients set signature_image=$2,signature_image_hash=$3 where id=$1",[r.id,drawing.bytes,drawing.hash]);
         await db.query(
           "INSERT INTO private.signature_events(envelope_id,recipient_id,action,details) VALUES($1,$2,'signed',$3)",
           [
@@ -130,7 +136,8 @@ export async function POST(req: NextRequest) {
               receipt,
               contentHash: e.content_hash,
               consent: signingConsent,
-              identityMethod: "private_link_and_typed_name",
+              signatureImageHash:drawing?.hash||null,
+              identityMethod: drawing ? "private_link_and_self_attested_drawn_signature" : "private_link_and_typed_name",
             }),
           ],
         );
@@ -144,6 +151,10 @@ export async function POST(req: NextRequest) {
             [e.id],
           );
           e.status = "completed";
+          const finalRecipients=(await db.query("select * from private.signature_recipients where envelope_id=$1 order by id",[e.id])).rows;
+          const finalPdf=await completedPdf(e,finalRecipients);
+          await db.query("update private.signature_envelopes set completed_pdf=$2,completed_pdf_hash=$3 where id=$1",[e.id,finalPdf,hash(finalPdf)]);
+          e.completed_pdf=finalPdf;e.completed_pdf_hash=hash(finalPdf);
           await queueEnvelopeCompletion(db, e);
           after(() =>
             scheduleWorkflows(e.user_id)
@@ -155,6 +166,7 @@ export async function POST(req: NextRequest) {
             [e.id],
           );
         }
+        if(remaining.rowCount){await queueNextSigner(db,e);after(()=>drainDeliveries(e.user_id).then(()=>{}));}
         r = {
           ...r,
           status: "signed",

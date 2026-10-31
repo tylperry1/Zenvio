@@ -1,7 +1,11 @@
+import {drainClassCancellations} from "./launch/classes";
+import {materializeWaitlistOffers} from "./launch/waitlists";
+import { drainSmsOutbox, materializeSmsReminders } from "./launch/sms-outbox";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { materializeBookingNotifications, mailReady } from "./mail";
-import { drainCalendarCleanup } from "./google-calendar";
+import { drainCalendarCleanup,runGoogleJobs } from "./google-calendar";
+import {runMicrosoftJobs} from "./microsoft-calendar";
 import { scheduleWorkflows } from "./workflows";
 import {
   materializeReminders,
@@ -46,11 +50,16 @@ export async function processScheduledJobs() {
   if (!lease.rowCount)
     return { busy: true, configured: await mailReady(), sent: 0 };
   try {
+    await materializeSmsReminders();
+    await drainSmsOutbox();
+    await drainClassCancellations();
     await drainCalendarCleanup();
+    await Promise.all([runGoogleJobs(undefined,5),runMicrosoftJobs(undefined,5)]);
     await purgeExpiredDeliverySecrets();
     await materializeBookingNotifications();
     await materializeReminders();
     await scheduleWorkflows();
+    await materializeWaitlistOffers();
     const result = await drainDeliveries(undefined, 20);
     if (!result.configured) throw Error("mail_unconfigured");
     await pool.query(
