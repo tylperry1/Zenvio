@@ -50,21 +50,25 @@ Original macOS checkout uses dataless cloud Git objects; shell GitHub DNS fails.
 
 ## Explicit remaining scope
 
-The full roadmap remains incomplete. External calendar editing, automated SMS reminders, exclusive waitlist holds, automatic no-show fees, multi-location/travel/service areas, paid recurring appointments, rewards/referrals/reviews/conversion journeys, advanced payment schedules, supplier ordering/returns/refunds, actual Daily usage ingestion and new widgets/mini-sites still require implementation or acceptance. Customer commerce and inbound email now exist but require final-revision CI, frontend adoption and authorized provider tests.
+The full roadmap remains incomplete. External calendar editing, exclusive waitlist holds, automatic no-show fees, multi-location/travel/service areas, paid recurring appointments, rewards/referrals/reviews/conversion journeys, advanced payment schedules, supplier ordering/returns/refunds, actual Daily usage ingestion and new widgets/mini-sites still require implementation or acceptance. Customer commerce and inbound email now exist but require final-revision CI, frontend adoption and authorized provider tests.
 
 ## October 31 continuation
 
 - Classes/group sessions reserve the organizer once, enforce capacity transactionally, support credit admission and return credits on cancellation. Backend run 41240292002 and combined frontend run 41240308864 passed both CI jobs.
 - Customer commerce adds server-priced packages, monthly memberships, gift cards, coupon reservations, signed Connect reconciliation, exactly-once credit grants and proportional refund recovery. Spent refunded credits freeze debits and record debt; no additional charge is made.
 - Inbound email uses separate signed webhooks, provider-reported authentication, private reply aliases and exact participant matching. HTML-only messages are quarantined and attachments withheld.
-- Commerce CI found a nullable Stripe amount type error; an explicit numeric guard was committed. Final backend and integration reruns are pending.
+- Commerce CI found a nullable Stripe amount type error; an explicit numeric guard was committed. The repaired backend and combined frontend revisions passed runs 41241470880 and 41241474355 respectively; subsequent new functionality requires its own final CI result.
 - Review branches: backend PR #15; unchanged Claude frontend PR #16; combined staging-review PR #17. No production merge or promotion.
 - Additive migrations 049–052 supplement 041–048. No previously applied migration was rewritten.
 
 ## Migration and deployment policy
 
-New files: 041_launch_provider_accounting, 042_private_file_references, 043_subscription_revenue_snapshots, 044_signing_evidence_and_routing, 045_recurring_booking_series, 046_waitlists_and_attendance, 047_waitlist_recipient_snapshots. Existing production migrations and data are unchanged. Apply only after integrated staging passes and a production database backup/restore checkpoint is confirmed. Use forward fixes rather than rewriting migration history. Provider features remain off until approved acceptance. No merge or production promotion is performed by this workstream.
+New files: 041_launch_provider_accounting, 042_private_file_references, 043_subscription_revenue_snapshots, 044_signing_evidence_and_routing, 045_recurring_booking_series, 046_waitlists_and_attendance, 047_waitlist_recipient_snapshots. Existing production migrations and data are unchanged. Apply only after integrated staging passes and a production database backup/restore checkpoint is confirmed. Use forward fixes rather than rewriting migration history. Provider features remain off until approved acceptance. Production release is authorized by the latest user instruction and remains gated on integrated CI/build verification.
 
 CI 41235198572 passed both jobs on c2892b9 (183 unit tests and all configured migration/API/browser/retained-record/security checks). CI 41235555088 passed both jobs on 14c7d52, including emergency-suspension hardening. Waitlists/attendance were subsequently added and require their own final-revision result. Local provider regression tests now pass 17/17; scheduling/calendar/recurrence 11/11. No whole-platform launch certification is inferred.
 
 Additional forward migrations: 047 binds offer recipients; 048 corrects pending cancellation-event queue cleanup. A legacy Google fixture exposed that an otherwise empty account could not be deleted because its operational cancellation event had a restrictive FK. 048 cascades only those queue rows; opted-in waitlists/offers and financial/document histories retain their deletion protections. Existing migrations were not rewritten.
+
+## Authorized production continuation
+
+The user explicitly requested continued implementation and production deployment. The next candidate adds migration 053 (SMS booking-source linkage), 054 (actual membership renewal state), a disabled-by-default appointment SMS materializer, public offers/gift redemption/checkout-return pages, class registration/cancellation and waitlist-offer pages, and an authenticated business growth center. Claude's admin/design-system files are unchanged; one additive workspace navigation entry is documented in the shared contract. Final integrated CI must pass before merging/deploying. Provider activation flags remain off. No live charges, supplier purchases or test SMS are authorized.
