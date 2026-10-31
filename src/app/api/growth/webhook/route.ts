@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
                     await db.query("update private.growth_orders set state='expired' where id=$1 and state='pending'", [order.id]);
                 if (checkout.payment_status === 'paid' && checkout.mode === 'payment') {
                     const pi = typeof checkout.payment_intent === 'string' ? checkout.payment_intent : checkout.payment_intent?.id;
-                    if (!pi)
-                        throw Error('missing_payment_intent');
+                    if (!pi || typeof checkout.amount_total !== 'number')
+                        throw Error('missing_payment_intent_or_amount');
                     await settleGrowthPayment(db, order, 'checkout:' + checkout.id, pi, checkout.amount_total);
                 }
             }
