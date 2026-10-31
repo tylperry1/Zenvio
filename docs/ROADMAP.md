@@ -17,24 +17,33 @@ Target commercial launch: November 2, 2026. The audit and design rules are in [U
 | Admin → Pricing | Rebuilt: current versus retired packages, Stripe mapping status, launch-gate readiness, Teams seat calculator, envelope allowances and overages, early-access offer, honest annual-savings logic, edit → review → publish with a diff, change history. Uses the existing audited save path; approved package rates stay code constants. |
 | Admin → Users & activity | Rebuilt on real data: total, active, new and paying KPIs; signup and daily-active charts; plan distribution; searchable, filterable, paginated user table; account drawer with sessions and admin history; guarded sign-out-everywhere; formula-safe CSV export; searchable configuration and admin activity log with event-type filter. |
 | Admin navigation | Fits on 900px-tall screens. |
+| Admin → Entitlements, Early access, Health | Rebuilt on the design system. Overrides use account search instead of raw IDs. |
+| Admin → Subscriptions, Personalization | Status colors, compact rows, consistent form styling; logic unchanged. |
+| Public | Team invitation steps, guest-friendly team booking copy, legal-page contents. |
+| Marketing & reviews | See the next section. |
+| Mobile PWA | Manifest (starts at `/app`, with shortcuts), install card with iOS instructions, service worker caching only hashed build assets and brand images, static offline page. Pages, APIs and client, payment and signing data are never cached (enforced by `tests/pwa.test.mjs`). |
 
 ### Next (no new backend required)
 
-Migrate the remaining admin pages, the workspace app (dashboard, calendar, clients, inbox, documents, jobs, payments, billing, settings) and the public booking flows onto the design system; then do the `/team/accept` layout, legal-page navigation and the PWA manifest/install shell.
+Migrate the workspace app screens (already consistent on the older `ui` kit) to `ds` primitives as polish, and merge the admin audit view into Users & activity.
 
-### Waiting on Codex backend contracts
+### Marketing & reviews (migration 055)
 
-These need server APIs that do not exist in the repository yet. UI will not be shown as available until each contract lands and is configured.
-
-| Capability | Missing contract |
+| Capability | State |
 | --- | --- |
-| SMS inbox actions (booking/reminder/document/payment links, consent capture, delivery status, opt-out) | Telnyx transport and delivery webhooks. Types already exist in `integration-contracts.ts`; the adapter does not. |
-| Embedded video meetings | Daily room/token provider. |
-| Recurring bookings, service packages, memberships, gift cards, coupons, loyalty, referrals, waitlists, no-show policies | Data model, billing and enforcement services. |
-| Booking widgets, QR codes, mini sites, reviews, source attribution, conversion dashboards | Attribution capture and public-site services. |
-| Customer-journey workflow builder (deposits, review requests, rebooking) | Additional workflow triggers/actions beyond the current validated set. |
-| AI receptionist, quota display by provider | Usage/quota read API and receptionist channel. |
-| Push notifications | Web Push key management and subscription storage. |
+| Booking source attribution | Implemented. Booking pages capture `?src=` / UTM tags and the referring site once per session; bookings record the source after a successful reservation (best effort, never blocks booking). Aggregate daily page-view counts only, throttled per client; no visitor identifiers. |
+| Conversion dashboard | Implemented at `/app/marketing?tab=sources`: visits, tracked bookings, conversion, top channel, per-source table, daily chart, campaigns, untracked count. |
+| Tracked links, QR codes, website widget | Implemented at `/app/marketing`: link builder with source presets and campaigns, client-side QR (PNG/SVG), `public/widget.js` floating “Book now” button (opens a new tab; no iframe, cookies or pixels), inline button snippet. |
+| Verified reviews | Implemented: owners request a review for completed appointments (Resend email when configured, otherwise a copyable private link), single-use hashed tokens in the URL fragment, 30-day expiry, public summary on booking profiles, owner replies, content-policy-only hiding. The public average includes every rating. |
+
+### Remaining
+
+| Capability | State |
+| --- | --- |
+| SMS, video, packages, memberships, gift cards, coupons, classes, waitlists, recurrence | Backends implemented by Codex on `main` (see root `ROADMAP.md`); provider activation and live acceptance pending. |
+| Referrals and loyalty rewards | Codex has an internal credit ledger; referral codes and reward rules not built. |
+| Review-request automation in workflows | Manual and per-appointment today; automatic post-appointment requests need a workflow action. |
+| Multi-location, travel buffers, mini-sites, journey builder, AI receptionist, push notifications | Not built. |
 
 ## Zenvio 2.1 (branch `feat/zenvio-ai-experience`, not yet released)
 

@@ -1,4 +1,5 @@
 "use client";
+import { captureAttribution, readAttribution } from "@/lib/attribution-client";
 import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { PublicPhoto } from "./profile-photo";
 import { FilePicker, useGuestUploads } from "./service-request";
@@ -25,7 +26,8 @@ export function BookingPage({
   const [paymentReturn, setPaymentReturn] = useState("");
   useEffect(() => {
     setPaymentReturn(new URLSearchParams(location.search).get("payment") || "");
-  }, []);
+    captureAttribution(host);
+  }, [host]);
   const [guestDraft, setGuestDraft] = useState<Record<string, string>>({});
   const [event, setEvent] = useState<PublicEvent | null>(null),
     [error, setError] = useState(""),
@@ -218,6 +220,7 @@ export function BookingPage({
             purpose: f.get("purpose"),
             website: f.get("website"),
             captcha,
+            attribution: readAttribution(host),
             uploadKey: uploads.key,
             answers: Object.fromEntries(
               (event?.questions || []).map((q) => [
