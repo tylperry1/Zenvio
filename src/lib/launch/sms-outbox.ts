@@ -28,6 +28,8 @@ export async function queueSms(input: {
     to: string;
     body: string;
     reference: string;
+    bookingId?: string;
+    bookingRevision?: number;
 }): Promise<SmsSendResult> {
     const to = normalizeE164(input.to), text = input.body.trim(), digest = smsDigest(to, text);
     if (!/^[A-Za-z0-9._:-]{16,120}$/.test(input.reference))
@@ -46,10 +48,14 @@ export async function queueSms(input: {
             await db.query("commit");
             return { status: existing.state === "delivered" ? "delivered" : ["failed", "suppressed", "uncertain"].includes(existing.state) ? "failed" : existing.state === "accepted" ? "sent" : "queued", providerId: existing.provider_message_id || null, detail: existing.last_error || undefined };
         }
+        if (input.bookingId) {
+            const booking = (await db.query("select id from public.bookings where id=$1 and user_id=$2 and revision=$3 and status='confirmed' and starts_at>now() and guest_phone=$4 for share", [input.bookingId,input.userId,input.bookingRevision,input.to])).rows[0];
+            if (!booking) throw new ApiError("Appointment reminder is no longer current.",409);
+        }
         const n = (await db.query("select count(*)::int n from private.sms_outbox where user_id=$1 and created_at>now()-interval '1 hour'", [input.userId])).rows[0].n;
         if (n >= 60)
             throw new ApiError("SMS hourly limit reached.", 429);
-        await db.query("insert into private.sms_outbox(user_id,reference,to_number,ciphertext,body_digest,provider) values($1,$2,$3,$4,$5,'telnyx')", [input.userId, input.reference, to, sealSecret(text), digest]);
+        await db.query("insert into private.sms_outbox(user_id,reference,to_number,ciphertext,body_digest,provider,booking_id,booking_revision) values($1,$2,$3,$4,$5,'telnyx',$6,$7)", [input.userId, input.reference, to, sealSecret(text), digest,input.bookingId||null,input.bookingRevision??null]);
         await db.query("commit");
         return { status: "queued", providerId: null };
     }
@@ -75,7 +81,12 @@ export async function drainSmsOutbox(limit = 10) {
         let usageId: string | undefined, attempted = false;
         try {
             // Inbox enqueue can precede its outer transaction commit. Only dispatch committed messages.
-            const origin = (await pool.query(`select 1 from private.message_records where id::text=$1 and user_id=$2
+            if (row.booking_id) {
+                if(process.env.SMS_APPOINTMENT_REMINDERS_ENABLED!=="true") throw new ApiError("Appointment SMS reminders are disabled.",409);
+                const b=(await pool.query("select b.id from public.bookings b where b.id=$1 and b.user_id=$2 and b.revision=$3 and b.status='confirmed' and b.starts_at>now() and b.guest_phone=$4 and exists(select 1 from private.contact_consents c where c.user_id=b.user_id and c.phone_e164=$4 and c.scope='appointment' and c.status='opted_in')",[row.booking_id,row.user_id,row.booking_revision,row.to_number])).rows[0];
+                if(!b) throw new ApiError("Appointment changed, expired, or appointment consent is unavailable.",409);
+            }
+            const origin = row.booking_id ? true : (await pool.query(`select 1 from private.message_records where id::text=$1 and user_id=$2
         union all select 1 from private.thread_messages m join private.message_threads t on t.id=m.thread_id where m.id::text=$1 and t.user_id=$2`, [row.reference, row.user_id])).rows[0];
             if (!origin) {
                 await pool.query("update private.sms_outbox set state=case when created_at<now()-interval '10 minutes' then 'suppressed' else 'queued' end,claimed_at=null,last_error='Awaiting committed source message.' where id=$1", [row.id]);
@@ -103,4 +114,28 @@ export async function drainSmsOutbox(limit = 10) {
         }
     }
     return { accepted };
+}
+
+/** Only reminders due now are queued; current booking revision is checked again at dispatch. */
+export async function materializeSmsReminders() {
+    if(process.env.SMS_APPOINTMENT_REMINDERS_ENABLED!=="true" || process.env.TELNYX_MESSAGING_ENABLED!=="true") return {queued:0};
+    const rows=(await getPool().query(`select b.id,b.user_id,b.revision,b.guest_phone,b.starts_at,e.title,p.timezone,m.minutes
+      from public.bookings b join public.event_types e on e.id=b.event_id join public.profiles p on p.id=b.user_id
+      cross join lateral unnest(e.reminder_minutes) m(minutes)
+      where b.status='confirmed' and b.booking_kind='appointment' and b.starts_at>now()
+      and b.starts_at-make_interval(mins=>m.minutes)<=now()
+      and b.starts_at-make_interval(mins=>m.minutes)>now()-interval '10 minutes'
+      and b.guest_phone ~ '^[+][1-9][0-9]{7,14}$'
+      and exists(select 1 from private.contact_consents c where c.user_id=b.user_id and c.phone_e164=b.guest_phone and c.scope='appointment' and c.status='opted_in')
+      and not exists(select 1 from private.sms_outbox o where o.user_id=b.user_id and o.reference='reminder:'||b.id||':'||b.revision||':'||m.minutes)
+      order by b.starts_at limit 20`)).rows;
+    let queued=0;
+    for(const b of rows) {
+        const when=new Intl.DateTimeFormat('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:b.timezone}).format(new Date(b.starts_at));
+        try {
+            await queueSms({userId:b.user_id,to:b.guest_phone,body:`Appointment reminder: ${b.title.slice(0,150)}. ${when} (${b.timezone}). Reply STOP to opt out.`,reference:`reminder:${b.id}:${b.revision}:${b.minutes}`,bookingId:b.id,bookingRevision:b.revision});
+            queued++;
+        } catch(e) { if(!(e instanceof ApiError)) throw e; }
+    }
+    return {queued};
 }

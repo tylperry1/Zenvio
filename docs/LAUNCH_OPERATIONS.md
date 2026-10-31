@@ -31,7 +31,7 @@ Configure signed inbound and delivery callbacks at `https://gozenvio.com/api/mes
 
 Both `/api/messages` and the unified inbox queue via `sms_outbox`. A scheduled worker checks the source transaction committed, then rechecks consent/sender/registration and reserves the segment cost before sending. Callbacks verify raw-body signatures and a five-minute replay window; claims/state changes commit together. Delivered states cannot be downgraded. Inbound SMS links to the visible inbox only for an unambiguous exact phone match; other replies remain in the shared messaging API. Media is not fetched automatically.
 
-Timeout/crash outcomes become `uncertain`; **never retry them automatically**. Find the provider record in Telnyx and reconcile ID, destination, content and receipt before an operator updates the record. This release does not ship an uncertain-send reconciliation UI or automated retry. SMS appointment/document/payment links can be sent as approved message bodies; automatic SMS reminder materialization is not implemented.
+Timeout/crash outcomes become `uncertain`; **never retry them automatically**. Find the provider record in Telnyx and reconcile ID, destination, content and receipt before an operator updates the record. This release does not ship an uncertain-send reconciliation UI or automated retry. SMS appointment/document/payment links can be sent as approved message bodies; automatic reminder materialization requires the separate `SMS_APPOINTMENT_REMINDERS_ENABLED=true` flag. Only E.164 booking numbers with explicit appointment consent are eligible; due reminders expire after a ten-minute materialization window. Dispatch rechecks booking revision, confirmation, future start, consent, sender and emergency suspension.
 
 ## Daily
 
