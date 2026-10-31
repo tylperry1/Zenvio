@@ -166,6 +166,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
   return {
     operations,
     runner: load("src/lib/job-runner.ts", {
+      "./launch/sms-outbox": { drainSmsOutbox: call("sms-outbox") },
       "./db": { getPool: () => pool },
       "./mail": {
         mailReady: async () => configured,
@@ -199,6 +200,7 @@ test("scheduler records bounded successful work and never labels missing mail co
   assert.deepEqual(
     good.operations.filter((x) => typeof x === "string"),
     [
+      "sms-outbox",
       "calendar-cleanup",
       "purge",
       "booking-notifications",

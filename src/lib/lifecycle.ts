@@ -203,13 +203,14 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       if (j.envelope_id && j.kind !== "document_complete") {
         const e = (
           await db.query(
-            "SELECT e.status,e.expires_at,r.status recipient_status FROM private.signature_envelopes e LEFT JOIN private.signature_recipients r ON r.id=$2 WHERE e.id=$1 FOR SHARE OF e",
+            "SELECT e.status,e.expires_at,r.status recipient_status,(e.signing_mode='sequential' AND EXISTS(SELECT 1 FROM private.signature_recipients p WHERE p.envelope_id=e.id AND p.signing_order<r.signing_order AND p.status<>'signed')) routing_blocked FROM private.signature_envelopes e LEFT JOIN private.signature_recipients r ON r.id=$2 WHERE e.id=$1 FOR SHARE OF e",
             [j.envelope_id, j.recipient_id],
           )
         ).rows[0];
         valid &&=
           !!e &&
           e.status === "sent" &&
+          !e.routing_blocked &&
           e.recipient_status !== "signed" &&
           new Date(e.expires_at).getTime() > Date.now();
       }

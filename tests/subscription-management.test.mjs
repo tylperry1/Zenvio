@@ -76,9 +76,11 @@ const filename = path.resolve("src/lib/subscription-management.ts"),
   mod = new Module(filename);
 mod.filename = filename;
 mod.paths = Module._nodeModulePaths(path.dirname(filename));
+const revenueMod=new Module(path.resolve("src/lib/launch/revenue.ts"));
+revenueMod._compile(ts.transpileModule(fs.readFileSync("src/lib/launch/revenue.ts","utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,path.resolve("src/lib/launch/revenue.ts"));
 const standard = mod.require.bind(mod);
 mod.require = (id) =>
-  id === "./db"
+  id === "./launch/revenue" ? revenueMod.exports : id === "./db"
     ? {
         getPool: () => ({
           query,
