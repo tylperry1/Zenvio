@@ -166,12 +166,16 @@ function runnerFixture({ busy = false, configured = true } = {}) {
   return {
     operations,
     runner: load("src/lib/job-runner.ts", {
+      "./launch/classes": {drainClassCancellations:call("class-cancellations")},
+      "./launch/waitlists": {materializeWaitlistOffers:call("waitlist-offers")},
+      "./launch/sms-outbox": { drainSmsOutbox: call("sms-outbox") },
       "./db": { getPool: () => pool },
       "./mail": {
         mailReady: async () => configured,
         materializeBookingNotifications: call("booking-notifications"),
       },
-      "./google-calendar": { drainCalendarCleanup: call("calendar-cleanup") },
+      "./google-calendar": { drainCalendarCleanup: call("calendar-cleanup"),runGoogleJobs:call("google-sync") },
+      "./microsoft-calendar": {runMicrosoftJobs:call("microsoft-sync")},
       "./workflows": { scheduleWorkflows: call("workflows") },
       "./lifecycle": {
         purgeExpiredDeliverySecrets: call("purge"),
@@ -199,11 +203,16 @@ test("scheduler records bounded successful work and never labels missing mail co
   assert.deepEqual(
     good.operations.filter((x) => typeof x === "string"),
     [
+      "sms-outbox",
+      "class-cancellations",
       "calendar-cleanup",
+      "google-sync",
+      "microsoft-sync",
       "purge",
       "booking-notifications",
       "reminders",
       "workflows",
+      "waitlist-offers",
       "delivery",
     ],
   );

@@ -1,3 +1,4 @@
+import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { integrationValue, sealSecret, unsealSecret } from "./platform-settings";
@@ -249,7 +250,7 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
       if(mapped){const response=await graphRequest(booking.user_id,booking.account_id,`${calendar}/${encodeURIComponent(mapped.event_id)}`,{method:"DELETE"});
        if(!response.ok&&response.status!==404)throw Error("sync_failed");}
     }else{
-      const payload={subject:booking.title,body:{contentType:"text",content:"Zenvio appointment. Manage changes in Zenvio."},
+      const payload={subject:booking.title,body:{contentType:"text",content:"Zenvio appointment. Manage changes in Zenvio."+(calendarIntakeSummary(booking.intake_snapshot)?"\n\nBooking details:\n"+calendarIntakeSummary(booking.intake_snapshot):"")},
        start:{dateTime:new Date(booking.starts_at).toISOString(),timeZone:"UTC"},
        end:{dateTime:new Date(booking.ends_at).toISOString(),timeZone:"UTC"},location:{displayName:booking.location||""},
        extensions:[{"@odata.type":"microsoft.graph.openTypeExtension",extensionName:"com.gozenvio.booking",

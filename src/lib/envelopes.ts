@@ -20,6 +20,8 @@ export type Recipient = {
   email: string;
   status: string;
   signature_name?: string;
+  signature_image?: Uint8Array;
+  signing_order?: number;
   signed_at?: string;
   receipt_hash?: string;
   answers?: Record<string, string>;
@@ -155,12 +157,17 @@ export function manifest(
         id: r.id,
         name: r.name,
         email: r.email,
+        signing_order:r.signing_order||1,
       })),
     }),
   );
 }
 const safe = (s: string) => s.replace(/[^\x20-\x7e]/g, "?");
 export async function completedPdf(envelope: any, recipients: Recipient[]) {
+  if (envelope.completed_pdf) {
+    if (!envelope.completed_pdf_hash || hash(envelope.completed_pdf)!==envelope.completed_pdf_hash) throw new ApiError("Completed document integrity check failed.",503);
+    return Buffer.from(envelope.completed_pdf);
+  }
   const pdf = await PDFDocument.load(envelope.pdf),
     font = await pdf.embedFont(StandardFonts.Helvetica),
     italic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
@@ -169,6 +176,12 @@ export async function completedPdf(envelope: any, recipients: Recipient[]) {
     if (r?.status !== "signed") continue;
     const page = pdf.getPage(f.page),
       { width, height } = page.getSize();
+    if (f.type === "signature" && r.signature_image) {
+      const image=await pdf.embedPng(r.signature_image);
+      const scale=Math.min(f.width*width/image.width,f.height*height/image.height);
+      page.drawImage(image,{x:f.x*width,y:height-(f.y+f.height)*height,width:image.width*scale,height:image.height*scale});
+      continue;
+    }
     const text =
       f.type === "signature"
         ? r.signature_name || ""
@@ -210,7 +223,7 @@ export async function completedPdf(envelope: any, recipients: Recipient[]) {
   line("Agreement SHA-256:", 10);
   line(envelope.content_hash, 8);
   line("Status: " + envelope.status);
-  line("Private-link access and self-attested typed signatures.");
+  line("Private-link access and self-attested typed or drawn signatures.");
   line("Email ownership and identity are not independently verified.");
   line("Electronic signing consent:", 10);
   for (const chunk of signingConsent.match(/.{1,85}(?:\s|$)/g) || [])

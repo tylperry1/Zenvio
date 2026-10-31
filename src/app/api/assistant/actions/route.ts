@@ -1,3 +1,5 @@
+import {assistantPolicy} from "@/lib/assistant/limits";
+import {aiConfiguration} from "@/lib/launch/provider-policy";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, failure, sameOrigin, session, uuid } from "@/lib/server";
@@ -29,6 +31,7 @@ export async function POST(request: NextRequest) {
       await note(rows[0].conversation_id, `[Action outcome] The user declined: ${rows[0].preview.title}.`);
       return Response.json({ status: "rejected" });
     }
+    if(!(await assistantPolicy()).enabled||!(await aiConfiguration()).enabled)throw new ApiError("Assistant actions are suspended by the platform administrator.",403);
     await pool.query(
       "UPDATE private.ai_actions SET status='expired' WHERE id=$1 AND user_id=$2 AND status='pending' AND expires_at<=now()",
       [id, user.id],
