@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { chromium } from "playwright";
 const origin="http://localhost:3100";
 const browser=await chromium.launch({headless:true});
-const errors=[],results=[];
+const errors=[],results=[],apiTimings=[];
 fs.mkdirSync("test-results",{recursive:true});
 try {
   const guest=await browser.newContext(),member=await browser.newContext(),admin=await browser.newContext();
@@ -30,7 +30,11 @@ try {
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
-        results.push({route,width,status:response.status(),overflow});
+        const timing=await page.evaluate(()=>{
+          const n=performance.getEntriesByType("navigation")[0];
+          return n ? {ttfbMs:n.responseStart-n.requestStart,domContentLoadedMs:n.domContentLoadedEventEnd,loadMs:n.loadEventEnd} : null;
+        });
+        results.push({route,width,status:response.status(),overflow,timing});
         assert(overflow<=1,`${route} at ${width}px overflows ${overflow}px`);
         assert.equal(await page.getByText("Application error",{exact:true}).count(),0,route);
         if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing"].includes(route))
@@ -38,13 +42,26 @@ try {
       }
     }
   }
+  for (const route of ["/api/workspace","/api/clients","/api/account","/api/billing"]) {
+    for (let sample=0;sample<5;sample++) {
+      const start=performance.now();
+      const response=await member.request.get(origin+route);
+      const elapsedMs=performance.now()-start;
+      assert.equal(response.status(),200,route);
+      apiTimings.push({route,sample,elapsedMs});
+    }
+  }
   const robots=await guest.request.get(origin+"/robots.txt");assert.equal(robots.status(),200);assert.match(await robots.text(),/Disallow: \/portal/);
   const sitemap=await guest.request.get(origin+"/sitemap.xml");assert.equal(sitemap.status(),200);assert.doesNotMatch(await sitemap.text(),/\/portal|\/admin|\/api/);
   const privateResponse=await guest.request.get(origin+"/api/account");assert.equal(privateResponse.status(),401);assert.match(privateResponse.headers()["x-robots-tag"],/noindex/);
   const memberAdmin=await member.request.get(origin+"/api/admin");assert.equal(memberAdmin.status(),403);
   assert.deepEqual(errors,[]);
+  for (const route of [...new Set(apiTimings.map(r=>r.route))]) {
+    const samples=apiTimings.filter(r=>r.route===route).map(r=>r.elapsedMs).sort((a,b)=>a-b);
+    console.log(`QA fixture API timing ${route}: median=${samples[2].toFixed(1)}ms max=${samples.at(-1).toFixed(1)}ms samples=5`);
+  }
   console.log(`QA responsive checks passed: ${results.length} page/viewport combinations; SEO and access smoke passed.`);
 } finally {
-  fs.writeFileSync("test-results/qa-responsive.json",JSON.stringify({results,errors},null,2));
+  fs.writeFileSync("test-results/qa-responsive.json",JSON.stringify({results,apiTimings,errors},null,2));
   await browser.close();
 }
