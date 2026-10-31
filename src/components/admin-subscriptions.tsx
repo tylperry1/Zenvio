@@ -219,7 +219,22 @@ export function AdminSubscriptions() {
                           )}
                         </td>
                         <td>
-                          <span className="billing-badge">
+                          <span
+                            className="billing-badge"
+                            data-tone={
+                              !s.has_subscription
+                                ? s.override_plan
+                                  ? "info"
+                                  : "neutral"
+                                : s.status === "active"
+                                  ? "success"
+                                  : s.status === "trialing"
+                                    ? "info"
+                                    : ["past_due", "unpaid", "incomplete"].includes(s.status)
+                                      ? "warning"
+                                      : "neutral"
+                            }
+                          >
                             {s.has_subscription
                               ? s.status.replaceAll("_", " ")
                               : s.override_plan

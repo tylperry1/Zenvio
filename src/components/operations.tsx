@@ -6,6 +6,7 @@ import { AdminMarketplace } from "./admin-marketplace";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminConnections } from "./admin-connections";
 import { AdminPricing } from "./admin-pricing";
+import { AdminHealth } from "./admin-health";
 import { AdminUsersActivity } from "./admin-users-activity";
 import { useCan } from "./admin-access";
 import { Icon } from "./icons";
@@ -18,6 +19,7 @@ type Plan = {
 };
 type Data = {
   emailDiagnostics?: {
+    configured?: boolean;
     senderDomain: string | null;
     credentialStatus: string;
     domainStatus: string;
@@ -186,130 +188,15 @@ export function Operations({ initialView }: { initialView?: string }) {
             <>
               {view === "marketplace" && <AdminMarketplace />}
               {view === "health" && (
-                <section
-                  className="av-panel"
-                  style={{ padding: 24, marginBottom: 24 }}
-                >
-                  <div className="billing-section-heading">
-                    <div>
-                      <h2>System readiness</h2>
-                      <p>
-                        Last checked{" "}
-                        {new Date(
-                          data.healthDetails.checkedAt,
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="billing-badge">
-                      {data.healthDetails.environment}
-                    </span>
-                  </div>
-                  {Object.entries(data.health).map(([name, s]) => (
-                    <p key={name}>
-                      <b>{name}</b> — {s.ok ? "Ready" : "Setup required"}{" "}
-                      {s.latencyMs !== undefined && `· ${s.latencyMs} ms`}
-                    </p>
-                  ))}
-                  <div className="billing-detail-grid">
-                    <div>
-                      <small>Runtime</small>
-                      <b>Node {data.healthDetails.nodeVersion}</b>
-                    </div>
-                    <div>
-                      <small>Applied migrations</small>
-                      <b>{data.healthDetails.migrationCount}</b>
-                    </div>
-                    <div>
-                      <small>Latest migration</small>
-                      <b>{data.healthDetails.lastMigration || "None"}</b>
-                    </div>
-                    <div>
-                      <small>Last migration applied</small>
-                      <b>
-                        {data.healthDetails.lastMigrationAt
-                          ? new Date(
-                              data.healthDetails.lastMigrationAt,
-                            ).toLocaleString()
-                          : "—"}
-                      </b>
-                    </div>
-                    <div>
-                      <small>Pending / exhausted emails</small>
-                      <b>
-                        {data.emailDelivery.pending} /{" "}
-                        {data.emailDelivery.failed}
-                      </b>
-                    </div>
-                    <div>
-                      <small>Last email sent</small>
-                      <b>
-                        {data.healthDetails.lastEmailSent
-                          ? new Date(
-                              data.healthDetails.lastEmailSent,
-                            ).toLocaleString()
-                          : "No deliveries yet"}
-                      </b>
-                    </div>
-                  </div>
-                  <h3>Email provider diagnostics</h3>
-                  {data.emailDiagnostics && (
-                    <>
-                      <p>
-                        Sender domain:{" "}
-                        {data.emailDiagnostics.senderDomain ||
-                          "Invalid or missing"}{" "}
-                        · Credential check:{" "}
-                        {data.emailDiagnostics.credentialStatus.replaceAll(
-                          "_",
-                          " ",
-                        )}{" "}
-                        · Sending domain:{" "}
-                        {data.emailDiagnostics.domainStatus.replaceAll(
-                          "_",
-                          " ",
-                        )}
-                      </p>
-                      {data.emailDiagnostics.issue && (
-                        <p role="alert" className="billing-error">
-                          {data.emailDiagnostics.issue}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  <h3>Provider configuration</h3>
-                  <div className="admin-provider-grid">
-                    {data.integrations
-                      .filter((i) =>
-                        [
-                          "RESEND_API_KEY",
-                          "STRIPE_SECRET_KEY",
-                          "STRIPE_MARKETPLACE_WEBHOOK_SECRET",
-                        ].includes(i.key),
-                      )
-                      .map((i) => (
-                        <article key={i.key}>
-                          <span>
-                            {i.label
-                              .replace(" API key", "")
-                              .replace(" access token", "")}
-                          </span>
-                          <b className="billing-badge">
-                            {i.configured ? "Configured" : "Setup required"}
-                          </b>
-                        </article>
-                      ))}
-                  </div>
-                  <p>
-                    Credential status indicates configuration. Provider
-                    authorization and delivery are verified when the service is
-                    used.
-                  </p>
-                  <button
-                    onClick={() => load().catch((e) => setMessage(e.message))}
-                  >
-                    Refresh health
-                  </button>
-                </section>
+                <AdminHealth
+                  health={data.health}
+                  details={data.healthDetails}
+                  delivery={data.emailDelivery}
+                  diagnostics={data.emailDiagnostics}
+                  providers={data.integrations}
+                  busy={busy}
+                  onRefresh={() => void load().catch((e) => setMessage(e.message))}
+                />
               )}
               {view === "integrations" && (
                 <AdminConnections
