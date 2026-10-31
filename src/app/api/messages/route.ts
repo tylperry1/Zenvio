@@ -64,6 +64,15 @@ export async function POST(request: NextRequest) {
       await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
         `sms-rate:${token}`,
       ]);
+      const existing = await client.query(
+        "select id,state,provider_message_id,body,(select participant_address from private.messaging_threads t where t.id=message_records.thread_id) destination from private.message_records where user_id=$1 and idempotency_key=$2",
+        [token, idempotencyKey],
+      );
+      if (existing.rows[0]) {
+        if(existing.rows[0].body!==messageBody||existing.rows[0].destination!==to)throw new ApiError("This message reference was already used for different content.",409);
+        await client.query("commit");
+        return Response.json({ message: existing.rows[0], duplicate: true });
+      }
       const rate = await client.query(
         `select count(*)::int count from private.message_records
           where user_id=$1 and channel='sms' and direction='outbound'
@@ -72,14 +81,6 @@ export async function POST(request: NextRequest) {
       );
       if (rate.rows[0].count >= 60)
         throw new ApiError("SMS hourly limit reached. Try again later.", 429);
-      const existing = await client.query(
-        "select id,state,provider_message_id from private.message_records where user_id=$1 and idempotency_key=$2",
-        [token, idempotencyKey],
-      );
-      if (existing.rows[0]) {
-        await client.query("commit");
-        return Response.json({ message: existing.rows[0], duplicate: true });
-      }
       const thread = await client.query(
         `insert into private.messaging_threads(user_id,channel,participant_address)
          values($1,'sms',$2)
