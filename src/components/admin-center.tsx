@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
 import { Modal } from "./modal";
-import { AdminNavigation } from "./admin-navigation";
+import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminUserActions } from "./admin-user-actions";
+import { useCan } from "./admin-access";
 type Account = {
   id: string;
   name: string;
@@ -97,6 +98,10 @@ export function AdminCenter({
 }: {
   initialView?: AdminView;
 }) {
+  const can = useCan();
+  // Employees only load the areas the master admin delegated to them.
+  const canAccounts = can("accounts"),
+    canAudit = can("audit");
   const [view, setView] = useState<AdminView>(initialView),
     [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
@@ -151,11 +156,42 @@ export function AdminCenter({
       }
       try {
         const [accounts, activity, totals] = await Promise.all([
-          read(
-            `/api/admin?view=accounts&page=${view === "accounts" ? page : 0}&search=${encodeURIComponent(view === "accounts" ? query : "")}`,
-          ),
-          read(`/api/admin?view=audit&page=${view === "audit" ? page : 0}`),
-          read("/api/admin?view=insights"),
+          canAccounts
+            ? read(
+                `/api/admin?view=accounts&page=${view === "accounts" ? page : 0}&search=${encodeURIComponent(view === "accounts" ? query : "")}`,
+              )
+            : {
+                accounts: [],
+                total: 0,
+                page: 0,
+                page_size: 25,
+                totals: {
+                  accounts: 0,
+                  verified_accounts: 0,
+                  active_events: 0,
+                  upcoming_bookings: 0,
+                  bookings: 0,
+                  contacts: 0,
+                },
+              },
+          canAudit
+            ? read(`/api/admin?view=audit&page=${view === "audit" ? page : 0}`)
+            : { entries: [], total: 0, page: 0, page_size: 25 },
+          canAccounts
+            ? read("/api/admin?view=insights")
+            : {
+                daily: [],
+                generated_at: new Date().toISOString(),
+                metrics: {
+                  new_accounts_30d: 0,
+                  confirmed_bookings: 0,
+                  cancelled_bookings: 0,
+                  events: 0,
+                  paused_events: 0,
+                  upcoming_7d: 0,
+                },
+                services: { database: true, authentication: true, account_email: false },
+              },
         ]);
         if (controller.signal.aborted) return;
         setOverview(accounts);
@@ -178,7 +214,7 @@ export function AdminCenter({
     }
     void load();
     return () => controller.abort();
-  }, [view, page, query, revision]);
+  }, [view, page, query, revision, canAccounts, canAudit]);
   async function openAccount(id: string) {
     setDetailLoading(true);
     setDetailError("");
@@ -258,32 +294,23 @@ export function AdminCenter({
     audit: "Activity & audit log",
   };
   return (
-    <div className="admin-v3">
+    <div className="admin-v3 acx">
       <AdminNavigation
         view={view}
         onNavigate={(id) => navigate(id as AdminView)}
         onSignOut={() => void signOut()}
       />
       <div className="av-body">
-        <header className="av-topbar">
-          <div>
-            <span>Administration</span>
-            <Icon name="chevron" size={13} />
-            <b>
-              {view === "audit"
-                ? "Activity log"
-                : view === "accounts"
-                  ? "Accounts"
-                  : "Overview"}
-            </b>
-          </div>
-          <div>
-            <span className="av-access-badge">
-              <Icon name="shield" size={13} /> Master admin
-            </span>
-            <Link className="av-workspace-link" href="/app">
-              My workspace <Icon name="arrow" size={14} />
-            </Link>
+        <AdminTopbar
+          trail="Administration"
+          current={
+            view === "audit"
+              ? "Activity log"
+              : view === "accounts"
+                ? "Accounts"
+                : "Overview"
+          }
+          actions={
             <button
               className="av-mobile-signout"
               aria-label="Sign out"
@@ -291,8 +318,8 @@ export function AdminCenter({
             >
               <Icon name="logout" size={16} />
             </button>
-          </div>
-        </header>
+          }
+        />
         <main className="av-content" aria-busy={loading}>
           <div className="av-page-heading">
             <div>
@@ -607,12 +634,14 @@ export function AdminCenter({
                                 <h2>Recent admin activity</h2>
                                 <p>A traceable trail of platform changes</p>
                               </div>
-                              <button
-                                className="av-text-button"
-                                onClick={() => navigate("audit")}
-                              >
-                                View log <Icon name="arrow" size={15} />
-                              </button>
+                              {canAudit && (
+                                <button
+                                  className="av-text-button"
+                                  onClick={() => navigate("audit")}
+                                >
+                                  View log <Icon name="arrow" size={15} />
+                                </button>
+                              )}
                             </div>
                             {audit?.entries.length ? (
                               <ol className="av-timeline">

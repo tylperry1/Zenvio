@@ -1,7 +1,7 @@
 import { mailReady } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { allowAuthAttempt } from "@/lib/auth-rate-limit";
-import { platformRole } from "@/lib/admin";
+import { adminAccess } from "@/lib/admin";
 import { getAuth } from "@/lib/auth";
 import { ApiError, body, email, failure, sameOrigin, string, password, configuration } from "@/lib/server";
 export const dynamic = "force-dynamic";
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
             return Response.json({ message: "Password updated. You can now sign in." }, { headers: resultHeaders });
         if (input.action === "sign-up" && !data.token)
             return Response.json({ message: "Check your email to confirm your account, then sign in." }, { headers: resultHeaders });
-        const role = data.user ? await platformRole(data.user.id) : "member";
-        return Response.json({ ok: true, redirectTo: role === "master_admin" ? "/admin" : "/app" }, { headers: resultHeaders });
+        const access = data.user ? await adminAccess(data.user.id) : null;
+        return Response.json({ ok: true, redirectTo: access ? "/admin" : "/app" }, { headers: resultHeaders });
     }
     catch (error) {
         return failure(error);

@@ -34,7 +34,7 @@ const https = (value: unknown, name: string, max = 500) => {
 };
 export async function GET(request: NextRequest) {
   try {
-    await adminSession();
+    await adminSession("marketplace");
     const q = request.nextUrl.searchParams;
     if (q.get("order"))
       return Response.json(await marketOrderDetail(uuid(q.get("order"))), {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token } = await adminSession(),
+    const { token } = await adminSession("marketplace"),
       input = await body(request);
     const client = await getPool().connect();
     try {

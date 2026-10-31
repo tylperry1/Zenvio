@@ -8,6 +8,7 @@ import ts from "typescript";
 // Exercise the real admin routes with only the authentication library and SQL transport substituted.
 let token = null,
   role = "member",
+  staff = null,
   requests = [];
 const jar = {
   get: (name) =>
@@ -39,9 +40,10 @@ function load(relative) {
       : id === "./db"
         ? {databaseConfigured:()=>true}
       : id === "./postgres-backend"
-        ? {postgresBackend:async(path,options)=>{
-            requests.push({path,options});
+        ? {postgresBackend:async(path,options,userId,scope)=>{
+            requests.push({path,options,scope});
             if(path.endsWith("current_platform_role"))return role;
+            if(path.endsWith("current_staff_access"))return staff;
             if(path.endsWith("admin_insights"))return {daily:[],metrics:{},generated_at:"2026-10-26T00:00:00Z"};
             if(path.endsWith("admin_overview"))return {accounts:[],total:0};
             if(path.endsWith("admin_event_status"))return null;
@@ -49,6 +51,8 @@ function load(relative) {
           }}
       : id === "@/lib/admin"
         ? load("src/lib/admin.ts")
+        : id === "./admin-sections"
+        ? load("src/lib/admin-sections.ts")
         : id === "@/lib/server" || id === "./server"
           ? load("src/lib/server.ts")
           : standard(id);
@@ -59,6 +63,7 @@ const route = load("src/app/api/admin/route.ts");
 beforeEach(() => {
   token = null;
   role = "member";
+  staff = null;
   requests = [];
  });
 function request(method = "GET", data, origin = "https://zenvio.example") {
@@ -84,7 +89,7 @@ test("member metadata cannot forge the database master-admin role", async () => 
   assert.equal(r.status, 403);
   assert.deepEqual(
     requests.map((r) => r.path),
-    ["/rest/v1/rpc/current_platform_role"],
+    ["/rest/v1/rpc/current_platform_role", "/rest/v1/rpc/current_staff_access"],
   );
 });
 test("a verified session and current database role allow admin reads", async () => {
@@ -169,4 +174,31 @@ test("master-admin insights return metrics and configuration without secrets", a
   assert.deepEqual(data.services,{database:true,authentication:true,account_email:false});
   assert(!JSON.stringify(data).includes("DATABASE_URL"));
   assert.equal(response.headers.get("cache-control"),"no-store");
+});
+
+function at(url){const r=request();Object.defineProperty(r,"nextUrl",{value:new URL(url),configurable:true});return r;}
+test("employees reach only the console areas delegated to them", async () => {
+  token="valid-employee"; staff={title:"Support",permissions:["accounts"]};
+  const r=await route.GET(request());
+  assert.equal(r.status,200);
+  const call=requests.find(r=>r.path.endsWith("admin_overview"));
+  assert.equal(call.scope,"accounts");
+  requests=[];
+  assert.equal((await route.GET(at("https://zenvio.example/api/admin?view=audit"))).status,403);
+  assert(!requests.some(r=>r.path.endsWith("admin_audit")));
+});
+test("employees without a matching permission are denied before any data query", async () => {
+  token="valid-employee"; staff={title:"Billing",permissions:["subscriptions"]};
+  assert.equal((await route.GET(request())).status,403);
+  assert(!requests.some(r=>r.path.endsWith("admin_overview")));
+});
+test("unknown permission names granted in the database are ignored", async () => {
+  token="valid-employee"; staff={title:"Ops",permissions:["team","master_admin"]};
+  assert.equal((await route.GET(request())).status,403);
+});
+test("suspending an employee takes effect on the next request", async () => {
+  token="valid-employee"; staff={title:"Support",permissions:["accounts"]};
+  assert.equal((await route.GET(request())).status,200);
+  staff=null;
+  assert.equal((await route.GET(request())).status,403);
 });

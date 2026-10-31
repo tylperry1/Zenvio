@@ -6,7 +6,7 @@ import { sameOrigin, failure, uuid, ApiError } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
-    await adminSession();
+    await adminSession("marketplace");
     const { rows } = await getPool().query(
       "SELECT image FROM private.marketplace_products WHERE id=$1",
       [uuid(request.nextUrl.searchParams.get("product"))],
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token } = await adminSession(),
+    const { token } = await adminSession("marketplace"),
       id = uuid(request.nextUrl.searchParams.get("product"));
     if (Number(request.headers.get("content-length")) > 2000000)
       throw new ApiError("Choose an image under 2 MB.", 413);
