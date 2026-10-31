@@ -17,7 +17,7 @@ try {
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call"]],
     [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback"]],
-    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/feedback","/admin/marketplace-tools"]],
+    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/feedback","/admin/marketplace-tools"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
     for(const [page,routes] of groups) {
@@ -33,7 +33,7 @@ try {
         results.push({route,width,status:response.status(),overflow});
         assert(overflow<=1,`${route} at ${width}px overflows ${overflow}px`);
         assert.equal(await page.getByText("Application error",{exact:true}).count(),0,route);
-        if(["/pricing","/admin?view=accounts","/app/billing"].includes(route))
+        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing"].includes(route))
           await page.screenshot({path:`test-results/qa-${route.replace(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
       }
     }

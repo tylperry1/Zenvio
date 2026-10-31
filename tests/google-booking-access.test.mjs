@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import Module from "node:module";
 import ts from "typescript";
-let blocked = false,
+let missingEvent = false,
+  blocked = false,
   unavailable = false,
   reservations = 0;
 class ApiError extends Error {
@@ -35,7 +36,7 @@ m.require = (id) =>
             ? {
                 getPool: () => ({
                   query: async () => ({
-                    rows: [{ intake_questions: [], payment_mode: "free" }],
+                    rows: missingEvent ? [] : [{ intake_questions: [], payment_mode: "free" }],
                   }),
                 }),
               }
@@ -104,6 +105,7 @@ const request = () =>
     }),
   });
 beforeEach(() => {
+  missingEvent = false;
   blocked = false;
   unavailable = false;
   reservations = 0;
@@ -131,4 +133,11 @@ test("public slot responses exclude Google conflicts", async () => {
   const response = await GET(r);
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).slots, []);
+});
+
+
+test("deleted or inactive public event rejects booking with 404 before reservation", async () => {
+  missingEvent = true;
+  assert.equal((await POST(request())).status,404);
+  assert.equal(reservations,0);
 });

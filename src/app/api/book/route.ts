@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         [host, eventSlug],
       )
     ).rows[0];
+    if (!intake) throw new ApiError("This booking page is unavailable.", 404);
     const snapshot = intakeAnswers(
       intake?.intake_questions || [],
       input.answers,
@@ -180,3 +181,4 @@ export async function POST(request: NextRequest) {
     return failure(error);
   }
 }
+

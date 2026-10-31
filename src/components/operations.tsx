@@ -446,7 +446,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                     <div>
                       <span className="billing-eyebrow">PRICING CONTROL</span>
                       <h2>One clear price for every plan</h2>
-                      <p>Set your monthly and annual rates in USD.</p>
+                      <p>Review approved monthly packages and manage legacy rates in USD.</p>
                     </div>
                     <span className="pricing-currency">USD · $</span>
                   </div>
@@ -486,7 +486,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                               <span>
                                 {period === "monthly"
                                   ? "Monthly price"
-                                  : "Annual total"}
+                                  : ["individual","team","team_extra"].includes(plan.id) ? "Annual billing unavailable" : "Annual total"}
                               </span>
                               <div className="pricing-money-input">
                                 <span aria-hidden="true">$</span>
@@ -497,7 +497,7 @@ export function Operations({ initialView }: { initialView?: string }) {
                                   max={period === "monthly" ? 10000 : 120000}
                                   step="0.01"
                                   required
-                                  disabled={i === 0 || busy}
+                                  disabled={i === 0 || busy || ["individual","team","team_extra"].includes(plan.id)}
                                   value={(plan[period] / 100).toString()}
                                   onChange={(e) =>
                                     setData({
@@ -630,3 +630,4 @@ export function Operations({ initialView }: { initialView?: string }) {
     </div>
   );
 }
+
