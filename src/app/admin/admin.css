@@ -716,3 +716,51 @@
 .admin-v3.operations-page .billing-filters button{margin:0;height:38px;min-height:0}
 .admin-v3.operations-page .billing-table-wrap td{padding-top:11px;padding-bottom:11px}
 .admin-v3.operations-page .billing-table-wrap th{text-transform:none;letter-spacing:.02em;font-size:11.5px}
+
+/* ---------- Suppliers & pricing (.sp) ---------- */
+.sp{display:grid;gap:16px;max-width:1280px;margin:0 auto}
+.sp .ds-page-header,.sp .ds-notice,.sp .ds-kpis{margin:0}
+.sp>.ds-segmented{justify-self:start}
+.sp-families{max-width:220px;color:var(--text-secondary);font-size:12.5px}
+.sp-muted{color:var(--text-muted)}
+.sp-overdue{color:var(--warning);font-weight:600}
+.sp-strong{color:var(--text-primary);font-weight:600;display:block}
+.sp-scope{display:block;font-size:11.5px;color:var(--text-muted)}
+.sp-rule-actions{text-align:right;white-space:nowrap}
+.sp-pricing{display:grid;gap:16px}
+.sp-drawer{width:min(560px,100vw)}
+.sp-drawer-tabs{padding:12px 22px 0}
+.sp-stage{display:grid;gap:10px;padding:14px;border:1px solid #dbe3ff;border-radius:12px;background:#f7f9ff}
+.sp-form,.sp-activity{display:grid;gap:12px}
+.sp-form h3,.sp-activity h3{margin:8px 0 0;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.sp-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ds-root.ds-root .sp-drawer input:not([type=checkbox]),.ds-root.ds-root .sp-drawer select,.ds-root.ds-root .sp-drawer textarea,.ds-root.ds-root .sp-rule-form input,.ds-root.ds-root .sp-rule-form select,.ds-root.ds-root .sp-calc input,.ds-root.ds-root .sp-calc select{width:100%;min-height:0;height:38px;padding:0 10px;margin:0;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-weight:400;background:#fff}
+.ds-root.ds-root .sp-drawer textarea{height:auto;padding:8px 10px}
+.sp-hint{margin:0;font-size:12.5px;color:var(--text-muted);line-height:1.5}
+.sp-families-pick{display:flex;flex-wrap:wrap;gap:8px 14px;margin:0;padding:10px 12px;border:1px solid var(--ds-line);border-radius:10px}
+.sp-families-pick legend{font-size:13px;font-weight:600;padding:0 4px}
+.sp-families-pick label{display:flex;align-items:center;gap:6px;font-size:13px;margin:0;font-weight:400}
+.sp-scores{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sp-contacts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sp-contacts li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--ds-line-soft);border-radius:9px}
+.sp-contacts b{display:block;font-size:13px}
+.sp-contacts small{display:block;font-size:12px;color:var(--text-muted)}
+.sp-contact-form{grid-template-columns:repeat(2,1fr)}
+.sp-calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
+.sp-calc-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.sp-calc-out{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.sp-calc-out div{padding:10px 12px;border:1px solid var(--ds-line-soft);border-radius:10px}
+.sp-calc-out dt{font-size:12px;color:var(--text-muted)}
+.sp-calc-out dd{margin:3px 0 0;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+.sp-calc-out .sp-calc-price{grid-column:1/-1;background:#f5f7ff;border-color:#dbe3ff}
+.sp-calc-out .sp-calc-price dd{font-size:26px;color:var(--action-hover)}
+.sp-bad{color:var(--error)}
+.sp-rule-form{display:grid;gap:12px}
+.sp-rule-actions-row{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:900px){.sp-calc{grid-template-columns:1fr}}
+@media(max-width:560px){.sp-row,.sp-scores,.sp-calc-inputs,.sp-calc-out,.sp-contact-form{grid-template-columns:1fr}}
+.sp-econ-bar{display:flex;justify-content:flex-end}
+.sp-family-rev{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}
+.sp-family-rev li{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;font-size:13.5px}
+.sp-family-rev small{color:var(--text-muted);font-size:12px}
+.sp-family-rev b{font-variant-numeric:tabular-nums}

@@ -36,6 +36,7 @@ const groups: { label: string; items: Item[] }[] = [
     label: "Commerce",
     items: [
       { id: "marketplace", icon: "bag", label: "Marketplace", href: "/admin/operations?section=marketplace", permission: "marketplace" },
+      { id: "suppliers", icon: "briefcase", label: "Suppliers & pricing", href: "/admin/suppliers", permission: "marketplace", hint: "supplier pipeline markup margin" },
       { id: "marketplace-tools", icon: "image", label: "Personalization", href: "/admin/marketplace-tools", permission: "marketplace" },
     ],
   },
