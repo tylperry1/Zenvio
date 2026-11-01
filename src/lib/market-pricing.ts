@@ -108,3 +108,54 @@ export function priceViolation(priceCents: number, input: CostInput, rule: Pick<
   if (e.profitCents < minimum) return `Profit after estimated processing is ${(e.profitCents / 100).toFixed(2)}, below the ${(minimum / 100).toFixed(2)} minimum.`;
   return null;
 }
+
+// ---------- Supplier-backed (Gelato) pricing ----------
+export type ProfitRule = {
+  markup_bps: number;
+  min_profit_cents: number;
+  /** Minimum contribution margin after estimated processing, in bps of revenue. */
+  min_margin_bps?: number;
+  /** Minimum retail unit price, in cents. */
+  min_retail_cents?: number | null;
+};
+
+/** Merges product-level overrides onto the resolved rule (null keeps the rule value). */
+export function effectiveRule(
+  rule: (Pick<PricingRule, "markup_bps" | "min_profit_cents"> & { min_margin_bps?: number }) | null,
+  overrides: { markup_bps?: number | null; min_profit_cents?: number | null; min_margin_bps?: number | null; min_retail_cents?: number | null } = {},
+): ProfitRule {
+  return {
+    markup_bps: overrides.markup_bps ?? rule?.markup_bps ?? 6000,
+    min_profit_cents: overrides.min_profit_cents ?? rule?.min_profit_cents ?? 0,
+    min_margin_bps: overrides.min_margin_bps ?? rule?.min_margin_bps ?? 0,
+    min_retail_cents: overrides.min_retail_cents ?? null,
+  };
+}
+
+/**
+ * Retail unit price for a supplier cost: suggested price from markup and minimum
+ * profit, raised until the margin floor and minimum retail price are met.
+ */
+export function supplierRetailPrice(input: CostInput, rule: ProfitRule) {
+  let price = suggestPrice(input, rule);
+  if (rule.min_retail_cents && price < rule.min_retail_cents) price = rule.min_retail_cents;
+  const cost = landedUnitCost(input);
+  const qty = input.quantity ?? 1;
+  for (let i = 0; i < 2000 && (rule.min_margin_bps ?? 0) > 0; i++) {
+    const e = economics(price, { ...input, quantity: qty });
+    if (e.marginBps >= (rule.min_margin_bps ?? 0)) break;
+    price += Math.max(1, Math.ceil(price / 200));
+  }
+  return Math.max(price, cost + 1);
+}
+
+/** Returns a reason when a price fails any profitability guard, else null. */
+export function profitViolation(priceCents: number, input: CostInput, rule: ProfitRule, discountBps = 0) {
+  const basic = priceViolation(priceCents, input, rule, discountBps);
+  if (basic) return basic;
+  if (rule.min_retail_cents && priceCents < rule.min_retail_cents) return `Price is below the ${(rule.min_retail_cents / 100).toFixed(2)} minimum retail price.`;
+  const e = economics(priceCents, input, discountBps);
+  if ((rule.min_margin_bps ?? 0) > 0 && e.marginBps < (rule.min_margin_bps ?? 0))
+    return `Margin is ${(e.marginBps / 100).toFixed(1)}%, below the ${((rule.min_margin_bps ?? 0) / 100).toFixed(1)}% minimum.`;
+  return null;
+}

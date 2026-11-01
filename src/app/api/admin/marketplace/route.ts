@@ -120,6 +120,20 @@ export async function POST(request: NextRequest) {
           )
         )
           throw new ApiError("Choose a product status and fulfillment method.");
+        // Supplier-imported listings are reviewed and published in Commerce → Gelato.
+        if (
+          input.id &&
+          (
+            await client.query(
+              "SELECT 1 FROM private.supplier_products WHERE product_id=$1",
+              [uuid(input.id)],
+            )
+          ).rows.length
+        )
+          throw new ApiError(
+            "This product is imported from Gelato. Manage it in Commerce → Gelato.",
+            409,
+          );
         const sku = string(input.sku, "SKU", 60, 2);
         if (!/^[A-Za-z0-9_.-]+$/.test(sku))
           throw new ApiError(
@@ -209,7 +223,7 @@ export async function POST(request: NextRequest) {
             409,
           );
         await client.query(
-          "UPDATE private.platform_settings SET value=$1,updated_at=now() WHERE key='marketplace'",
+          "UPDATE private.platform_settings SET value=value||$1::jsonb,updated_at=now() WHERE key='marketplace'",
           [JSON.stringify({ checkoutEnabled: input.checkoutEnabled })],
         );
         details = { checkoutEnabled: input.checkoutEnabled };

@@ -7,6 +7,7 @@ import { materializeBookingNotifications, mailReady } from "./mail";
 import { drainCalendarCleanup,runGoogleJobs } from "./google-calendar";
 import {runMicrosoftJobs} from "./microsoft-calendar";
 import { scheduleWorkflows } from "./workflows";
+import { processMarketplaceJobs } from "./gelato/follow-up";
 import {
   materializeReminders,
   drainDeliveries,
@@ -60,6 +61,8 @@ export async function processScheduledJobs() {
     await materializeReminders();
     await scheduleWorkflows();
     await materializeWaitlistOffers();
+    // Supplier fulfillment, tracking sync and marketplace email; contained failures.
+    await processMarketplaceJobs().catch(() => null);
     const result = await drainDeliveries(undefined, 20);
     if (!result.configured) throw Error("mail_unconfigured");
     await pool.query(
