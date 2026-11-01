@@ -106,5 +106,24 @@ try{
  const membershipOrder=await syntheticOrder('membership','MEMBER',2);await settlement(membershipOrder,'invoice:fixture-a-'+suffix,'pi_membership_a_'+suffix);await settlement(membershipOrder,'invoice:fixture-b-'+suffix,'pi_membership_b_'+suffix);await settlement(membershipOrder,'invoice:fixture-a-'+suffix,'pi_membership_a_'+suffix);assert.equal(Number((await db.query("select balance from private.customer_balance_accounts where user_id=$1 and contact_id=$2 and unit='MEMBER'",[owner,contact.id])).rows[0].balance),4);
  const giftOrder=await syntheticOrder('gift_card','USD',1000);await settlement(giftOrder,'fixture-gift-'+suffix,'pi_gift_'+suffix);const gift=(await db.query('select code_ciphertext from private.growth_gift_cards where order_id=$1',[giftOrder.id])).rows[0],giftCode=fixtureUnseal(gift.code_ciphertext);
  const redeemed=await Promise.all([1,2].map(()=>commerce.redeemGiftCard({code:giftCode,name:'Gift recipient',email})));assert.deepEqual(redeemed.map(r=>r.duplicate).sort(),[false,true]);assert.equal(Number((await db.query("select balance from private.customer_balance_accounts where user_id=$1 and contact_id=$2 and kind='gift_card' and unit='USD'",[owner,contact.id])).rows[0].balance),1000);await recover('pi_gift_'+suffix,1000);assert.equal(Number((await db.query("select balance from private.customer_balance_accounts where user_id=$1 and contact_id=$2 and kind='gift_card' and unit='USD'",[owner,contact.id])).rows[0].balance),0);
+
+ {
+ // Provider-free signed-event ingestion against the actual Postgres ledger.
+ const dailyService=commerceLoad('src/lib/launch/daily-usage.ts'),roomName='z-'+createHash('sha256').update('daily-fixture-'+suffix).digest('hex').slice(0,40);
+ const reservation=(await db.query("insert into private.provider_usage_reservations(user_id,provider,reserved_micros) values($1,'daily',100000) returning id",[owner])).rows[0];
+ await db.query("insert into private.daily_room_usage(room_name,booking_id,user_id,usage_id,starts_at,expires_at,rate_micros) values($1,$2,$3,$4,now()-interval '1 minute',now()+interval '1 hour',1000)",[roomName,series.data.bookingIds[1],owner,reservation.id]);
+ const joined=Date.now()/1000-20,event={id:'daily-fixture-a-'+suffix,type:'participant.left',payload:{room:roomName,session_id:'session-'+suffix,joined_at:joined,duration:10.5}};
+ async function recordVideo(value){const client=await db.connect();try{await client.query('begin');const result=await dailyService.recordDailyUsage(client,value);await client.query('commit');return result;}catch(e){await client.query('rollback');throw e;}finally{client.release();}}
+ await Promise.all([recordVideo(event),recordVideo({...event,id:'daily-fixture-b-'+suffix})]);
+ assert.equal((await db.query('select count(*)::int n,sum(duration_ms)::text ms from private.daily_participant_usage where room_name=$1',[roomName])).rows[0].n,1);
+ assert.equal((await db.query('select sum(duration_ms)::text ms from private.daily_participant_usage where room_name=$1',[roomName])).rows[0].ms,'10500');
+ assert.equal((await recordVideo(event)).duplicate,true);
+ await assert.rejects(recordVideo({...event,payload:{...event.payload,duration:99}}),/reference changed/);
+ const videoOwner=await call('/api/video/usage',null,a.cookie),videoOther=await call('/api/video/usage',null,b.cookie);
+ assert.equal(videoOwner.status,200);assert.equal(videoOwner.data.rooms.length,1);assert.equal(videoOwner.data.rooms[0].reported_duration_ms,'10500');
+ assert.equal(videoOther.status,200);assert.equal(videoOther.data.rooms.length,0);assert.equal((await call('/api/video/usage')).status,401);
+ assert.equal((await db.query('select state,actual_micros from private.provider_usage_reservations where id=$1',[reservation.id])).rows[0].state,'reserved');
+
+ }
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');
 }finally{await db.end();}
