@@ -3,7 +3,7 @@ import { PricingAllowances } from "./pricing-allowances";
 import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
-import { individualOffer, teamOffer, extraSeatOffer, includedFeatures, subscriptionTotal } from "@/lib/subscription-offers.mjs";
+import { individualOffer, teamOffer, extraSeatOffer, includedFeatures, subscriptionTotal, monthlyAllowances } from "@/lib/subscription-offers.mjs";
 import { money } from "@/lib/billing-types";
 export function PublicPricing() {
   const [seats, setSeats] = useState(3);
@@ -29,7 +29,7 @@ export function PublicPricing() {
         <div className="subscription-price">{money(individualOffer.monthly)}<span>/ month</span></div>
         <p className="subscription-caption">One person. Scheduling and signing included.</p>
         <Link className="subscription-cta" href="/early-access?plan=individual">Reserve 50% off <Icon name="arrow" size={16}/></Link>
-        <ul>{includedFeatures.map(feature=><li key={feature}><Icon name="check" size={16}/>{feature.replace(' per host','')}</li>)}</ul>
+        <ul>{[...includedFeatures,`${monthlyAllowances.individual.envelopes} signing envelopes each month`].map(feature=><li key={feature}><Icon name="check" size={16}/>{feature.replace(' per host','')}</li>)}</ul>
       </article>
       <article className="subscription-plan subscription-plan-team">
         <span className="subscription-plan-icon"><Icon name="team" size={23}/></span>
