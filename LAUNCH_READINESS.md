@@ -76,3 +76,9 @@ The user explicitly requested continued implementation and production deployment
 ## Post-release video usage candidate
 
 Prior production release: main 2d47d973, deployment dpl_HobC6efetAi7VQci72yXE9wZeyEx READY on Node 22, migrations 041–054 applied. Current main adds Claude's marketing/review migration 055. New candidate migration 056 adds Daily signed usage events, immutable room/rate history and tenant-scoped reporting. Candidate CI and live Daily acceptance remain pending; no feature flag or secret is activated by this change.
+
+## Verified release continuation
+
+- Daily usage and strict provider caps: PR #19 merged as 1c083203; complete CI 41259109525 passed (210 unit tests and all configured database/API/browser checks). Production dpl_F9TrkHx97xbyispLwb9ZHdAtcvwd READY; migration 056 applied. Live usage API rejects unauthenticated access. Daily remains configuration-gated; no live provider acceptance is claimed.
+- Coupons and local-time class scheduling: PR #20 merged as 4e220a7b; complete CI 41259748974 passed (213 unit tests, 246 responsive page/viewport checks, coupon browser lifecycle and tenant checks). Production dpl_8KE6y8uF9YT7fVfBuuFj4eUHUQpY READY. No migration or paid flag changes.
+- TLS compatibility cleanup candidate: explicit verify-full normalization occurs only in memory for current legacy aliases. Stored environment secrets are unchanged. Explicit compatibility and local non-SSL settings are preserved. Candidate CI and production verification are pending.
