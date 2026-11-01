@@ -105,9 +105,9 @@ One unified marketplace; see [docs/MARKETPLACE_AUDIT.md](docs/MARKETPLACE_AUDIT.
 | P0 | Retail pricing engine and below-cost guard | Completed and verified |
 | P0 | Storefront upgrade | Partially implemented (family navigation); product pages and premium redesign pending |
 | P0 | Product customization MVP and brand asset uploads | Partially implemented (existing options and artwork upload); Brand Studio not started |
-| P0 | Stripe checkout integration | Existing checkout reused; guest checkout not started |
+| P0 | Stripe checkout integration | Existing checkout reused; guest checkout completed and verified (migration 058) |
 | P0 | Order management and supplier fulfillment tracking | Existing manual queue reused; automated submission blocked |
-| P0 | Resend marketplace notifications | Not started |
+| P0 | Resend marketplace notifications | Implemented, awaiting Resend configuration: confirmation, in production, shipped, delivered and refunded emails are queued with the status change and sent once (idempotency key per order and kind); delivery verified up to the provider call |
 | P0 | Admin cost visibility and marketplace economics | Completed and verified |
 | P1 | NFC digital profiles, QR codes, permanent card links, deactivation and reassignment | Completed and verified |
 | P1 | NFC physical product ordering | Blocked: needs manufacturing partner |
