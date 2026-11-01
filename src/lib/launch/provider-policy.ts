@@ -56,13 +56,20 @@ export async function reserveUsage(input: {
     try {
         await db.query("begin");
         await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))", ["provider-spend:" + input.provider]);
+        const control=(await db.query("select value from private.platform_settings where key=$1",["provider_budget:"+environment()+":"+input.provider])).rows[0]?.value;
+        let platformCap=input.platformCap,workspaceCap=input.workspaceCap;
+        if(control){
+          if(control.suspended===true)throw new ApiError("This optional provider is temporarily suspended.",503);
+          if(![control.platformCap,control.workspaceCap].every(n=>Number.isSafeInteger(n)&&n>0))throw new ApiError("Provider budget needs administrator review.",503);
+          platformCap=Math.min(platformCap,control.platformCap);workspaceCap=Math.min(workspaceCap,control.workspaceCap);
+        }
         // Billing workspace roots share one budget. A staff account cannot escape it by switching seats.
         const roots = (await db.query("select owner_id from private.team_entitlement_roots($1) order by owner_id limit 1", [input.userId])).rows;
         const owner = roots[0]?.owner_id || input.userId;
         const { rows } = await db.query(`select coalesce(sum(case when state='settled' then actual_micros else reserved_micros end),0)::text total,
       coalesce(sum(case when state='settled' then actual_micros else reserved_micros end) filter(where user_id=$2),0)::text workspace
       from private.provider_usage_reservations where provider=$1 and state<>'released' and created_at>=date_trunc('month',now())`, [input.provider, owner]);
-        if (Number(rows[0].total) + input.micros > input.platformCap || Number(rows[0].workspace) + input.micros > input.workspaceCap)
+        if (Number(rows[0].total) + input.micros > platformCap || Number(rows[0].workspace) + input.micros > workspaceCap)
             throw new ApiError("Provider monthly spending limit reached.", 429);
         const r = await db.query("insert into private.provider_usage_reservations(user_id,provider,model,reserved_micros) values($1,$2,$3,$4) returning id", [owner, input.provider, input.model || null, input.micros]);
         if(input.provider === "ai" || input.meter === "videoMinutes") {

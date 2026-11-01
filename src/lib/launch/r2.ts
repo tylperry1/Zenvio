@@ -69,7 +69,7 @@ export async function uploadPrivateFile(userId: string, bytes: Buffer, filename:
         return { id, filename: file.filename, contentType: file.contentType, byteSize: file.data.length };
     }
     catch {
-        await getPool().query("update private.stored_files set state='failed' where id=$1 and user_id=$2", [id, userId]);
+        await getPool().query("update private.stored_files set state='pending' where id=$1 and user_id=$2", [id, userId]);
         throw new ApiError("Upload could not be confirmed.", 503);
     }
 }

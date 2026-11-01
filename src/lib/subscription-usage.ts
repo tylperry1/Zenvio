@@ -20,9 +20,12 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  (select meter,sum(quantity) quantity from private.subscription_credit_entries where billing_owner=$1 group by meter)c
  left join(select meter,sum(purchased_quantity) used from private.subscription_usage_reservations where billing_owner=$1 and state<>'released' group by meter)u using(meter)`,[owner])).rows;
  const meters:Meter[]=["aiCredits","videoMinutes","emails","smsSegments","storageBytes","envelopes"];
+ const storage=Number((await db.query("select private.workspace_storage_bytes($1)::text bytes",[owner])).rows[0]?.bytes||0);
+ const storageOverride=(await db.query("select allowance from private.workspace_meter_overrides where billing_owner=$1 and meter='storageBytes' and expires_at>now()",[owner])).rows[0];
  const creditDebt=credits.some(r=>Number(r.remaining)<0);
  return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced:versioned,period:"UTC calendar month",meters:meters.map(meter=>{
   const included=Number(allowances?.[meter as keyof typeof monthlyAllowances.individual]||0),used=Number(totals.find(r=>r.meter===meter)?.used||0),includedUsed=Number(totals.find(r=>r.meter===meter)?.included_used||0),purchased=Number(credits.find(r=>r.meter===meter)?.remaining||0);
+  if(meter==='storageBytes')return {meter,included:Number(storageOverride?.allowance??included),used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Math.max(0,Number(storageOverride?.allowance??included)-storage)};
   return {meter,included,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Math.max(0,included-includedUsed)+Math.max(0,purchased)};
  })};
 }

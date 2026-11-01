@@ -165,6 +165,12 @@ try{
  assert.equal((await call('/api/admin/economics',null,a.cookie)).status,403);
  assert.equal((await call('/api/billing/addons',{addon:'ai_100',confirm:true},a.cookie)).status,503);
  const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
+ const stored=(await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n;
+ await db.query("insert into private.workspace_meter_overrides(billing_owner,meter,allowance,actor_id,reason,expires_at) values($1,'storageBytes',$2,$1,'Disposable concurrency fixture',now()+interval '1 hour')",[owner,Number(stored)+10]);
+ const storageRaces=await Promise.allSettled([1,2].map(n=>db.query("insert into private.marketplace_artwork(user_id,image,sha256,width,height) values($1,decode('0102030405060708','hex'),$2,1,1)",[owner,'fixture-storage-'+suffix+'-'+n])));
+ assert.equal(storageRaces.filter(r=>r.status==='fulfilled').length,1);assert.match(storageRaces.find(r=>r.status==='rejected').reason.message,/storage_allowance/);
+ assert.equal(Number((await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n),Number(stored)+8);
+ await db.query("delete from private.workspace_meter_overrides where billing_owner=$1",[owner]);
  const foreign=await call('/api/billing',null,b.cookie);assert.equal(foreign.status,200);assert.equal(foreign.data.meteredUsage.enforced,false);
  }
 
