@@ -139,20 +139,17 @@ try {
   const guest = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const gp = await guest.newPage();
   gp.on("pageerror", (e) => errors.push(e.message));
+  // The storefront is public (guest checkout from main); guests get the storefront header.
   await gp.goto(base + "/marketplace");
-  await gp.waitForURL("**/sign-in");
-  await pool.query("UPDATE private.platform_settings SET value=value||'{\"guestCheckoutEnabled\":true}'::jsonb WHERE key='marketplace'");
-  await gp.goto(base + "/marketplace");
-  await gp.getByRole("link", { name: "Track an order" }).first().waitFor();
+  await gp.getByRole("link", { name: "Find an order" }).first().waitFor();
   await gp.getByRole("link", { name: title, exact: true }).waitFor();
   await shot(gp, "guest-storefront");
-  await gp.goto(base + "/marketplace/track");
+  await gp.goto(base + "/marketplace/order");
   await gp.getByRole("heading", { name: "Find your order" }).waitFor();
-  const lookup = await guest.request.post(base + "/api/marketplace/track", { headers: { Origin: base }, data: { action: "lookup", email: "nobody@example.com", orderNumber: "ZV-0000000000" } });
+  const lookup = await guest.request.post(base + "/api/marketplace/orders/guest", { headers: { Origin: base }, data: { action: "lookup", email: "nobody@example.com", orderNumber: "ZV-0000000000" } });
   assert.equal(lookup.status(), 200, "lookup never reveals whether an order exists");
   const admin = await guest.request.get(base + "/api/admin/gelato");
   assert.equal(admin.status(), 401, "admin API rejects anonymous visitors");
-  await pool.query("UPDATE private.platform_settings SET value=value||'{\"guestCheckoutEnabled\":false}'::jsonb WHERE key='marketplace'");
 
   // ---------- Non-admin users cannot reach the console or other users' artwork ----------
   const member = await browser.newContext();

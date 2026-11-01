@@ -1,7 +1,9 @@
 begin;
 -- Gelato as the first live supplier connector for the existing marketplace.
 -- Additive only: no existing table, column, constraint or row is removed or
--- rewritten except to relax marketplace_orders.user_id for guest checkout.
+-- rewritten. Guest checkout (user_id IS NULL + guest_token_hash) and the
+-- marketplace_order_emails queue come from migration 058 and are reused.
+-- Numbered 061 to stay clear of 059–060 reserved by the pricing workstream.
 -- Every new capability is disabled until an administrator enables it.
 
 -- ---------- Supplier record (reuses the existing supplier table) ----------
@@ -184,9 +186,7 @@ create table if not exists private.design_proofs (
 );
 
 -- ---------- Order extensions (existing orders keep working unchanged) ----------
-alter table private.marketplace_orders alter column user_id drop not null;
 alter table private.marketplace_orders
-  add column if not exists guest boolean not null default false,
   add column if not exists order_number text unique,
   add column if not exists discount_cents integer not null default 0 check (discount_cents >= 0),
   add column if not exists processing_fee_cents integer,
@@ -199,22 +199,6 @@ alter table private.marketplace_order_items
   add column if not exists design_revision integer,
   add column if not exists print_files jsonb not null default '[]',
   add column if not exists cost_snapshot jsonb;
-
--- Hashed, expiring links for guest order access. Raw tokens are never stored.
-create table if not exists private.marketplace_order_access (
-  token_hash text primary key check (token_hash ~ '^[a-f0-9]{64}$'),
-  order_id uuid not null references private.marketplace_orders(id),
-  purpose text not null check (purpose in ('guest_view')),
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now()
-);
-create index if not exists marketplace_order_access_order on private.marketplace_order_access(order_id);
-create table if not exists private.marketplace_lookup_attempts (
-  id bigserial primary key,
-  key_hash text not null,
-  created_at timestamptz not null default now()
-);
-create index if not exists marketplace_lookup_attempts_key on private.marketplace_lookup_attempts(key_hash, created_at desc);
 
 -- ---------- Supplier fulfillment ----------
 create table if not exists private.supplier_orders (
@@ -273,23 +257,20 @@ create table if not exists private.supplier_webhook_events (
   received_at timestamptz not null default now()
 );
 
--- One row per (order, notification, key): emails are sent at most once.
-create table if not exists private.marketplace_notifications (
+-- Administrator alerts (cost increases, paused products, supplier exceptions).
+-- Customer emails use marketplace_order_emails from migration 058.
+create table if not exists private.marketplace_admin_alerts (
   id uuid primary key default gen_random_uuid(),
-  -- Null only for administrator alerts that are not tied to an order.
-  order_id uuid references private.marketplace_orders(id),
-  kind text not null check (kind in ('order_confirmation','artwork_approved','artwork_revision','submitted','shipped','delivered','cancelled','refunded','exception','admin_alert')),
-  dedupe_key text not null default '',
+  dedupe_key text not null unique check (length(dedupe_key) <= 200),
+  subject text not null check (length(subject) <= 200),
+  body text not null check (length(body) <= 2000),
   recipient text not null,
-  status text not null default 'pending' check (status in ('pending','sent','failed','skipped')),
   attempts integer not null default 0,
-  error text check (error is null or length(error) <= 300),
-  created_at timestamptz not null default now(),
   sent_at timestamptz,
-  unique (order_id, kind, dedupe_key)
+  last_error text check (last_error is null or length(last_error) <= 300),
+  created_at timestamptz not null default now()
 );
-create unique index if not exists marketplace_notifications_unbound on private.marketplace_notifications(kind, dedupe_key) where order_id is null;
-create index if not exists marketplace_notifications_pending on private.marketplace_notifications(status, created_at);
+create index if not exists marketplace_admin_alerts_pending on private.marketplace_admin_alerts(created_at) where sent_at is null;
 
 alter table private.supplier_integrations enable row level security;
 alter table private.supplier_products enable row level security;
@@ -300,16 +281,14 @@ alter table private.supplier_api_errors enable row level security;
 alter table private.brand_assets enable row level security;
 alter table private.saved_designs enable row level security;
 alter table private.design_proofs enable row level security;
-alter table private.marketplace_order_access enable row level security;
-alter table private.marketplace_lookup_attempts enable row level security;
 alter table private.supplier_orders enable row level security;
 alter table private.supplier_shipments enable row level security;
 alter table private.supplier_order_events enable row level security;
 alter table private.supplier_webhook_events enable row level security;
-alter table private.marketplace_notifications enable row level security;
+alter table private.marketplace_admin_alerts enable row level security;
 revoke all on private.supplier_integrations, private.supplier_products, private.supplier_variants, private.supplier_price_snapshots,
   private.supplier_sync_runs, private.supplier_api_errors, private.brand_assets, private.saved_designs, private.design_proofs,
-  private.marketplace_order_access, private.marketplace_lookup_attempts, private.supplier_orders, private.supplier_shipments,
-  private.supplier_order_events, private.supplier_webhook_events, private.marketplace_notifications
+  private.supplier_orders, private.supplier_shipments,
+  private.supplier_order_events, private.supplier_webhook_events, private.marketplace_admin_alerts
   from public, anon, authenticated;
 commit;

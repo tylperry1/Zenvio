@@ -72,8 +72,8 @@ export function Marketplace({ guest = false }: { guest?: boolean }) {
           description="Custom apparel, business printing and branded merchandise — designed by you, produced and shipped for you."
           actions={
             guest ? (
-              <Link className="billing-secondary" href="/marketplace/track">
-                Track an order
+              <Link className="billing-secondary" href="/sign-in">
+                Sign in
               </Link>
             ) : (
               <Link className="billing-secondary" href="/marketplace/orders">
@@ -272,7 +272,7 @@ export function Marketplace({ guest = false }: { guest?: boolean }) {
                             }
                           }}
                         >
-                          {!!(p.personalization_options?.length || p.artwork_allowed) && <ProductPersonalizer product={p} onArtwork={(id) => setArtwork({ ...artwork, [p.id]: id })} />}
+                          {!!(p.personalization_options?.length || p.artwork_allowed) && <ProductPersonalizer product={p} signedIn={!guest} onArtwork={(id) => setArtwork({ ...artwork, [p.id]: id })} />}
                           <div className="market-add-row">
                             <label>
                               Quantity

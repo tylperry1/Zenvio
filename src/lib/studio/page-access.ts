@@ -1,13 +1,9 @@
-import { redirect } from "next/navigation";
 import { currentUser } from "./shopper";
-import { marketSettings } from "../marketplace";
 import { configured } from "../server";
 
-/** Storefront pages: signed-in users, or anyone once guest checkout is enabled. */
+/** Storefront pages are public; reports whether the visitor is a guest. */
 export async function storefrontPage() {
-  if (!configured()) redirect("/sign-in");
+  if (!configured()) return { user: null, guest: true };
   const user = await currentUser().catch(() => null);
-  if (user) return { user, guest: false };
-  if ((await marketSettings().catch(() => ({ guestCheckoutEnabled: false }))).guestCheckoutEnabled) return { user: null, guest: true };
-  redirect("/sign-in");
+  return { user, guest: !user };
 }

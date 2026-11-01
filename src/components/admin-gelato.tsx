@@ -63,7 +63,6 @@ type OrderRow = {
 };
 type Dashboard = {
   integration: Integration;
-  guestCheckoutEnabled: boolean;
   checkoutEnabled: boolean;
   paymentConfigured: boolean;
   supplierRule: { markup_bps: number; min_profit_cents: number; min_margin_bps: number; subscriber_discount_bps: number } | null;
@@ -212,12 +211,11 @@ function Overview({ data, master, busy, act }: { data: Dashboard; master: boolea
             <div><dt>Webhook</dt><dd>{i.webhookConfigured ? (i.webhook_last_received_at ? `Last event ${relativeTime(i.webhook_last_received_at)}` : "URL issued; no events yet") : "Not configured (status is polled every scheduled run)"}</dd></div>
           </dl>
         </Panel>
-        <Panel title="Controls" description={master ? "Changes are audited." : "Only the master admin can enable Gelato, live fulfillment or guest checkout."}>
+        <Panel title="Controls" description={master ? "Changes are audited." : "Only the master admin can enable Gelato or live fulfillment."}>
           <div className="gz-controls">
             <Toggle label="Gelato integration" detail="Makes published Gelato listings visible in the storefront." on={i.enabled} disabled={!master || !!busy} onChange={(v) => void act({ action: "settings", enabled: v }, v ? "Gelato enabled." : "Gelato disabled. Listings are hidden and fulfillment is off.")} />
             <Toggle label="Live fulfillment" detail="Allows purchases and automatic order submission after payment." on={i.fulfillment_enabled} disabled={!master || !!busy || !i.enabled} onChange={(v) => (v ? setLive(true) : void act({ action: "settings", fulfillmentEnabled: false }, "Live fulfillment disabled."))} />
             <Toggle label="Pause fulfillment" detail="Holds paid orders in the queue without submitting them." on={i.fulfillment_paused} disabled={!!busy} onChange={(v) => void act({ action: "settings", fulfillmentPaused: v }, v ? "Fulfillment paused. Paid orders are held." : "Fulfillment resumed.")} />
-            <Toggle label="Guest checkout" detail="Lets visitors without an account customize and buy Gelato products." on={data.guestCheckoutEnabled} disabled={!master || !!busy} onChange={(v) => void act({ action: "settings", guestCheckoutEnabled: v }, v ? "Guest checkout enabled." : "Guest checkout disabled.")} />
             {!data.checkoutEnabled && <Notice tone="warning">Marketplace checkout is closed in Marketplace settings, so no purchases can be made yet.</Notice>}
           </div>
           {master && (

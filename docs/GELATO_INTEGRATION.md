@@ -11,10 +11,10 @@ Gelato supplies products and fulfillment. Zenvio administrators control the cata
 | Catalog | `marketplace_products`, categories, families | Imported products are ordinary `marketplace_products` rows (`fulfillment='print_on_demand'`) plus `supplier_products` / `supplier_variants`. |
 | Pricing | `market-pricing.ts`, `marketplace_pricing_rules` | Added minimum margin, minimum retail and product-level overrides; supplier-scope rule for Gelato. |
 | Customization | Personalization options + artwork uploads | Brand Studio (`brand_assets`, `saved_designs`, `design_proofs`). Existing personalization is unchanged. |
-| Checkout | `createMarketCheckout` + Stripe Checkout + signed webhook | Same function and webhook. Gelato lines add address-before-payment, live quote, profit revalidation. Guest checkout behind a flag. |
-| Orders | `marketplace_orders`, items, activity, refunds | Added order number, guest flag, supplier cost columns, item design/print-file snapshot; `supplier_orders`, shipments, events. |
+| Checkout | `createMarketCheckout` + Stripe Checkout + signed webhook; public guest checkout from migration 058 | Same function, webhook and guest model (`user_id IS NULL`, fragment token). Gelato lines add address-before-payment, live quote and profit revalidation. |
+| Orders | `marketplace_orders`, items, activity, refunds | Added order number, supplier cost columns, item design/print-file snapshot; `supplier_orders`, shipments, events. |
 | Background work | Scheduled job runner (GitHub Actions, every 5 min) | `processMarketplaceJobs` (submission, sync, email, daily product refresh) with contained failures. |
-| Email | Resend key and verified sender | `marketplace_notifications` queue; one row per order/kind; Resend idempotency key = row id. |
+| Email | Resend sender and the `marketplace_order_emails` queue (migration 058, `market-mail.ts`) | Gelato events queue `in_production`, `shipped`, `delivered` and `delayed` emails there (one per order and kind). Admin alerts use a separate `marketplace_admin_alerts` table. |
 
 ## Gelato API usage
 
@@ -46,7 +46,7 @@ Price rows are treated as totals for their quantity (unit = total ÷ quantity). 
 - Refunds before submission cancel fulfillment; refunds after submission alert admins to cancel at Gelato.
 - Print files are server-rendered PDFs at the supplier's physical size; Gelato downloads them through HMAC-signed, expiring URLs. Unapproved designs are never linked.
 - Artwork is private (owner or marketplace admin only). SVGs with scripts, entities or external references are rejected; remote URLs are never fetched.
-- Guest order links use random tokens stored only as SHA-256 hashes, delivered in URL fragments or an httpOnly cookie; lookup responses never reveal whether an order exists and are rate-limited.
+- Guest orders use the existing private-token model (hash for lookup, encrypted copy for email links, token only in URL fragments). The "find your order" lookup emails the link, is rate-limited, and never reveals whether an order exists. Guest Brand Studio work is bound to a hashed httpOnly browser token.
 - The Gelato webhook requires a secret URL token (stored hashed) and re-fetches order state from the API; payload status is never trusted. Events are deduplicated.
 - Customer responses and emails never include supplier costs or supplier identifiers.
 
@@ -62,8 +62,7 @@ Live purchasing stays disabled until every step is complete.
 6. **Pricing**: set the Gelato rule (markup, minimum margin, minimum profit). Verify no option shows a pricing violation.
 7. **Webhook** (optional, recommended): Generate webhook URL → add it in Gelato's dashboard for order status and tracking events. Without it, status is polled every scheduled run.
 8. **Supervised test order**: with a Stripe test key and marketplace webhook configured, open marketplace checkout (Admin → Marketplace settings), then turn on *Live fulfillment* and place one order. Gelato's order API supports draft orders; if a real test order is placed, cancel it in Gelato before production. Confirm: quote shown, order paid, `supplier_orders` submitted, print file downloaded by Gelato, status/tracking updates, emails received.
-9. **Guest checkout** (optional, master admin): enable once the above passes.
-10. **Pause** at any time with *Pause fulfillment* (marketplace staff) — paid orders are held, not lost.
+9. **Pause** at any time with *Pause fulfillment* (marketplace staff) — paid orders are held, not lost.
 
 Required environment: `NEXT_PUBLIC_APP_URL` must be the public HTTPS origin (supplier file access), `INTEGRATION_ENCRYPTION_KEY` (vault and file-URL signing), existing Stripe and Resend configuration, and `MASTER_ADMIN_EMAIL` for admin alerts.
 
@@ -71,7 +70,7 @@ Required environment: `NEXT_PUBLIC_APP_URL` must be the public HTTPS origin (sup
 
 - `tests/gelato.test.mjs` (unit, in `npm test`): endpoints, error classification, decimal money, parsing, status mapping, payloads, quotes, pricing guards (sweep), design validation, real PDF rendering, SVG safety, artwork normalization, signed URLs.
 - `tests/gelato.integration.mjs` (real Postgres, scripted Gelato API, stubbed Stripe session creation with real webhook signatures): 18 end-to-end scenarios from connection through fulfillment, tracking, refunds, guests and isolation.
-- `tests/gelato.browser.mjs` (local production server, Chromium): admin console, publish + audit, storefront, product page, Brand Studio upload → approve → PDF proof, cart, guest storefront, access control, 390px layouts.
+- `tests/gelato.browser.mjs` (local production server, Chromium): admin console, publish + audit, storefront, product page, Brand Studio upload → approve → PDF proof, cart, guest storefront and order lookup, access control, 390px layouts.
 
 ## Known limitations
 

@@ -2,11 +2,10 @@ import { cookies, headers } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
 import { getAuth } from "../auth";
 import { ApiError, configuration } from "../server";
-import { marketSettings } from "../marketplace";
 
-// A shopper is either a signed-in Zenvio user or, when guest checkout is
-// enabled, a guest identified by an httpOnly random browser token. Only the
-// SHA-256 of the guest token is stored.
+// A shopper is either a signed-in Zenvio user or a guest (the storefront and
+// guest checkout are public) identified by an httpOnly random browser token.
+// Only the SHA-256 of the guest token is stored.
 
 export type Shopper =
   | { kind: "user"; userId: string; email: string; name: string; guestHash: null }
@@ -21,11 +20,10 @@ export async function currentUser() {
   return s ? s.user : null;
 }
 
-/** Resolves the shopper. Guests are created only when allowed and `create` is set. */
+/** Resolves the shopper. A guest identity is created only when `create` is set. */
 export async function shopper(options: { create?: boolean } = {}): Promise<Shopper> {
   const user = await currentUser();
   if (user) return { kind: "user", userId: user.id, email: user.email, name: user.name || user.email, guestHash: null };
-  if (!(await marketSettings()).guestCheckoutEnabled) throw new ApiError("Please sign in to continue.", 401);
   const jar = await cookies();
   let token = jar.get(COOKIE)?.value;
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
@@ -44,10 +42,14 @@ export function ownerClause(s: Shopper, index: number, alias = "") {
     : { sql: `${p}guest_hash=$${index} AND ${p}user_id IS NULL`, param: s.guestHash };
 }
 
-/** Storefront browsing: signed-in users always; anonymous visitors only when guest checkout is on. */
+/** Storefront browsing is public; signed-in users are identified when present. */
 export async function storefrontViewer() {
   const user = await currentUser();
-  if (user) return { user, guest: false };
-  if (!(await marketSettings()).guestCheckoutEnabled) throw new ApiError("Please sign in to continue.", 401);
-  return { user: null, guest: true };
+  return user ? { user, guest: false } : { user: null, guest: true };
+}
+
+/** The guest's hashed studio token if one exists (never creates one). */
+export async function existingGuestHash() {
+  const t = (await cookies()).get(COOKIE)?.value;
+  return t && /^[A-Za-z0-9_-]{43}$/.test(t) ? hashToken(t) : null;
 }

@@ -87,7 +87,6 @@ async function dashboard() {
   }
   return {
     integration: { ...rest, webhookConfigured: Boolean(webhook_token_hash), keyConfigured: await gelatoKeyConfigured() },
-    guestCheckoutEnabled: settings.guestCheckoutEnabled,
     checkoutEnabled: settings.checkoutEnabled,
     paymentConfigured: settings.paymentConfigured,
     supplierRule: rule.rows[0] || null,
@@ -158,7 +157,7 @@ export async function POST(request: NextRequest) {
     sameOrigin(request);
     const input = await body(request);
     const action = String(input.action || "");
-    // Turning on live fulfillment, guest checkout or rotating the webhook URL is master-admin only.
+    // Enabling Gelato or live fulfillment, or rotating the webhook URL, is master-admin only.
     // Pausing fulfillment alone is an emergency control available to marketplace staff.
     const masterOnly =
       action === "webhook_token" ||
@@ -187,9 +186,7 @@ export async function POST(request: NextRequest) {
           "UPDATE private.marketplace_suppliers SET active=$1,integration_status=CASE WHEN $2 THEN 'live' WHEN $1 THEN 'testing' ELSE 'disabled' END,pipeline_status=CASE WHEN $2 THEN 'active' ELSE pipeline_status END,updated_at=now() WHERE connector='gelato'",
           [next.enabled, next.fulfillment_enabled],
         );
-        if (typeof input.guestCheckoutEnabled === "boolean")
-          await db.query("UPDATE private.platform_settings SET value=value||$1::jsonb,updated_at=now() WHERE key='marketplace'", [JSON.stringify({ guestCheckoutEnabled: input.guestCheckoutEnabled })]);
-        await audit(actor, "gelato_settings_updated", { ...next, guestCheckoutEnabled: input.guestCheckoutEnabled ?? null });
+        await audit(actor, "gelato_settings_updated", next);
         return Response.json({ ok: true, ...next });
       }
       case "webhook_token": {

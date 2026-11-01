@@ -77,7 +77,7 @@ const mails = [];
 const pendingAfter = [];
 const overrides = {
   "lib/db.ts": { getPool: () => pool, databaseConfigured: () => true },
-  "lib/platform-settings.ts": { integrationValue: async (k) => secrets[k] || "" },
+  "lib/platform-settings.ts": { integrationValue: async (k) => secrets[k] || "", sealSecret: (v) => "sealed:" + v, unsealSecret: (v) => v.replace(/^sealed:/, "") },
   "lib/billing.ts": { stripeClient: async () => stripeStub },
   "lib/admin.ts": { adminAccess: async () => null, canAccess: () => false, platformRole: async () => "member" },
   "next/server": { after: (fn) => pendingAfter.push(fn), NextRequest: Request },
@@ -119,11 +119,21 @@ const market = src("lib/marketplace.ts");
 const fulfillment = src("lib/gelato/fulfillment.ts");
 const notifications = src("lib/gelato/notifications.ts");
 const orders = src("lib/gelato/orders.ts");
-const followUp = src("lib/gelato/follow-up.ts");
+const marketMail = src("lib/market-mail.ts");
 const stripeWebhook = src("app/api/marketplace/webhook/route.ts");
 const gelatoWebhook = src("app/api/marketplace/gelato/webhook/route.ts");
 const printFiles = src("app/api/marketplace/print-files/route.ts");
-notifications.setMarketplaceMailer(async (m) => mails.push(m));
+const alerts = [];
+notifications.setAdminAlertMailer(async (m) => alerts.push(m));
+// Resend is the only other external host; capture what would be sent.
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, init) => {
+  if (String(url).startsWith("https://api.resend.com/")) {
+    mails.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ id: "email_" + mails.length }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
+  return realFetch(url, init);
+};
 
 const passed = [];
 const step = async (name, fn) => {
@@ -257,7 +267,7 @@ try {
     assert.equal(o.payment_status, "paid");
     assert.equal(o.shipping_address.address.postal_code, "78701", "pre-collected address is preserved");
     assert.equal((await pool.query("SELECT status FROM private.supplier_orders WHERE order_id=$1", [orderId])).rows[0].status, "ready");
-    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_notifications WHERE order_id=$1 AND kind='order_confirmation'", [orderId])).rows[0].n, 1);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_order_emails WHERE order_id=$1 AND kind='confirmation'", [orderId])).rows[0].n, 1);
   });
 
   let soId;
@@ -297,7 +307,7 @@ try {
     await fulfillment.syncSupplierOrder(soId);
     const o = (await pool.query("SELECT status,tracking_number,tracking_url,carrier FROM private.marketplace_orders WHERE id=$1", [orderId])).rows[0];
     assert.deepEqual(o, { status: "shipped", tracking_number: "1ZTEST", tracking_url: "https://ups.example/1ZTEST", carrier: "UPS Ground" });
-    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_notifications WHERE order_id=$1 AND kind='shipped'", [orderId])).rows[0].n, 1);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_order_emails WHERE order_id=$1 AND kind='shipped'", [orderId])).rows[0].n, 1);
   });
 
   await step("Gelato webhooks require the secret URL token, re-fetch state and deduplicate", async () => {
@@ -324,11 +334,13 @@ try {
   });
 
   await step("emails are delivered once each and never contain supplier costs", async () => {
-    const r = await notifications.deliverMarketplaceNotifications(followUp.orderLink, 50);
+    secrets.RESEND_API_KEY = "re_isolated";
+    secrets.AUTH_EMAIL_FROM = "Zenvio <orders@example.com>";
+    const r = await marketMail.deliverMarketEmails(50);
     assert(r.sent >= 3);
-    assert.equal((await notifications.deliverMarketplaceNotifications(followUp.orderLink, 50)).sent, 0);
+    assert.equal((await marketMail.deliverMarketEmails(50)).sent, 0);
     const kinds = mails.map((m) => m.subject);
-    assert(kinds.some((s) => s.startsWith("Order confirmed")) && kinds.some((s) => s.startsWith("Shipped")) && kinds.some((s) => s.startsWith("In production")));
+    assert(kinds.some((s) => / confirmed$/.test(s)) && kinds.some((s) => / has shipped$/.test(s)) && kinds.some((s) => / is in production$/.test(s)), kinds.join(" | "));
     for (const m of mails) assert(!/\b9\.00\b|cost/i.test(m.text || ""));
   });
 
@@ -340,7 +352,7 @@ try {
     await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409 && /pricing has changed/.test(e.message));
     const sp = (await pool.query("SELECT purchasing_paused,paused_reason FROM private.supplier_products WHERE id=$1", [spId])).rows[0];
     assert.equal(sp.purchasing_paused, true);
-    assert((await pool.query("SELECT count(*)::int n FROM private.marketplace_notifications WHERE kind='admin_alert'")).rows[0].n >= 1);
+    assert((await pool.query("SELECT count(*)::int n FROM private.marketplace_admin_alerts")).rows[0].n >= 1);
     await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409);
     gelato.quoteUnitCost = "9.00";
     await pool.query("UPDATE private.supplier_variants SET retail_cents=NULL WHERE id=$1", [variants[0].id]);
@@ -348,7 +360,7 @@ try {
     await pool.query("UPDATE private.supplier_products SET purchasing_paused=false,paused_reason=NULL WHERE id=$1", [spId]);
   });
 
-  await step("guest checkout uses hashed, expiring access links and refund-before-submission cancels fulfillment", async () => {
+  await step("guest checkout uses private fragment tokens (hash stored) and refund-before-submission cancels fulfillment", async () => {
     const logo = await sharp({ create: { width: 2400, height: 2400, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
     const gAsset = await studio.uploadAsset(guest, logo, "g.png");
     let gDesign = await studio.saveDesign(guest, { productId, variantId: variants[1].id, config: { areas: { front: [{ type: "image", assetId: gAsset.id, x: 0.5, y: 0.5, w: 0.6 }] } } });
@@ -356,15 +368,19 @@ try {
     await assert.rejects(studio.getDesign(buyer, gDesign.id), (e) => e.status === 404);
     // Guests may use their own design for a different size of the same product.
     const r = await market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: gDesign.id, quantity: 1 }], shippingAddress: address }, { id: null, email: "guest@example.com", name: "Ada Lovelace", guestHash: guest.guestHash }, "https://shop.test.example");
-    assert.match(r.guestToken, /^[A-Za-z0-9_-]{43}$/);
-    assert(sessions.at(-1).input.success_url.includes("/marketplace/track?order="));
-    assert(!sessions.at(-1).input.success_url.includes(r.guestToken));
-    const stored = JSON.stringify((await pool.query("SELECT * FROM private.marketplace_order_access WHERE order_id=$1", [r.orderId])).rows);
-    assert(!stored.includes(r.guestToken), "only the token hash is stored");
-    const view = await orders.orderForGuestToken(r.guestToken);
-    assert.equal(view.id, r.orderId);
+    assert.equal(r.guest, true);
+    // Main's guest model: the private token travels only in the URL fragment.
+    const success = new URL(sessions.at(-1).input.success_url);
+    assert.equal(success.pathname, "/marketplace/order");
+    const guestToken = success.hash.slice(1);
+    assert.match(guestToken, /^[A-Za-z0-9_-]{43}$/);
+    const stored = (await pool.query("SELECT guest_token_hash,guest_token_sealed,user_id FROM private.marketplace_orders WHERE id=$1", [r.orderId])).rows[0];
+    assert.equal(stored.user_id, null);
+    assert.notEqual(stored.guest_token_hash, guestToken, "only the token hash is stored for lookup");
+    assert.equal(await orders.guestOrderId(guestToken), r.orderId);
+    const view = await orders.customerOrder(r.orderId);
     assert(view.guest);
-    await assert.rejects(orders.orderForGuestToken("Z".repeat(43)), (e) => e.status === 404);
+    await assert.rejects(orders.guestOrderId("Z".repeat(43)), (e) => e.status === 404);
     const s = { ...sessions.at(-1).session, status: "complete", payment_status: "paid", payment_intent: "pi_gel_guest" };
     await pool.query("UPDATE private.supplier_integrations SET fulfillment_paused=true WHERE provider='gelato'");
     assert.equal((await webhookEvent("checkout.session.completed", s, "evt_gel_guest_paid")).status, 200);
@@ -378,12 +394,12 @@ try {
     const before = gelato.createdOrders.length;
     await fulfillment.processSupplierOrders(5);
     assert.equal(gelato.createdOrders.length, before, "refunded order was never submitted");
-    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_notifications WHERE order_id=$1 AND kind='refunded'", [r.orderId])).rows[0].n, 1);
+    assert.equal((await pool.query("SELECT count(*)::int n FROM private.marketplace_order_emails WHERE order_id=$1 AND kind='refunded'", [r.orderId])).rows[0].n, 1);
     const sent = [];
-    await orders.requestGuestLink("guest@example.com", view.order_number, "203.0.113.5", async (to, url) => sent.push({ to, url }));
-    await orders.requestGuestLink("guest@example.com", "ZV-0000000000", "203.0.113.5", async (to, url) => sent.push({ to, url }));
+    await orders.requestGuestLink("guest@example.com", view.order_number, async (to, url) => sent.push({ to, url }));
+    await orders.requestGuestLink("guest@example.com", "ZV-0000000000", async (to, url) => sent.push({ to, url }));
     assert.equal(sent.length, 1);
-    assert(sent[0].url.includes("/marketplace/track#t="));
+    assert.equal(sent[0].url, `https://shop.test.example/marketplace/order#${guestToken}`);
   });
 
   await step("a supplier rejection goes to the manual review queue with an admin alert", async () => {
@@ -406,5 +422,6 @@ try {
 } finally {
   await pool.query("UPDATE private.platform_settings SET value=value||'{\"checkoutEnabled\":false,\"guestCheckoutEnabled\":false}'::jsonb WHERE key='marketplace'").catch(() => {});
   client.setGelatoTransport(null);
+  globalThis.fetch = realFetch;
   await pool.end();
 }

@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
 import { getPool } from "../db";
 import { ApiError } from "../server";
-import { marketOrderDetail } from "../marketplace";
+import { guestTokenHash, marketOrderDetail } from "../marketplace";
+import { unsealSecret } from "../platform-settings";
 import { publicOrigin } from "./fulfillment";
 import { queueAdminAlert } from "./notifications";
 
@@ -43,7 +43,7 @@ export async function customerOrder(orderId: string, userId?: string) {
       [orderId],
     )
   ).rows;
-  const extra = (await getPool().query("SELECT order_number,guest FROM private.marketplace_orders WHERE id=$1", [orderId])).rows[0];
+  const extra = (await getPool().query("SELECT order_number,(user_id IS NULL) AS guest FROM private.marketplace_orders WHERE id=$1", [orderId])).rows[0];
   const fulfillment = await customerFulfillment(orderId);
   return {
     ...order,
@@ -58,35 +58,29 @@ export function canRequestCancellation(status: string, payment: string, supplier
   return payment === "paid" && ["paid", "processing"].includes(status) && (!supplier || ["ready", "needs_review", "pending"].includes(supplier));
 }
 
-// ---------- Guest access ----------
-const hash = (t: string) => createHash("sha256").update(t).digest("hex");
-export async function orderForGuestToken(token: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new ApiError("This order link is invalid or has expired.", 404);
-  const row = (await getPool().query("SELECT order_id FROM private.marketplace_order_access WHERE token_hash=$1 AND purpose='guest_view' AND expires_at>now()", [hash(token)])).rows[0];
-  if (!row) throw new ApiError("This order link is invalid or has expired.", 404);
-  return customerOrder(row.order_id);
+// ---------- Guest access (token model from migration 058) ----------
+/** Resolves a guest's private order token (URL fragment) to their order id. */
+export async function guestOrderId(token: unknown) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new ApiError("Order not found.", 404);
+  const row = (await getPool().query("SELECT id FROM private.marketplace_orders WHERE guest_token_hash=$1 AND user_id IS NULL", [guestTokenHash(token)])).rows[0];
+  if (!row) throw new ApiError("Order not found.", 404);
+  return row.id as string;
 }
 
 /**
- * Emails a fresh expiring link when the email and order number match. The
- * response is identical either way, so it cannot be used to probe orders.
+ * Emails the guest's private order link when the email and order number match.
+ * Callers return the same response either way, so it cannot probe for orders.
  */
-export async function requestGuestLink(emailAddress: string, orderNumber: string, clientKey: string, send: (to: string, url: string) => Promise<void>) {
-  const key = hash(`lookup:${clientKey}`), emailKey = hash(`lookup-email:${emailAddress}`);
-  const recent = (
-    await getPool().query("SELECT count(*) FILTER (WHERE key_hash=$1)::int a,count(*) FILTER (WHERE key_hash=$2)::int b FROM private.marketplace_lookup_attempts WHERE created_at>now()-interval '1 hour' AND key_hash IN ($1,$2)", [key, emailKey])
-  ).rows[0];
-  if (recent.a >= 10 || recent.b >= 5) throw new ApiError("Too many lookups. Please try again later.", 429);
-  await getPool().query("INSERT INTO private.marketplace_lookup_attempts(key_hash) VALUES($1),($2)", [key, emailKey]);
-  await getPool().query("DELETE FROM private.marketplace_lookup_attempts WHERE created_at<now()-interval '1 day'");
+export async function requestGuestLink(emailAddress: string, orderNumber: string, send: (to: string, url: string) => Promise<void>) {
   const order = (
-    await getPool().query("SELECT id,customer_email FROM private.marketplace_orders WHERE upper(order_number)=upper($1) AND lower(customer_email)=lower($2) AND guest AND payment_status<>'pending'", [orderNumber, emailAddress])
+    await getPool().query(
+      "SELECT id,customer_email,guest_token_sealed FROM private.marketplace_orders WHERE upper(order_number)=upper($1) AND lower(customer_email)=lower($2) AND user_id IS NULL AND payment_status<>'pending' AND guest_token_sealed IS NOT NULL",
+      [orderNumber, emailAddress],
+    )
   ).rows[0];
   if (!order) return;
-  const token = randomBytes(32).toString("base64url");
-  await getPool().query("INSERT INTO private.marketplace_order_access(token_hash,order_id,purpose,expires_at) VALUES($1,$2,'guest_view',now()+interval '24 hours')", [hash(token), order.id]);
   const origin = publicOrigin() || (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-  await send(order.customer_email, `${origin}/marketplace/track#t=${token}`);
+  await send(order.customer_email, `${origin}/marketplace/order#${unsealSecret(order.guest_token_sealed)}`);
 }
 
 /** Customer cancellation or support request: recorded and routed to admins; never auto-refunds. */

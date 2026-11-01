@@ -36,11 +36,12 @@ Baseline: `main` @ `448ff7c`, November 1, 2026. This upgrade extends the one exi
 | Live supplier connectors (order submission, tracking, webhooks) for Printful, Gelato, 4over, Printify, Prodigi | Blocked | Requires approved reseller accounts, API credentials and an authorized test order. The supplier records and integration status are in place to track this. |
 | Supplier-imported catalog, variant/price sync | Partially implemented | Printful read-only catalog exists (off by default). Mapping into products is still manual. |
 | Brand Studio (brand profiles, editor, templates, proofs) | Not started | Builds on the existing artwork and personalization tables. |
-| Guest checkout, saved designs, reorder, discount codes on marketplace checkout | Not started | Checkout changes need their own migration and payment tests. |
+| Guest checkout | Completed and verified | Migration 058. Public storefront; guests give a name and email; orders get a private token (hash stored, encrypted copy for email links); order page at `/marketplace/order#token`; artwork stays account-only; guest checkout is rate-limited per client and email. |
+| Saved designs, reorder, discount codes on marketplace checkout | Not started | |
 | Subscriber marketplace pricing at checkout | Partially implemented | The rule field exists; checkout does not apply it yet. |
-| Marketplace order emails (confirmation, proof, shipping) via Resend | Not started | Existing account and booking mail infrastructure can be reused. |
+| Marketplace order emails via Resend | Implemented, awaiting Resend configuration | Confirmation, in production, shipped, delivered and refunded. Queued in the same transaction as the status change, unique per order and kind, sent with a Resend idempotency key, retried by the scheduled job. Artwork proof and delay emails are reserved kinds without a trigger yet. |
 | NFC product fulfillment and encoding | Blocked | Needs a verified manufacturing partner. Customers can register their own NFC products today. |
 
-## Gelato integration (migration 058)
+## Gelato integration (migration 061)
 
-Gelato is the first live supplier connector. See [GELATO_INTEGRATION.md](GELATO_INTEGRATION.md). It reuses the catalog, checkout, webhook, orders, vault, job runner and Resend infrastructure listed above; guest checkout, Brand Studio, supplier fulfillment and marketplace order emails from the "Not done" table are now implemented behind admin-controlled flags.
+Gelato is the first live supplier connector. See [GELATO_INTEGRATION.md](GELATO_INTEGRATION.md). It reuses the catalog, checkout, webhook, orders, vault, job runner and Resend infrastructure listed above; it adds Brand Studio and automated supplier fulfillment behind admin-controlled flags, and reuses the guest checkout and order emails from migration 058.

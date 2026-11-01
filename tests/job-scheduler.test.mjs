@@ -178,6 +178,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
       "./microsoft-calendar": {runMicrosoftJobs:call("microsoft-sync")},
       "./workflows": { scheduleWorkflows: call("workflows") },
       "./gelato/follow-up": { processMarketplaceJobs: call("marketplace") },
+      "./market-mail": { deliverMarketEmails: call("market-emails") },
       "./lifecycle": {
         purgeExpiredDeliverySecrets: call("purge"),
         materializeReminders: call("reminders"),
@@ -216,6 +217,7 @@ test("scheduler records bounded successful work and never labels missing mail co
       "workflows",
       "waitlist-offers",
       "marketplace",
+      "market-emails",
       "delivery",
     ],
   );

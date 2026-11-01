@@ -105,9 +105,9 @@ One unified marketplace; see [docs/MARKETPLACE_AUDIT.md](docs/MARKETPLACE_AUDIT.
 | P0 | Retail pricing engine and below-cost guard | Completed and verified |
 | P0 | Storefront upgrade | Partially implemented (family navigation); product pages and premium redesign pending |
 | P0 | Product customization MVP and brand asset uploads | Partially implemented (existing options and artwork upload); Brand Studio not started |
-| P0 | Stripe checkout integration | Existing checkout reused; guest checkout not started |
+| P0 | Stripe checkout integration | Existing checkout reused; guest checkout completed and verified (migration 058) |
 | P0 | Order management and supplier fulfillment tracking | Existing manual queue reused; automated submission blocked |
-| P0 | Resend marketplace notifications | Not started |
+| P0 | Resend marketplace notifications | Implemented, awaiting Resend configuration: confirmation, in production, shipped, delivered and refunded emails are queued with the status change and sent once (idempotency key per order and kind); delivery verified up to the provider call |
 | P0 | Admin cost visibility and marketplace economics | Completed and verified |
 | P1 | NFC digital profiles, QR codes, permanent card links, deactivation and reassignment | Completed and verified |
 | P1 | NFC physical product ordering | Blocked: needs manufacturing partner |
@@ -117,7 +117,7 @@ One unified marketplace; see [docs/MARKETPLACE_AUDIT.md](docs/MARKETPLACE_AUDIT.
 
 ## Gelato: first live supplier integration (marketplace upgrade)
 
-Gelato is the first supplier connected under the marketplace upgrade. It extends the existing catalog, checkout, orders and admin console; nothing was duplicated. Migration 058 is additive. Details and the activation checklist are in [docs/GELATO_INTEGRATION.md](docs/GELATO_INTEGRATION.md). Printful, 4over and NFC manufacturing partners stay on the broader marketplace roadmap above.
+Gelato is the first supplier connected under the marketplace upgrade. It extends the existing catalog, checkout (including public guest checkout), order emails, orders and admin console; nothing was duplicated. Migration 061 is additive (numbered to avoid 059–060 reserved by the pricing workstream). Details and the activation checklist are in [docs/GELATO_INTEGRATION.md](docs/GELATO_INTEGRATION.md). Printful, 4over and NFC manufacturing partners stay on the broader marketplace roadmap above.
 
 ### P0 — Initial Gelato launch
 
@@ -130,11 +130,11 @@ Gelato is the first supplier connected under the marketplace upgrade. It extends
 | Retail pricing rules: global/category/product markup, minimum margin, minimum profit, minimum retail; automatic pause on unprofitable fixed prices | Completed and verified |
 | Product customization (Brand Studio: uploads, text, fonts, colors, placement, print areas, saved designs) | Completed and verified |
 | Artwork validation (format, size, DPI, transparency, bounds, safe zone) and server-rendered print PDFs | Completed and verified |
-| Stripe checkout: existing flow extended with live supplier quote, server-side profit revalidation, guest checkout flag | Implemented, awaiting activation (live Stripe and Gelato quote not exercised) |
+| Stripe checkout: existing flow (including guest checkout) extended with live supplier quote and server-side profit revalidation | Implemented, awaiting activation (live Stripe and Gelato quote not exercised) |
 | Automated order submission after verified payment; idempotent, lookup-before-retry, manual review queue | Implemented, awaiting activation (no real order placed) |
 | Fulfillment status synchronization (polling + tokenized webhook that re-fetches state) | Implemented, awaiting activation |
 | Shipping tracking (carrier, number, link, shipped/delivered) | Implemented, awaiting activation |
-| Customer notifications via existing Resend sender (confirmation, production, shipped, delivered, refund, exception) | Implemented, awaiting activation (delivery unverified) |
+| Customer notifications via the existing marketplace order-email queue (confirmation, production, shipped, delivered, refund, delay) | Implemented, awaiting activation (delivery unverified) |
 | Master-admin management (Commerce → Gelato) with audit records | Completed and verified |
 | Financial reporting (revenue, supplier cost, shipping, processing estimate, refunds, contribution) | Completed and verified (formulas; no live orders yet) |
 

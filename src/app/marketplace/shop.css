@@ -1,20 +1,6 @@
 /* Zenvio Marketplace: storefront, product pages, Brand Studio and order tracking.
    Uses the brand tokens from theme.css (cobalt / midnight); never redefines them. */
 
-/* ---------- Public storefront chrome (guests) ---------- */
-.shop-public { min-height: 100vh; display: flex; flex-direction: column; background: #f6f7fb; color: var(--brand-midnight); }
-.shop-public-bar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px max(16px, calc((100vw - 1280px) / 2)); background: #fff; border-bottom: 1px solid #e6e9f2; }
-.shop-public-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-weight: 650; }
-.shop-public-brand span { padding-left: 10px; border-left: 1px solid #e6e9f2; color: #5b6280; font-size: 14px; }
-.shop-public-bar nav { display: flex; align-items: center; gap: 18px; font-size: 14px; }
-.shop-public-bar nav a { color: #2b3150; text-decoration: none; }
-.shop-public-bar nav a:hover { color: var(--brand-cobalt); }
-.shop-public-signin { padding: 8px 14px; border-radius: 9px; background: var(--brand-midnight); color: #fff !important; }
-.shop-public-body { flex: 1; padding: 8px max(16px, calc((100vw - 1280px) / 2)) 40px; }
-.shop-public-foot { display: flex; gap: 16px; padding: 18px max(16px, calc((100vw - 1280px) / 2)); font-size: 13px; color: #7a8099; border-top: 1px solid #e6e9f2; background: #fff; }
-.shop-public-foot a { color: inherit; }
-@media (max-width: 560px) { .shop-public-brand span { display: none; } .shop-public-bar nav { gap: 12px; font-size: 13px; } }
-
 /* ---------- Buttons and small pieces ---------- */
 .shop-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #d6dbe8; background: #fff; color: var(--brand-midnight); font: 600 14px/1 var(--font-family, inherit); text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
 .shop-btn:hover:not(:disabled):not([aria-disabled="true"]) { border-color: #aab3cc; }

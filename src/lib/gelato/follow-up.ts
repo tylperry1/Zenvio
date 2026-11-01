@@ -1,23 +1,11 @@
 import { after } from "next/server";
-import { createHash, randomBytes } from "node:crypto";
 import { getPool } from "../db";
+import { deliverMarketEmails } from "../market-mail";
 import { refreshCatalog } from "./catalog";
-import { processSupplierOrders, publicOrigin } from "./fulfillment";
-import { deliverMarketplaceNotifications } from "./notifications";
+import { processSupplierOrders } from "./fulfillment";
+import { deliverAdminAlerts } from "./notifications";
 
-/** Customer link for an order email; guests get a fresh expiring access link. */
-export async function orderLink(orderId: string, guest: boolean) {
-  const origin = publicOrigin() || (process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com").replace(/\/$/, "");
-  if (!guest) return `${origin}/marketplace/orders?order=${orderId}`;
-  const token = randomBytes(32).toString("base64url");
-  await getPool().query(
-    "INSERT INTO private.marketplace_order_access(token_hash,order_id,purpose,expires_at) VALUES($1,$2,'guest_view',now()+interval '14 days')",
-    [createHash("sha256").update(token).digest("hex"), orderId],
-  );
-  return `${origin}/marketplace/track#t=${token}`;
-}
-
-/** Scheduled marketplace work. Errors are contained so other jobs keep running. */
+/** Scheduled Gelato work. Customer emails are delivered by the job runner's market-mail step. */
 export async function processMarketplaceJobs() {
   const result: Record<string, unknown> = {};
   try {
@@ -26,9 +14,9 @@ export async function processMarketplaceJobs() {
     result.fulfillment = "error";
   }
   try {
-    result.notifications = await deliverMarketplaceNotifications(orderLink, 20);
+    result.alerts = await deliverAdminAlerts(20);
   } catch {
-    result.notifications = "error";
+    result.alerts = "error";
   }
   try {
     // Imported products refresh daily; nothing new is ever imported here.
@@ -47,7 +35,8 @@ export function runMarketplaceFollowUp() {
     after(async () => {
       try {
         await processSupplierOrders(5);
-        await deliverMarketplaceNotifications(orderLink, 10);
+        await deliverMarketEmails(10);
+        await deliverAdminAlerts(10);
       } catch {
         // The scheduled job runner retries.
       }

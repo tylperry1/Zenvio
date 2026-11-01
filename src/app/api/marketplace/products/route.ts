@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
     ).rows[0];
     if (!p) throw new ApiError("This product is not available.", 404);
     const sp = (await getPool().query("SELECT * FROM private.supplier_products WHERE product_id=$1", [id])).rows[0];
-    if (viewer.guest && !sp) throw new ApiError("Please sign in to view this product.", 401);
     const settings = await marketSettings();
     const { supplier_id: _supplier, ...product } = p;
     const family = (await getPool().query("SELECT f.slug,f.name FROM private.marketplace_categories c JOIN private.marketplace_families f ON f.slug=c.family WHERE c.name=$1", [p.category])).rows[0] || null;

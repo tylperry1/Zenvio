@@ -1,11 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
+import { deliverMarketEmails, queueMarketEmail } from "@/lib/market-mail";
 import type Stripe from "stripe";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
 import { integrationValue } from "@/lib/platform-settings";
 import { applyMarketPayment } from "@/lib/marketplace";
 import { onOrderRefunded } from "@/lib/gelato/fulfillment";
-import { queueOrderNotification } from "@/lib/gelato/notifications";
 import { runMarketplaceFollowUp } from "@/lib/gelato/follow-up";
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         event.data.object as Stripe.Checkout.Session,
         event.id,
       );
-      // Best effort: submit paid supplier orders and send email now; the job runner retries.
+      // Best effort: submit paid supplier orders now; the job runner retries.
       runMarketplaceFollowUp();
     }
     else if (event.type === "charge.refunded") {
@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
             [intent, charge.amount_refunded],
           );
           for (const o of updated.rows) {
+            await queueMarketEmail(c, o.id, "refunded");
+            // Stops unsubmitted supplier orders; flags submitted ones for admin review.
             await onOrderRefunded(o.id, o.payment_status === "refunded", c);
-            await queueOrderNotification(o.id, "refunded", String(charge.amount_refunded), c);
           }
           await c.query("COMMIT");
           if (updated.rows.length) runMarketplaceFollowUp();
@@ -74,6 +75,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    // Order emails are idempotent per order and kind; sending never blocks the webhook.
+    after(() => deliverMarketEmails().then(() => {}).catch(() => {}));
     return Response.json({ received: true });
   } catch {
     return Response.json(

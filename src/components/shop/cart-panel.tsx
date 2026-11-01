@@ -14,7 +14,8 @@ export function CartPanel({ cart, ready, guest }: { cart: ReturnType<typeof useM
   const subtotal = cart.lines.reduce((n, l) => n + l.price * l.quantity, 0);
   const nativeShipping = cart.lines.filter((l) => !l.custom).reduce((n, l) => n + l.shipping * l.quantity, 0);
   const invalid = cart.lines.some((l) => !Number.isInteger(l.quantity) || l.quantity < l.minimum || l.quantity > 1000);
-  const guestNative = guest && cart.lines.some((l) => !l.custom);
+  // Uploaded artwork belongs to an account, so guests can't check out lines that carry it.
+  const guestNative = guest && cart.lines.some((l) => !l.custom && l.artwork_id);
 
   async function checkout(form: FormData) {
     setBusy(true);
@@ -28,7 +29,7 @@ export function CartPanel({ cart, ready, guest }: { cart: ReturnType<typeof useM
           lines: cart.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, designId: l.designId, quantity: l.quantity, options: l.options, artwork_id: l.artwork_id, instructions: l.instructions })),
           businessName: field("businessName"),
           instructions: field("instructions"),
-          email: guest ? field("email") : undefined,
+          ...(guest ? { guest: { name: field("guestName"), email: field("guestEmail") } } : {}),
           shippingAddress: custom
             ? { name: field("name"), company: field("businessName"), line1: field("line1"), line2: field("line2"), city: field("city"), state: field("state"), postalCode: field("postalCode"), phone: field("phone"), country: "US" }
             : undefined,
@@ -94,14 +95,24 @@ export function CartPanel({ cart, ready, guest }: { cart: ReturnType<typeof useM
           </p>
           {guestNative && (
             <p className="billing-error" role="alert">
-              <Link href="/sign-in">Sign in</Link> to order catalog items. Guests can check out custom printed products.
+              <Link href="/sign-in">Sign in</Link> to order items with uploaded artwork, or remove them to check out as a guest.
             </p>
           )}
           {guest && (
-            <label>
-              Email for order updates
-              <input name="email" type="email" required autoComplete="email" maxLength={254} />
-            </label>
+            <fieldset className="market-guest">
+              <legend>Your details</legend>
+              <label>
+                Full name
+                <input name="guestName" required minLength={2} maxLength={100} autoComplete="name" />
+              </label>
+              <label>
+                Email for receipts and order updates
+                <input name="guestEmail" type="email" required maxLength={254} autoComplete="email" />
+              </label>
+              <p className="market-small">
+                No account needed. You'll get a private order link by email. Already have an account? <Link href="/sign-in">Sign in</Link>
+              </p>
+            </fieldset>
           )}
           {custom && (
             <fieldset className="shop-address">

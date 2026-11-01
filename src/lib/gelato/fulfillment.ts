@@ -134,7 +134,7 @@ export async function submitSupplierOrder(id: string) {
       if (found) {
         await release(so.id, { status: nextStatus("submitted", mapFulfillmentStatus(found.fulfillmentStatus)), supplier_order_id: found.id, supplier_status: found.fulfillmentStatus || null, submitted_at: new Date(), last_error: null });
         await event(db, so.id, "reconciled", `Found existing Gelato order ${found.id}; not resubmitted.`);
-        await queueOrderNotification(so.order_id, "submitted");
+        await queueOrderNotification(so.order_id, "in_production");
         return { status: "submitted", supplierOrderId: found.id };
       }
     }
@@ -176,7 +176,7 @@ export async function submitSupplierOrder(id: string) {
       await db.query("UPDATE private.marketplace_orders SET status=CASE WHEN status='paid' THEN 'processing' ELSE status END,updated_at=now() WHERE id=$1", [so.order_id]);
       await db.query("INSERT INTO private.marketplace_order_activity(order_id,action,note) VALUES($1,'supplier_submitted',$2)", [so.order_id, `Gelato order ${created.id}`]);
       await event(db, so.id, "submitted", `Gelato order ${created.id}`);
-      await queueOrderNotification(so.order_id, "submitted");
+      await queueOrderNotification(so.order_id, "in_production");
       return { status: "submitted", supplierOrderId: created.id };
     } catch (e) {
       const err = e instanceof GelatoError ? e : new GelatoError("unknown", "Unexpected submission failure.");
@@ -185,7 +185,7 @@ export async function submitSupplierOrder(id: string) {
         await release(so.id, { status: "needs_review", last_error: err.message });
         await event(db, so.id, "rejected", err.message);
         await queueAdminAlert(`rejected:${so.id}:${attempts}`, "Gelato rejected an order", `Order ${order.order_number || order.id}: ${err.message}`);
-        if (err.category === "rejected") await queueOrderNotification(so.order_id, "exception");
+        if (err.category === "rejected") await queueOrderNotification(so.order_id, "delayed");
         return { status: "needs_review" };
       }
       // Timeout, network, 5xx, 429 or unreadable reply: outcome unknown; never resubmit blindly.
@@ -231,13 +231,13 @@ export async function syncSupplierOrder(id: string) {
           [so.order_id, finalStatus, first?.trackingCode || "", first?.trackingUrl || "", first?.carrier || ""],
         );
         await db.query("INSERT INTO private.marketplace_order_activity(order_id,action) VALUES($1,$2)", [so.order_id, "order_" + finalStatus]);
-        await queueOrderNotification(so.order_id, finalStatus === "shipped" ? "shipped" : "delivered", "", db);
+        await queueOrderNotification(so.order_id, finalStatus === "shipped" ? "shipped" : "delivered", db);
       } else if (finalStatus === "in_production" || finalStatus === "accepted") {
         await db.query("UPDATE private.marketplace_orders SET status='processing',updated_at=now() WHERE id=$1 AND status='paid'", [so.order_id]);
       } else if (finalStatus === "cancelled" || finalStatus === "failed" || finalStatus === "needs_review") {
         await db.query("INSERT INTO private.marketplace_order_activity(order_id,action,note) VALUES($1,'supplier_exception',$2)", [so.order_id, raw || finalStatus]);
         await queueAdminAlert(`status:${id}:${finalStatus}`, `Gelato order ${finalStatus.replace("_", " ")}`, `Supplier order ${so.supplier_order_id} reported "${raw}". Review it in Commerce → Gelato.`, db);
-        if (finalStatus !== "cancelled") await queueOrderNotification(so.order_id, "exception", finalStatus, db);
+        if (finalStatus !== "cancelled") await queueOrderNotification(so.order_id, "delayed", db);
       }
     }
     await db.query("COMMIT");
