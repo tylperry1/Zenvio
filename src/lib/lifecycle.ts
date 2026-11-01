@@ -258,6 +258,17 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         await db.query("COMMIT");
         continue;
       }
+      if(process.env.PRICING_V3_VALIDATED === "true") {
+        const {reserveEmail}=await import("./email-usage");
+        try{await reserveEmail(db,{user:j.user_id,reference:"delivery:"+j.id,kind:j.kind,recipient:j.recipient});}
+        catch(error){
+          if(error instanceof ApiError && [409,429].includes(error.status)){
+            await db.query("UPDATE private.delivery_jobs SET run_at=now()+interval '1 hour',claimed_at=CASE WHEN attempts=0 THEN NULL ELSE claimed_at END,last_error=$2 WHERE id=$1",[j.id,error.message]);
+            await db.query("COMMIT");continue;
+          }
+          throw error;
+        }
+      }
       await db.query(
         "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),attempts=attempts+1 WHERE id=$1",
         [j.id],
@@ -286,6 +297,9 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "UPDATE private.delivery_jobs SET status='sent',sent_at=now(),provider_id=$2,provider_status='accepted',payload_ciphertext=NULL,last_error=NULL WHERE id=$1",
           [j.id, data.id],
         );
+        if(process.env.PRICING_V3_VALIDATED === "true"){
+          const {acceptEmail}=await import("./email-usage");await acceptEmail(db,"delivery:"+j.id,data.id);
+        }
         sent++;
       } catch (error) {
         const failure =

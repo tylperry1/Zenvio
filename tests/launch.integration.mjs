@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {Pool} from 'pg';
 import {PDFDocument} from 'pdf-lib';
-import {createHash,createDecipheriv,createCipheriv,randomBytes} from 'node:crypto';
+import {createHash,createDecipheriv,createCipheriv,randomBytes,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 import fs from 'node:fs';
 import Module from 'node:module';
@@ -171,6 +171,24 @@ try{
  assert.equal(storageRaces.filter(r=>r.status==='fulfilled').length,1);assert.match(storageRaces.find(r=>r.status==='rejected').reason.message,/storage_allowance/);
  assert.equal(Number((await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n),Number(stored)+8);
  await db.query("delete from private.workspace_meter_overrides where billing_owner=$1",[owner]);
+ const emailFilename=path.resolve('src/lib/email-usage.ts'),emailModule=new Module(emailFilename);
+ emailModule.require=id=>id==='./subscription-usage'?usageModule.exports:id==='./server'?{ApiError:FixtureApiError}:id==='node:crypto'?{createHash}:{};
+ emailModule._compile(ts.transpileModule(fs.readFileSync(emailFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,emailFilename);
+ const ec=await db.connect();try{await ec.query('begin');await usageModule.exports.reserveSubscriptionUnits(ec,owner,'emails',1500,'fixture-email-exhaustion-'+suffix);await ec.query('commit');}finally{ec.release();}
+ const emailReserve=async(kind,ref)=>{const c=await db.connect();try{await c.query('begin');const value=await emailModule.exports.reserveEmail(c,{user:owner,reference:ref,kind,recipient:'quota-fixture@example.com'});await c.query('commit');return value;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ await assert.rejects(emailReserve('customer_message','optional-'+suffix),e=>e.status===429);
+ const protectedMail=await emailReserve('booking_confirmation','essential-'+suffix);assert.equal(protectedMail.protected,true);
+ const repeated=await emailReserve('booking_confirmation','essential-'+suffix);assert.equal(repeated.reference,protectedMail.reference);
+ assert.equal((await db.query("select count(*)::int n from private.email_usage_events where reference=$1",[protectedMail.reference])).rows[0].n,1);
+ const securityMail=await emailReserve('account_security','security-'+suffix);assert.equal(securityMail.protected,true);
+ const envelopeFilename=path.resolve('src/lib/envelope-usage.ts'),envelopeModule=new Module(envelopeFilename);
+ envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}}}:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
+ envelopeModule._compile(ts.transpileModule(fs.readFileSync(envelopeFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,envelopeFilename);
+ await db.query("insert into private.envelope_usage(source_id,source_kind,user_id,billing_owner) select gen_random_uuid(),'pdf',$1,$1 from generate_series(1,30)",[owner]);
+ await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason) values($1,'envelopes',1,$2,'Disposable prepaid envelope concurrency fixture')",[owner,'fixture-envelope-credit-'+suffix]);
+ const sendPrepaid=async()=>{const c=await db.connect();try{await c.query('begin');await envelopeModule.exports.recordEnvelopeSend(c,owner,'pdf',randomUUID());await c.query('commit');}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ const envelopeRaces=await Promise.allSettled([sendPrepaid(),sendPrepaid()]);assert.equal(envelopeRaces.filter(r=>r.status==='fulfilled').length,1);assert.equal(envelopeRaces.find(r=>r.status==='rejected').reason.status,409);
+ assert.equal((await envelopeModule.exports.envelopeBudget(owner)).purchasedRemaining,0);
  const foreign=await call('/api/billing',null,b.cookie);assert.equal(foreign.status,200);assert.equal(foreign.data.meteredUsage.enforced,false);
  }
 
