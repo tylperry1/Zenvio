@@ -181,6 +181,13 @@ export function AdminUsersActivity() {
     }
   }
 
+  // drawerEscape: close the account drawer on Escape wherever focus is.
+  useEffect(() => {
+    if (!detail) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("dialog[open]") && setDetail(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detail]);
   const k = data?.kpis;
   const series = (chart === "signups" ? data?.signups : data?.activity)?.slice(-Number(range)) || [];
   const seriesTotal = series.reduce((s, d) => s + d.value, 0);

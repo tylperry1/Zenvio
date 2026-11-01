@@ -23,6 +23,9 @@ export function Marketplace() {
     [total, setTotal] = useState(0),
     [categories, setCategories] = useState<string[]>([]),
     [category, setCategory] = useState(""),
+    [families, setFamilies] = useState<{ slug: string; name: string; tagline: string; products: number }[]>([]),
+    [family, setFamily] = useState(""),
+    [categoryFamilies, setCategoryFamilies] = useState<Record<string, string>>({}),
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
     [page, setPage] = useState(0),
@@ -36,7 +39,7 @@ export function Marketplace() {
     const c = new AbortController();
     setLoading(true);
     fetch(
-      `/api/marketplace?page=${page}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`,
+      `/api/marketplace?page=${page}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}&family=${encodeURIComponent(family)}`,
       { signal: c.signal, cache: "no-store" },
     )
       .then(async (r) => {
@@ -45,6 +48,8 @@ export function Marketplace() {
         setProducts(d.products);
         setTotal(d.total);
         setCategories(d.categories);
+        setFamilies(d.families || []);
+        setCategoryFamilies(d.categoryFamilies || {});
         setReady(d.checkoutReady);
         setError("");
       })
@@ -55,7 +60,7 @@ export function Marketplace() {
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [page, query, category]);
+  }, [page, query, category, family]);
   const subtotal = cart.reduce((n, l) => n + l.price * l.quantity, 0),
     shipping = cart.reduce((n, l) => n + l.shipping * l.quantity, 0);
   return (
@@ -130,11 +135,30 @@ export function Marketplace() {
               />
               <button className="billing-secondary">Search</button>
             </form>
+            {families.length > 1 && (
+              <nav className="market-families" aria-label="Product families">
+                {[{ slug: "", name: "All products", tagline: "", products: 0 }, ...families].map((f) => (
+                  <button
+                    key={f.slug}
+                    type="button"
+                    aria-pressed={family === f.slug}
+                    onClick={() => {
+                      setFamily(f.slug);
+                      setCategory("");
+                      setPage(0);
+                    }}
+                  >
+                    <b>{f.name}</b>
+                    {f.slug && <small>{f.products} product{f.products === 1 ? "" : "s"}</small>}
+                  </button>
+                ))}
+              </nav>
+            )}
             <div
               className="market-category-tabs"
               aria-label="Product categories"
             >
-              {["", ...categories].map((c) => (
+              {["", ...categories.filter((c) => !family || categoryFamilies[c] === family)].map((c) => (
                 <button
                   key={c}
                   aria-pressed={category === c}
