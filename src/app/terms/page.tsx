@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/icons";
+import { LegalToc } from "@/components/legal-toc";
 export const metadata = { title: "Terms of Service" };
 export default function Page() {
   return (
@@ -9,6 +10,7 @@ export default function Page() {
       </Link>
       <h1>Terms of Service</h1>
       <p>Effective October 31, 2026</p>
+      <LegalToc />
       <p>
         These terms govern your use of Zenvio’s website and services. By creating an account or using Zenvio you agree to
         them and to our <Link href="/privacy">Privacy Policy</Link>. If you use Zenvio for a business, you accept these

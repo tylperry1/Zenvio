@@ -22,6 +22,15 @@ const config: NextConfig = {
         ],
       },
       {
+        // The service worker must always be revalidated so fixes ship immediately.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+      {
         source: "/:path(app|admin|api|portal|sign|cancel|reschedule|reset-password|sign-in|sign-up|team|request|book|demo|marketplace)/:rest*",
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },

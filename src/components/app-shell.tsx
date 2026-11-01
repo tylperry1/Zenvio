@@ -1,4 +1,5 @@
 "use client";
+import { InstallPrompt } from "./pwa";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
@@ -55,6 +56,7 @@ const groups: NavGroup[] = [
       { id: "automation", label: "Reminders & workflows", icon: "bell", href: "/app/automation" },
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & classes", icon: "bag", href: "/app/growth" },
+      { id: "marketing", label: "Marketing & reviews", icon: "spark", href: "/app/marketing" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
     ],
@@ -418,6 +420,7 @@ export function AppShell({
           </p>
         )}
         <div className="shell-content">{children}</div>
+        {!demo && <InstallPrompt />}
         {!demo && user && <AssistantLauncher />}
         <CommandPalette
           open={search}

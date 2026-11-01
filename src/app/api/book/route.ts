@@ -7,6 +7,7 @@ import { filterGoogleSlots, runGoogleJobsForHost } from "@/lib/google-calendar";
 import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { after } from "next/server";
 import { deliverBookingEmails } from "@/lib/mail";
+import { cleanAttribution, recordBookingSource } from "@/lib/marketing";
 import { NextRequest } from "next/server";
 import { protectBooking } from "@/lib/booking-protection";
 import { claimUploads, uploadKey, uploadKeyHash } from "@/lib/guest-uploads";
@@ -165,6 +166,14 @@ export async function POST(request: NextRequest) {
         db.release();
       }
     }
+    // Booking source is best-effort analytics and can never affect the reservation.
+    const attribution = cleanAttribution(input.attribution);
+    if (result?.id)
+      after(() =>
+        recordBookingSource(String(result.id), attribution).catch(() => {
+          console.error("Unable to record booking source");
+        }),
+      );
     after(() => scheduleWorkflows().then(() => {}));
     after(() =>
       materializeReminders()

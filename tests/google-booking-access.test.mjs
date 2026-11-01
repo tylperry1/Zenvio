@@ -20,7 +20,9 @@ m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
 m.require = (id) =>
-  id === "@/lib/appointment-payments"
+  id === "@/lib/marketing"
+    ? { cleanAttribution: () => ({ source: "direct" }), recordBookingSource: async () => {} }
+    : id === "@/lib/appointment-payments"
     ? {}
     : id === "@/lib/booking-protection"
       ? { protectBooking: async () => {} }
