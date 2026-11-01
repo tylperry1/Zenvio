@@ -114,3 +114,43 @@ One unified marketplace; see [docs/MARKETPLACE_AUDIT.md](docs/MARKETPLACE_AUDIT.
 | P1 | Subscriber discounts | Partially implemented (rule field; checkout application pending) |
 | P1 | Additional connectors, Brand Studio, business card editor, bulk pricing tiers, brand kits, templates, reorder | Not started |
 | P2 | AI-assisted design, advanced mockups, corporate and team purchasing, multi-brand workspaces, automated supplier selection, supplier analytics, campaigns, recurring orders | Not started |
+
+## Gelato: first live supplier integration (marketplace upgrade)
+
+Gelato is the first supplier connected under the marketplace upgrade. It extends the existing catalog, checkout, orders and admin console; nothing was duplicated. Migration 058 is additive. Details and the activation checklist are in [docs/GELATO_INTEGRATION.md](docs/GELATO_INTEGRATION.md). Printful, 4over and NFC manufacturing partners stay on the broader marketplace roadmap above.
+
+### P0 — Initial Gelato launch
+
+| Item | Status |
+| --- | --- |
+| Gelato API connection (vault key, real authenticated test, health, error log) | Implemented, awaiting activation (no live key in CI; verified against a scripted Gelato API) |
+| Product onboarding: admin-only browser, explicit selection, draft import, duplicate prevention | Implemented, awaiting activation |
+| Catalog synchronization of imported products only (costs, tiers, availability, specs) | Implemented, awaiting activation |
+| Product variants (sizes/colors), per-variant enable and retail override | Completed and verified (local integration and browser tests) |
+| Retail pricing rules: global/category/product markup, minimum margin, minimum profit, minimum retail; automatic pause on unprofitable fixed prices | Completed and verified |
+| Product customization (Brand Studio: uploads, text, fonts, colors, placement, print areas, saved designs) | Completed and verified |
+| Artwork validation (format, size, DPI, transparency, bounds, safe zone) and server-rendered print PDFs | Completed and verified |
+| Stripe checkout: existing flow extended with live supplier quote, server-side profit revalidation, guest checkout flag | Implemented, awaiting activation (live Stripe and Gelato quote not exercised) |
+| Automated order submission after verified payment; idempotent, lookup-before-retry, manual review queue | Implemented, awaiting activation (no real order placed) |
+| Fulfillment status synchronization (polling + tokenized webhook that re-fetches state) | Implemented, awaiting activation |
+| Shipping tracking (carrier, number, link, shipped/delivered) | Implemented, awaiting activation |
+| Customer notifications via existing Resend sender (confirmation, production, shipped, delivered, refund, exception) | Implemented, awaiting activation (delivery unverified) |
+| Master-admin management (Commerce → Gelato) with audit records | Completed and verified |
+| Financial reporting (revenue, supplier cost, shipping, processing estimate, refunds, contribution) | Completed and verified (formulas; no live orders yet) |
+
+### P1 — Marketplace expansion
+
+| Item | Status |
+| --- | --- |
+| Advanced Brand Studio (rotation, layer locking, curved text, more fonts) | Not started |
+| Reusable brand kits and saved design templates | Not started (saved designs per product exist) |
+| Bulk ordering and quantity discounts | Partially implemented (supplier quantity tiers priced per item; mixed-size bulk entry not started) |
+| Subscriber marketplace benefits | Partially implemented (rule field stored; not applied at checkout) |
+| Promotional discount codes on marketplace checkout | Not started |
+| Additional Gelato products | Ready for admin import |
+| Improved mockup generation (photo-real product mockups) | Not started (approximate color preview only) |
+| Additional supplier integrations (Printful ordering, 4over, NFC partner) | Not started |
+
+### P2 — Advanced marketplace
+
+AI-assisted design, team purchasing, multi-brand management, advanced supplier routing, promotional bundles, NFC smart business card manufacturing, digital business profiles beyond the existing smart profiles, and enterprise purchasing workflows: not started.

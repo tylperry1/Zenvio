@@ -37,6 +37,7 @@ const groups: { label: string; items: Item[] }[] = [
     items: [
       { id: "marketplace", icon: "bag", label: "Marketplace", href: "/admin/operations?section=marketplace", permission: "marketplace" },
       { id: "suppliers", icon: "briefcase", label: "Suppliers & pricing", href: "/admin/suppliers", permission: "marketplace", hint: "supplier pipeline markup margin" },
+      { id: "gelato", icon: "layers", label: "Gelato", href: "/admin/gelato", permission: "marketplace", hint: "print on demand fulfillment supplier catalog import" },
       { id: "marketplace-tools", icon: "image", label: "Personalization", href: "/admin/marketplace-tools", permission: "marketplace" },
     ],
   },

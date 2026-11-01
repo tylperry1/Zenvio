@@ -139,7 +139,8 @@ const address = { name: "Ada Lovelace", line1: "1 Congress Ave", city: "Austin",
 
 try {
   const actor = randomUUID(), other = randomUUID();
-  await pool.query('INSERT INTO public."user"(id,name,email) VALUES($1,$2,$3),($4,$5,$6)', [actor, "Buyer One", "buyer@example.com", other, "Other Buyer", "other@example.com"]);
+  const tag = Date.now().toString(36);
+  await pool.query('INSERT INTO public."user"(id,name,email) VALUES($1,$2,$3),($4,$5,$6)', [actor, "Buyer One", `buyer-${tag}@example.com`, other, "Other Buyer", `other-${tag}@example.com`]);
   await pool.query("UPDATE private.platform_settings SET value=value||'{\"checkoutEnabled\":true,\"guestCheckoutEnabled\":true}'::jsonb WHERE key='marketplace'");
   const buyer = { userId: actor, guestHash: null };
   const intruder = { userId: other, guestHash: null };
@@ -209,7 +210,7 @@ try {
   });
 
   await step("unapproved designs cannot be ordered; approval renders production PDFs for the revision", async () => {
-    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 2 }], shippingAddress: address }, { id: actor, email: "buyer@example.com", name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409 && /Approve/.test(e.message));
+    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 2 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409 && /Approve/.test(e.message));
     await assert.rejects(studio.approveDesign(buyer, design.id, design.revision + 1), (e) => e.status === 409);
     design = await studio.approveDesign(buyer, design.id, design.revision);
     assert.equal(design.status, "approved");
@@ -221,7 +222,7 @@ try {
 
   let orderId;
   await step("checkout prices from the database and a live quote; client prices are ignored", async () => {
-    const r = await market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 2, price: 1 }], shippingAddress: address }, { id: actor, email: "buyer@example.com", name: "Buyer One" }, "https://shop.test.example");
+    const r = await market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 2, price: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example");
     orderId = r.orderId;
     const s = sessions.at(-1).input;
     const item = (await pool.query("SELECT price_cents,cost_cents,supplier_variant_uid,design_id,print_files FROM private.marketplace_order_items WHERE order_id=$1", [orderId])).rows[0];
@@ -336,11 +337,11 @@ try {
     const current = (await pool.query("SELECT price_cents FROM private.marketplace_order_items WHERE order_id=$1", [orderId])).rows[0].price_cents;
     await pool.query("UPDATE private.supplier_variants SET retail_cents=$2 WHERE id=$1", [variants[0].id, current]);
     gelato.quoteUnitCost = "40.00";
-    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: "buyer@example.com", name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409 && /pricing has changed/.test(e.message));
+    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409 && /pricing has changed/.test(e.message));
     const sp = (await pool.query("SELECT purchasing_paused,paused_reason FROM private.supplier_products WHERE id=$1", [spId])).rows[0];
     assert.equal(sp.purchasing_paused, true);
     assert((await pool.query("SELECT count(*)::int n FROM private.marketplace_notifications WHERE kind='admin_alert'")).rows[0].n >= 1);
-    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: "buyer@example.com", name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409);
+    await assert.rejects(market.createMarketCheckout({ lines: [{ productId, variantId: variants[0].id, designId: design.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example"), (e) => e.status === 409);
     gelato.quoteUnitCost = "9.00";
     await pool.query("UPDATE private.supplier_variants SET retail_cents=NULL WHERE id=$1", [variants[0].id]);
     await catalog.refreshProduct(spId, actor);
@@ -388,7 +389,7 @@ try {
   await step("a supplier rejection goes to the manual review queue with an admin alert", async () => {
     let d2 = await studio.saveDesign(buyer, { productId, variantId: variants[1].id, config: { areas: { front: [{ type: "text", text: "Hello", font: "serif", color: "#000000", size: 0.1, x: 0.5, y: 0.5 }] } } });
     d2 = await studio.approveDesign(buyer, d2.id, d2.revision);
-    const r = await market.createMarketCheckout({ lines: [{ productId, variantId: variants[1].id, designId: d2.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: "buyer@example.com", name: "Buyer One" }, "https://shop.test.example");
+    const r = await market.createMarketCheckout({ lines: [{ productId, variantId: variants[1].id, designId: d2.id, quantity: 1 }], shippingAddress: address }, { id: actor, email: `buyer-${tag}@example.com`, name: "Buyer One" }, "https://shop.test.example");
     gelato.createMode = "reject";
     const s = { ...sessions.at(-1).session, status: "complete", payment_status: "paid", payment_intent: "pi_gel_3" };
     await webhookEvent("checkout.session.completed", s, "evt_gel_3");
@@ -403,6 +404,7 @@ try {
 
   console.log(`PASS (${passed.length} scenarios):\n- ${passed.join("\n- ")}`);
 } finally {
+  await pool.query("UPDATE private.platform_settings SET value=value||'{\"checkoutEnabled\":false,\"guestCheckoutEnabled\":false}'::jsonb WHERE key='marketplace'").catch(() => {});
   client.setGelatoTransport(null);
   await pool.end();
 }

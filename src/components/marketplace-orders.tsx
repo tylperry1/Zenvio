@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { money } from "@/lib/billing-types";
 import type { MarketOrder } from "@/lib/marketplace-types";
+import { OrderExtras } from "./shop/order-extras";
 export function OrderDetails({
   order,
   admin = false,
@@ -272,6 +273,19 @@ export function MarketplaceOrders() {
                   Continue payment
                 </button>
               )}
+            <OrderExtras
+              order={selected}
+              request={async (kind, message) => {
+                const r = await fetch("/api/marketplace/orders", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "request", orderId: selected.id, kind, message }),
+                });
+                const d = await r.json();
+                if (!r.ok) throw Error(d.error);
+                await detail(selected.id);
+              }}
+            />
             <OrderDetails order={selected} />
           </section>
         ) : (
@@ -294,14 +308,14 @@ export function MarketplaceOrders() {
                   <tbody>
                     {orders.map((o) => (
                       <tr key={o.id}>
-                        <td>#{o.id.slice(0, 8).toUpperCase()}</td>
+                        <td>{o.order_number || "#" + o.id.slice(0, 8).toUpperCase()}</td>
                         <td>{new Date(o.created_at).toLocaleDateString()}</td>
                         <td>
                           <span className="billing-badge">
                             {o.payment_status.replaceAll("_", " ")}
                           </span>
                         </td>
-                        <td>{o.status.replaceAll("_", " ")}</td>
+                        <td>{(o.fulfillment_status && o.status !== "cancelled" ? o.fulfillment_status : o.status).replaceAll("_", " ")}</td>
                         <td>{money(o.total_cents)}</td>
                         <td>
                           <button

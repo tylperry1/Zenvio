@@ -40,3 +40,7 @@ Baseline: `main` @ `448ff7c`, November 1, 2026. This upgrade extends the one exi
 | Subscriber marketplace pricing at checkout | Partially implemented | The rule field exists; checkout does not apply it yet. |
 | Marketplace order emails (confirmation, proof, shipping) via Resend | Not started | Existing account and booking mail infrastructure can be reused. |
 | NFC product fulfillment and encoding | Blocked | Needs a verified manufacturing partner. Customers can register their own NFC products today. |
+
+## Gelato integration (migration 058)
+
+Gelato is the first live supplier connector. See [GELATO_INTEGRATION.md](GELATO_INTEGRATION.md). It reuses the catalog, checkout, webhook, orders, vault, job runner and Resend infrastructure listed above; guest checkout, Brand Studio, supplier fulfillment and marketplace order emails from the "Not done" table are now implemented behind admin-controlled flags.

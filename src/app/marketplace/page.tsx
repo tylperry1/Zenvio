@@ -1,4 +1,7 @@
-import { requirePageSession } from '@/lib/page-session';
-import { Marketplace } from '@/components/marketplace';
-export const dynamic='force-dynamic';
-export default async function Page(){await requirePageSession();return <Marketplace/>;}
+import { storefrontPage } from "@/lib/studio/page-access";
+import { Marketplace } from "@/components/marketplace";
+export const dynamic = "force-dynamic";
+export default async function Page() {
+  const { guest } = await storefrontPage();
+  return <Marketplace guest={guest} />;
+}

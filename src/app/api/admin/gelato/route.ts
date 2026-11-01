@@ -39,7 +39,7 @@ async function dashboard() {
   const integration = await gelatoIntegration();
   const { webhook_token_hash, ...rest } = integration;
   const supplierId = await gelatoSupplierId();
-  const [products, kpis, finance, runs, errors, orders, settings, rule] = await Promise.all([
+  const [products, kpis, finance, runs, errors, orders, settings, rule, categories] = await Promise.all([
     db.query(
       `SELECT sp.id,sp.product_id,sp.catalog_uid,sp.sync_enabled,sp.sync_status,sp.sync_error,sp.last_synced_at,sp.purchasing_paused,sp.paused_reason,sp.studio_enabled,
               jsonb_array_length(sp.print_areas) AS print_areas,p.title,p.category,p.status,p.featured,p.price_cents,p.cost_cents,(p.image IS NOT NULL) AS has_image,p.updated_at,
@@ -70,6 +70,7 @@ async function dashboard() {
     ),
     marketSettings(),
     db.query("SELECT markup_bps,min_profit_cents,min_margin_bps,subscriber_discount_bps FROM private.marketplace_pricing_rules WHERE scope='supplier' AND scope_key=$1", [supplierId]),
+    db.query("SELECT c.name,f.name AS family FROM private.marketplace_categories c JOIN private.marketplace_families f ON f.slug=c.family ORDER BY f.sort,c.sort"),
   ]);
   let revenue = 0, tax = 0, refunds = 0, supplierCost = 0, shippingCost = 0, processing = 0, discounts = 0;
   for (const o of finance.rows) {
@@ -90,6 +91,7 @@ async function dashboard() {
     checkoutEnabled: settings.checkoutEnabled,
     paymentConfigured: settings.paymentConfigured,
     supplierRule: rule.rows[0] || null,
+    categories: categories.rows,
     products: products.rows,
     kpis: kpis.rows[0],
     finance: {
