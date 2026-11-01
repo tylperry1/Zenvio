@@ -511,3 +511,33 @@
 /* The scrolling family row must not widen its grid column on phones. */
 .market-store-layout > div { min-width: 0; }
 .market-families { max-width: 100%; min-width: 0; }
+
+/* Guest order page (.go) and guest checkout fields */
+.go { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
+.go .ds-notice { margin: 0; }
+.go-head h1 { margin: 6px 0 4px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.go-head p { margin: 0; color: var(--text-muted); font-size: 14px; }
+.go-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--action-primary); }
+.go-back svg { transform: rotate(180deg); }
+.go-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.go-steps li { display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 12.5px; color: var(--text-muted); }
+.go-steps li span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #eef1f7; font-weight: 700; font-size: 12px; }
+.go-steps li.done { color: var(--text-primary); font-weight: 600; }
+.go-steps li.done span { background: var(--action-primary); color: #fff; }
+.go-track { margin-top: 16px; }
+.go-strong { color: var(--text-primary); }
+.go-total td { font-weight: 700; color: var(--text-primary); }
+.go-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+.platform-page .market-guest { display: grid; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--ds-line); border-radius: 12px; }
+.platform-page .market-guest legend { padding: 0 4px; font-weight: 600; font-size: 13px; }
+.platform-page .market-guest label { margin: 0; }
+@media (max-width: 480px) { .go-steps { grid-template-columns: 1fr 1fr; } }
+.go-track { display: block; margin-top: 20px; }
+.go-steps li { line-height: 1.3; }
+/* Signed-out marketplace: lightweight storefront header */
+.market-public { min-height: 100svh; background: var(--surface-page); }
+.market-public-bar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; padding: 0 clamp(16px, 4vw, 40px); background: rgb(255 255 255 / .92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.market-public-bar img { height: 26px; width: auto; }
+.market-public-bar nav { display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 600; }
+.market-public-signin { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--action-primary); color: #fff !important; }
+.market-public-content { max-width: 1280px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 64px; }
