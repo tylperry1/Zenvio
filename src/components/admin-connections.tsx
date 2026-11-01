@@ -120,6 +120,17 @@ const providers: Provider[] = [
     docs: { label: "Turnstile dashboard", href: "https://dash.cloudflare.com/?to=/:account/turnstile" },
   },
   {
+    id: "gelato",
+    name: "Gelato",
+    category: "Print-on-demand supplier",
+    monogram: "G",
+    tint: "#1f6f5c",
+    description: "Product catalog, live quotes and automated order fulfillment. Test the connection and manage products in Commerce → Gelato.",
+    fields: [{ key: "GELATO_API_KEY", label: "API key", hint: "From Gelato dashboard → Developer → API keys", secret: true }],
+    endpoints: [{ label: "Order webhook (issue the tokenized URL in Commerce → Gelato)", path: "/api/marketplace/gelato/webhook" }],
+    docs: { label: "Gelato API docs", href: "https://dashboard.gelato.com/docs/" },
+  },
+  {
     id: "anthropic",
     name: "Anthropic",
     category: "AI",

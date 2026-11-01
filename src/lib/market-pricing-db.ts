@@ -5,7 +5,7 @@ import { priceViolation, resolveRule, type PricingRule } from "./market-pricing"
 type DB = Pick<PoolClient, "query">;
 
 export async function pricingRules(db: DB = getPool()) {
-  return (await db.query("SELECT scope,scope_key,markup_bps,min_profit_cents,subscriber_discount_bps FROM private.marketplace_pricing_rules")).rows as PricingRule[];
+  return (await db.query("SELECT scope,scope_key,markup_bps,min_profit_cents,subscriber_discount_bps,min_margin_bps FROM private.marketplace_pricing_rules")).rows as (PricingRule & { min_margin_bps: number })[];
 }
 export async function familyOf(category: string, db: DB = getPool()) {
   return ((await db.query("SELECT family FROM private.marketplace_categories WHERE name=$1", [category])).rows[0]?.family as string | undefined) ?? undefined;

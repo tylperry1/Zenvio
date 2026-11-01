@@ -1,0 +1,40 @@
+/* Commerce → Gelato console. Built on design-system tokens. */
+.gz { display: grid; gap: 16px; }
+.gz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.gz-controls { display: grid; gap: 4px; }
+.gz-toggle { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--ds-line-soft); }
+.gz-toggle b { display: block; font-size: var(--ds-text-md); }
+.gz-toggle small { display: block; font-size: var(--ds-text-xs); color: var(--text-muted); }
+.gz-toggle button { position: relative; flex: none; width: 44px; height: 24px; border-radius: 999px; border: 0; background: #cfd5e3; cursor: pointer; transition: background .15s; }
+.gz-toggle button i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0003; transition: transform .15s; }
+.gz-toggle button[aria-checked="true"] { background: var(--action-primary); }
+.gz-toggle button[aria-checked="true"] i { transform: translateX(20px); }
+.gz-toggle button:disabled { opacity: .45; cursor: not-allowed; }
+.gz-toggle button:focus-visible { outline: 2px solid var(--action-primary); outline-offset: 2px; }
+.gz-webhook { display: grid; gap: 10px; margin-top: 14px; }
+.gz-form { display: grid; gap: 12px; }
+.gz-form h3 { margin: 8px 0 0; font-size: var(--ds-text-md); }
+.gz-form h3 small { display: block; font-weight: 400; color: var(--text-muted); font-size: var(--ds-text-xs); }
+.gz-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+.gz-check { display: flex; gap: 8px; align-items: flex-start; font-size: var(--ds-text-sm); }
+.gz-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.gz-search { height: 34px; padding: 0 10px; border: 1px solid var(--ds-line); border-radius: 8px; }
+.gz-uid { font-size: 11px; color: var(--text-muted); word-break: break-all; }
+.gz-sub { display: block; font-size: var(--ds-text-xs); color: var(--text-muted); }
+.gz-sub.bad { color: var(--error); }
+.gz-more { padding: 12px 20px; }
+.gz-browser { display: grid; gap: 16px; }
+.gz-drawer { width: min(640px, 100vw); }
+.gz-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gz-image { display: flex; align-items: center; gap: 12px; }
+.gz-image img { width: 88px; height: 88px; object-fit: cover; border-radius: 10px; border: 1px solid var(--ds-line); }
+.gz-image span { display: grid; place-items: center; width: 88px; height: 88px; border-radius: 10px; background: var(--ds-surface-muted); font-size: 11px; color: var(--text-muted); text-align: center; }
+.gz-area { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--ds-line-soft); border-radius: 10px; }
+.gz-area legend { font-size: var(--ds-text-xs); color: var(--text-muted); }
+.gz-variants td, .gz-variants th { padding-left: 12px; padding-right: 12px; }
+.gz-mini { width: 86px; height: 32px; padding: 0 8px; border: 1px solid var(--ds-line); border-radius: 8px; }
+.gz-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--ds-text-sm); }
+.gz-list a { display: block; font-size: var(--ds-text-xs); }
+.gz-timeline { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--ds-text-sm); }
+.gz-timeline p { margin: 2px 0 0; color: var(--text-muted); font-size: var(--ds-text-xs); }
+@media (max-width: 960px) { .gz-grid { grid-template-columns: 1fr; } }

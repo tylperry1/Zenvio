@@ -4,7 +4,7 @@ import { integrationValue, unsealSecret } from "./platform-settings";
 import { resendFailure } from "./resend-diagnostics";
 
 type DB = Pick<PoolClient, "query">;
-export type MarketEmailKind = "confirmation" | "in_production" | "shipped" | "delivered" | "refunded" | "cancelled";
+export type MarketEmailKind = "confirmation" | "in_production" | "shipped" | "delivered" | "refunded" | "cancelled" | "delayed";
 
 /**
  * Queues an order email inside the caller's transaction. The (order, kind)
@@ -54,6 +54,7 @@ export function composeMarketEmail(kind: MarketEmailKind, order: Order, orderUrl
     delivered: { subject: `Order ${ref} was delivered`, lead: "Your order has been marked as delivered. If anything isn't right, reply to this email and we'll help." },
     refunded: { subject: `Refund for order ${ref}`, lead: `A refund of ${usd(order.refunded_cents || order.total_cents)} has been issued. It usually appears on your statement within 5–10 business days.` },
     cancelled: { subject: `Order ${ref} was cancelled`, lead: "Your order was cancelled. If you were charged, any refund is confirmed separately." },
+    delayed: { subject: `Update on order ${ref}`, lead: "Something needs our attention before your order can continue. Our team is on it and will contact you if we need anything from you." },
   };
   const c = copy[kind];
   const text = [`Hi ${first},`, "", c.lead, ...(c.extra?.length ? ["", ...c.extra] : []), "", "Your order:", ...lines, "", `View your order: ${orderUrl}`, "", "— Zenvio Marketplace"].join("\n");

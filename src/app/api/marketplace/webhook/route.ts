@@ -5,6 +5,8 @@ import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
 import { integrationValue } from "@/lib/platform-settings";
 import { applyMarketPayment } from "@/lib/marketplace";
+import { onOrderRefunded } from "@/lib/gelato/fulfillment";
+import { runMarketplaceFollowUp } from "@/lib/gelato/follow-up";
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
@@ -32,11 +34,14 @@ export async function POST(request: NextRequest) {
         "checkout.session.expired",
         "checkout.session.async_payment_succeeded",
       ].includes(event.type)
-    )
+    ) {
       await applyMarketPayment(
         event.data.object as Stripe.Checkout.Session,
         event.id,
       );
+      // Best effort: submit paid supplier orders now; the job runner retries.
+      runMarketplaceFollowUp();
+    }
     else if (event.type === "charge.refunded") {
       const charge = event.data.object as Stripe.Charge;
       const intent =
@@ -51,12 +56,17 @@ export async function POST(request: NextRequest) {
             "INSERT INTO private.marketplace_refunds(payment_intent_id,amount_cents) VALUES($1,$2) ON CONFLICT(payment_intent_id) DO UPDATE SET amount_cents=GREATEST(private.marketplace_refunds.amount_cents,$2),updated_at=now()",
             [intent, charge.amount_refunded],
           );
-          const refunded = await c.query(
-            "UPDATE private.marketplace_orders SET payment_status=CASE WHEN $2>=total_cents THEN 'refunded' ELSE 'partially_refunded' END,refunded_cents=GREATEST(refunded_cents,$2),refund_status='succeeded',updated_at=now() WHERE payment_intent_id=$1 AND refunded_cents<$2 RETURNING id",
+          const updated = await c.query(
+            "UPDATE private.marketplace_orders SET payment_status=CASE WHEN $2>=total_cents THEN 'refunded' ELSE 'partially_refunded' END,refunded_cents=GREATEST(refunded_cents,$2),refund_status='succeeded',updated_at=now() WHERE payment_intent_id=$1 AND refunded_cents<$2 RETURNING id,payment_status",
             [intent, charge.amount_refunded],
           );
-          if (refunded.rows[0]) await queueMarketEmail(c, refunded.rows[0].id, "refunded");
+          for (const o of updated.rows) {
+            await queueMarketEmail(c, o.id, "refunded");
+            // Stops unsubmitted supplier orders; flags submitted ones for admin review.
+            await onOrderRefunded(o.id, o.payment_status === "refunded", c);
+          }
           await c.query("COMMIT");
+          if (updated.rows.length) runMarketplaceFollowUp();
         } catch (e) {
           await c.query("ROLLBACK");
           throw e;

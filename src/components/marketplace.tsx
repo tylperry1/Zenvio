@@ -6,41 +6,34 @@ import { useEffect, useState } from "react";
 import type { MarketProduct } from "@/lib/marketplace-types";
 import { money } from "@/lib/billing-types";
 import { Icon } from "./icons";
-type CartLine = {
-  options?: Record<string, string>;
-  artwork_id?: string;
-  instructions?: string;
-  productId: string;
-  quantity: number;
-  title: string;
-  price: number;
-  shipping: number;
-  minimum: number;
-};
-export function Marketplace() {
+import { useMarketCart } from "./shop/cart-store";
+import { CartPanel } from "./shop/cart-panel";
+
+type Family = { slug: string; name: string; tagline: string; products: number };
+
+export function Marketplace({ guest = false }: { guest?: boolean }) {
+  const cart = useMarketCart();
   const [artwork, setArtwork] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<MarketProduct[]>([]),
     [total, setTotal] = useState(0),
     [categories, setCategories] = useState<string[]>([]),
     [category, setCategory] = useState(""),
-    [families, setFamilies] = useState<{ slug: string; name: string; tagline: string; products: number }[]>([]),
+    [families, setFamilies] = useState<Family[]>([]),
     [family, setFamily] = useState(""),
+    [collection, setCollection] = useState<"" | "featured" | "custom">(""),
     [categoryFamilies, setCategoryFamilies] = useState<Record<string, string>>({}),
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
     [page, setPage] = useState(0),
     [ready, setReady] = useState(false),
     [loading, setLoading] = useState(true),
-    [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [cart, setCart] = useState<CartLine[]>([]),
-    [signedIn, setSignedIn] = useState(true);
+    [message, setMessage] = useState("");
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
     fetch(
-      `/api/marketplace?page=${page}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}&family=${encodeURIComponent(family)}`,
+      `/api/marketplace?page=${page}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}&family=${encodeURIComponent(family)}&collection=${collection}`,
       { signal: c.signal, cache: "no-store" },
     )
       .then(async (r) => {
@@ -52,7 +45,6 @@ export function Marketplace() {
         setFamilies(d.families || []);
         setCategoryFamilies(d.categoryFamilies || {});
         setReady(d.checkoutReady);
-        setSignedIn(d.signedIn !== false);
         setError("");
       })
       .catch((e) => {
@@ -62,43 +54,57 @@ export function Marketplace() {
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [page, query, category, family]);
-  const subtotal = cart.reduce((n, l) => n + l.price * l.quantity, 0),
-    shipping = cart.reduce((n, l) => n + l.shipping * l.quantity, 0);
+  }, [page, query, category, family, collection]);
+
+  const choose = (next: Partial<{ family: string; category: string; collection: "" | "featured" | "custom" }>) => {
+    if (next.family !== undefined) setFamily(next.family);
+    if (next.category !== undefined) setCategory(next.category);
+    if (next.collection !== undefined) setCollection(next.collection);
+    setPage(0);
+  };
+  const filtered = Boolean(query || category || family || collection);
+
   return (
     <div className="platform-page market-store">
       <main>
         <PageHeader
           title="Marketplace"
-          description="Marketing essentials and branded merchandise, ordered directly through Zenvio."
+          description="Custom apparel, business printing and branded merchandise — designed by you, produced and shipped for you."
           actions={
-            <Link className="billing-secondary" href={signedIn ? "/marketplace/orders" : "/sign-in"}>
-              {signedIn ? "My orders" : "Sign in"}
-            </Link>
+            guest ? (
+              <Link className="billing-secondary" href="/sign-in">
+                Sign in
+              </Link>
+            ) : (
+              <Link className="billing-secondary" href="/marketplace/orders">
+                My orders
+              </Link>
+            )
           }
         />
-        <header className="market-hero">
+        <header className="market-hero shop-hero">
           <div>
-            <span className="market-kicker">
-              ZENVIO MARKETPLACE · YOUR BRAND. EVERYWHERE.
-            </span>
+            <span className="market-kicker">ZENVIO MARKETPLACE · YOUR BRAND. EVERYWHERE.</span>
             <h2>
               Make your next
               <br />
               impression count.
             </h2>
-            <p>Business cards, signage, apparel, and branded gifts with your logo — printed and shipped for you.</p>
-            <div className="market-hero-pills">
-              <span>
-                <Icon name="grid" size={14} /> Print & promotion
-              </span>
-              <span>
-                <Icon name="spark" size={14} /> Branded merchandise
-              </span>
-              <span>
-                <Icon name="shield" size={14} /> Secure payments
-              </span>
+            <p>Put your logo on apparel, cards, drinkware and marketing materials. Preview it in Brand Studio, approve a production proof, and we handle printing and delivery.</p>
+            <div className="shop-hero-actions">
+              <button type="button" className="shop-btn primary" onClick={() => choose({ collection: "custom", family: "", category: "" })}>
+                <Icon name="spark" size={16} /> Customize a product
+              </button>
+              <button type="button" className="shop-btn ghost" onClick={() => choose({ collection: "featured", family: "", category: "" })}>
+                Featured picks
+              </button>
             </div>
+            <ul className="shop-hero-steps" aria-label="How it works">
+              <li><b>1</b> Choose a product</li>
+              <li><b>2</b> Add your logo and text</li>
+              <li><b>3</b> Approve your proof</li>
+              <li><b>4</b> We print and ship</li>
+            </ul>
           </div>
           <div className="market-hero-mark" aria-hidden="true">
             <span>
@@ -114,11 +120,14 @@ export function Marketplace() {
         <div className="market-store-layout">
           <div>
             <div className="billing-section-heading">
-              <h2>Shop marketing essentials</h2>
-              <span className="billing-badge">{total} products</span>
+              <h2>{collection === "custom" ? "Customizable products" : collection === "featured" ? "Featured" : "Shop the catalog"}</h2>
+              <span className="billing-badge">
+                {total} product{total === 1 ? "" : "s"}
+              </span>
             </div>
             <form
               className="billing-filters"
+              role="search"
               onSubmit={(e) => {
                 e.preventDefault();
                 setQuery(search);
@@ -128,48 +137,40 @@ export function Marketplace() {
               <label className="sr-only" htmlFor="shop-search">
                 Search products
               </label>
-              <input
-                id="shop-search"
-                placeholder="Search business cards, signage, apparel…"
-                maxLength={100}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <input id="shop-search" placeholder="Search t-shirts, business cards, mugs…" maxLength={100} value={search} onChange={(e) => setSearch(e.target.value)} />
               <button className="billing-secondary">Search</button>
             </form>
+            <div className="shop-collections" role="group" aria-label="Collections">
+              {(
+                [
+                  ["", "Everything"],
+                  ["featured", "Featured"],
+                  ["custom", "Customizable"],
+                ] as const
+              ).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={collection === value} onClick={() => choose({ collection: value })}>
+                  {label}
+                </button>
+              ))}
+            </div>
             {families.length > 1 && (
               <nav className="market-families" aria-label="Product families">
                 {[{ slug: "", name: "All products", tagline: "", products: 0 }, ...families].map((f) => (
-                  <button
-                    key={f.slug}
-                    type="button"
-                    aria-pressed={family === f.slug}
-                    onClick={() => {
-                      setFamily(f.slug);
-                      setCategory("");
-                      setPage(0);
-                    }}
-                  >
+                  <button key={f.slug} type="button" aria-pressed={family === f.slug} onClick={() => choose({ family: f.slug, category: "" })}>
                     <b>{f.name}</b>
-                    {f.slug && <small>{f.products} product{f.products === 1 ? "" : "s"}</small>}
+                    {f.slug && (
+                      <small>
+                        {f.products} product{f.products === 1 ? "" : "s"}
+                      </small>
+                    )}
                   </button>
                 ))}
               </nav>
             )}
-            <div
-              className="market-category-tabs"
-              aria-label="Product categories"
-            >
+            <div className="market-category-tabs" aria-label="Product categories">
               {["", ...categories.filter((c) => !family || categoryFamilies[c] === family)].map((c) => (
-                <button
-                  key={c}
-                  aria-pressed={category === c}
-                  onClick={() => {
-                    setCategory(c);
-                    setPage(0);
-                  }}
-                >
-                  {c || "All products"}
+                <button key={c} aria-pressed={category === c} onClick={() => choose({ category: c })}>
+                  {c || "All categories"}
                 </button>
               ))}
             </div>
@@ -178,188 +179,115 @@ export function Marketplace() {
                 {error}
               </p>
             )}
-            {message && <p role="status">{message}</p>}
+            {message && (
+              <p role="status" className="shop-toast">
+                {message}
+              </p>
+            )}
             {loading ? (
-              <div className="billing-empty" role="status">
-                Loading products…
+              <div className="market-product-grid" aria-busy="true" aria-label="Loading products">
+                {[0, 1, 2].map((i) => (
+                  <article className="market-product-card shop-skeleton" key={i}>
+                    <div className="market-product-image" />
+                    <div className="market-product-content">
+                      <span />
+                      <span />
+                    </div>
+                  </article>
+                ))}
               </div>
             ) : products.length ? (
               <div className="market-product-grid">
                 {products.map((p) => (
                   <article className="market-product-card" key={p.id}>
-                    <div className="market-product-image">
+                    <Link href={`/marketplace/p/${p.id}`} className="market-product-image" aria-label={`View ${p.title}`}>
                       {p.is_demo ? (
-                        <div
-                          className={`demo-product-art demo-art-${p.category.toLowerCase().replaceAll(/[^a-z]+/g, "-")}`}
-                          aria-label="Illustrative product mockup"
-                        >
+                        <div className={`demo-product-art demo-art-${p.category.toLowerCase().replaceAll(/[^a-z]+/g, "-")}`} aria-label="Illustrative product mockup">
                           <span>ZENVIO</span>
-                          <b>
-                            {p.category === "Branded apparel"
-                              ? "YOUR BRAND"
-                              : p.category === "Signs & banners"
-                                ? "LET’S CONNECT"
-                                : "Good things start here."}
-                          </b>
+                          <b>{p.category === "Branded apparel" ? "YOUR BRAND" : p.category === "Signs & banners" ? "LET’S CONNECT" : "Good things start here."}</b>
                           <small>YOUR BRAND HERE</small>
                         </div>
                       ) : p.has_image ? (
-                        <img
-                          src={`/api/marketplace/image?product=${p.id}&v=${encodeURIComponent(p.updated_at)}`}
-                          alt={p.title}
-                          loading="lazy"
-                        />
+                        <img src={`/api/marketplace/image?product=${p.id}&v=${encodeURIComponent(p.updated_at)}`} alt="" loading="lazy" />
                       ) : (
                         <Icon name="grid" size={42} />
                       )}
                       <span>{p.category}</span>
-                    </div>
+                      {p.featured && <em className="shop-flag">Featured</em>}
+                    </Link>
                     <div className="market-product-content">
-                      <h3>{p.title}</h3>
-                      {p.is_demo && (
-                        <span className="market-demo-badge">
-                          Demo product · sample pricing
-                        </span>
-                      )}
+                      <h3>
+                        <Link href={`/marketplace/p/${p.id}`}>{p.title}</Link>
+                      </h3>
+                      {p.is_demo && <span className="market-demo-badge">Demo product · sample pricing</span>}
                       <p>{p.description}</p>
-                      <b>{money(p.price_cents)}</b>
+                      <b>
+                        {p.customizable && <small className="shop-from">From </small>}
+                        {money(p.price_cents)}
+                      </b>
                       <small className="billing-cell-detail">
                         {p.is_demo
                           ? "Preview only · not available for purchase"
-                          : p.stock === null
-                            ? "Made to order"
-                            : p.stock > 0
-                              ? `${p.stock} available`
-                              : "Out of stock"}
-                        {p.lead_time
-                          ? ` · Estimated production: ${p.lead_time}`
-                          : ""}
+                          : p.customizable
+                            ? "Printed on demand"
+                            : p.stock === null
+                              ? "Made to order"
+                              : p.stock > 0
+                                ? `${p.stock} available`
+                                : "Out of stock"}
+                        {p.lead_time ? ` · Production: ${p.lead_time}` : ""}
                       </small>
-                      {!p.is_demo ? (
+                      {p.customizable ? (
+                        <div className="shop-card-actions">
+                          <Link className="shop-btn primary" href={`/marketplace/studio/${p.id}`}>
+                            <Icon name="spark" size={15} /> Customize
+                          </Link>
+                          <Link className="shop-btn ghost" href={`/marketplace/p/${p.id}`}>
+                            Details
+                          </Link>
+                        </div>
+                      ) : !p.is_demo ? (
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
                             const form = new FormData(e.currentTarget);
-                            const options = Object.fromEntries(
-                              (p.personalization_options || []).map((o) => [
-                                o.key,
-                                String(form.get("option_" + o.key) || ""),
-                              ]),
-                            );
-                            const personal = {
-                              options,
-                              artwork_id: artwork[p.id] || "",
-                              instructions: String(
-                                form.get("personalization_instructions") || "",
-                              ),
-                            };
-                            const extra = (
-                              p.personalization_options || []
-                            ).reduce(
-                              (sum, o) =>
-                                sum +
-                                (o.values.find(
-                                  (v) => v.value === options[o.key],
-                                )?.price_delta_cents || 0),
-                              0,
-                            );
-                            const qty = Number(
-                                new FormData(e.currentTarget).get("quantity"),
-                              ),
-                              existing = cart.find((l) => l.productId === p.id);
-                            if (
-                              existing &&
-                              (JSON.stringify(existing.options) !==
-                                JSON.stringify(personal.options) ||
-                                existing.artwork_id !== personal.artwork_id ||
-                                existing.instructions !== personal.instructions)
-                            ) {
-                              setError(
-                                "Remove the existing cart line before choosing a different personalization for this product.",
-                              );
+                            const options = Object.fromEntries((p.personalization_options || []).map((o) => [o.key, String(form.get("option_" + o.key) || "")]));
+                            const instructions = String(form.get("personalization_instructions") || "");
+                            const extra = (p.personalization_options || []).reduce((sum, o) => sum + (o.values.find((v) => v.value === options[o.key])?.price_delta_cents || 0), 0);
+                            const qty = Number(form.get("quantity"));
+                            const existing = cart.lines.find((l) => l.productId === p.id);
+                            if (existing && (JSON.stringify(existing.options) !== JSON.stringify(options) || (existing.artwork_id || "") !== (artwork[p.id] || "") || (existing.instructions || "") !== instructions)) {
+                              setError("Remove the existing cart line before choosing a different personalization for this product.");
                               return;
                             }
-                            if (cart.length >= 20 && !existing) {
-                              setError(
-                                "Your cart can hold up to 20 different products.",
-                              );
+                            if ((existing?.quantity || 0) + qty > Math.min(1000, p.stock ?? 1000)) {
+                              setError("That quantity is not currently available.");
                               return;
                             }
-                            if (
-                              (existing?.quantity || 0) + qty >
-                              Math.min(1000, p.stock ?? 1000)
-                            ) {
-                              setError(
-                                "That quantity is not currently available.",
-                              );
-                              return;
+                            const failed = cart.add({ productId: p.id, title: p.title, quantity: qty, options, artwork_id: artwork[p.id] || "", instructions, price: p.price_cents + extra, shipping: p.shipping_cents, minimum: p.minimum_quantity });
+                            if (failed) setError(failed);
+                            else {
+                              setError("");
+                              setMessage(p.title + " added to your cart.");
                             }
-                            setCart((c) =>
-                              existing
-                                ? c.map((l) =>
-                                    l.productId === p.id
-                                      ? { ...l, quantity: l.quantity + qty }
-                                      : l,
-                                  )
-                                : [
-                                    ...c,
-                                    {
-                                      productId: p.id,
-                                      title: p.title,
-                                      quantity: qty,
-                                      ...personal,
-                                      price: p.price_cents + extra,
-                                      shipping: p.shipping_cents,
-                                      minimum: p.minimum_quantity,
-                                    },
-                                  ],
-                            );
-                            setMessage(p.title + " added to your cart.");
                           }}
                         >
-                          {!!(
-                            p.personalization_options?.length ||
-                            p.artwork_allowed
-                          ) && (
-                            <ProductPersonalizer
-                              product={p}
-                              signedIn={signedIn}
-                              onArtwork={(id) =>
-                                setArtwork({ ...artwork, [p.id]: id })
-                              }
-                            />
-                          )}
+                          {!!(p.personalization_options?.length || p.artwork_allowed) && <ProductPersonalizer product={p} signedIn={!guest} onArtwork={(id) => setArtwork({ ...artwork, [p.id]: id })} />}
                           <div className="market-add-row">
                             <label>
                               Quantity
-                              <input
-                                name="quantity"
-                                type="number"
-                                min={p.minimum_quantity}
-                                max={Math.min(p.stock ?? 1000, 1000)}
-                                defaultValue={p.minimum_quantity}
-                                required
-                              />
+                              <input name="quantity" type="number" min={p.minimum_quantity} max={Math.min(p.stock ?? 1000, 1000)} defaultValue={p.minimum_quantity} required />
                             </label>
-                            <button
-                              disabled={
-                                p.stock !== null && p.stock < p.minimum_quantity
-                              }
-                            >
+                            <button disabled={p.stock !== null && p.stock < p.minimum_quantity}>
                               Add to cart <Icon name="arrow" size={15} />
                             </button>
                           </div>
                           <small className="market-small">
-                            Minimum {p.minimum_quantity} ·{" "}
-                            {p.shipping_cents
-                              ? money(p.shipping_cents) + " shipping per unit"
-                              : "Free shipping"}
+                            Minimum {p.minimum_quantity} · {p.shipping_cents ? money(p.shipping_cents) + " shipping per unit" : "Free shipping"}
                           </small>
                         </form>
                       ) : (
-                        <div className="market-demo-unavailable">
-                          Sample item · checkout disabled
-                        </div>
+                        <div className="market-demo-unavailable">Sample item · checkout disabled</div>
                       )}
                     </div>
                   </article>
@@ -368,16 +296,21 @@ export function Marketplace() {
             ) : (
               <section className="market-setup-empty">
                 <Icon name="grid" size={28} />
-                <h3>
-                  {query || category
-                    ? "No matching products"
-                    : "Our store is getting ready."}
-                </h3>
-                <p>
-                  {query || category
-                    ? "Try a different search or category."
-                    : "Marketing products will appear here as Zenvio adds its catalog."}
-                </p>
+                <h3>{filtered ? "No matching products" : "Our store is getting ready."}</h3>
+                <p>{filtered ? "Try a different search, collection or category." : "Products will appear here as Zenvio adds its catalog."}</p>
+                {filtered && (
+                  <button
+                    type="button"
+                    className="shop-btn ghost"
+                    onClick={() => {
+                      setSearch("");
+                      setQuery("");
+                      choose({ family: "", category: "", collection: "" });
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                )}
               </section>
             )}
             <div className="billing-pagination">
@@ -385,186 +318,16 @@ export function Marketplace() {
                 Page {page + 1} of {Math.max(1, Math.ceil(total / 50))}
               </span>
               <div>
-                <button
-                  className="billing-secondary"
-                  disabled={!page || loading}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                <button className="billing-secondary" disabled={!page || loading} onClick={() => setPage((p) => p - 1)}>
                   Previous
                 </button>
-                <button
-                  className="billing-secondary"
-                  disabled={(page + 1) * 50 >= total || loading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
+                <button className="billing-secondary" disabled={(page + 1) * 50 >= total || loading} onClick={() => setPage((p) => p + 1)}>
                   Next
                 </button>
               </div>
             </div>
           </div>
-          <aside className="market-cart" aria-label="Shopping cart">
-            <h2>
-              Your cart{" "}
-              <span className="billing-badge">{cart.length} products</span>
-            </h2>
-            {!cart.length ? (
-              <div className="market-cart-empty">
-                <Icon name="grid" size={28} />
-                <p>Add a product to get started.</p>
-              </div>
-            ) : (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setBusy(true);
-                  setError("");
-                  const f = new FormData(e.currentTarget);
-                  try {
-                    const r = await fetch("/api/marketplace", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          lines: cart.map((l) => ({
-                            productId: l.productId,
-                            quantity: l.quantity,
-                            options: l.options,
-                            artwork_id: l.artwork_id,
-                            instructions: l.instructions,
-                          })),
-                          businessName: f.get("businessName"),
-                          instructions: f.get("instructions"),
-                          ...(signedIn ? {} : { guest: { name: f.get("guestName"), email: f.get("guestEmail") } }),
-                        }),
-                      }),
-                      d = await r.json();
-                    if (!r.ok) throw Error(d.error);
-                    window.location.assign(d.url);
-                  } catch (e) {
-                    setError(
-                      e instanceof Error
-                        ? e.message
-                        : "Unable to start checkout.",
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {cart.map((l) => (
-                  <div className="market-cart-line" key={l.productId}>
-                    <div>
-                      <b>{l.title}</b>
-                      <span>{money(l.price)} each</span>
-                    </div>
-                    <label>
-                      <span className="sr-only">Quantity for {l.title}</span>
-                      <input
-                        type="number"
-                        min={l.minimum}
-                        max={1000}
-                        required
-                        value={l.quantity}
-                        onChange={(e) =>
-                          setCart((c) =>
-                            c.map((x) =>
-                              x.productId === l.productId
-                                ? { ...x, quantity: Number(e.target.value) }
-                                : x,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="market-remove"
-                      aria-label={`Remove ${l.title}`}
-                      onClick={() =>
-                        setCart((c) =>
-                          c.filter((x) => x.productId !== l.productId),
-                        )
-                      }
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-                <div className="market-cart-total">
-                  <span>Subtotal</span>
-                  <b>{money(subtotal)}</b>
-                </div>
-                <div className="market-cart-total">
-                  <span>Shipping</span>
-                  <b>{money(shipping)}</b>
-                </div>
-                <p className="market-small">
-                  USD. Taxes and final total are calculated during secure
-                  payment. Shipping is currently available within the United
-                  States.
-                </p>
-                {!signedIn && (
-                  <fieldset className="market-guest">
-                    <legend>Your details</legend>
-                    <label>
-                      Full name
-                      <input name="guestName" required minLength={2} maxLength={100} autoComplete="name" />
-                    </label>
-                    <label>
-                      Email for receipts and order updates
-                      <input name="guestEmail" type="email" required maxLength={254} autoComplete="email" />
-                    </label>
-                    <p className="market-small">
-                      No account needed. You'll get a private order link by email. Already have an account? <a href="/sign-in">Sign in</a>
-                    </p>
-                  </fieldset>
-                )}
-                <label>
-                  Business name <small>optional</small>
-                  <input name="businessName" maxLength={100} />
-                </label>
-                <label>
-                  Customization instructions <small>optional</small>
-                  <textarea
-                    name="instructions"
-                    rows={3}
-                    maxLength={1000}
-                    placeholder="Brand colors, wording, or other instructions…"
-                  />
-                </label>
-                <p className="market-small">
-                  Zenvio will coordinate any required artwork and production
-                  approval before fulfillment.
-                </p>
-                <button
-                  className="market-checkout"
-                  disabled={
-                    busy ||
-                    !ready ||
-                    cart.some(
-                      (l) =>
-                        !Number.isInteger(l.quantity) ||
-                        l.quantity < l.minimum ||
-                        l.quantity > 1000,
-                    )
-                  }
-                >
-                  {busy
-                    ? "Preparing payment…"
-                    : ready
-                      ? "Secure checkout"
-                      : "Checkout opening soon"}{" "}
-                  <Icon name="arrow" size={16} />
-                </button>
-              </form>
-            )}
-            <div className="market-cart-foot">
-              <Icon name="shield" size={15} />
-              <span>
-                Your catalog, order history, and support stay in Zenvio. Card
-                payments are securely processed by Stripe.
-              </span>
-            </div>
-          </aside>
+          <CartPanel cart={cart} ready={ready} guest={guest} />
         </div>
       </main>
     </div>

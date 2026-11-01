@@ -541,3 +541,6 @@
 .market-public-bar nav { display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 600; }
 .market-public-signin { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--action-primary); color: #fff !important; }
 .market-public-content { max-width: 1280px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 64px; }
+.go-lookup { display: grid; gap: 12px; max-width: 420px; }
+.go-help { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.go-help .ds-btn[aria-pressed="true"] { border-color: var(--action-primary); color: var(--action-primary); }

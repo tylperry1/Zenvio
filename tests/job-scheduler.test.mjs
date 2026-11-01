@@ -177,6 +177,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
       "./google-calendar": { drainCalendarCleanup: call("calendar-cleanup"),runGoogleJobs:call("google-sync") },
       "./microsoft-calendar": {runMicrosoftJobs:call("microsoft-sync")},
       "./workflows": { scheduleWorkflows: call("workflows") },
+      "./gelato/follow-up": { processMarketplaceJobs: call("marketplace") },
       "./market-mail": { deliverMarketEmails: call("market-emails") },
       "./lifecycle": {
         purgeExpiredDeliverySecrets: call("purge"),
@@ -215,6 +216,7 @@ test("scheduler records bounded successful work and never labels missing mail co
       "reminders",
       "workflows",
       "waitlist-offers",
+      "marketplace",
       "market-emails",
       "delivery",
     ],

@@ -12,6 +12,9 @@ export type MarketProduct = {
   personalization_options?: import("./personalization").ProductOption[];
   artwork_allowed?: boolean;
   is_demo?: boolean;
+  /** Supplier-backed product customized in Brand Studio. */
+  customizable?: boolean;
+  featured?: boolean;
   id: string;
   sku: string;
   title: string;
@@ -81,6 +84,18 @@ export type MarketOrder = {
   created_at: string;
   updated_at: string;
   private_notes?: string;
+  order_number?: string | null;
+  guest?: boolean;
+  cancellable?: boolean;
+  fulfillment_status?: string | null;
+  fulfillment?: {
+    status: string;
+    label: string;
+    submittedAt: string | null;
+    updatedAt: string;
+    shipments: { tracking_code: string; tracking_url: string; carrier: string; status: string; shipped_at: string | null; delivered_at: string | null }[];
+  } | null;
+  designs?: { item_id: string; design_id: string; design_revision: number; supplier_variant_id: string | null; name: string | null; proofs: { id: string; area: string }[] | null }[];
   items?: OrderItem[];
   activity?: { action: string; note: string; created_at: string }[];
 };

@@ -162,10 +162,10 @@ try {
  assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,originHeader:'https://untrusted.example',data:supplierInput})).status,403);
  assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:{...supplierInput,website:'javascript:alert(1)'}})).status,400);
  assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:supplierInput})).status,200);
- const suppliers=await request('/api/admin/marketplace',{cookie:owner.cookie});assert.equal(suppliers.status,200);assert.equal(suppliers.data.suppliers[0].notes,supplierInput.notes);assert.equal(suppliers.data.settings.checkoutEnabled,false);
+ const suppliers=await request('/api/admin/marketplace',{cookie:owner.cookie});assert.equal(suppliers.status,200);assert.equal(suppliers.data.suppliers.find(s=>s.name===supplierInput.name)?.notes,supplierInput.notes);assert.equal(suppliers.data.settings.checkoutEnabled,false);
  assert.equal((await request('/api/admin/marketplace',{cookie:owner.cookie})).data.products.filter(p=>!p.is_demo).length,0);
- assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:{...supplierInput,id:suppliers.data.suppliers[0].id,active:false}})).status,200);
- assert.equal((await request('/api/admin/marketplace',{cookie:owner.cookie})).data.suppliers[0].active,false);
+ assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:{...supplierInput,id:suppliers.data.suppliers.find(s=>s.name===supplierInput.name).id,active:false}})).status,200);
+ assert.equal((await request('/api/admin/marketplace',{cookie:owner.cookie})).data.suppliers.find(s=>s.name===supplierInput.name).active,false);
  assert.equal((await request('/api/admin/marketplace',{method:'POST',cookie:member.cookie,data:supplierInput})).status,403);
  const nativeProduct={action:'product',sku:'TEST-CARDS-250',title:'Isolated business card pack',description:'A test-only product',category:'Printed materials',price_cents:2500,cost_cents:900,shipping_cents:300,minimum_quantity:1,stock:5,supplier_id:'',supplier_sku:'PRIVATE-SKU',fulfillment:'wholesale',lead_time:'3 days',status:'draft'};
  const productCreated=await request('/api/admin/marketplace',{method:'POST',cookie:owner.cookie,data:nativeProduct});assert.equal(productCreated.status,200,JSON.stringify(productCreated.data));
