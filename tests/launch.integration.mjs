@@ -136,5 +136,17 @@ try{
  assert.equal((await call('/api/growth/offers',{action:'coupon_status',id:coupon.data.id,active:true},a.cookie)).status,200);
  }
 
+
+ {
+ const externalAccount='external-'+suffix;
+ await db.query("insert into private.google_calendar_connections(user_id,account_sub,account_email,access_ciphertext,refresh_ciphertext,expires_at,scope,sync_events,check_conflicts) values($1,$2,'fixture@example.com',$3,$3,now()+interval '1 hour','https://www.googleapis.com/auth/calendar.events',false,false)",[owner,externalAccount,fixtureSeal('unusable-fixture-token')]);
+ const bWorkspace=(await call('/api/workspace',null,b.cookie)).data;
+ await db.query("insert into private.microsoft_calendar_connections(user_id,account_id,account_email,access_ciphertext,refresh_ciphertext,expires_at,scope,sync_events,check_conflicts) values($1,$2,'fixture@example.com',$3,$3,now()+interval '1 hour','Calendars.ReadWrite',false,false)",[bWorkspace.profile.id,externalAccount,fixtureSeal('unusable-fixture-token')]);
+ assert.equal((await call('/api/calendars/external',{action:'read',provider:'google',accountId:externalAccount,eventId:'event123'},b.cookie)).status,404);
+ assert.equal((await call('/api/calendars/external',{action:'read',provider:'microsoft',accountId:externalAccount,eventId:'event123'},a.cookie)).status,404);
+ assert.equal((await call('/api/calendars/external',{action:'update',provider:'google',accountId:externalAccount,eventId:'event123',title:'Fixture title',location:'Office',version:'"v1"',confirmNotifications:true},a.cookie)).status,503);
+ assert.equal((await call('/api/calendars/external',{action:'read',provider:'google',accountId:externalAccount,eventId:'event123'})).status,401);
+ }
+
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');
 }finally{await db.end();}
