@@ -4,9 +4,11 @@ import type { MarketProduct } from "@/lib/marketplace-types";
 export function ProductPersonalizer({
   product,
   onArtwork,
+  signedIn = true,
 }: {
   product: MarketProduct;
   onArtwork: (id: string) => void;
+  signedIn?: boolean;
 }) {
   const [artwork, setArtwork] = useState(""),
     [error, setError] = useState(""),
@@ -30,7 +32,12 @@ export function ProductPersonalizer({
           </select>
         </label>
       ))}
-      {product.artwork_allowed && (
+      {product.artwork_allowed && !signedIn && (
+        <p className="market-small">
+          <a href="/sign-in">Sign in</a> to upload a logo or artwork. You can also check out as a guest and describe your design in the instructions.
+        </p>
+      )}
+      {product.artwork_allowed && signedIn && (
         <>
           <label>
             Upload logo / artwork

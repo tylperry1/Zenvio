@@ -4,7 +4,11 @@ import type Stripe from "stripe";
 import { getPool } from "./db";
 import { ApiError, uuid, integer, string } from "./server";
 import { stripeClient } from "./billing";
-import { integrationValue } from "./platform-settings";
+import { integrationValue, sealSecret } from "./platform-settings";
+import { createHash, randomBytes } from "node:crypto";
+import { queueMarketEmail } from "./market-mail";
+
+export const guestTokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 export const productColumns =
   "id,sku,title,description,category,price_cents,shipping_cents,minimum_quantity,stock,lead_time,(image IS NOT NULL) AS has_image,updated_at,revision,is_demo,personalization_options,artwork_allowed";
 export function cartLines(input: unknown) {
@@ -52,9 +56,13 @@ export async function releaseInventory(client: PoolClient, orderId: string) {
 }
 export async function createMarketCheckout(
   input: { lines: unknown; businessName?: unknown; instructions?: unknown },
-  user: { id: string; email: string; name: string },
+  user: { id: string | null; email: string; name: string },
   origin: string,
 ) {
+  const guest = user.id === null;
+  // Guests get a private order-access token; only its hash and an encrypted copy
+  // (for email links) are stored.
+  const guestToken = guest ? randomBytes(32).toString("base64url") : null;
   const lines = cartLines(input.lines),
     business = string(input.businessName || "", "business name", 100, 0),
     instructions = string(
@@ -93,8 +101,10 @@ export async function createMarketCheckout(
   try {
     await client.query("BEGIN");
     const count = await client.query(
-      "SELECT count(*)::int AS n FROM private.marketplace_orders WHERE user_id=$1 AND status='awaiting_payment' AND created_at>now()-interval '1 hour'",
-      [user.id],
+      guest
+        ? "SELECT count(*)::int AS n FROM private.marketplace_orders WHERE user_id IS NULL AND lower(customer_email)=lower($1) AND status='awaiting_payment' AND created_at>now()-interval '1 hour'"
+        : "SELECT count(*)::int AS n FROM private.marketplace_orders WHERE user_id=$1 AND status='awaiting_payment' AND created_at>now()-interval '1 hour'",
+      [guest ? user.email : user.id],
     );
     if (count.rows[0].n >= 5)
       throw new ApiError(
@@ -126,7 +136,9 @@ export async function createMarketCheckout(
           409,
         );
       const raw = (input.lines as any[]).find((x) => x.productId === p.id);
-      const resolved = await resolvePersonalization(client, p, user.id, raw);
+      if (guest && raw?.artwork_id)
+        throw new ApiError("Sign in to attach artwork. Uploaded artwork is saved to your Zenvio account.", 401);
+      const resolved = await resolvePersonalization(client, p, user.id ?? "", raw);
       (p as any).personalization = resolved.snapshot;
       (p as any).artwork_id = resolved.artwork_id;
       (p as any).price_cents += resolved.extra;
@@ -138,7 +150,7 @@ export async function createMarketCheckout(
         "This order is too large for online checkout. Please contact Zenvio.",
       );
     const { rows } = await client.query(
-      "INSERT INTO private.marketplace_orders(user_id,customer_name,customer_email,business_name,instructions,subtotal_cents,shipping_cents,total_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+      "INSERT INTO private.marketplace_orders(user_id,customer_name,customer_email,business_name,instructions,subtotal_cents,shipping_cents,total_cents,guest_token_hash,guest_token_sealed) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",
       [
         user.id,
         user.name,
@@ -148,6 +160,8 @@ export async function createMarketCheckout(
         subtotal,
         shipping,
         subtotal + shipping,
+        guestToken ? guestTokenHash(guestToken) : null,
+        guestToken ? sealSecret(guestToken) : null,
       ],
     );
     orderId = rows[0].id;
@@ -204,7 +218,7 @@ export async function createMarketCheckout(
         customer_email: user.email,
         metadata: {
           zenvio_order_id: orderId,
-          user_id: user.id,
+          ...(user.id ? { user_id: user.id } : { guest: "1" }),
           source: "marketplace",
         },
         allowed_payment_method_types: ["card"],
@@ -240,8 +254,12 @@ export async function createMarketCheckout(
           },
         ],
         expires_at: Math.floor(Date.now() / 1000) + 1800,
-        success_url: `${origin}/marketplace/orders?order=${orderId}&checkout=complete`,
-        cancel_url: `${origin}/marketplace/orders?order=${orderId}&checkout=cancelled`,
+        success_url: guestToken
+          ? `${origin}/marketplace/order?checkout=complete#${guestToken}`
+          : `${origin}/marketplace/orders?order=${orderId}&checkout=complete`,
+        cancel_url: guestToken
+          ? `${origin}/marketplace/order?checkout=cancelled#${guestToken}`
+          : `${origin}/marketplace/orders?order=${orderId}&checkout=cancelled`,
       },
       { idempotencyKey: `market-order-${orderId}` },
     );
@@ -274,7 +292,7 @@ export async function createMarketCheckout(
     "UPDATE private.marketplace_orders SET stripe_session_id=$2 WHERE id=$1",
     [orderId, checkout.id],
   );
-  return { url: checkout.url, orderId };
+  return { url: checkout.url, orderId, guest };
 }
 export async function applyMarketPayment(
   session: Stripe.Checkout.Session,
@@ -297,7 +315,8 @@ export async function applyMarketPayment(
     );
     if (!existing.rows.length) {
       if (
-        order.user_id !== session.metadata?.user_id ||
+        (order.user_id ?? null) !== (session.metadata?.user_id || null) ||
+        (order.user_id === null && session.metadata?.guest !== "1") ||
         (order.stripe_session_id && order.stripe_session_id !== session.id) ||
         session.currency !== "usd" ||
         (session.payment_status === "paid" &&
@@ -336,6 +355,7 @@ export async function applyMarketPayment(
           "INSERT INTO private.marketplace_order_activity(order_id,action) VALUES($1,'payment_confirmed')",
           [orderId],
         );
+        await queueMarketEmail(c, orderId, "confirmation");
       } else if (
         session.status === "expired" &&
         order.payment_status === "pending"
@@ -385,4 +405,28 @@ export async function marketOrderDetail(orderId: string, userId?: string) {
     [orderId],
   );
   return { ...rows[0], items, activity };
+}
+
+/** Customer-safe order view for a guest's private order link. */
+export async function guestOrderDetail(token: unknown) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new ApiError("Order not found.", 404);
+  const { rows } = await getPool().query(
+    "SELECT id FROM private.marketplace_orders WHERE guest_token_hash=$1 AND user_id IS NULL",
+    [guestTokenHash(token)],
+  );
+  if (!rows[0]) throw new ApiError("Order not found.", 404);
+  // Same shape a signed-in customer sees: no costs, suppliers or private notes.
+  const { rows: order } = await getPool().query(
+    "SELECT id,customer_name,customer_email,business_name,instructions,status,payment_status,subtotal_cents,shipping_cents,tax_cents,total_cents,refunded_cents,refund_status,shipping_address,tracking_number,tracking_url,carrier,created_at,updated_at FROM private.marketplace_orders WHERE id=$1",
+    [rows[0].id],
+  );
+  const { rows: items } = await getPool().query(
+    "SELECT id,product_id,title,sku,quantity,price_cents,personalization FROM private.marketplace_order_items WHERE order_id=$1",
+    [rows[0].id],
+  );
+  const { rows: activity } = await getPool().query(
+    "SELECT action,created_at FROM private.marketplace_order_activity WHERE order_id=$1 ORDER BY created_at",
+    [rows[0].id],
+  );
+  return { ...order[0], items, activity };
 }

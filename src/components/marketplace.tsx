@@ -34,7 +34,8 @@ export function Marketplace() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [cart, setCart] = useState<CartLine[]>([]);
+    [cart, setCart] = useState<CartLine[]>([]),
+    [signedIn, setSignedIn] = useState(true);
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -51,6 +52,7 @@ export function Marketplace() {
         setFamilies(d.families || []);
         setCategoryFamilies(d.categoryFamilies || {});
         setReady(d.checkoutReady);
+        setSignedIn(d.signedIn !== false);
         setError("");
       })
       .catch((e) => {
@@ -70,8 +72,8 @@ export function Marketplace() {
           title="Marketplace"
           description="Marketing essentials and branded merchandise, ordered directly through Zenvio."
           actions={
-            <Link className="billing-secondary" href="/marketplace/orders">
-              My orders
+            <Link className="billing-secondary" href={signedIn ? "/marketplace/orders" : "/sign-in"}>
+              {signedIn ? "My orders" : "Sign in"}
             </Link>
           }
         />
@@ -321,6 +323,7 @@ export function Marketplace() {
                           ) && (
                             <ProductPersonalizer
                               product={p}
+                              signedIn={signedIn}
                               onArtwork={(id) =>
                                 setArtwork({ ...artwork, [p.id]: id })
                               }
@@ -430,6 +433,7 @@ export function Marketplace() {
                           })),
                           businessName: f.get("businessName"),
                           instructions: f.get("instructions"),
+                          ...(signedIn ? {} : { guest: { name: f.get("guestName"), email: f.get("guestEmail") } }),
                         }),
                       }),
                       d = await r.json();
@@ -498,6 +502,22 @@ export function Marketplace() {
                   payment. Shipping is currently available within the United
                   States.
                 </p>
+                {!signedIn && (
+                  <fieldset className="market-guest">
+                    <legend>Your details</legend>
+                    <label>
+                      Full name
+                      <input name="guestName" required minLength={2} maxLength={100} autoComplete="name" />
+                    </label>
+                    <label>
+                      Email for receipts and order updates
+                      <input name="guestEmail" type="email" required maxLength={254} autoComplete="email" />
+                    </label>
+                    <p className="market-small">
+                      No account needed. You'll get a private order link by email. Already have an account? <a href="/sign-in">Sign in</a>
+                    </p>
+                  </fieldset>
+                )}
                 <label>
                   Business name <small>optional</small>
                   <input name="businessName" maxLength={100} />
