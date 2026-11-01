@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {Pool} from 'pg';
 import {PDFDocument} from 'pdf-lib';
-import {createHash,createDecipheriv,createCipheriv,randomBytes} from 'node:crypto';
+import {createHash,createDecipheriv,createCipheriv,randomBytes,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 import fs from 'node:fs';
 import Module from 'node:module';
@@ -146,6 +146,50 @@ try{
  assert.equal((await call('/api/calendars/external',{action:'read',provider:'microsoft',accountId:externalAccount,eventId:'event123'},a.cookie)).status,404);
  assert.equal((await call('/api/calendars/external',{action:'update',provider:'google',accountId:externalAccount,eventId:'event123',title:'Fixture title',location:'Office',version:'"v1"',confirmNotifications:true},a.cookie)).status,503);
  assert.equal((await call('/api/calendars/external',{action:'read',provider:'google',accountId:externalAccount,eventId:'event123'})).status,401);
+ }
+
+
+ {
+ // New SaaS credits share one owner pool. These are disposable SQL-only fixtures.
+ const offers=await import('../src/lib/subscription-offers.mjs');
+ const filename=path.resolve('src/lib/subscription-usage.ts'),usageModule=new Module(filename);
+ usageModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./subscription-offers.mjs'?offers:{};
+ usageModule._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);
+ await db.query("insert into private.subscriptions(user_id,plan,status,catalog_version,seats,envelope_allowance) values($1,'team','active','2026-11-v3',3,30) on conflict(user_id) do update set plan='team',status='active',catalog_version='2026-11-v3',seats=3,envelope_allowance=30",[owner]);
+ const run=async(ref,n)=>{const c=await db.connect();try{await c.query('begin');const id=await usageModule.exports.reserveSubscriptionUnits(c,owner,'aiCredits',n,ref);await c.query('commit');return id;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ const races=await Promise.allSettled([run('v3-race-a-'+suffix,450),run('v3-race-b-'+suffix,450)]);
+ assert.equal(races.filter(r=>r.status==='fulfilled').length,1);assert.equal(races.find(r=>r.status==='rejected').reason.status,429);
+ const id=races.find(r=>r.status==='fulfilled').value,c=await db.connect();try{await c.query('begin');await usageModule.exports.settleSubscriptionUnits(c,id,449);await usageModule.exports.settleSubscriptionUnits(c,id,449);await c.query('commit');}finally{c.release();}
+ assert.ok(await run('v3-last-'+suffix,1));await assert.rejects(run('v3-exhausted-'+suffix,1));
+ const usage=await usageModule.exports.subscriptionUsage(owner);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,450);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').remaining,0);
+ assert.equal((await call('/api/admin/economics',null,a.cookie)).status,403);
+ assert.equal((await call('/api/billing/addons',{addon:'ai_100',confirm:true},a.cookie)).status,503);
+ const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
+ const stored=(await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n;
+ await db.query("insert into private.workspace_meter_overrides(billing_owner,meter,allowance,actor_id,reason,expires_at) values($1,'storageBytes',$2,$1,'Disposable concurrency fixture',now()+interval '1 hour')",[owner,Number(stored)+10]);
+ const storageRaces=await Promise.allSettled([1,2].map(n=>db.query("insert into private.marketplace_artwork(user_id,image,sha256,width,height) values($1,decode('0102030405060708','hex'),$2,1,1)",[owner,'fixture-storage-'+suffix+'-'+n])));
+ assert.equal(storageRaces.filter(r=>r.status==='fulfilled').length,1);assert.match(storageRaces.find(r=>r.status==='rejected').reason.message,/storage_allowance/);
+ assert.equal(Number((await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n),Number(stored)+8);
+ await db.query("delete from private.workspace_meter_overrides where billing_owner=$1",[owner]);
+ const emailFilename=path.resolve('src/lib/email-usage.ts'),emailModule=new Module(emailFilename);
+ emailModule.require=id=>id==='./subscription-usage'?usageModule.exports:id==='./server'?{ApiError:FixtureApiError}:id==='node:crypto'?{createHash}:{};
+ emailModule._compile(ts.transpileModule(fs.readFileSync(emailFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,emailFilename);
+ const ec=await db.connect();try{await ec.query('begin');await usageModule.exports.reserveSubscriptionUnits(ec,owner,'emails',1500,'fixture-email-exhaustion-'+suffix);await ec.query('commit');}finally{ec.release();}
+ const emailReserve=async(kind,ref)=>{const c=await db.connect();try{await c.query('begin');const value=await emailModule.exports.reserveEmail(c,{user:owner,reference:ref,kind,recipient:'quota-fixture@example.com'});await c.query('commit');return value;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ await assert.rejects(emailReserve('customer_message','optional-'+suffix),e=>e.status===429);
+ const protectedMail=await emailReserve('booking_confirmation','essential-'+suffix);assert.equal(protectedMail.protected,true);
+ const repeated=await emailReserve('booking_confirmation','essential-'+suffix);assert.equal(repeated.reference,protectedMail.reference);
+ assert.equal((await db.query("select count(*)::int n from private.email_usage_events where reference=$1",[protectedMail.reference])).rows[0].n,1);
+ const securityMail=await emailReserve('account_security','security-'+suffix);assert.equal(securityMail.protected,true);
+ const envelopeFilename=path.resolve('src/lib/envelope-usage.ts'),envelopeModule=new Module(envelopeFilename);
+ envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}}}:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
+ envelopeModule._compile(ts.transpileModule(fs.readFileSync(envelopeFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,envelopeFilename);
+ await db.query("insert into private.envelope_usage(source_id,source_kind,user_id,billing_owner) select gen_random_uuid(),'pdf',$1,$1 from generate_series(1,30)",[owner]);
+ await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason) values($1,'envelopes',1,$2,'Disposable prepaid envelope concurrency fixture')",[owner,'fixture-envelope-credit-'+suffix]);
+ const sendPrepaid=async()=>{const c=await db.connect();try{await c.query('begin');await envelopeModule.exports.recordEnvelopeSend(c,owner,'pdf',randomUUID());await c.query('commit');}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ const envelopeRaces=await Promise.allSettled([sendPrepaid(),sendPrepaid()]);assert.equal(envelopeRaces.filter(r=>r.status==='fulfilled').length,1);assert.equal(envelopeRaces.find(r=>r.status==='rejected').reason.status,409);
+ assert.equal((await envelopeModule.exports.envelopeBudget(owner)).purchasedRemaining,0);
+ const foreign=await call('/api/billing',null,b.cookie);assert.equal(foreign.status,200);assert.equal(foreign.data.meteredUsage.enforced,false);
  }
 
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');

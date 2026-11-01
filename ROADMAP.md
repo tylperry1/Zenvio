@@ -154,3 +154,8 @@ Gelato is the first supplier connected under the marketplace upgrade. It extends
 ### P2 — Advanced marketplace
 
 AI-assisted design, team purchasing, multi-brand management, advanced supplier routing, promotional bundles, NFC smart business card manufacturing, digital business profiles beyond the existing smart profiles, and enterprise purchasing workflows: not started.
+
+
+## Approved pricing revision: 2026-11-v3
+
+Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras $9.99 monthly. Fixed Teams pools replace per-seat allowance growth only for verified new-version subscriptions. Historical sections describe earlier releases; PRICING_IMPLEMENTATION.md is the current pricing checklist and explicitly lists unfinished meters, add-on activation and financial acceptance gates. Full commercial activation is not complete.

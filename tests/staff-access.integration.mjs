@@ -15,6 +15,8 @@ try {
   await db.query("INSERT INTO private.staff_members(user_id,title,permissions,invited_by) VALUES($1,'QA pricing fixture',ARRAY['pricing'],$2)",[id,owner.id]);
   const cookie=signup.cookie;
   let r=await request("/api/admin/operations",cookie);assert.equal(r.status,200);assert.equal(r.data.access.role,"staff");assert.equal(r.data.pricing.length,7);assert.deepEqual(r.data.users,[]);assert.deepEqual(r.data.subscriptions,[]);assert.deepEqual(r.data.integrations,[]);
+  assert.equal((await request("/api/admin/economics",cookie)).status,403);
+  assert.equal((await request("/api/admin/economics",master.cookie)).status,200);
   assert.equal((await request("/api/admin",cookie)).status,403);
   assert.equal((await request("/api/admin/team",cookie)).status,403);
   assert.equal((await request("/api/admin/team",cookie,{action:"invite",email:"blocked@example.com",name:"Blocked"})).status,403);
