@@ -69,3 +69,7 @@ New additive routes: `/app/growth` (authenticated business offer/class/membershi
 ### Daily reported video usage
 
 New paths: `POST /api/video/webhook` (Daily HMAC, no user session), `GET /api/video/usage?before=<room cursor>` (authenticated owning host), `GET /api/admin/launch/video?before=<room cursor>` (master admin). Response: `{source:'daily_signed_participant_events',complete:false,coverage,period,summary,rooms,nextCursor}`. Summary fields `participant_sessions`, `reported_duration_ms`, `unknown_rates`, `anomalies`, `estimated_cost_micros`; integer financial/duration sums are decimal strings. Rooms include owning booking IDs and observed session totals. Do not label incomplete webhook totals as final invoices or release reserved budgets. Errors: 400 invalid cursor/payload, 401 invalid signature/unauthenticated, 403 admin permissions, 503 missing HMAC or transaction retry. Video activation flags are unchanged.
+
+### Coupon controls and local date pickers
+
+`POST /api/growth/offers` adds `{action:'coupon_status',id,active:boolean}` for the signed-in owning business. It changes eligibility for new checkouts only; existing immutable checkout reservations keep their price. Unknown/foreign IDs return 404, malformed states 400, and offer writes are limited to 60 per owner per hour. `/app/growth` now exposes coupon creation/pause/reactivation. Class and coupon date pickers interpret values in the device timezone, reject invalid/DST-gap/duplicate wall times, and send explicit UTC instants through the unchanged request contracts.

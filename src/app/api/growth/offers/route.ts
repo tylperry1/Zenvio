@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getPool } from '@/lib/db';
 import { ApiError, body, failure, integer, sameOrigin, session, string, uuid } from '@/lib/server';
+import { allowRequest } from "@/lib/booking-protection";
 import { growthCheckoutReady } from '@/lib/launch/customer-commerce';
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) { try {
@@ -20,6 +21,13 @@ export async function POST(request: NextRequest) {
     try {
         sameOrigin(request);
         const { token } = await session(), input = await body(request);
+        if (!await allowRequest('growth-offer-write',token,60,3600)) throw new ApiError('Offer update limit reached.',429);
+        if(input.action==='coupon_status') {
+            if(typeof input.active!=='boolean')throw new ApiError('Invalid coupon state.');
+            const r=await getPool().query('update private.growth_coupons set active=$3 where id=$1 and user_id=$2 returning id',[uuid(input.id),token,input.active]);
+            if(!r.rowCount)throw new ApiError('Coupon not found.',404);
+            return Response.json({ok:true});
+        }
         if (input.action === 'publish') {
             if (typeof input.active !== 'boolean')
                 throw new ApiError('Invalid publication state.');
