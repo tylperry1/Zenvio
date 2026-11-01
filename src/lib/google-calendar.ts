@@ -1,5 +1,5 @@
 import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
-import {externalReference,externalEditingEnabled,calendarVersion,googleExternalReason,assertExternalUpdate,externalCalendarAudit,type ExternalCalendarUpdate} from "./external-calendar-policy";
+import type {ExternalCalendarUpdate} from "./external-calendar-policy";
 import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { requireCapacity } from "./entitlements";
 import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
@@ -795,6 +795,7 @@ export async function drainCalendarCleanup(user?: string) {
 
 /** Primary-calendar metadata edits only. Booking, attendee and time changes stay in their existing workflows. */
 export async function googleExternalEvent(userId:string,accountSub:string,eventId:string,update?:ExternalCalendarUpdate){
+ const {externalReference,externalEditingEnabled,calendarVersion,googleExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
  externalReference("google",accountSub,eventId);
  const enabled=externalEditingEnabled("google");
  if(update&&!enabled)throw new ApiError("Google external editing has not passed release validation.",503);

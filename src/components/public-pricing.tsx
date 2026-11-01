@@ -7,7 +7,19 @@ import { money } from "@/lib/billing-types";
 export function PublicPricing() {
   const [seats, setSeats] = useState(3);
   return <div className="subscription-offers">
-    <div className="subscription-free-note"><h2>Coming soon. Get in early.</h2><p>Join before launch for 50% off your first 3 monthly subscription payments. Individual: $15/month, then $29.99. Teams: $25/month for 3 seats, then $49.99. Additional-seat subscription charges are also half off for 3 months; $1 envelope overages and taxes are excluded.</p><Link href="/early-access">Reserve your early-adopter offer →</Link></div>
+    <div className="subscription-offer-banner">
+      <div className="sob-copy">
+        <span className="sob-badge"><Icon name="sparkles" size={14}/> Early-adopter offer</span>
+        <h2>50% off your first 3 months.</h2>
+        <p>Reserve before launch with your email. No account or payment needed today.</p>
+      </div>
+      <dl className="sob-prices">
+        <div><dt>Individual</dt><dd><b>$15</b>/mo for 3 months<small>then {money(individualOffer.monthly)}</small></dd></div>
+        <div><dt>Teams · 3 seats</dt><dd><b>$25</b>/mo for 3 months<small>then {money(teamOffer.monthly)}</small></dd></div>
+      </dl>
+      <Link className="sob-cta" href="/early-access">Reserve my offer <Icon name="arrow" size={16}/></Link>
+      <p className="sob-fine">Extra-seat charges are also half off for 3 months. $1 envelope overages and taxes are excluded.</p>
+    </div>
     <div className="subscription-plan-cards">
       <article className="subscription-plan">
         <span className="subscription-plan-icon"><Icon name="users" size={23}/></span>
@@ -35,10 +47,10 @@ export function PublicPricing() {
     </div>
     <p className="subscription-footnote">USD, billed monthly. Taxes may apply. Signing allowances reset monthly and do not roll over. Additional envelopes are $1 each with billing-owner approval and a monthly spending limit. Appointment payment processing fees are separate.</p>
     <div className="subscription-faq">
-      <details><summary>What does “everything included” mean?</summary><p>Both paid plans include scheduling, client records, reminders, appointment payments, PDF templates, and electronic signing. Teams adds shared scheduling and member management. The limits above keep usage and billing predictable.</p></details>
-      <details><summary>What counts as a signing envelope?</summary><p>An envelope is a package sent for signature. Multiple recipients in the same envelope count as one; drafts and reminders are free. Individual includes 20 per month. Teams includes 60 shared across three seats, plus 20 per additional seat. Extra envelopes cost $1 each when the billing owner enables overages and sets a monthly spending limit. Extras are invoiced separately after month-end. Allowances reset at 00:00 UTC on the first of each month. Existing subscribers keep their agreed allowance.</p></details>
-      <details><summary>Can I cancel or change seats?</summary><p>Owners manage subscriptions and seats. Cancellation stops renewal at the end of the paid period. Package and seat changes can create a prorated adjustment. Existing records are preserved; reassign upcoming appointments before removing staff.</p></details>
-      <details><summary>Can I explore Zenvio first?</summary><p>Yes. Explore the demo without an account and join the early-access list. Zenvio is preparing for launch; no account, subscription, or payment is created by joining the list.</p></details>
+      <details><summary>What does “everything included” mean?<Icon name="plus" size={16}/></summary><p>Both paid plans include scheduling, client records, reminders, appointment payments, PDF templates, and electronic signing. Teams adds shared scheduling and member management. The limits above keep usage and billing predictable.</p></details>
+      <details><summary>What counts as a signing envelope?<Icon name="plus" size={16}/></summary><p>An envelope is a package sent for signature. Multiple recipients in the same envelope count as one; drafts and reminders are free. Individual includes 20 per month. Teams includes 60 shared across three seats, plus 20 per additional seat. Extra envelopes cost $1 each when the billing owner enables overages and sets a monthly spending limit. Extras are invoiced separately after month-end. Allowances reset at 00:00 UTC on the first of each month. Existing subscribers keep their agreed allowance.</p></details>
+      <details><summary>Can I cancel or change seats?<Icon name="plus" size={16}/></summary><p>Owners manage subscriptions and seats. Cancellation stops renewal at the end of the paid period. Package and seat changes can create a prorated adjustment. Existing records are preserved; reassign upcoming appointments before removing staff.</p></details>
+      <details><summary>Can I explore Zenvio first?<Icon name="plus" size={16}/></summary><p>Yes. Explore the demo without an account and join the early-access list. Zenvio is preparing for launch; no account, subscription, or payment is created by joining the list.</p></details>
     </div>
   </div>;
 }

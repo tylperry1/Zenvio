@@ -1,5 +1,5 @@
 import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
-import {externalReference,externalEditingEnabled,calendarVersion,microsoftExternalReason,assertExternalUpdate,externalCalendarAudit,type ExternalCalendarUpdate} from "./external-calendar-policy";
+import type {ExternalCalendarUpdate} from "./external-calendar-policy";
 import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getPool } from "./db";
@@ -291,6 +291,7 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
 
 /** Metadata-only changes; recurring and Zenvio-managed events remain read-only. */
 export async function microsoftExternalEvent(userId:string,accountId:string,eventId:string,update?:ExternalCalendarUpdate){
+ const {externalReference,externalEditingEnabled,calendarVersion,microsoftExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
  externalReference("microsoft",accountId,eventId);
  const enabled=externalEditingEnabled("microsoft");
  if(update&&!enabled)throw new ApiError("Microsoft external editing has not passed release validation.",503);
