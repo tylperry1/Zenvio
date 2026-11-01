@@ -18,8 +18,10 @@ export async function POST(req:NextRequest){try{
  await db.query("begin");await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))",['billing:'+token]);
  const sub=(await db.query("select * from private.subscriptions where user_id=$1 for update",[token])).rows[0];
  if(!sub||sub.catalog_version!==catalogVersion||sub.status!=='active'||!sub.customer_id)throw new ApiError("Only the active workspace billing owner can purchase additional capacity.",403);
- const id=randomUUID();await db.query("insert into private.subscription_addon_orders(id,billing_owner,addon,meter,quantity,amount_cents,customer_id) values($1,$2,$3,$4,$5,$6,$7)",[id,token,offer.id,offer.unit,offer.quantity,offer.amount,sub.customer_id]);
  const stripe=await stripeClient();
+ const pending=(await db.query("select addon,checkout_id from private.subscription_addon_orders where billing_owner=$1 and state='pending' and checkout_id is not null order by created_at desc limit 20",[token])).rows;
+ for(const order of pending){const checkout=await stripe.checkout.sessions.retrieve(order.checkout_id);if(checkout.status==='open'){if(order.addon!==offer.id)throw new ApiError("Complete or cancel your open add-on checkout before starting another.",409);await db.query("commit");return Response.json({url:checkout.url});}}
+ const id=randomUUID();await db.query("insert into private.subscription_addon_orders(id,billing_owner,addon,meter,quantity,amount_cents,customer_id) values($1,$2,$3,$4,$5,$6,$7)",[id,token,offer.id,offer.unit,offer.quantity,offer.amount,sub.customer_id]);
  const checkout=await stripe.checkout.sessions.create({customer:sub.customer_id,mode:'payment',client_reference_id:token,metadata:{zenvio_addon_order:id},payment_intent_data:{metadata:{zenvio_addon_order:id}},line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:offer.amount,product_data:{name:'Zenvio '+offer.name}}}],success_url:appOrigin()+'/app/billing?addon=complete',cancel_url:appOrigin()+'/app/billing'},{idempotencyKey:'zenvio-addon:'+id});
  await db.query("update private.subscription_addon_orders set checkout_id=$2 where id=$1",[id,checkout.id]);await db.query("commit");return Response.json({url:checkout.url});
  }catch(e){await db.query("rollback");throw e;}finally{db.release();}
