@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
   const db = await getPool().connect();
   try {
     await db.query("BEGIN");
+    const promotion=(await db.query("SELECT value FROM private.platform_settings WHERE key='pricing_v3_launch_promotion' FOR SHARE")).rows[0]?.value;
+    if(promotion?.enabled!==true)throw new ApiError("Early-adopter reservations are currently paused. Existing reservations are preserved.",409);
     // Reserve and enqueue together. Repeated submissions never trigger another email.
     const signup = (await db.query("INSERT INTO private.early_access_signups(email,name,plan,seats) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO NOTHING RETURNING id,name,email",[address,name,plan,seats])).rows[0];
     if(signup) await queueReservationConfirmation(db, signup);

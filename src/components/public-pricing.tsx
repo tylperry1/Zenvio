@@ -5,10 +5,10 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { individualOffer, teamOffer, extraSeatOffer, includedFeatures, subscriptionTotal, monthlyAllowances } from "@/lib/subscription-offers.mjs";
 import { money } from "@/lib/billing-types";
-export function PublicPricing() {
+export function PublicPricing({promotionEnabled=false}:{promotionEnabled?:boolean}) {
   const [seats, setSeats] = useState(3);
   return <div className="subscription-offers">
-    <div className="subscription-offer-banner">
+    {promotionEnabled && <div className="subscription-offer-banner">
       <div className="sob-copy">
         <span className="sob-badge"><Icon name="sparkles" size={14}/> Early-adopter offer</span>
         <h2>50% off your first 3 months.</h2>
@@ -20,7 +20,7 @@ export function PublicPricing() {
       </dl>
       <Link className="sob-cta" href="/early-access">Reserve my offer <Icon name="arrow" size={16}/></Link>
       <p className="sob-fine">50% applies to the base subscription for three monthly billing cycles. Additional seats, add-ons, overages and taxes are excluded.</p>
-    </div>
+    </div>}
     <div className="subscription-plan-cards">
       <article className="subscription-plan">
         <span className="subscription-plan-icon"><Icon name="users" size={23}/></span>
@@ -28,7 +28,7 @@ export function PublicPricing() {
         <h3>Individual</h3><p>From the first booking to the signed agreement.</p>
         <div className="subscription-price">{money(individualOffer.monthly)}<span>/ month</span></div>
         <p className="subscription-caption">One person. Scheduling and signing included.</p>
-        <Link className="subscription-cta" href="/early-access?plan=individual">Reserve 50% off <Icon name="arrow" size={16}/></Link>
+        <Link className="subscription-cta" href={promotionEnabled?"/early-access?plan=individual":"/demo"}>{promotionEnabled?"Reserve 50% off":"Explore the demo"} <Icon name="arrow" size={16}/></Link>
         <ul>{[...includedFeatures,`${monthlyAllowances.individual.envelopes} signing envelopes each month`].map(feature=><li key={feature}><Icon name="check" size={16}/>{feature.replace(' per host','')}</li>)}</ul>
       </article>
       <article className="subscription-plan subscription-plan-team">
@@ -37,7 +37,7 @@ export function PublicPricing() {
         <h3>Teams</h3><p>Shared scheduling. Clear roles. One simple bill.</p>
         <div className="subscription-price">{money(teamOffer.monthly)}<span>/ month</span></div>
         <p className="subscription-caption">First 3 seats included. Then {money(extraSeatOffer.monthly)} per extra seat.</p>
-        <Link className="subscription-cta" href={`/early-access?plan=team&seats=${seats}`}>Reserve your team’s offer <Icon name="arrow" size={16}/></Link>
+        <Link className="subscription-cta" href={promotionEnabled?`/early-access?plan=team&seats=${seats}`:"/demo"}>{promotionEnabled?"Reserve your team’s offer":"Explore the demo"} <Icon name="arrow" size={16}/></Link>
         <ul>{['Everything in Individual for each host','3 seats included, including the owner','Managers, staff roles & member controls','Shared and round-robin scheduling','Centralized seat management and billing','30 signing envelopes / month, pooled across all seats'].map(feature=><li key={feature}><Icon name="check" size={16}/>{feature}</li>)}</ul>
       </article>
     </div>
