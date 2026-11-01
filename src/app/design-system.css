@@ -295,66 +295,136 @@
 .pr-note { margin: 12px 0 0; font-size: 12px; color: var(--text-muted); }
 
 /* Marketing & reviews workspace (.mk) */
-.mk { display: grid; gap: 16px; max-width: 1280px; margin: 0 auto; }
-.mk .ds-page-header, .mk .ds-notice, .mk .ds-kpis, .mk .ds-grid-2 { margin: 0; }
-.mk > .ds-segmented { justify-self: start; }
-.mk-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.mk-stack { display: grid; gap: 16px; }
-.mk-toolbar { display: flex; justify-content: flex-end; }
-.mk-pad { padding: 20px; }
-.mk-form { display: grid; gap: 14px; }
-.mk-chips { display: flex; flex-wrap: wrap; gap: 6px; font-weight: 400; }
-.ds-root.ds-root .mk-chips button { height: 32px; min-height: 0; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ds-line); background: #fff; color: var(--text-secondary); font-size: 12.5px; font-weight: 500; }
-.ds-root.ds-root .mk-chips button[aria-pressed=true] { background: var(--text-primary); border-color: var(--text-primary); color: #fff; }
-.ds-root.ds-root .mk input { height: 38px; min-height: 0; padding: 0 12px; margin: 0; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 14px; font-weight: 400; width: 100%; }
-.mk-link { display: flex; gap: 8px; align-items: center; padding: 8px 8px 8px 12px; border: 1px solid #c9d5ff; border-radius: 10px; background: #f5f7ff; }
-.mk-link code { flex: 1; min-width: 0; font-size: 12.5px; overflow-wrap: anywhere; color: var(--text-primary); }
-.mk-qr { display: grid; justify-items: center; gap: 12px; }
-.mk-qr-img { width: 200px; height: 200px; padding: 8px; border: 1px solid var(--ds-line); border-radius: 14px; background: #fff; }
-.mk-qr-img svg { width: 100%; height: 100%; display: block; }
-.mk-qr-actions { display: flex; gap: 8px; }
-.mk-qr small { font-size: 12px; color: var(--text-muted); }
-.mk-snippet { display: grid; gap: 10px; }
-.mk-snippet pre { margin: 0; padding: 12px; border-radius: 10px; background: #0e1330; color: #dfe5ff; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
-.mk-snippet .ds-btn { justify-self: start; }
-.ds-root.ds-root .mk-muted { margin: 10px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
-.mk-muted code { font-size: 11.5px; background: #f1f3f8; padding: 1px 5px; border-radius: 4px; }
-.mk-muted-inline { color: var(--text-muted); font-size: 11.5px; }
-.mk-preview { margin-top: 12px; padding: 16px; border: 1px dashed var(--ds-line); border-radius: 10px; text-align: center; }
-.mk-preview span { display: inline-block; padding: 12px 20px; border-radius: 999px; background: #365cff; color: #fff; font: 600 15px var(--font-family); }
-.mk-strong { color: var(--text-primary); font-weight: 600; }
-.mk-campaigns { margin-top: 18px; border-top: 1px solid var(--ds-line-soft); padding-top: 14px; }
-.mk-campaigns h3 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
-.mk-campaigns ul, .mk-ask, .mk-reviews, .mk-dist { list-style: none; margin: 0; padding: 0; }
-.mk-campaigns li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 13px; }
-.mk-campaigns li span { flex: 1; color: var(--text-primary); }
-.mk-campaigns small { color: var(--text-muted); }
-.mk-ask li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--ds-line-soft); }
-.mk-ask li:last-child { border-bottom: 0; }
-.mk-ask b { display: block; font-size: 13.5px; }
-.mk-ask small { display: block; font-size: 12px; color: var(--text-muted); }
-.mk-dist { display: grid; gap: 8px; }
-.mk-dist li { display: grid; grid-template-columns: 36px 1fr 32px; gap: 10px; align-items: center; font-size: 13px; }
-.mk-dist i { height: 8px; border-radius: 999px; background: #eef1f7; overflow: hidden; }
-.mk-dist em { display: block; height: 100%; background: #f5a524; border-radius: inherit; }
-.mk-dist b { text-align: right; font-variant-numeric: tabular-nums; }
-.mk-reviews { display: grid; gap: 12px; }
-.mk-reviews li { padding: 14px 16px; border: 1px solid var(--ds-line); border-radius: 12px; }
-.mk-reviews li.hidden { background: var(--ds-surface-muted); }
-.mk-review-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
-.mk-review-head b { font-size: 14px; }
-.mk-review-head small { font-size: 12px; color: var(--text-muted); }
-.mk-review-badges { margin-left: auto; }
-.mk-stars { color: #f5a524; letter-spacing: 1px; }
-.ds-root.ds-root .mk-reviews p { margin: 8px 0 0; font-size: 14px; color: var(--text-secondary); line-height: 1.55; overflow-wrap: anywhere; }
-.ds-root.ds-root .mk-reviews .mk-reply { padding: 10px 12px; border-radius: 10px; background: #f5f7ff; font-size: 13px; }
-.mk-review-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
-.ds-root.ds-root .mk-hide { height: 32px; font-size: 12.5px; }
-.mk-reply-form { display: grid; gap: 8px; margin-top: 10px; }
-.mk-reply-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font: 14px var(--font-family); }
-.mk-reply-form div { display: flex; justify-content: flex-end; gap: 6px; }
-.mk-share-link { display: block; padding: 12px; border-radius: 10px; background: #f1f3f8; font-size: 12.5px; overflow-wrap: anywhere; }
-@media (max-width: 1000px) { .mk-grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .mk-link { flex-direction: column; align-items: stretch; } .mk-ask li { padding: 12px 16px; } }
+.mkc { display: grid; gap: 16px; max-width: 1280px; margin: 0 auto; }
+.mkc .ds-page-header, .mkc .ds-notice, .mkc .ds-kpis, .mkc .ds-grid-2 { margin: 0; }
+.mkc > .ds-segmented { justify-self: start; }
+.mkc-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mkc-stack { display: grid; gap: 16px; }
+.mkc-toolbar { display: flex; justify-content: flex-end; }
+.mkc-pad { padding: 20px; }
+.mkc-form { display: grid; gap: 14px; }
+.mkc-chips { display: flex; flex-wrap: wrap; gap: 6px; font-weight: 400; }
+.ds-root.ds-root .mkc-chips button { height: 32px; min-height: 0; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ds-line); background: #fff; color: var(--text-secondary); font-size: 12.5px; font-weight: 500; }
+.ds-root.ds-root .mkc-chips button[aria-pressed=true] { background: var(--text-primary); border-color: var(--text-primary); color: #fff; }
+.ds-root.ds-root .mkc input { height: 38px; min-height: 0; padding: 0 12px; margin: 0; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 14px; font-weight: 400; width: 100%; }
+.mkc-link { display: flex; gap: 8px; align-items: center; padding: 8px 8px 8px 12px; border: 1px solid #c9d5ff; border-radius: 10px; background: #f5f7ff; }
+.mkc-link code { flex: 1; min-width: 0; font-size: 12.5px; overflow-wrap: anywhere; color: var(--text-primary); }
+.mkc-qr { display: grid; justify-items: center; gap: 12px; }
+.mkc-qr-img { width: 200px; height: 200px; padding: 8px; border: 1px solid var(--ds-line); border-radius: 14px; background: #fff; }
+.mkc-qr-img svg { width: 100%; height: 100%; display: block; }
+.mkc-qr-actions { display: flex; gap: 8px; }
+.mkc-qr small { font-size: 12px; color: var(--text-muted); }
+.mkc-snippet { display: grid; gap: 10px; }
+.mkc-snippet pre { margin: 0; padding: 12px; border-radius: 10px; background: #0e1330; color: #dfe5ff; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
+.mkc-snippet .ds-btn { justify-self: start; }
+.ds-root.ds-root .mkc-muted { margin: 10px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.mkc-muted code { font-size: 11.5px; background: #f1f3f8; padding: 1px 5px; border-radius: 4px; }
+.mkc-muted-inline { color: var(--text-muted); font-size: 11.5px; }
+.mkc-preview { margin-top: 12px; padding: 16px; border: 1px dashed var(--ds-line); border-radius: 10px; text-align: center; }
+.mkc-preview span { display: inline-block; padding: 12px 20px; border-radius: 999px; background: #365cff; color: #fff; font: 600 15px var(--font-family); }
+.mkc-strong { color: var(--text-primary); font-weight: 600; }
+.mkc-campaigns { margin-top: 18px; border-top: 1px solid var(--ds-line-soft); padding-top: 14px; }
+.mkc-campaigns h3 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+.mkc-campaigns ul, .mkc-ask, .mkc-reviews, .mkc-dist { list-style: none; margin: 0; padding: 0; }
+.mkc-campaigns li { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; font-size: 13px; }
+.mkc-campaigns li span { flex: 1; color: var(--text-primary); }
+.mkc-campaigns small { color: var(--text-muted); }
+.mkc-ask li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--ds-line-soft); }
+.mkc-ask li:last-child { border-bottom: 0; }
+.mkc-ask b { display: block; font-size: 13.5px; }
+.mkc-ask small { display: block; font-size: 12px; color: var(--text-muted); }
+.mkc-dist { display: grid; gap: 8px; }
+.mkc-dist li { display: grid; grid-template-columns: 36px 1fr 32px; gap: 10px; align-items: center; font-size: 13px; }
+.mkc-dist i { height: 8px; border-radius: 999px; background: #eef1f7; overflow: hidden; }
+.mkc-dist em { display: block; height: 100%; background: #f5a524; border-radius: inherit; }
+.mkc-dist b { text-align: right; font-variant-numeric: tabular-nums; }
+.mkc-reviews { display: grid; gap: 12px; }
+.mkc-reviews li { padding: 14px 16px; border: 1px solid var(--ds-line); border-radius: 12px; }
+.mkc-reviews li.hidden { background: var(--ds-surface-muted); }
+.mkc-review-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.mkc-review-head b { font-size: 14px; }
+.mkc-review-head small { font-size: 12px; color: var(--text-muted); }
+.mkc-review-badges { margin-left: auto; }
+.mkc-stars { color: #f5a524; letter-spacing: 1px; }
+.ds-root.ds-root .mkc-reviews p { margin: 8px 0 0; font-size: 14px; color: var(--text-secondary); line-height: 1.55; overflow-wrap: anywhere; }
+.ds-root.ds-root .mkc-reviews .mkc-reply { padding: 10px 12px; border-radius: 10px; background: #f5f7ff; font-size: 13px; }
+.mkc-review-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.ds-root.ds-root .mkc-hide { height: 32px; font-size: 12.5px; }
+.mkc-reply-form { display: grid; gap: 8px; margin-top: 10px; }
+.mkc-reply-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; font: 14px var(--font-family); }
+.mkc-reply-form div { display: flex; justify-content: flex-end; gap: 6px; }
+.mkc-share-link { display: block; padding: 12px; border-radius: 10px; background: #f1f3f8; font-size: 12.5px; overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .mkc-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .mkc-link { flex-direction: column; align-items: stretch; } .mkc-ask li { padding: 12px 16px; } }
 /* Long tokens (file names, IDs) must wrap inside narrow KPI cards. */
 .ds-kpi p, .ds-kpi strong, .ds-dl dd { overflow-wrap: anywhere; }
+
+/* Public pricing: early-adopter offer banner and FAQ (landing + /pricing). */
+.subscription-offer-banner { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; grid-template-areas: "copy prices cta" "fine fine fine"; gap: 16px 28px; align-items: center; margin: 32px 0 28px; padding: 24px 28px; border-radius: 18px; background: linear-gradient(120deg, #151b38, #24307a); color: #fff; }
+.sob-copy { grid-area: copy; }
+.sob-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #ffffff1f; color: #dfe5ff; font-size: 12px; font-weight: 600; }
+.subscription-offer-banner h2 { margin: 10px 0 4px; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
+.subscription-offer-banner .sob-copy p { margin: 0; font-size: 14px; color: #c4cce6; line-height: 1.5; }
+.sob-prices { grid-area: prices; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+.sob-prices div { padding: 12px 14px; border-radius: 12px; background: #ffffff12; border: 1px solid #ffffff1f; }
+.sob-prices dt { font-size: 12px; color: #aeb9e0; }
+.sob-prices dd { margin: 4px 0 0; font-size: 13px; color: #dfe5ff; }
+.sob-prices b { font-size: 22px; color: #fff; font-weight: 700; }
+.sob-prices small { display: block; font-size: 12px; color: #aeb9e0; margin-top: 2px; }
+.sob-cta { grid-area: cta; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 11px; background: #fff; color: #151b38 !important; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.sob-cta:hover { background: #eef2ff; }
+.subscription-offer-banner .sob-fine { grid-area: fine; margin: 0; font-size: 12px; color: #aeb9e0; }
+.subscription-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
+.subscription-faq summary::-webkit-details-marker { display: none; }
+.subscription-faq summary svg { flex-shrink: 0; color: var(--text-muted); transition: transform .2s; }
+.subscription-faq details[open] summary svg { transform: rotate(45deg); }
+@media (max-width: 900px) { .subscription-offer-banner { grid-template-columns: 1fr; grid-template-areas: "copy" "prices" "cta" "fine"; padding: 22px; } .sob-cta { justify-content: center; } }
+@media (max-width: 420px) { .sob-prices { grid-template-columns: 1fr; } }
+
+/* ---------- Workspace page consistency ----------
+   One page-title size and one content inset across every workspace page. */
+@media (max-width: 440px) {
+  /* platform.css adds !important padding for standalone pages; the shell already pads. */
+  .shell .platform-page main { padding: 0 !important; }
+}
+.shell .shell-content .inbox-head h1,
+.shell .shell-content .as-page-head h1,
+.shell .shell-content .ds-page-header h1 { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
+/* Offers & classes uses the shared commerce module; align it with workspace pages. */
+.shell-content > [class*="commerce_shell"] { max-width: none; margin: 0; padding: 0 0 48px; }
+.shell-content > [class*="commerce_shell"] h1 { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; margin: 4px 0 6px; max-width: none; }
+.shell-content > [class*="commerce_shell"] > [class*="commerce_eyebrow"] { font-size: 11px; letter-spacing: .08em; }
+.shell-content > [class*="commerce_shell"] > [class*="commerce_intro"] { margin: 0 0 4px; font-size: 14px; line-height: 1.55; color: var(--text-secondary); }
+.shell-content > [class*="commerce_shell"] [class*="commerce_card"],
+.shell-content > [class*="commerce_shell"] [class*="commerce_form"] { border-radius: 14px; box-shadow: var(--ds-elev-1); border-color: var(--border); }
+@media (max-width: 640px) {
+  .shell .shell-content .inbox-head h1,
+  .shell .shell-content .as-page-head h1,
+  .shell .shell-content .ds-page-header h1,
+  .shell-content > [class*="commerce_shell"] h1 { font-size: 26px; }
+  .shell-content > [class*="commerce_shell"] [class*="commerce_card"],
+  .shell-content > [class*="commerce_shell"] [class*="commerce_form"] { padding: 18px; }
+}
+
+/* Phones: two filters per row on the calendar instead of four stacked selects. */
+@media (max-width: 760px) {
+  .cal-filters { display: grid; grid-template-columns: 1fr 1fr; }
+  .cal-filters > select.ui-input { width: 100%; min-width: 0; }
+  .cal-filters .cal-zone, .cal-filters .cal-team-link { grid-column: 1 / -1; }
+}
+/* Keep the floating assistant button from covering the last item on a page. */
+@media (max-width: 760px) {
+  .shell .shell-content { padding-bottom: 96px; }
+}
+/* Offers & classes section switcher: match the workspace segmented tabs. */
+.shell-content > [class*="commerce_shell"] > [class*="commerce_actions"] { display: inline-flex; gap: 2px; padding: 3px; margin-top: 20px; border-radius: 10px; background: #eef1f8; flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
+.shell-content > [class*="commerce_shell"] > [class*="commerce_actions"] > button { height: 34px; padding: 0 14px; border-radius: 8px; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.shell-content > [class*="commerce_shell"] > [class*="commerce_actions"] > button[aria-pressed="true"] { background: #fff; color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px #151b3814; }
+.shell-content > [class*="commerce_shell"] [class*="commerce_notice"] { font-size: 14px; line-height: 1.55; padding: 12px 14px; border-radius: 10px; }
+.shell-content > [class*="commerce_shell"] h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
+.shell-content > [class*="commerce_shell"] [class*="commerce_form"] label { font-size: 13px; margin: 14px 0; }
+.shell-content > [class*="commerce_shell"] [class*="commerce_form"] input,
+.shell-content > [class*="commerce_shell"] [class*="commerce_form"] select { min-height: 0; height: 40px; padding: 0 12px; font-size: 14px; border-radius: 9px; }
+.shell-content > [class*="commerce_shell"] [class*="commerce_form"] textarea { font-size: 14px; border-radius: 9px; }
+.shell-content > [class*="commerce_shell"] p { font-size: 14px; }
+.shell-content > [class*="commerce_shell"] a { color: var(--action-primary); font-weight: 600; }

@@ -87,7 +87,7 @@ export function MarketingCenter() {
       .catch((e) => setError(e.message));
   }, []);
   return (
-    <div className="ds-root mk">
+    <div className="ds-root mkc">
       <PageHeader
         title="Marketing & reviews"
         description="Share your booking page everywhere, see which channels bring appointments, and collect verified reviews from real clients."
@@ -164,9 +164,9 @@ function Share({ workspace }: { workspace: Workspace }) {
   const button = `<a href="${origin}/book/${workspace.profile.slug}?src=website" target="_blank" rel="noopener" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#365cff;color:#fff;font:600 15px sans-serif;text-decoration:none">Book an appointment</a>`;
 
   return (
-    <div className="mk-grid">
+    <div className="mkc-grid">
       <Panel title="Tracked booking link" description="Add a source so you can see which channels bring bookings. Visitors see your normal booking page.">
-        <div className="mk-form">
+        <div className="mkc-form">
           <label className="ds-field">
             Page
             <select className="ds-select" value={event} onChange={(e) => setEvent(e.target.value)}>
@@ -180,7 +180,7 @@ function Share({ workspace }: { workspace: Workspace }) {
           </label>
           <div className="ds-field">
             Where will you share it?
-            <div className="mk-chips" role="group" aria-label="Source">
+            <div className="mkc-chips" role="group" aria-label="Source">
               {presets.map(([id, label]) => (
                 <button key={id} type="button" aria-pressed={source === id} onClick={() => setSource(id)}>
                   {label}
@@ -203,7 +203,7 @@ function Share({ workspace }: { workspace: Workspace }) {
             </span>
             <input value={campaign} onChange={(e) => setCampaign(e.target.value)} maxLength={80} />
           </label>
-          <div className="mk-link">
+          <div className="mkc-link">
             <code>{link}</code>
             <button className="ds-btn sm primary" type="button" onClick={() => void copy("link", link)}>
               {copied === "link" ? "Copied" : "Copy link"}
@@ -213,9 +213,9 @@ function Share({ workspace }: { workspace: Workspace }) {
       </Panel>
 
       <Panel title="QR code" description="For flyers, business cards, receipts and your front desk. Scans are tracked as “QR code”.">
-        <div className="mk-qr">
-          <div className="mk-qr-img" aria-label="QR code for your booking page" role="img" dangerouslySetInnerHTML={{ __html: qr }} />
-          <div className="mk-qr-actions">
+        <div className="mkc-qr">
+          <div className="mkc-qr-img" aria-label="QR code for your booking page" role="img" dangerouslySetInnerHTML={{ __html: qr }} />
+          <div className="mkc-qr-actions">
             <button className="ds-btn sm" type="button" onClick={() => void downloadPng()} disabled={!qr}>
               <Icon name="download" size={14} /> PNG
             </button>
@@ -228,25 +228,25 @@ function Share({ workspace }: { workspace: Workspace }) {
       </Panel>
 
       <Panel title="Website booking button" description="Paste before the closing </body> tag. Adds a floating “Book now” button that opens your booking page in a new tab.">
-        <div className="mk-snippet">
+        <div className="mkc-snippet">
           <pre>{widget}</pre>
           <button className="ds-btn sm" type="button" onClick={() => void copy("widget", widget)}>
             {copied === "widget" ? "Copied" : "Copy code"}
           </button>
         </div>
-        <p className="mk-muted">
+        <p className="mkc-muted">
           Options: <code>data-label</code>, <code>data-color</code> (hex), <code>data-position=&quot;left&quot;</code>. No cookies or tracking pixels are added to your site.
         </p>
       </Panel>
 
       <Panel title="Inline link button" description="A simple styled link for a page, newsletter or link-in-bio tool.">
-        <div className="mk-snippet">
+        <div className="mkc-snippet">
           <pre>{button}</pre>
           <button className="ds-btn sm" type="button" onClick={() => void copy("button", button)}>
             {copied === "button" ? "Copied" : "Copy code"}
           </button>
         </div>
-        <div className="mk-preview" aria-hidden="true">
+        <div className="mkc-preview" aria-hidden="true">
           <span>Book an appointment</span>
         </div>
       </Panel>
@@ -272,8 +272,8 @@ function SourcesTab() {
   const bookings = data?.sources.reduce((s, x) => s + x.bookings, 0) || 0;
   const top = data?.sources.filter((s) => s.source !== "direct").sort((a, b) => b.bookings - a.bookings)[0];
   return (
-    <div className="mk-stack">
-      <div className="mk-toolbar">
+    <div className="mkc-stack">
+      <div className="mkc-toolbar">
         <Segmented label="Date range" value={days} onChange={setDays} options={[["30", "30 days"], ["90", "90 days"], ["365", "12 months"]] as const} />
       </div>
       {error && <Notice tone="danger">{error}</Notice>}
@@ -286,7 +286,7 @@ function SourcesTab() {
       <div className="ds-grid-2">
         <Panel flush title="By source" description="Visits and bookings from each channel.">
           {!data ? (
-            <div className="mk-pad">
+            <div className="mkc-pad">
               <Skeleton height={160} />
             </div>
           ) : data.sources.length ? (
@@ -304,12 +304,12 @@ function SourcesTab() {
                   {data.sources.map((s) => (
                     <tr key={s.source}>
                       <td>
-                        <b className="mk-strong">{sourceNames[s.source] || s.source}</b>
+                        <b className="mkc-strong">{sourceNames[s.source] || s.source}</b>
                       </td>
                       <td className="num">{s.views.toLocaleString()}</td>
                       <td className="num">
                         {s.bookings}
-                        {s.bookings !== s.confirmed && <small className="mk-muted-inline"> ({s.confirmed} kept)</small>}
+                        {s.bookings !== s.confirmed && <small className="mkc-muted-inline"> ({s.confirmed} kept)</small>}
                       </td>
                       <td className="num">{pct(s.bookings, s.views)}</td>
                     </tr>
@@ -336,7 +336,7 @@ function SourcesTab() {
             <Skeleton height={180} />
           )}
           {data && data.campaigns.length > 0 && (
-            <div className="mk-campaigns">
+            <div className="mkc-campaigns">
               <h3>Campaigns</h3>
               <ul>
                 {data.campaigns.map((c) => (
@@ -351,7 +351,7 @@ function SourcesTab() {
           )}
         </Panel>
       </div>
-      <p className="mk-muted">Zenvio counts visits in aggregate and stores no visitor identifiers. Bookings you add manually aren’t attributed to a source.</p>
+      <p className="mkc-muted">Zenvio counts visits in aggregate and stores no visitor identifiers. Bookings you add manually aren’t attributed to a source.</p>
     </div>
   );
 }
@@ -394,7 +394,7 @@ function ReviewsTab() {
 
   const s = data?.summary;
   return (
-    <div className="mk-stack">
+    <div className="mkc-stack">
       {notice && <Notice tone="success">{notice}</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="ds-kpis">
@@ -411,11 +411,11 @@ function ReviewsTab() {
       <div className="ds-grid-2">
         <Panel flush title="Ask for a review" description="Completed appointments from the last 90 days. Each client can be asked once; links expire after 30 days.">
           {!data ? (
-            <div className="mk-pad">
+            <div className="mkc-pad">
               <Skeleton height={140} />
             </div>
           ) : data.eligible.length ? (
-            <ul className="mk-ask">
+            <ul className="mkc-ask">
               {data.eligible.map((b) => (
                 <li key={b.id}>
                   <span>
@@ -447,7 +447,7 @@ function ReviewsTab() {
         </Panel>
         <Panel title="Rating breakdown" description="Every rating counts, including reviews without a public comment.">
           {s && s.total ? (
-            <ul className="mk-dist">
+            <ul className="mkc-dist">
               {[5, 4, 3, 2, 1].map((n) => {
                 const count = Number(s[`r${n}` as "r5"]) || 0;
                 return (
@@ -473,18 +473,18 @@ function ReviewsTab() {
         {!data ? (
           <Skeleton height={120} />
         ) : data.reviews.length ? (
-          <ul className="mk-reviews">
+          <ul className="mkc-reviews">
             {data.reviews.map((r) => (
               <li key={r.id} className={r.hidden_reason ? "hidden" : ""}>
-                <div className="mk-review-head">
-                  <span className="mk-stars" aria-label={`${r.rating} out of 5 stars`}>
+                <div className="mkc-review-head">
+                  <span className="mkc-stars" aria-label={`${r.rating} out of 5 stars`}>
                     {stars(r.rating)}
                   </span>
                   <b>{r.guest_name}</b>
                   <small>
                     {r.service || "Appointment"} · {relativeTime(r.created_at)}
                   </small>
-                  <span className="mk-review-badges">
+                  <span className="mkc-review-badges">
                     {!r.public_consent ? (
                       <Badge>Private</Badge>
                     ) : r.hidden_reason ? (
@@ -500,12 +500,12 @@ function ReviewsTab() {
                 </div>
                 {r.comment && <p>{r.comment}</p>}
                 {r.owner_reply && replying !== r.id && (
-                  <p className="mk-reply">
+                  <p className="mkc-reply">
                     <b>Your reply:</b> {r.owner_reply}
                   </p>
                 )}
                 {replying === r.id ? (
-                  <div className="mk-reply-form">
+                  <div className="mkc-reply-form">
                     <textarea value={reply} onChange={(e) => setReply(e.target.value)} maxLength={1000} rows={3} aria-label="Reply" />
                     <div>
                       <button className="ds-btn sm ghost" onClick={() => setReplying(null)}>
@@ -521,7 +521,7 @@ function ReviewsTab() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mk-review-actions">
+                  <div className="mkc-review-actions">
                     {r.public_consent && r.comment && (
                       <button
                         className="ds-btn sm ghost"
@@ -535,7 +535,7 @@ function ReviewsTab() {
                     )}
                     {r.public_consent && r.comment && (
                       <select
-                        className="ds-select mk-hide"
+                        className="ds-select mkc-hide"
                         aria-label="Visibility"
                         value={r.hidden_reason || ""}
                         disabled={busy === r.id}
@@ -563,10 +563,10 @@ function ReviewsTab() {
 
       {shareLink && (
         <div className="ds-drawer-backdrop" onClick={(e) => e.target === e.currentTarget && setShareLink(null)}>
-          <aside className="ds-drawer mk-share" role="dialog" aria-modal="true" aria-labelledby="mk-share-title">
+          <aside className="ds-drawer mkc-share" role="dialog" aria-modal="true" aria-labelledby="mkc-share-title">
             <header>
               <div>
-                <h2 id="mk-share-title">Review link for {shareLink.name}</h2>
+                <h2 id="mkc-share-title">Review link for {shareLink.name}</h2>
                 <p>Private and single-use. Send it by text or email; it expires in 30 days.</p>
               </div>
               <button className="ds-btn sm ghost" onClick={() => setShareLink(null)} aria-label="Close" autoFocus>
@@ -574,7 +574,7 @@ function ReviewsTab() {
               </button>
             </header>
             <div className="ds-drawer-body">
-              <code className="mk-share-link">{shareLink.link}</code>
+              <code className="mkc-share-link">{shareLink.link}</code>
               <button className="ds-btn primary" onClick={() => void copyText(shareLink.link).then((ok) => ok && setNotice("Review link copied."))}>
                 Copy link
               </button>

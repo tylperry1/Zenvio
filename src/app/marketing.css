@@ -311,3 +311,34 @@
 .mk-legal p{max-width:980px;font-size:11px;line-height:1.7;color:var(--text-muted);margin:0}
 .mk-legal a{text-decoration:underline}
 .mk-usecases div{flex-wrap:wrap}
+
+/* Single demo CTA under the feature grid. */
+.marketing-v3 .mk-grid-cta { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 28px; text-align: center; }
+.marketing-v3 .mk-grid-cta span { font-size: 13px; color: var(--text-muted); }
+/* Capability cards: expand control only matters on phones. */
+.marketing-v3 .mk-cap-toggle { display: none; }
+@media (max-width: 700px) {
+  .marketing-v3 .mk-capability-grid article:not([data-expanded="true"]) .mk-cap-extra { display: none; }
+  .marketing-v3 .mk-cap-toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 0; border: 0; background: none; color: var(--action-primary); font: 600 13px var(--font-family); cursor: pointer; }
+  .marketing-v3 .mk-capability-grid article[data-expanded="true"] .mk-cap-toggle svg { transform: rotate(180deg); }
+}
+
+/* Phones: compact header CTA, tighter feature cards, wrapping footer. */
+.marketing-v3 .mk-cta-short { display: none; }
+.marketing-v3 .mk-menu-cta { color: var(--action-primary) !important; font-weight: 600; }
+@media (max-width: 480px) {
+  .marketing-v3 .mk-cta-long { display: none; }
+  .marketing-v3 .mk-cta-short { display: inline; }
+  .marketing-v3 .mk-header-cta { white-space: nowrap; padding-inline: 14px; }
+}
+@media (max-width: 600px) {
+  .marketing-v3 .mk-feature-grid { gap: 10px; }
+  .marketing-v3 .mk-feature-grid article { display: grid; grid-template-columns: 40px 1fr; column-gap: 14px; padding: 18px; }
+  .marketing-v3 .mk-feature-grid .mk-feature-number { display: none; }
+  .marketing-v3 .mk-feature-grid .mk-feature-icon { grid-row: span 2; width: 40px; height: 40px; margin: 0; }
+  .marketing-v3 .mk-feature-grid h3 { margin: 0 0 6px; font-size: 17px; }
+  .marketing-v3 .mk-feature-grid p { margin: 0; font-size: 14px; line-height: 1.55; }
+  .marketing-v3 .mk-capability-grid { gap: 10px; }
+  .marketing-v3 .mk-capability-grid article { padding: 18px; }
+  .marketing-v3 .mk-footer nav { flex-wrap: wrap; gap: 10px 18px; }
+}
