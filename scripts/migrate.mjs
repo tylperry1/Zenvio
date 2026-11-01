@@ -1,3 +1,4 @@
+import {postgresConnectionString} from "../src/lib/postgres-connection.mjs";
 import { Pool } from 'pg';
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -7,7 +8,7 @@ if (!process.env.DATABASE_URL) {
  if (process.argv.includes('--if-configured')) { console.log('Database not configured; migrations skipped.'); process.exit(0); }
  throw new Error('DATABASE_URL is required');
 }
-const pool = new Pool({connectionString:process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL, max:1, connectionTimeoutMillis:15000});
+const pool = new Pool({connectionString:postgresConnectionString(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL), max:1, connectionTimeoutMillis:15000});
 const db=await pool.connect();
 try {
  await db.query("select pg_advisory_lock(hashtextextended('zenvio-migrations',0))");
