@@ -7,6 +7,8 @@ import { materializeBookingNotifications, mailReady } from "./mail";
 import { drainCalendarCleanup,runGoogleJobs } from "./google-calendar";
 import {runMicrosoftJobs} from "./microsoft-calendar";
 import { scheduleWorkflows } from "./workflows";
+import { processMarketplaceJobs } from "./gelato/follow-up";
+import { deliverMarketEmails } from "./market-mail";
 import {
   materializeReminders,
   drainDeliveries,
@@ -60,6 +62,10 @@ export async function processScheduledJobs() {
     await materializeReminders();
     await scheduleWorkflows();
     await materializeWaitlistOffers();
+    // Supplier fulfillment and admin alerts first, so emails they queue go out below.
+    await processMarketplaceJobs().catch(() => null);
+    // Marketplace order emails retry here; failures never block other jobs.
+    await deliverMarketEmails().catch(() => {});
     const result = await drainDeliveries(undefined, 20);
     if (!result.configured) throw Error("mail_unconfigured");
     await pool.query(

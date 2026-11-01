@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
-import { marketOrderDetail, applyMarketPayment } from "@/lib/marketplace";
+import { applyMarketPayment } from "@/lib/marketplace";
+import { customerOrder, customerRequest } from "@/lib/gelato/orders";
 import { stripeClient } from "@/lib/billing";
 import {
   session,
@@ -10,6 +11,7 @@ import {
   uuid,
   integer,
   ApiError,
+  string,
 } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { token } = await session();
     const id = request.nextUrl.searchParams.get("order");
     if (id)
-      return Response.json(await marketOrderDetail(uuid(id), token), {
+      return Response.json(await customerOrder(uuid(id), token), {
         headers: { "Cache-Control": "no-store" },
       });
     const page = integer(
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
       10000,
     );
     const { rows } = await getPool().query(
-      "SELECT id,status,payment_status,total_cents,created_at,updated_at FROM private.marketplace_orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 25 OFFSET $2",
+      "SELECT o.id,o.order_number,o.status,o.payment_status,o.total_cents,o.created_at,o.updated_at,so.status AS fulfillment_status FROM private.marketplace_orders o LEFT JOIN private.supplier_orders so ON so.order_id=o.id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 25 OFFSET $2",
       [token, page * 25],
     );
     return Response.json(
@@ -43,6 +45,19 @@ export async function POST(request: NextRequest) {
     sameOrigin(request);
     const { token } = await session(),
       input = await body(request);
+    if (input.action === "request") {
+      const id = uuid(input.orderId);
+      const owned = await getPool().query(
+        "SELECT 1 FROM private.marketplace_orders WHERE id=$1 AND user_id=$2",
+        [id, token],
+      );
+      if (!owned.rows.length) throw new ApiError("Order not found.", 404);
+      const kind =
+        input.kind === "cancel" || input.kind === "return" ? input.kind : "support";
+      return Response.json(
+        await customerRequest(id, kind, string(input.message || "", "message", 1000, 0), token),
+      );
+    }
     if (input.action !== "refresh" && input.action !== "resume")
       throw new ApiError("Invalid order action.");
     const id = uuid(input.orderId);
@@ -66,7 +81,7 @@ export async function POST(request: NextRequest) {
         `reconcile:${s.id}:${s.status}:${s.payment_status}`,
       );
     }
-    return Response.json(await marketOrderDetail(id, token));
+    return Response.json(await customerOrder(id, token));
   } catch (e) {
     return failure(e);
   }

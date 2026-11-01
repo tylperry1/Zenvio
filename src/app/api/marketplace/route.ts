@@ -6,30 +6,36 @@ import {
   marketSettings,
   productColumns,
 } from "@/lib/marketplace";
+import { allowRequest, clientIp } from "@/lib/booking-protection";
 import {
-  session,
+  ApiError,
+  email,
   sameOrigin,
   body,
   failure,
   integer,
   string,
 } from "@/lib/server";
+import { currentUser, existingGuestHash } from "@/lib/studio/shopper";
 export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
-    await session();
+    // Browsing is public; checkout decides between account and guest.
+    const signedIn = await currentUser().catch(() => null);
     const q = request.nextUrl.searchParams,
       page = integer(Number(q.get("page") || 0), "page", 0, 10000),
       search = string(q.get("search") || "", "search", 100, 0),
       category = string(q.get("category") || "", "category", 100, 0),
-      family = string(q.get("family") || "", "family", 30, 0);
+      family = string(q.get("family") || "", "family", 30, 0),
+      collection = ["featured", "custom"].includes(q.get("collection") || "") ? q.get("collection")! : "";
     const { rows } = await getPool().query(
-      `SELECT ${productColumns} FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2) AND ($4='' OR category IN (SELECT name FROM private.marketplace_categories WHERE family=$4)) ORDER BY created_at DESC,id LIMIT 50 OFFSET $3`,
-      ["%" + search + "%", category, page * 50, family],
+      `SELECT ${productColumns} FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2) AND ($4='' OR category IN (SELECT name FROM private.marketplace_categories WHERE family=$4)) AND ($5='' OR ($5='featured' AND featured) OR ($5='custom' AND EXISTS(SELECT 1 FROM private.supplier_products sp WHERE sp.product_id=marketplace_products.id))) ORDER BY featured DESC,created_at DESC,id LIMIT 50 OFFSET $3`,
+      ["%" + search + "%", category, page * 50, family, collection],
     );
     const { rows: counts } = await getPool().query(
-      "SELECT count(*)::int AS total FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2) AND ($3='' OR category IN (SELECT name FROM private.marketplace_categories WHERE family=$3))",
-      ["%" + search + "%", category, family],
+      "SELECT count(*)::int AS total FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) AND (title ILIKE $1 OR description ILIKE $1) AND ($2='' OR category=$2) AND ($3='' OR category IN (SELECT name FROM private.marketplace_categories WHERE family=$3)) AND ($4='' OR ($4='featured' AND featured) OR ($4='custom' AND EXISTS(SELECT 1 FROM private.supplier_products sp WHERE sp.product_id=marketplace_products.id)))",
+      ["%" + search + "%", category, family, collection],
     );
     const { rows: categories } = await getPool().query(
       "SELECT DISTINCT category FROM private.marketplace_products WHERE status='active' AND (supplier_id IS NULL OR EXISTS(SELECT 1 FROM private.marketplace_suppliers s WHERE s.id=supplier_id AND s.active)) ORDER BY category",
@@ -53,6 +59,7 @@ export async function GET(request: NextRequest) {
         total: counts[0].total,
         page,
         checkoutReady: settings.checkoutEnabled && settings.paymentConfigured,
+        signedIn: Boolean(signedIn),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -63,20 +70,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { user } = await session(),
-      input = await body(request);
+    const input = await body(request);
     cartLines(input.lines);
-    return Response.json(
-      await createMarketCheckout(
-        {
-          lines: input.lines,
-          businessName: input.businessName,
-          instructions: input.instructions,
-        },
-        { id: user.id, email: user.email, name: user.name },
-        process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
-      ),
+    const signedIn = await currentUser().catch(() => null);
+    let buyer: { id: string | null; email: string; name: string; guestHash?: string | null };
+    if (signedIn) buyer = { id: signedIn.id, email: signedIn.email, name: signedIn.name };
+    else {
+      // Guest checkout: no account needed. Throttled per client and per email.
+      const guest = (input.guest && typeof input.guest === "object" ? input.guest : {}) as Record<string, unknown>;
+      buyer = { id: null, name: string(guest.name, "name", 100, 2).trim(), email: email(guest.email), guestHash: await existingGuestHash() };
+      if (!(await allowRequest("market-guest-checkout", clientIp(request), 10, 3600)) || !(await allowRequest("market-guest-email", buyer.email, 6, 3600)))
+        throw new ApiError("Too many checkout attempts. Please wait a few minutes and try again.", 429);
+    }
+    const result = await createMarketCheckout(
+      {
+        lines: input.lines,
+        businessName: input.businessName,
+        instructions: input.instructions,
+        shippingAddress: input.shippingAddress,
+      },
+      buyer,
+      process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
     );
+    return Response.json({ url: result.url, orderId: result.orderId, guest: result.guest });
   } catch (e) {
     return failure(e);
   }

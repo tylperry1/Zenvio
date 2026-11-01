@@ -36,6 +36,7 @@ export const integrationFields = {
   DAILY_API_KEY: "Daily API key",
   DAILY_WEBHOOK_HMAC: "Daily webhook base64 HMAC secret",
   PRINTFUL_API_KEY: "Printful private store token",
+  GELATO_API_KEY: "Gelato API key",
   UPLOAD_SCANNER_KEY: "Private upload scanner API key",
   R2_ACCESS_KEY_ID: "Cloudflare R2 access key ID",
   R2_SECRET_ACCESS_KEY: "Cloudflare R2 secret access key",

@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { productPriceViolation } from "@/lib/market-pricing-db";
+import { deliverMarketEmails, queueMarketEmail } from "@/lib/market-mail";
 import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import {
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     try {
       await client.query("BEGIN");
       let details: Record<string, unknown> = {};
+      let sendEmails = false;
       if (input.action === "supplier") {
         if (
           !["dropship", "wholesale", "print_on_demand"].includes(
@@ -120,6 +122,20 @@ export async function POST(request: NextRequest) {
           )
         )
           throw new ApiError("Choose a product status and fulfillment method.");
+        // Supplier-imported listings are reviewed and published in Commerce → Gelato.
+        if (
+          input.id &&
+          (
+            await client.query(
+              "SELECT 1 FROM private.supplier_products WHERE product_id=$1",
+              [uuid(input.id)],
+            )
+          ).rows.length
+        )
+          throw new ApiError(
+            "This product is imported from Gelato. Manage it in Commerce → Gelato.",
+            409,
+          );
         const sku = string(input.sku, "SKU", 60, 2);
         if (!/^[A-Za-z0-9_.-]+$/.test(sku))
           throw new ApiError(
@@ -209,7 +225,7 @@ export async function POST(request: NextRequest) {
             409,
           );
         await client.query(
-          "UPDATE private.platform_settings SET value=$1,updated_at=now() WHERE key='marketplace'",
+          "UPDATE private.platform_settings SET value=value||$1::jsonb,updated_at=now() WHERE key='marketplace'",
           [JSON.stringify({ checkoutEnabled: input.checkoutEnabled })],
         );
         details = { checkoutEnabled: input.checkoutEnabled };
@@ -263,6 +279,13 @@ export async function POST(request: NextRequest) {
           "INSERT INTO private.marketplace_order_activity(order_id,actor_id,action) VALUES($1,$2,$3)",
           [id, token, "order_" + status],
         );
+        if (status !== order.status) {
+          const kind = ({ processing: "in_production", shipped: "shipped", delivered: "delivered" } as const)[status as "processing" | "shipped" | "delivered"];
+          if (kind) {
+            await queueMarketEmail(client, id, kind);
+            sendEmails = true;
+          }
+        }
         details = { orderId: id, status };
       } else if (input.action === "refund") {
         const id = uuid(input.orderId),
@@ -299,6 +322,10 @@ export async function POST(request: NextRequest) {
           "INSERT INTO private.marketplace_order_activity(order_id,actor_id,action,note) VALUES($1,$2,$3,$4)",
           [id, token, "refund_requested", reason],
         );
+        if (refund.status === "succeeded") {
+          await queueMarketEmail(client, id, "refunded");
+          sendEmails = true;
+        }
         details = { orderId: id, refundId: refund.id, status: refund.status };
       } else if (input.action === "expire-checkout") {
         const id = uuid(input.orderId),
@@ -348,6 +375,8 @@ export async function POST(request: NextRequest) {
         [token, "marketplace_" + input.action, JSON.stringify(details)],
       );
       await client.query("COMMIT");
+      // Queued with the status change; delivered after the response, never twice.
+      if (sendEmails) after(() => deliverMarketEmails().then(() => {}).catch(() => {}));
       return Response.json({ ok: true, ...details });
     } catch (e) {
       await client.query("ROLLBACK");

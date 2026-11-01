@@ -16,6 +16,8 @@ CREATE FUNCTION private.workspace_storage_bytes(owner uuid) RETURNS bigint LANGU
  UNION ALL SELECT coalesce(sum(octet_length(p.signature_image)),0) FROM private.signature_recipients p JOIN private.signature_envelopes e ON e.id=p.envelope_id WHERE e.user_id IN(SELECT id FROM hosts)
  UNION ALL SELECT coalesce(sum(octet_length(p.pdf)),0) FROM private.pdf_template_versions p JOIN private.pdf_templates t ON t.id=p.template_id WHERE t.user_id IN(SELECT id FROM hosts)
  UNION ALL SELECT coalesce(sum(octet_length(p.image)),0) FROM private.marketplace_artwork p WHERE p.user_id IN(SELECT id FROM hosts)
+ UNION ALL SELECT coalesce(sum(octet_length(p.image)),0) FROM private.brand_assets p WHERE p.user_id IN(SELECT id FROM hosts)
+ UNION ALL SELECT coalesce(sum(octet_length(p.file)),0) FROM private.design_proofs p JOIN private.saved_designs d ON d.id=p.design_id WHERE d.user_id IN(SELECT id FROM hosts)
  -- Failed/pending uploads may have reached the provider. Hold capacity until verified reconciliation.
  UNION ALL SELECT coalesce(sum(p.byte_size),0) FROM private.stored_files p WHERE p.user_id IN(SELECT id FROM hosts)
  ) SELECT coalesce(sum(n),0)::bigint FROM sizes;
@@ -23,7 +25,8 @@ $$;
 CREATE FUNCTION private.guard_workspace_storage() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE host uuid; owner uuid; current_owner uuid; old_bytes bigint:=0; new_bytes bigint:=0; cap bigint; version text; plan_id text; state text; lock_id uuid;
 BEGIN
- IF TG_TABLE_NAME='message_attachments' THEN SELECT user_id INTO host FROM private.message_threads WHERE id=NEW.thread_id;
+ IF TG_TABLE_NAME='design_proofs' THEN SELECT user_id INTO host FROM private.saved_designs WHERE id=NEW.design_id;
+ ELSIF TG_TABLE_NAME='message_attachments' THEN SELECT user_id INTO host FROM private.message_threads WHERE id=NEW.thread_id;
  ELSIF TG_TABLE_NAME='pdf_template_versions' THEN SELECT user_id INTO host FROM private.pdf_templates WHERE id=NEW.template_id;
  ELSIF TG_TABLE_NAME='signature_recipients' THEN SELECT user_id INTO host FROM private.signature_envelopes WHERE id=NEW.envelope_id;
  ELSE host:=(to_jsonb(NEW)->>'user_id')::uuid; END IF;
@@ -38,11 +41,12 @@ BEGIN
  IF current_owner<>owner THEN RAISE EXCEPTION 'storage_workspace_changed'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('storage:'||owner::text,0));
  SELECT catalog_version,plan,status INTO version,plan_id,state FROM private.subscriptions WHERE user_id=owner;
- IF TG_TABLE_NAME IN ('profile_photos','profile_images','marketplace_artwork') THEN new_bytes:=coalesce(octet_length(NEW.image),0); IF TG_OP='UPDATE' THEN old_bytes:=coalesce(octet_length(OLD.image),0);END IF;
+ IF TG_TABLE_NAME IN ('profile_photos','profile_images','marketplace_artwork','brand_assets') THEN new_bytes:=coalesce(octet_length(NEW.image),0); IF TG_OP='UPDATE' THEN old_bytes:=coalesce(octet_length(OLD.image),0);END IF;
  ELSIF TG_TABLE_NAME IN ('intake_uploads','message_attachments') THEN new_bytes:=octet_length(NEW.data);IF TG_OP='UPDATE' THEN old_bytes:=octet_length(OLD.data);END IF;
  ELSIF TG_TABLE_NAME='signature_envelopes' THEN new_bytes:=octet_length(NEW.pdf)+coalesce(octet_length(NEW.completed_pdf),0);IF TG_OP='UPDATE' THEN old_bytes:=octet_length(OLD.pdf)+coalesce(octet_length(OLD.completed_pdf),0);END IF;
  ELSIF TG_TABLE_NAME='signature_recipients' THEN new_bytes:=coalesce(octet_length(NEW.signature_image),0);IF TG_OP='UPDATE' THEN old_bytes:=coalesce(octet_length(OLD.signature_image),0);END IF;
  ELSIF TG_TABLE_NAME='pdf_template_versions' THEN new_bytes:=octet_length(NEW.pdf);IF TG_OP='UPDATE' THEN old_bytes:=octet_length(OLD.pdf);END IF;
+ ELSIF TG_TABLE_NAME='design_proofs' THEN new_bytes:=octet_length(NEW.file);IF TG_OP='UPDATE' THEN old_bytes:=octet_length(OLD.file);END IF;
  ELSIF TG_TABLE_NAME='stored_files' THEN new_bytes:=NEW.byte_size;IF TG_OP='UPDATE' THEN old_bytes:=OLD.byte_size;END IF;
  END IF;
  -- Finish evidence for an already-admitted envelope even if the optional upload quota is full.
@@ -55,7 +59,7 @@ BEGIN
  IF private.workspace_storage_bytes(owner)+new_bytes-old_bytes>cap THEN RAISE EXCEPTION 'workspace_storage_allowance_reached' USING ERRCODE='P0001';END IF;
  RETURN NEW;
 END;$$;
-DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['profile_photos','profile_images','intake_uploads','message_attachments','signature_envelopes','signature_recipients','pdf_template_versions','marketplace_artwork','stored_files'] LOOP
+DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['profile_photos','profile_images','intake_uploads','message_attachments','signature_envelopes','signature_recipients','pdf_template_versions','marketplace_artwork','stored_files','brand_assets','design_proofs'] LOOP
  EXECUTE format('CREATE TRIGGER workspace_storage_quota BEFORE INSERT OR UPDATE ON private.%I FOR EACH ROW EXECUTE FUNCTION private.guard_workspace_storage()',t);
  END LOOP; END $$;
 REVOKE ALL ON FUNCTION private.workspace_storage_bytes(uuid),private.guard_workspace_storage() FROM public,anon,authenticated;

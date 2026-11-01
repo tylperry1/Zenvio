@@ -47,6 +47,8 @@ jobs:
       - run: npm test
       - run: node tests/upgrade-migrations.integration.mjs
       - run: npm run build
+      # Gelato end-to-end flow on the migrated fixture database (scripted supplier API, no credentials).
+      - run: node tests/gelato.integration.mjs
       - run: npm run typecheck
       - name: Start isolated application
         run: |
