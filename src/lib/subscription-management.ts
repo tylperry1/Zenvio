@@ -75,7 +75,7 @@ export async function changeSubscription(
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       `subscription:${local.subscription_id}`,
     ]);
-    const current = await stripe.subscriptions.retrieve(local.subscription_id);
+    const current = await stripe.subscriptions.retrieve(local.subscription_id,{expand:["discounts"]});
     const customer =
       typeof current.customer === "string"
         ? current.customer

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       [event.id],
     );
     if (!exists.rowCount) {
-      const subscription = await stripe.subscriptions.retrieve(snapshot.id);
+      const subscription = await stripe.subscriptions.retrieve(snapshot.id,{expand:["discounts"]});
       const userId = subscription.metadata.user_id;
       const { rows } = await client.query(
         "SELECT user_id FROM private.subscriptions WHERE customer_id=$1",

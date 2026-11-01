@@ -30,12 +30,12 @@ export async function POST(req: NextRequest) {
         if (!map || map.catalog_version !== catalogVersion) throw new ApiError("This package is temporarily unavailable.", 503);
         const price = await stripe.prices.retrieve(map.stripe_price_id);
         const offer = [individualOffer, teamOffer, extraSeatOffer].find((p) => p.id === line.plan)!;
-        if (!price.active || price.currency !== "usd" || price.unit_amount !== offer.monthly || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) throw new ApiError("The recurring price could not be verified. No payment has been taken.", 503);
+        if (price.product !== `zenvio_${offer.id}_v3` || !price.active || price.currency !== "usd" || price.unit_amount !== offer.monthly || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) throw new ApiError("The recurring price could not be verified. No payment has been taken.", 503);
         lines.push({price:price.id,quantity:line.quantity});
       }
       if (local?.subscription_id) {
         await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["subscription:" + local.subscription_id]);
-        const current = await stripe.subscriptions.retrieve(local.subscription_id);
+        const current = await stripe.subscriptions.retrieve(local.subscription_id,{expand:["discounts"]});
         const customer = typeof current.customer === "string" ? current.customer : current.customer.id;
         if (customer !== local.customer_id || current.metadata.user_id !== token) throw new ApiError("Subscription ownership mismatch.", 409);
         if (["incomplete", "incomplete_expired", "past_due", "unpaid", "paused"].includes(current.status)) throw new ApiError("Resolve your current billing status before changing packages.", 409);
