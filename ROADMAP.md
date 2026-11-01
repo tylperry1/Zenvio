@@ -89,3 +89,8 @@ Migration 055 adds `private.booking_sources`, `private.booking_page_views`, `pri
 Daily usage continuation: signed participant-session ingestion, room history, tenant/master usage APIs and estimated costs are implemented; final provider-billed reconciliation and live acceptance remain unverified. Migration 056 is additive. Invalid provider cap values now fail closed before reservation queries.
 
 Coupon administration continuation: owner creation/pause/reactivation now has a user-facing flow and scoped status API; class date entry uses a native local picker with DST validation. Provider checkout activation is unchanged. No migration is needed.
+
+
+## Approved pricing revision: 2026-11-v3
+
+Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras $9.99 monthly. Fixed Teams pools replace per-seat allowance growth only for verified new-version subscriptions. Historical sections describe earlier releases; PRICING_IMPLEMENTATION.md is the current pricing checklist and explicitly lists unfinished meters, add-on activation and financial acceptance gates. Full commercial activation is not complete.

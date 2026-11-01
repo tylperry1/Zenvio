@@ -148,5 +148,25 @@ try{
  assert.equal((await call('/api/calendars/external',{action:'read',provider:'google',accountId:externalAccount,eventId:'event123'})).status,401);
  }
 
+
+ {
+ // New SaaS credits share one owner pool. These are disposable SQL-only fixtures.
+ const offers=await import('../src/lib/subscription-offers.mjs');
+ const filename=path.resolve('src/lib/subscription-usage.ts'),usageModule=new Module(filename);
+ usageModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./subscription-offers.mjs'?offers:{};
+ usageModule._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);
+ await db.query("insert into private.subscriptions(user_id,plan,status,catalog_version,seats,envelope_allowance) values($1,'team','active','2026-11-v3',3,30) on conflict(user_id) do update set plan='team',status='active',catalog_version='2026-11-v3',seats=3,envelope_allowance=30",[owner]);
+ const run=async(ref,n)=>{const c=await db.connect();try{await c.query('begin');const id=await usageModule.exports.reserveSubscriptionUnits(c,owner,'aiCredits',n,ref);await c.query('commit');return id;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+ const races=await Promise.allSettled([run('v3-race-a-'+suffix,450),run('v3-race-b-'+suffix,450)]);
+ assert.equal(races.filter(r=>r.status==='fulfilled').length,1);assert.equal(races.find(r=>r.status==='rejected').reason.status,429);
+ const id=races.find(r=>r.status==='fulfilled').value,c=await db.connect();try{await c.query('begin');await usageModule.exports.settleSubscriptionUnits(c,id,449);await usageModule.exports.settleSubscriptionUnits(c,id,449);await c.query('commit');}finally{c.release();}
+ assert.ok(await run('v3-last-'+suffix,1));await assert.rejects(run('v3-exhausted-'+suffix,1));
+ const usage=await usageModule.exports.subscriptionUsage(owner);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,450);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').remaining,0);
+ assert.equal((await call('/api/admin/economics',null,a.cookie)).status,403);
+ assert.equal((await call('/api/billing/addons',{addon:'ai_100',confirm:true},a.cookie)).status,503);
+ const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
+ const foreign=await call('/api/billing',null,b.cookie);assert.equal(foreign.status,200);assert.equal(foreign.data.meteredUsage.enforced,false);
+ }
+
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');
 }finally{await db.end();}

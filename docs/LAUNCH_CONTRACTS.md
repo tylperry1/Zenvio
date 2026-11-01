@@ -83,3 +83,10 @@ Writes require both `<PROVIDER>_EXTERNAL_EDITING_ENABLED=true` and `<PROVIDER>_E
 Errors: 400 invalid request/reference, 401 unauthenticated, 403 ownership/scope/read-only restriction, 404 unknown account/event, 409 stale version or missing notification acknowledgement, 429 rate limit, 503 disabled/unconfirmed provider result. Unknown write outcomes require refresh and are never automatically resent. Audits record request/confirmation/conflict/uncertain status without event contents. OAuth keys/tokens and stored connection settings are preserved.
 
 Coordinated release includes Claude frontend snapshot 4f4789a58b842c89b6a9f4dee583b2b89ab0e822 from PR #22 unchanged. Only its seven reviewed UI/test blobs are included; backend calendar, commerce and provider contracts remain independently typed and guarded.
+
+
+## Pricing revision 2026-11-v3
+
+Shared authoritative client-safe catalog: `src/lib/subscription-offers.mjs`. New fixed workspace allowances and approved add-on proposals are exposed by GET `/api/pricing`; only monthly plans are public. Existing subscriptions retain version `legacy` until an explicitly confirmed new purchase changes the verified Stripe base price. GET `/api/billing` adds `meteredUsage`, catalog version, reconciled monthly base/seat amount and promotion expiry. Unknown historical monthly amounts are shown as invoice references rather than current list-price guesses. POST `/api/subscription-enroll` requires verified v3 mappings and release-validation flag; no activation is implied.
+
+GET/POST `/api/admin/economics` is master-only: catalog/history, reservation-based economics and audited promotion enable/disable with reason/confirmation. POST `/api/billing/addons` is billing-owner-only, one-time supported packs only, and disabled without all billing-validation flags; signed existing subscription webhook reconciles exact paid amounts and refund recovery. Customer purchasing UI is deliberately unpublished pending complete acceptance. See PRICING_IMPLEMENTATION.md for incomplete meters and release gates.

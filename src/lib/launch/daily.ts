@@ -40,7 +40,7 @@ export async function dailyAccess(bookingId: string, scope: {
     if (existing?.room_name !== initialName) {
         rateMicros = Number(process.env.DAILY_PARTICIPANT_MINUTE_MICROS || 0);
         if (!Number.isSafeInteger(rateMicros) || rateMicros <= 0) throw new ApiError("Video pricing is not configured.",503);
-        reservation = await reserveUsage({ userId: initial.user_id, provider: "daily", micros: Math.ceil((initialWindow.exp - initialWindow.nbf) / 60) * 2 * rateMicros, platformCap: Number(process.env.DAILY_MONTHLY_CAP_MICROS || 0), workspaceCap: Number(process.env.DAILY_WORKSPACE_CAP_MICROS || 0) });
+        reservation = await reserveUsage({ userId: initial.user_id, provider: "daily", meter:"videoMinutes", quantity:Math.ceil((initialWindow.exp-initialWindow.nbf)/60)*2, micros: Math.ceil((initialWindow.exp - initialWindow.nbf) / 60) * 2 * rateMicros, platformCap: Number(process.env.DAILY_MONTHLY_CAP_MICROS || 0), workspaceCap: Number(process.env.DAILY_WORKSPACE_CAP_MICROS || 0) });
     }
     const db = await pool.connect();
     try {
@@ -72,6 +72,7 @@ export async function dailyAccess(bookingId: string, scope: {
             await db.query("insert into private.daily_room_usage(room_name,booking_id,user_id,usage_id,starts_at,expires_at,rate_micros) values($1,$2,$3,$4,$5,$6,$7) on conflict(room_name) do nothing",[room.room_name,bookingId,booking.user_id,reservation,booking.starts_at,room.expires_at,rateMicros]);
         }
         else if (reservation) {
+            await db.query("update private.subscription_usage_reservations set state='released' where id=(select subscription_usage_id from private.provider_usage_reservations where id=$1) and state='reserved'",[reservation]);
             await db.query("update private.provider_usage_reservations set state='released' where id=$1 and state='reserved'", [reservation]);
             reservation = undefined;
         }

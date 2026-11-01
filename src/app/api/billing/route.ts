@@ -1,3 +1,4 @@
+import { subscriptionUsage } from "@/lib/subscription-usage";
 import { billingReadiness } from "@/lib/billing-readiness";
 import { entitlementUsage } from "@/lib/entitlements";
 import {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
         headers: { "Cache-Control": "no-store" },
       });
     const { rows } = await getPool().query(
-      "SELECT plan,seats,status,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
+      "SELECT plan,seats,status,catalog_version,monthly_amount_cents,promotion_ends_at,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
       [token],
     );
     return Response.json(
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
         plans: await pricing(),
         ...(await billingReadiness()),
         usage: await entitlementUsage(token),
+        meteredUsage: await subscriptionUsage(token),
       },
       { headers: { "Cache-Control": "no-store" } },
     );

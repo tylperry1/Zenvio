@@ -23,7 +23,7 @@ const capabilities = [
     ["bell", "Reminders & account", ["Confirmation and reminder emails — 24 hours and 1 hour before by default", "Reminder timing you can change per appointment type", "Spam protection on booking and request forms", "Quick search across your workspace", "Download your data any time, and delete your account from Settings"]],
     ["shield", "Privacy & control", ["Your data stays in your workspace and is never sold", "Uploaded photos have location data removed", "Your data isn’t used to train AI models", "Clients only see what you share through their private link", "Send feedback to the Zenvio team from inside the app"]],
 ] as const;
-const withPackages = ["Up to 100 booking links and 5 Google accounts per host", "20 signing envelopes per seat each month", "Automated reminder workflows", "Appointment payments, deposits and job payment requests through Stripe", "Team scheduling with round-robin and shared inbox assignment (Teams)"];
+const withPackages = ["Up to 100 booking links and 5 Google accounts per host", "10 Individual envelopes or 30 pooled Teams envelopes each month", "Automated reminder workflows", "Appointment payments, deposits and job payment requests through Stripe", "Team scheduling with round-robin and shared inbox assignment (Teams)"];
 const faqs = [
     ["What can I do with Zenvio today?", "Zenvio is preparing for launch. Explore the demo today, or join early access for 50% off your first three monthly subscription payments when enrollment opens. Existing members can still sign in."],
     ["Do guests need an account to book?", "No. Share your booking page and guests can choose a time and enter their details without creating an account. Clients also use their private portal link without an account."],

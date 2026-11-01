@@ -10,13 +10,13 @@ type DB = Pick<PoolClient, "query">;
 export async function envelopeBudget(user: string, db: DB = getPool()) {
   const roots = (await db.query("SELECT * FROM private.team_entitlement_roots($1) ORDER BY (owner_id=$1) DESC,owner_id", [user])).rows;
   const owner: string = roots[0]?.owner_id || user;
-  const row = (await db.query(`SELECT private.effective_plan($1) plan,s.plan subscription_plan,s.status,s.customer_id,s.subscription_id,s.envelope_allowance,coalesce(s.seats,1) seats,coalesce(o.enabled,false) enabled,coalesce(o.monthly_cap_cents,0) cap FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.envelope_overage_settings o ON o.user_id=u.id WHERE u.id=$1`, [owner])).rows[0];
+  const row = (await db.query(`SELECT private.effective_plan($1) plan,s.plan subscription_plan,s.status,s.customer_id,s.subscription_id,s.envelope_allowance,s.catalog_version,coalesce(s.seats,1) seats,coalesce(o.enabled,false) enabled,coalesce(o.monthly_cap_cents,0) cap FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.envelope_overage_settings o ON o.user_id=u.id WHERE u.id=$1`, [owner])).rows[0];
   const plan = (row?.plan || "free") as Plan;
   const perSeat = ["individual", "team"].includes(plan) ? row?.envelope_allowance || 20 : (planLimits[plan] || planLimits.free).envelopes;
   const seats = roots[0]?.seats || 1;
   const used = (await db.query(`SELECT count(*)::int sent,coalesce(sum(charge_cents),0)::int spent FROM private.envelope_usage WHERE billing_owner=$1 AND sent_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [owner])).rows[0];
   const eligible = ["individual", "team"].includes(row?.subscription_plan) && row?.status === "active" && Boolean(row?.customer_id && row?.subscription_id);
-  return { owner, canManage: owner === user, plan, perSeat, seats, included: perSeat * seats, sent: used?.sent || 0, spent: used?.spent || 0, enabled: Boolean(row?.enabled), cap: row?.cap || 0, eligible, customer: row?.customer_id, subscription: row?.subscription_id };
+  return { catalogVersion: row?.catalog_version || "legacy", pooled: row?.catalog_version === "2026-11-v3", owner, canManage: owner === user, plan, perSeat, seats, included: row?.catalog_version === "2026-11-v3" ? (plan === "team" ? 30 : 10) : perSeat * seats, sent: used?.sent || 0, spent: used?.spent || 0, enabled: Boolean(row?.enabled), cap: row?.cap || 0, eligible, customer: row?.customer_id, subscription: row?.subscription_id };
 }
 export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number }) {
   if (budget.sent < budget.included) return 0;

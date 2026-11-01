@@ -86,3 +86,8 @@ Prior production release: main 2d47d973, deployment dpl_HobC6efetAi7VQci72yXE9wZ
 TLS cleanup release: PR #21 merged as ebfc26e9; both CI jobs passed run 41260415386 (217 unit tests, 246 responsive combinations and configured database/API/browser checks). Production dpl_BA7NG8JgaXdEWqyG2KRLiEzKCEDq READY. Live database-backed offers GET succeeded; sampled error/fatal runtime logs were empty and the build emitted no legacy TLS alias warning. Stored secrets were unchanged.
 
 External calendar candidate: metadata-only title/location APIs are implemented behind separate disabled provider-validation flags. Unit fixtures cover ownership/recurrence/version/notification restrictions and exact conditional PATCH fields; actual database fixtures cover foreign connected-account isolation. Real OAuth/conditional-write acceptance and frontend adoption remain unverified. No live external event or invitation was changed.
+
+
+## Pricing revision candidate 2026-11-v3
+
+New monthly catalog, fixed usage pools, base-only launch coupon, historical price preservation, cost-based AI reservation and settlement, conservative video credit reservations, gated prepaid add-on reconciliation and real-data/estimate-separated admin economics are implemented. No new live checkout is allowed without PRICING_V3_VALIDATED in addition to prior billing gates. Add-on purchases also require ADDON_BILLING_VALIDATED. Neither flag is enabled. Migration 057 is additive; existing subscribers stay legacy. See PRICING_IMPLEMENTATION.md for incomplete email/storage/SMS meters and financial acceptance. Candidate CI and production verification remain pending.

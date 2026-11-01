@@ -16,7 +16,7 @@ export async function saveSubscription(
     [userId,revenue.subscriptionId,revenue.currency,revenue.mrrCents,revenue.status,revenue.complete,revenue.issue]);
   const items = subscription.items.data;
   const mappings = (await client.query(
-    "SELECT plan,period,stripe_price_id FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[])",
+    "SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[]) UNION SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_price_history WHERE stripe_price_id=ANY($1::text[])",
     [items.map((item) => item.price.id)],
   )).rows;
   const base = items.find((item) => mappings.some((m) => m.stripe_price_id === item.price.id && ["individual", "team"].includes(m.plan)));
@@ -34,9 +34,13 @@ export async function saveSubscription(
     seats = mappedPlan === "team" ? 3 + (extra?.quantity || 0) : 1;
   }
   const end = (base || legacy)?.current_period_end;
+  const version = mapping?.catalog_version || "legacy";
+  const discounts = (subscription.discounts || []).filter(d=>typeof d !== "string");
+  const promoEnd = discounts.reduce((end,d)=>Math.max(end,d.end||0),0);
+  const monthlyAmount = mapping?.period === "monthly" && items.every(i=>Number.isInteger(i.price.unit_amount)) ? items.reduce((n,i)=>n+i.price.unit_amount!*(i.quantity||1),0) : null;
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["entitlements:"+userId]);
   await client.query(
-    "UPDATE private.subscriptions SET envelope_allowance=CASE WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       paid && ["pro", "business", "teams", "individual", "team"].includes(mappedPlan)
@@ -46,7 +50,7 @@ export async function saveSubscription(
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
-      seats,
+      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount,
     ],
   );
 }

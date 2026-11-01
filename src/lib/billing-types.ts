@@ -16,6 +16,9 @@ export type Subscription = {
   has_customer?: boolean;
   has_subscription?: boolean;
   seats?: number;
+  catalog_version?: string;
+  monthly_amount_cents?: number|null;
+  promotion_ends_at?: string|null;
 };
 export type Invoice = {
   id: string;
