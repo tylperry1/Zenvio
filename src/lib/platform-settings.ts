@@ -34,6 +34,7 @@ export const integrationFields = {
   TELNYX_API_KEY: "Telnyx API key",
   TELNYX_PUBLIC_KEY: "Telnyx webhook Ed25519 public key",
   DAILY_API_KEY: "Daily API key",
+  DAILY_WEBHOOK_HMAC: "Daily webhook base64 HMAC secret",
   PRINTFUL_API_KEY: "Printful private store token",
   UPLOAD_SCANNER_KEY: "Private upload scanner API key",
   R2_ACCESS_KEY_ID: "Cloudflare R2 access key ID",

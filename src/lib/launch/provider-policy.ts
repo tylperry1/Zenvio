@@ -48,7 +48,7 @@ export async function reserveUsage(input: {
     platformCap: number;
     workspaceCap: number;
 }) {
-    if (!Number.isSafeInteger(input.micros) || input.micros <= 0 || input.platformCap <= 0 || input.workspaceCap <= 0)
+    if (!Number.isSafeInteger(input.micros) || input.micros <= 0 || ![input.platformCap,input.workspaceCap].every(n => Number.isSafeInteger(n) && n > 0))
         throw new ApiError("Provider spending is disabled.", 503);
     const db = await getPool().connect();
     try {

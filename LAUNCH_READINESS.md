@@ -72,3 +72,7 @@ Additional forward migrations: 047 binds offer recipients; 048 corrects pending 
 ## Authorized production continuation
 
 The user explicitly requested continued implementation and production deployment. The next candidate adds migration 053 (SMS booking-source linkage), 054 (actual membership renewal state), a disabled-by-default appointment SMS materializer, public offers/gift redemption/checkout-return pages, class registration/cancellation and waitlist-offer pages, and an authenticated business growth center. Claude's admin/design-system files are unchanged; one additive workspace navigation entry is documented in the shared contract. Final integrated CI must pass before merging/deploying. Provider activation flags remain off. No live charges, supplier purchases or test SMS are authorized.
+
+## Post-release video usage candidate
+
+Prior production release: main 2d47d973, deployment dpl_HobC6efetAi7VQci72yXE9wZeyEx READY on Node 22, migrations 041–054 applied. Current main adds Claude's marketing/review migration 055. New candidate migration 056 adds Daily signed usage events, immutable room/rate history and tenant-scoped reporting. Candidate CI and live Daily acceptance remain pending; no feature flag or secret is activated by this change.

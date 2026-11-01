@@ -36,9 +36,11 @@ export async function dailyAccess(bookingId: string, scope: {
     const initialName = "z-" + createHash("sha256").update(bookingId + ":" + new Date(initial.starts_at).toISOString() + ":" + new Date(initial.ends_at).toISOString()).digest("hex").slice(0, 40);
     const existing = (await pool.query("select room_name from private.video_rooms where booking_id=$1", [bookingId])).rows[0];
     let reservation: string | undefined;
+    let rateMicros: number | undefined;
     if (existing?.room_name !== initialName) {
-        const rate = Number(process.env.DAILY_PARTICIPANT_MINUTE_MICROS || 0);
-        reservation = await reserveUsage({ userId: initial.user_id, provider: "daily", micros: Math.ceil((initialWindow.exp - initialWindow.nbf) / 60) * 2 * rate, platformCap: Number(process.env.DAILY_MONTHLY_CAP_MICROS || 0), workspaceCap: Number(process.env.DAILY_WORKSPACE_CAP_MICROS || 0) });
+        rateMicros = Number(process.env.DAILY_PARTICIPANT_MINUTE_MICROS || 0);
+        if (!Number.isSafeInteger(rateMicros) || rateMicros <= 0) throw new ApiError("Video pricing is not configured.",503);
+        reservation = await reserveUsage({ userId: initial.user_id, provider: "daily", micros: Math.ceil((initialWindow.exp - initialWindow.nbf) / 60) * 2 * rateMicros, platformCap: Number(process.env.DAILY_MONTHLY_CAP_MICROS || 0), workspaceCap: Number(process.env.DAILY_WORKSPACE_CAP_MICROS || 0) });
     }
     const db = await pool.connect();
     try {
@@ -67,6 +69,7 @@ export async function dailyAccess(bookingId: string, scope: {
                 throw new ApiError("Video room privacy or expiry could not be verified.", 503);
             room = (await db.query(`insert into private.video_rooms(booking_id,user_id,room_name,join_url,starts_at,expires_at,usage_id) values($1,$2,$3,$4,$5,to_timestamp($6),$7)
         on conflict(booking_id) do update set room_name=$3,join_url=$4,starts_at=$5,expires_at=to_timestamp($6),usage_id=$7 returning *`, [bookingId, booking.user_id, name, created.url, booking.starts_at, window.exp, reservation])).rows[0];
+            await db.query("insert into private.daily_room_usage(room_name,booking_id,user_id,usage_id,starts_at,expires_at,rate_micros) values($1,$2,$3,$4,$5,$6,$7) on conflict(room_name) do nothing",[room.room_name,bookingId,booking.user_id,reservation,booking.starts_at,room.expires_at,rateMicros]);
         }
         else if (reservation) {
             await db.query("update private.provider_usage_reservations set state='released' where id=$1 and state='reserved'", [reservation]);
