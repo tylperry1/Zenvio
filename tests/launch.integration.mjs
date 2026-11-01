@@ -107,6 +107,7 @@ try{
  const giftOrder=await syntheticOrder('gift_card','USD',1000);await settlement(giftOrder,'fixture-gift-'+suffix,'pi_gift_'+suffix);const gift=(await db.query('select code_ciphertext from private.growth_gift_cards where order_id=$1',[giftOrder.id])).rows[0],giftCode=fixtureUnseal(gift.code_ciphertext);
  const redeemed=await Promise.all([1,2].map(()=>commerce.redeemGiftCard({code:giftCode,name:'Gift recipient',email})));assert.deepEqual(redeemed.map(r=>r.duplicate).sort(),[false,true]);assert.equal(Number((await db.query("select balance from private.customer_balance_accounts where user_id=$1 and contact_id=$2 and kind='gift_card' and unit='USD'",[owner,contact.id])).rows[0].balance),1000);await recover('pi_gift_'+suffix,1000);assert.equal(Number((await db.query("select balance from private.customer_balance_accounts where user_id=$1 and contact_id=$2 and kind='gift_card' and unit='USD'",[owner,contact.id])).rows[0].balance),0);
 
+ {
  // Provider-free signed-event ingestion against the actual Postgres ledger.
  const dailyService=commerceLoad('src/lib/launch/daily-usage.ts'),roomName='z-'+createHash('sha256').update('daily-fixture-'+suffix).digest('hex').slice(0,40);
  const reservation=(await db.query("insert into private.provider_usage_reservations(user_id,provider,reserved_micros) values($1,'daily',100000) returning id",[owner])).rows[0];
@@ -123,5 +124,6 @@ try{
  assert.equal(videoOther.status,200);assert.equal(videoOther.data.rooms.length,0);assert.equal((await call('/api/video/usage')).status,401);
  assert.equal((await db.query('select state,actual_micros from private.provider_usage_reservations where id=$1',[reservation.id])).rows[0].state,'reserved');
 
+ }
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');
 }finally{await db.end();}
