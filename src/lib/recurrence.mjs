@@ -16,3 +16,17 @@ export function recurrenceStarts(startsAt,timezone,count,interval){
  }
  return result;
 }
+
+
+/** Convert a date picker value without silently normalizing DST gaps or repeats. */
+export function localBookingStart(value,timezone){
+ if(typeof timezone!=='string'||!timezone)throw new Error('Choose a valid timezone.');
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))throw new Error('Choose a valid date and time.');
+ const [day,time]=value.split('T');
+ let candidate;
+ try{candidate=zonedDate(day,time,timezone);}catch{throw new Error('Choose a valid timezone.');}
+ const key=d=>{const p=inZone(d,timezone);return p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute;};
+ if(!candidate||key(candidate)!==value)throw new Error('This local time does not exist because the clock changes. Choose another time.');
+ if([-120,-90,-60,-30,30,60,90,120].some(minutes=>key(new Date(candidate.getTime()+minutes*60000))===value))throw new Error('This local time occurs twice because the clock changes. Choose another time.');
+ return candidate.toISOString();
+}

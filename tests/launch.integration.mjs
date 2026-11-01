@@ -125,5 +125,16 @@ try{
  assert.equal((await db.query('select state,actual_micros from private.provider_usage_reservations where id=$1',[reservation.id])).rows[0].state,'reserved');
 
  }
+
+ {
+ const couponCode='FIXTURE'+suffix,coupon=await call('/api/growth/offers',{action:'coupon',code:couponCode,percentOff:10,maximumUses:3,expiresAt:new Date(Date.now()+86400000).toISOString()},a.cookie);
+ assert.equal(coupon.status,201,JSON.stringify(coupon.data));
+ assert.equal((await call('/api/growth/offers',{action:'coupon_status',id:coupon.data.id,active:false},b.cookie)).status,404);
+ assert.equal((await call('/api/growth/offers',{action:'coupon_status',id:coupon.data.id,active:'yes'},a.cookie)).status,400);
+ assert.equal((await call('/api/growth/offers',{action:'coupon_status',id:coupon.data.id,active:false},a.cookie)).status,200);
+ assert.equal((await db.query('select active from private.growth_coupons where id=$1',[coupon.data.id])).rows[0].active,false);
+ assert.equal((await call('/api/growth/offers',{action:'coupon_status',id:coupon.data.id,active:true},a.cookie)).status,200);
+ }
+
  console.log('Launch scheduling, classes, tenant isolation, package/membership settlement, gift redemption and refund-debt fixtures passed.');
 }finally{await db.end();}

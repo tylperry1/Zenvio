@@ -60,6 +60,20 @@ try {
   await pages[0].getByRole("heading",{name:"QA service package",exact:true}).waitFor();
   assert.equal(await pages[0].getByRole("button",{name:"Review offer",exact:true}).isDisabled(),true,"unvalidated checkout stays disabled");
   await pages[0].screenshot({path:"test-results/customer-offers-mobile.png",fullPage:true});
+
+  const couponForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create a package coupon",exact:true})});
+  await couponForm.locator('[name="code"]').fill("QA-SAVE10");
+  await couponForm.locator('[name="percentOff"]').fill("10");
+  await couponForm.locator('[name="maximumUses"]').fill("3");
+  await couponForm.locator('[name="expiresAt"]').fill(new Date(Date.now()+86400000).toISOString().slice(0,16));
+  await couponForm.getByRole("button",{name:"Create coupon",exact:true}).click();
+  await pages[1].getByRole("status").filter({hasText:"Coupon created."}).waitFor();
+  const couponCard=pages[1].locator("article").filter({has:pages[1].getByRole("heading",{name:"QA-SAVE10",exact:true})});
+  await couponCard.getByRole("button",{name:"Pause coupon QA-SAVE10",exact:true}).click();
+  await couponCard.getByRole("button",{name:"Reactivate coupon QA-SAVE10",exact:true}).waitFor();
+  await couponCard.getByRole("button",{name:"Reactivate coupon QA-SAVE10",exact:true}).click();
+  await couponCard.getByRole("button",{name:"Pause coupon QA-SAVE10",exact:true}).waitFor();
+
   for (const route of ["/api/workspace","/api/clients","/api/account","/api/billing"]) {
     for (let sample=0;sample<5;sample++) {
       const start=performance.now();
