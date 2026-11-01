@@ -90,6 +90,31 @@ Daily usage continuation: signed participant-session ingestion, room history, te
 
 Coupon administration continuation: owner creation/pause/reactivation now has a user-facing flow and scoped status API; class date entry uses a native local picker with DST validation. Provider checkout activation is unchanged. No migration is needed.
 
+## Marketplace upgrade: custom branding, printing, promotional and NFC products
+
+One unified marketplace; see [docs/MARKETPLACE_AUDIT.md](docs/MARKETPLACE_AUDIT.md) for the reuse assessment. Migration 057 is additive.
+
+| Priority | Item | Status |
+| --- | --- | --- |
+| P0 | Existing marketplace audit | Completed |
+| P0 | Supplier acquisition dashboard (Admin → Suppliers & pricing) | Completed and verified |
+| P0 | Supplier integration framework | Partially implemented: supplier records track connector, API availability and integration status; Printful read-only adapter exists; no shared submit/track interface yet |
+| P0 | First verified supplier connector | Blocked: needs approved account and credentials |
+| P0 | Product category expansion (6 families, 47 categories, backward compatible) | Completed and verified |
+| P0 | Supplier-backed product catalog | Partially implemented (manual products with supplier SKU; Printful catalog read-only) |
+| P0 | Retail pricing engine and below-cost guard | Completed and verified |
+| P0 | Storefront upgrade | Partially implemented (family navigation); product pages and premium redesign pending |
+| P0 | Product customization MVP and brand asset uploads | Partially implemented (existing options and artwork upload); Brand Studio not started |
+| P0 | Stripe checkout integration | Existing checkout reused; guest checkout not started |
+| P0 | Order management and supplier fulfillment tracking | Existing manual queue reused; automated submission blocked |
+| P0 | Resend marketplace notifications | Not started |
+| P0 | Admin cost visibility and marketplace economics | Completed and verified |
+| P1 | NFC digital profiles, QR codes, permanent card links, deactivation and reassignment | Completed and verified |
+| P1 | NFC physical product ordering | Blocked: needs manufacturing partner |
+| P1 | Subscriber discounts | Partially implemented (rule field; checkout application pending) |
+| P1 | Additional connectors, Brand Studio, business card editor, bulk pricing tiers, brand kits, templates, reorder | Not started |
+| P2 | AI-assisted design, advanced mockups, corporate and team purchasing, multi-brand workspaces, automated supplier selection, supplier analytics, campaigns, recurring orders | Not started |
+
 
 ## Approved pricing revision: 2026-11-v3
 

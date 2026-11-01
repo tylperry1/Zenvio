@@ -48,6 +48,8 @@ const exportQueries: Query[] = [
   { key: "booking_sources", sql: "SELECT booking_id,source,medium,campaign,referrer_host,created_at FROM private.booking_sources WHERE user_id=$1" },
   { key: "booking_page_views", sql: "SELECT day,source,views FROM private.booking_page_views WHERE user_id=$1 ORDER BY day" },
   { key: "reviews", sql: "SELECT booking_id,rating,comment,display_name,public_consent,hidden_reason,owner_reply,replied_at,created_at FROM private.reviews WHERE user_id=$1" },
+  { key: "smart_profiles", sql: "SELECT slug,display_name,company,job_title,bio,phone,email,website,address,links,show_booking,show_phone,show_email,show_address,published,created_at FROM private.smart_profiles WHERE user_id=$1" },
+  { key: "smart_cards", sql: "SELECT label,kind,status,created_at,deactivated_at FROM private.smart_cards WHERE user_id=$1" },
   { key: "review_requests", sql: "SELECT booking_id,recipient_email,sent_at,expires_at,used_at,created_at FROM private.review_requests WHERE user_id=$1" },
 ];
 

@@ -57,6 +57,7 @@ const groups: NavGroup[] = [
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & classes", icon: "bag", href: "/app/growth" },
       { id: "marketing", label: "Marketing & reviews", icon: "spark", href: "/app/marketing" },
+      { id: "smart-cards", label: "Smart cards", icon: "card", href: "/app/smart-cards" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
     ],

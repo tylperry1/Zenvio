@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { productPriceViolation } from "@/lib/market-pricing-db";
 import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import {
@@ -152,6 +153,20 @@ export async function POST(request: NextRequest) {
           string(input.lead_time || "", "lead time", 100, 0),
           input.status,
         ];
+        // Active products with a known cost may not sell below cost or minimum profit.
+        if (input.status === "active" && values[5] !== null) {
+          const violation = await productPriceViolation(
+            {
+              priceCents: values[4] as number,
+              costCents: values[5] as number,
+              minimumQuantity: values[7] as number,
+              category: values[3] as string,
+              supplierId: supplier,
+            },
+            client,
+          );
+          if (violation) throw new ApiError(violation + " Adjust the price or the pricing rule.", 409);
+        }
         const columns =
           "sku,title,description,category,price_cents,cost_cents,shipping_cents,minimum_quantity,stock,supplier_id,supplier_sku,fulfillment,lead_time,status";
         const r = input.id
