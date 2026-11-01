@@ -1,3 +1,5 @@
+import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
+import type {ExternalCalendarUpdate} from "./external-calendar-policy";
 import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getPool } from "./db";
@@ -286,3 +288,40 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
  return completed;
 }
 
+
+/** Metadata-only changes; recurring and Zenvio-managed events remain read-only. */
+export async function microsoftExternalEvent(userId:string,accountId:string,eventId:string,update?:ExternalCalendarUpdate){
+ const {externalReference,externalEditingEnabled,calendarVersion,microsoftExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
+ externalReference("microsoft",accountId,eventId);
+ const enabled=externalEditingEnabled("microsoft");
+ if(update&&!enabled)throw new ApiError("Microsoft external editing has not passed release validation.",503);
+ const c=(await getPool().query("select scope,status from private.microsoft_calendar_connections where user_id=$1 and account_id=$2",[userId,accountId])).rows[0];
+ if(!c)throw new ApiError("Microsoft account not found.",404);
+ if(c.status!=="connected")throw new ApiError("Reconnect Microsoft Calendar.",409);
+ const path="/me/events/"+encodeURIComponent(eventId);
+ const response=await graphRequest(userId,accountId,path+"?$expand=extensions",{headers:{Prefer:'outlook.timezone="UTC"'}});
+ if(response.status===404)throw new ApiError("External event not found.",404);
+ if(!response.ok)throw new ApiError("Microsoft event could not be verified.",503);
+ const event=await response.json();
+ if(event.id!==eventId)throw new ApiError("Microsoft event reference could not be verified.",503);
+ const linked=(await getPool().query("select 1 from private.microsoft_calendar_events where user_id=$1 and account_id=$2 and event_id=$3 limit 1",[userId,accountId,eventId])).rows.length>0;
+ const reason=microsoftExternalReason(event,String(c.scope||""),linked),count=Array.isArray(event.attendees)?event.attendees.length:0;
+ const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"microsoft",accountId,eventId,title:e.subject||"",location:e.location?.displayName||"",start:e.start||null,end:e.end||null,version:calendarVersion(e["@odata.etag"]),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Microsoft external editing has not passed release validation.":null)});
+ if(!update)return snapshot(event);
+ assertExternalUpdate(reason,calendarVersion(event["@odata.etag"]),count,update);
+ if(event.subject===update.title && (event.location?.displayName||"")===update.location)return {...snapshot(event),unchanged:true};
+ await externalCalendarAudit(userId,"microsoft",eventId,"requested");
+ let patched:Response;
+ try{
+  patched=await graphRequest(userId,accountId,path,{method:"PATCH",headers:{"If-Match":update.version,Prefer:'outlook.timezone="UTC"'},body:JSON.stringify({subject:update.title,location:{displayName:update.location}})});
+ }catch{
+  await externalCalendarAudit(userId,"microsoft",eventId,"uncertain").catch(()=>{});
+  throw new ApiError("Calendar update outcome is unknown. Refresh the event before trying again.",503);
+ }
+ if(patched.status===412){await externalCalendarAudit(userId,"microsoft",eventId,"conflict");throw new ApiError("This event changed. Refresh it before editing.",409);}
+ if(!patched.ok){await externalCalendarAudit(userId,"microsoft",eventId,"unconfirmed");throw new ApiError("Calendar update was not confirmed. Refresh the event before trying again.",503);}
+ const result=await patched.json().catch(()=>null);
+ if(!result || result.id!==eventId || result.subject!==update.title || (result.location?.displayName||"")!==update.location || !calendarVersion(result["@odata.etag"]) || result["@odata.etag"]===update.version){await externalCalendarAudit(userId,"microsoft",eventId,"unverified").catch(()=>{});throw new ApiError("Calendar update could not be verified. Refresh the event.",503);}
+ await externalCalendarAudit(userId,"microsoft",eventId,"confirmed");
+ return snapshot(result);
+}

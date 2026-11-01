@@ -1,3 +1,5 @@
+import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
+import type {ExternalCalendarUpdate} from "./external-calendar-policy";
 import {calendarIntakeSummary} from "./calendar-invitation.mjs";
 import { requireCapacity } from "./entitlements";
 import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
@@ -260,6 +262,7 @@ async function googleRequest(
   let response = await fetch(`https://www.googleapis.com/calendar/v3/${path}`, {
     ...options,
     headers: {
+      ...Object.fromEntries(new Headers(options.headers)),
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
@@ -273,6 +276,7 @@ async function googleRequest(
     response = await fetch(`https://www.googleapis.com/calendar/v3/${path}`, {
       ...options,
       headers: {
+        ...Object.fromEntries(new Headers(options.headers)),
         Authorization: `Bearer ${fresh.token}`,
         "Content-Type": "application/json",
       },
@@ -787,4 +791,41 @@ export async function drainCalendarCleanup(user?: string) {
   } finally {
     db.release();
   }
+}
+
+/** Primary-calendar metadata edits only. Booking, attendee and time changes stay in their existing workflows. */
+export async function googleExternalEvent(userId:string,accountSub:string,eventId:string,update?:ExternalCalendarUpdate){
+ const {externalReference,externalEditingEnabled,calendarVersion,googleExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
+ externalReference("google",accountSub,eventId);
+ const enabled=externalEditingEnabled("google");
+ if(update&&!enabled)throw new ApiError("Google external editing has not passed release validation.",503);
+ const c=(await getPool().query("select scope,status from private.google_calendar_connections where user_id=$1 and account_sub=$2",[userId,accountSub])).rows[0];
+ if(!c)throw new ApiError("Google account not found.",404);
+ if(c.status!=="connected")throw new ApiError("Reconnect Google Calendar.",409);
+ const path="calendars/primary/events/"+encodeURIComponent(eventId);
+ const current=await googleRequest(userId,path,{},accountSub);
+ if(current.response.status===404||current.response.status===410)throw new ApiError("External event not found.",404);
+ if(!current.response.ok)throw new ApiError("Google event could not be verified.",503);
+ const event=await current.response.json();
+ if(event.id!==eventId)throw new ApiError("Google event reference could not be verified.",503);
+ const linked=(await getPool().query("select 1 from private.google_calendar_events where user_id=$1 and account_sub=$2 and event_id=$3 limit 1",[userId,accountSub,eventId])).rows.length>0;
+ const reason=googleExternalReason(event,String(c.scope||""),linked),count=Array.isArray(event.attendees)?event.attendees.length:0;
+ const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"google",accountId:accountSub,eventId,title:e.summary||"",location:e.location||"",start:e.start||null,end:e.end||null,version:calendarVersion(e.etag),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Google external editing has not passed release validation.":null)});
+ if(!update)return snapshot(event);
+ assertExternalUpdate(reason,calendarVersion(event.etag),count,update);
+ if(event.summary===update.title && (event.location||"")===update.location)return {...snapshot(event),unchanged:true};
+ await externalCalendarAudit(userId,"google",eventId,"requested");
+ let patched:Awaited<ReturnType<typeof googleRequest>>;
+ try{
+  patched=await googleRequest(userId,path+"?sendUpdates=all",{method:"PATCH",headers:{"If-Match":update.version},body:JSON.stringify({summary:update.title,location:update.location})},accountSub);
+ }catch{
+  await externalCalendarAudit(userId,"google",eventId,"uncertain").catch(()=>{});
+  throw new ApiError("Calendar update outcome is unknown. Refresh the event before trying again.",503);
+ }
+ if(patched.response.status===412){await externalCalendarAudit(userId,"google",eventId,"conflict");throw new ApiError("This event changed. Refresh it before editing.",409);}
+ if(!patched.response.ok){await externalCalendarAudit(userId,"google",eventId,"unconfirmed");throw new ApiError("Calendar update was not confirmed. Refresh the event before trying again.",503);}
+ const result=await patched.response.json().catch(()=>null);
+ if(!result || result.id!==eventId || result.summary!==update.title || (result.location||"")!==update.location || !calendarVersion(result.etag) || result.etag===update.version){await externalCalendarAudit(userId,"google",eventId,"unverified").catch(()=>{});throw new ApiError("Calendar update could not be verified. Refresh the event.",503);}
+ await externalCalendarAudit(userId,"google",eventId,"confirmed");
+ return snapshot(result);
 }

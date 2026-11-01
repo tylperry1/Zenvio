@@ -139,3 +139,14 @@ export type ClassEnrollmentRequest = {
 export type ClassCancellationRequest = { action: "cancel"; token: string };
 export type GiftCardRedemptionRequest = { code: string; name: string; email: string };
 export type GiftCardRedemptionResponse = { redeemed: true; duplicate: boolean };
+
+export type ExternalCalendarReference={provider:"google"|"microsoft";accountId:string;eventId:string};
+export type ExternalCalendarMetadataUpdate={title:string;location:string;version:string;confirmNotifications?:boolean};
+export type ExternalCalendarMetadataRequest=ExternalCalendarReference & ({action:"read"}|({action:"update"} & ExternalCalendarMetadataUpdate));
+export type ExternalCalendarMetadataSnapshot=ExternalCalendarReference & {
+ title:string;location:string;
+ start:{dateTime?:string;date?:string;timeZone?:string}|null;
+ end:{dateTime?:string;date?:string;timeZone?:string}|null;
+ version:string|null;attendeeCount:number;requiresNotificationConfirmation:boolean;
+ editableFields:("title"|"location")[];readOnly:boolean;blockedReason:string|null;unchanged?:boolean;
+};

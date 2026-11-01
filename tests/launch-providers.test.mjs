@@ -89,3 +89,65 @@ test('Nonfinite or unsafe provider caps fail closed before any reservation query
  const service=load('src/lib/launch/provider-policy.ts');
  for(const cap of [NaN,Infinity,0,-1,Number.MAX_SAFE_INTEGER+1])await assert.rejects(service.reserveUsage({userId:'host',provider:'daily',micros:100,platformCap:cap,workspaceCap:1000}),/disabled/);
 });
+
+test('External calendar edits reject booking copies, guests, recurring events and missing write scopes',()=>{
+ const policy=load('src/lib/external-calendar-policy.ts'),google={etag:'"v1"',organizer:{self:true}},scope='https://www.googleapis.com/auth/calendar.events';
+ assert.equal(policy.googleExternalReason(google,scope,false),null);
+ assert.match(policy.googleExternalReason(google,scope,true),/Zenvio/);
+ assert.match(policy.googleExternalReason({...google,organizer:{self:false}},scope,false),/organized/);
+ assert.match(policy.googleExternalReason({...google,recurringEventId:'series'},scope,false),/recurring/);
+ assert.match(policy.googleExternalReason(google,'calendar.readonly',false),/permission/);
+ const microsoft={'@odata.etag':'W/"v1"',isOrganizer:true,type:'singleInstance',attendees:[]};
+ assert.equal(policy.microsoftExternalReason(microsoft,'Calendars.ReadWrite',false),null);
+ assert.match(policy.microsoftExternalReason({...microsoft,extensions:[{zenvioBookingId:'booking'}]},'Calendars.ReadWrite',false),/Zenvio/);
+ assert.match(policy.microsoftExternalReason({...microsoft,type:'occurrence'},'Calendars.ReadWrite',false),/recurring/);
+ assert.match(policy.microsoftExternalReason({...microsoft,isOrganizer:false},'Calendars.ReadWrite',false),/organized/);
+});
+test('External calendar changes require a matching version and notification acknowledgement',()=>{
+ const p=load('src/lib/external-calendar-policy.ts'),change={title:'New title',location:'Office',version:'"v1"',confirmNotifications:false};
+ assert.throws(()=>p.assertExternalUpdate(null,'"v2"',0,change),/changed/);
+ assert.throws(()=>p.assertExternalUpdate(null,'"v1"',1,change),/Confirm/);
+ assert.doesNotThrow(()=>p.assertExternalUpdate(null,'"v1"',1,{...change,confirmNotifications:true}));
+ assert.equal(p.calendarVersion('"v1"\r\nInjected: true'),null);
+ assert.throws(()=>p.externalReference('google','account','../events/other'),/Invalid/);
+});
+test('Google external metadata editing forwards If-Match and keeps the patch fields narrow',async()=>{
+ const before=global.fetch,oldEnabled=process.env.GOOGLE_EXTERNAL_EDITING_ENABLED,oldValidated=process.env.GOOGLE_EXTERNAL_EDITING_VALIDATED;
+ process.env.GOOGLE_EXTERNAL_EDITING_ENABLED='true';process.env.GOOGLE_EXTERNAL_EDITING_VALIDATED='true';
+ const requests=[],row={scope:'https://www.googleapis.com/auth/calendar.events',status:'connected',account_sub:'account',access_ciphertext:'fixture-token',refresh_ciphertext:'fixture-refresh',expires_at:new Date(Date.now()+3600000)};
+ const query=async sql=>({rows:sql.includes('google_calendar_connections')?[row]:[],rowCount:sql.includes('google_calendar_connections')?1:0}),pool={query,connect:async()=>({query,release(){}})};
+ const event={id:'event123',etag:'"v1"',summary:'Old title',location:'Old office',organizer:{self:true},attendees:[]};
+ global.fetch=async(url,options)=>{requests.push({url,options});return Response.json(options.method==='PATCH'?{...event,summary:'New title',location:'New office',etag:'"v2"'}:event);};
+ try{
+  const service=loader({db:{getPool:()=>pool},...platform,entitlements:{requireCapacity:async()=>{}},'google-auth-library':{OAuth2Client:class{},CodeChallengeMethod:{S256:'S256'}}})('src/lib/google-calendar.ts');
+  const result=await service.googleExternalEvent('owner','account','event123',{title:'New title',location:'New office',version:'"v1"',confirmNotifications:false});
+  assert.equal(result.title,'New title');assert.equal(result.version,'"v2"');
+  const patch=requests.find(r=>r.options.method==='PATCH');assert.ok(patch);
+  assert.equal(new Headers(patch.options.headers).get('if-match'),'"v1"');
+  assert.deepEqual(JSON.parse(patch.options.body),{summary:'New title',location:'New office'});
+  assert.match(patch.url,/sendUpdates=all/);
+ }finally{global.fetch=before;for(const [k,v] of [['GOOGLE_EXTERNAL_EDITING_ENABLED',oldEnabled],['GOOGLE_EXTERNAL_EDITING_VALIDATED',oldValidated]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
+});
+test('Microsoft external metadata edits remain inert without separate release validation',async()=>{
+ const enabled=process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED,validated=process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED;
+ delete process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED;delete process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED;
+ try{const service=load('src/lib/microsoft-calendar.ts');await assert.rejects(service.microsoftExternalEvent('owner','account','event123',{title:'Title',location:'Office',version:'W/"v1"',confirmNotifications:true}),/release validation/);}
+ finally{for(const [k,v] of [['MICROSOFT_EXTERNAL_EDITING_ENABLED',enabled],['MICROSOFT_EXTERNAL_EDITING_VALIDATED',validated]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
+});
+
+test('Microsoft external metadata editing preserves the version precondition and field whitelist',async()=>{
+ const before=global.fetch,enabled=process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED,validated=process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED;
+ process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED='true';process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED='true';
+ const requests=[],row={scope:'Calendars.ReadWrite',status:'connected',account_id:'account',access_ciphertext:'fixture-token',refresh_ciphertext:'fixture-refresh',expires_at:new Date(Date.now()+3600000)};
+ const query=async sql=>({rows:sql.includes('microsoft_calendar_connections')?[row]:[],rowCount:sql.includes('microsoft_calendar_connections')?1:0}),pool={query,connect:async()=>({query,release(){}})};
+ const event={id:'event123','@odata.etag':'W/"v1"',subject:'Old title',location:{displayName:'Old office'},isOrganizer:true,type:'singleInstance',attendees:[],extensions:[]};
+ global.fetch=async(url,options)=>{requests.push({url,options});return Response.json(options.method==='PATCH'?{...event,subject:'New title',location:{displayName:'New office'},'@odata.etag':'W/"v2"'}:event);};
+ try{
+  const service=loader({db:{getPool:()=>pool},...platform})('src/lib/microsoft-calendar.ts');
+  const result=await service.microsoftExternalEvent('owner','account','event123',{title:'New title',location:'New office',version:'W/"v1"',confirmNotifications:false});
+  assert.equal(result.title,'New title');assert.equal(result.version,'W/"v2"');
+  const patch=requests.find(r=>r.options.method==='PATCH');assert.ok(patch);
+  assert.equal(new Headers(patch.options.headers).get('if-match'),'W/"v1"');
+  assert.deepEqual(JSON.parse(patch.options.body),{subject:'New title',location:{displayName:'New office'}});
+ }finally{global.fetch=before;for(const [k,v] of [['MICROSOFT_EXTERNAL_EDITING_ENABLED',enabled],['MICROSOFT_EXTERNAL_EDITING_VALIDATED',validated]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
+});
