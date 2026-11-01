@@ -1,4 +1,5 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
+import { deliverMarketEmails, queueMarketEmail } from "@/lib/market-mail";
 import type Stripe from "stripe";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
@@ -50,10 +51,11 @@ export async function POST(request: NextRequest) {
             "INSERT INTO private.marketplace_refunds(payment_intent_id,amount_cents) VALUES($1,$2) ON CONFLICT(payment_intent_id) DO UPDATE SET amount_cents=GREATEST(private.marketplace_refunds.amount_cents,$2),updated_at=now()",
             [intent, charge.amount_refunded],
           );
-          await c.query(
-            "UPDATE private.marketplace_orders SET payment_status=CASE WHEN $2>=total_cents THEN 'refunded' ELSE 'partially_refunded' END,refunded_cents=GREATEST(refunded_cents,$2),refund_status='succeeded',updated_at=now() WHERE payment_intent_id=$1 AND refunded_cents<$2",
+          const refunded = await c.query(
+            "UPDATE private.marketplace_orders SET payment_status=CASE WHEN $2>=total_cents THEN 'refunded' ELSE 'partially_refunded' END,refunded_cents=GREATEST(refunded_cents,$2),refund_status='succeeded',updated_at=now() WHERE payment_intent_id=$1 AND refunded_cents<$2 RETURNING id",
             [intent, charge.amount_refunded],
           );
+          if (refunded.rows[0]) await queueMarketEmail(c, refunded.rows[0].id, "refunded");
           await c.query("COMMIT");
         } catch (e) {
           await c.query("ROLLBACK");
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    // Order emails are idempotent per order and kind; sending never blocks the webhook.
+    after(() => deliverMarketEmails().then(() => {}).catch(() => {}));
     return Response.json({ received: true });
   } catch {
     return Response.json(

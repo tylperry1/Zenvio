@@ -6,7 +6,10 @@ import {
   marketSettings,
   productColumns,
 } from "@/lib/marketplace";
+import { allowRequest, clientIp } from "@/lib/booking-protection";
 import {
+  ApiError,
+  email,
   session,
   sameOrigin,
   body,
@@ -15,9 +18,19 @@ import {
   string,
 } from "@/lib/server";
 export const dynamic = "force-dynamic";
+
+async function currentUser() {
+  try {
+    return (await session()).user;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null;
+    throw e;
+  }
+}
 export async function GET(request: NextRequest) {
   try {
-    await session();
+    // Browsing is public; checkout decides between account and guest.
+    const signedIn = await currentUser();
     const q = request.nextUrl.searchParams,
       page = integer(Number(q.get("page") || 0), "page", 0, 10000),
       search = string(q.get("search") || "", "search", 100, 0),
@@ -53,6 +66,7 @@ export async function GET(request: NextRequest) {
         total: counts[0].total,
         page,
         checkoutReady: settings.checkoutEnabled && settings.paymentConfigured,
+        signedIn: Boolean(signedIn),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -63,9 +77,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { user } = await session(),
-      input = await body(request);
+    const input = await body(request);
     cartLines(input.lines);
+    const signedIn = await currentUser();
+    let buyer: { id: string | null; email: string; name: string };
+    if (signedIn) buyer = { id: signedIn.id, email: signedIn.email, name: signedIn.name };
+    else {
+      // Guest checkout: no account needed. Throttled per client and per email.
+      const guest = (input.guest && typeof input.guest === "object" ? input.guest : {}) as Record<string, unknown>;
+      buyer = { id: null, name: string(guest.name, "name", 100, 2).trim(), email: email(guest.email) };
+      if (!(await allowRequest("market-guest-checkout", clientIp(request), 10, 3600)) || !(await allowRequest("market-guest-email", buyer.email, 6, 3600)))
+        throw new ApiError("Too many checkout attempts. Please wait a few minutes and try again.", 429);
+    }
     return Response.json(
       await createMarketCheckout(
         {
@@ -73,7 +96,7 @@ export async function POST(request: NextRequest) {
           businessName: input.businessName,
           instructions: input.instructions,
         },
-        { id: user.id, email: user.email, name: user.name },
+        buyer,
         process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
       ),
     );
