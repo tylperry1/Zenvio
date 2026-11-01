@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import Module,{createRequire} from 'node:module';
-import {generateKeyPairSync,sign} from 'node:crypto';
+import {generateKeyPairSync,sign,createHmac} from 'node:crypto';
 const require=createRequire(import.meta.url);
 const ts=require(process.env.ZENVIO_TS_COMPILER||'typescript');
 class ApiError extends Error{constructor(message,status=400){super(message);this.status=status;}}
@@ -62,4 +62,30 @@ test('Timed workflow tasks wait until their appointment trigger is due',async()=
  const service=loader({db:{getPool:()=>({connect:async()=>client})},entitlements:{entitlementUsage:async()=>({usage:{workflows:1},limits:{workflows:10},shared:[]})},lifecycle:{queueDelivery:async()=>{throw Error('must not send email')}},'pdf-templates':{},'document-delivery':{},'document-signing':{},envelopes:{}})('src/lib/workflows.ts');
  await service.scheduleWorkflows();assert.equal(writes.some(s=>s.includes('INSERT INTO private.client_tasks')),false);assert.equal(writes.some(s=>s.includes('INSERT INTO private.workflow_runs')),false);
  due=true;writes.length=0;await service.scheduleWorkflows();assert.equal(writes.filter(s=>s.includes('INSERT INTO private.client_tasks')).length,1);assert(writes.some(s=>s.includes("status='completed'")));
+});
+
+test('Daily webhook HMAC accepts seconds and milliseconds, and rejects tampering and stale delivery',()=>{
+ const service=load('src/lib/launch/daily-usage.ts'),secret=Buffer.alloc(32,7).toString('base64'),raw=JSON.stringify({test:'test'}),now=Date.now();
+ for(const timestamp of [String(Math.floor(now/1000)),String(now)]) {
+   const signature=createHmac('sha256',Buffer.from(secret,'base64')).update(timestamp+'.'+raw).digest('base64');
+   assert.equal(service.dailyWebhookValid(raw,timestamp,signature,secret,now),true);
+   assert.equal(service.dailyWebhookValid('{"test":"changed"}',timestamp,signature,secret,now),false);
+   assert.equal(service.dailyWebhookValid(raw,timestamp,signature,secret,now+901000),false);
+   assert.equal(service.dailyWebhookValid(raw,timestamp,signature,Buffer.alloc(32,9).toString('base64'),now),false);
+ }
+});
+test('Daily signed verification handshake does not write to the database',async()=>{
+ const secret=Buffer.alloc(32,7).toString('base64'),raw='{"test":"test"}',timestamp=String(Date.now()),signature=createHmac('sha256',Buffer.from(secret,'base64')).update(timestamp+'.'+raw).digest('base64');
+ const route=loader({'next/server':{},db:{getPool(){throw Error('handshake must not access database')}},'platform-settings':{integrationValue:async()=>secret},uploads:{readUpload:async()=>Buffer.from(raw)}})('src/app/api/video/webhook/route.ts');
+ const response=await route.POST({headers:new Headers({'x-webhook-timestamp':timestamp,'x-webhook-signature':signature})});
+ assert.equal(response.status,200);assert.equal((await response.json()).received,true);
+});
+test('Daily participant usage rejects negative, nonfinite and excessive durations',()=>{
+ const service=load('src/lib/launch/daily-usage.ts'),p={session_id:'fixture-session',joined_at:1793480000,duration:1.25};
+ assert.equal(service.dailyParticipant(p).durationMs,1250);
+ for(const duration of [-1,Infinity,NaN,86401])assert.throws(()=>service.dailyParticipant({...p,duration}),/Invalid/);
+});
+test('Nonfinite or unsafe provider caps fail closed before any reservation query',async()=>{
+ const service=load('src/lib/launch/provider-policy.ts');
+ for(const cap of [NaN,Infinity,0,-1,Number.MAX_SAFE_INTEGER+1])await assert.rejects(service.reserveUsage({userId:'host',provider:'daily',micros:100,platformCap:cap,workspaceCap:1000}),/disabled/);
 });

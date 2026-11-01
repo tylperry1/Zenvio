@@ -85,3 +85,7 @@ Migration 055 adds `private.booking_sources`, `private.booking_page_views`, `pri
 - Account export includes the new histories.
 - Review emails use the existing Resend key. Without it, owners get a private link to share.
 - Status: implemented and verified end to end against a local Postgres in a production build. Live email delivery is unverified.
+
+Daily usage continuation: signed participant-session ingestion, room history, tenant/master usage APIs and estimated costs are implemented; final provider-billed reconciliation and live acceptance remain unverified. Migration 056 is additive. Invalid provider cap values now fail closed before reservation queries.
+
+Coupon administration continuation: owner creation/pause/reactivation now has a user-facing flow and scoped status API; class date entry uses a native local picker with DST validation. Provider checkout activation is unchanged. No migration is needed.

@@ -1,10 +1,11 @@
+import {postgresConnectionString} from "../src/lib/postgres-connection.mjs";
 // Production-only, idempotent catalog setup. Never edits a price or subscription.
 import { Pool } from 'pg';
 import Stripe from 'stripe';
 import {createDecipheriv,createHash} from 'node:crypto';
 import {individualOffer,teamOffer,extraSeatOffer} from '../src/lib/subscription-offers.mjs';
 if(process.env.VERCEL_ENV!=='production'||!process.env.DATABASE_URL){console.log('Subscription catalog provisioning skipped outside production.');process.exit(0);}
-const pool=new Pool({connectionString:process.env.DATABASE_URL_UNPOOLED||process.env.DATABASE_URL,max:1,connectionTimeoutMillis:15000});
+const pool=new Pool({connectionString:postgresConnectionString(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL),max:1,connectionTimeoutMillis:15000});
 const db=await pool.connect();
 async function secret(name){const r=await db.query('SELECT ciphertext FROM private.integration_secrets WHERE key=$1',[name]);if(!r.rows[0])return process.env[name]||'';if(!process.env.INTEGRATION_ENCRYPTION_KEY)throw Error('Integration encryption is not configured');const [iv,tag,data]=r.rows[0].ciphertext.split('.');const d=createDecipheriv('aes-256-gcm',createHash('sha256').update(process.env.INTEGRATION_ENCRYPTION_KEY).digest(),Buffer.from(iv,'base64'));d.setAuthTag(Buffer.from(tag,'base64'));return Buffer.concat([d.update(Buffer.from(data,'base64')),d.final()]).toString();}
 try{
