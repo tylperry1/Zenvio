@@ -37,6 +37,9 @@
     "node": "22.x"
   },
   "overrides": {
-    "postcss": "^8.5.23"
+    "postcss": "^8.5.23",
+    "passkit-generator": {
+      "joi": "17.13.9"
+    }
   }
 }

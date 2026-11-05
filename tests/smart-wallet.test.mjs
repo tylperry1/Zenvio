@@ -11,13 +11,13 @@ import ts from "typescript";
 const fixture = { id: "9fb8cb60-9c42-4800-8bbd-6af86ccb274b", slug: "card-fixture", displayName: "Fixture Name", company: "Fixture Business", jobTitle: "Owner", accent: "#365CFF" };
 const url = new URL("https://gozenvio.com/p/card-fixture?via=qr");
 
-function loadWallet(credentials = {}) {
+function loadWallet(credentials = {}, mocks = {}) {
   const filename = path.resolve("src/lib/smart-wallet.ts");
   const module = new Module(filename);
   module.filename = filename;
   module.paths = Module._nodeModulePaths(path.dirname(filename));
   const load = module.require.bind(module);
-  module.require = (id) => ({
+  module.require = (id) => mocks[id] ?? ({
     "./platform-settings": { integrationValue: async (key) => credentials[key] ?? "" },
     "./server": { ApiError: Error },
     "./db": { getPool: () => { throw new Error("Unexpected database access"); } },
@@ -44,6 +44,27 @@ test("Google save link signs a stable Generic Object reference with the service 
   assert.equal(claims.typ, "savetowallet");
   assert.equal(claims.aud, "google");
   assert.deepEqual(claims.payload, { genericObjects: [{ id: object.id }] });
+});
+
+test("Google creates a missing pass and refreshes the same object on a concurrent insert", async () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const calls = [];
+  class WalletClient {
+    async request(options) {
+      calls.push(options);
+      if (calls.length <= 2) throw { response: { status: calls.length === 1 ? 404 : 409 } };
+    }
+  }
+  const wallet = loadWallet({
+    GOOGLE_WALLET_CLASS_ID: "12345.zenvio",
+    GOOGLE_WALLET_SERVICE_EMAIL: "fixture@example.iam.gserviceaccount.com",
+    GOOGLE_WALLET_PRIVATE_KEY: privateKey.export({ format: "pem", type: "pkcs8" }),
+  }, { "google-auth-library": { JWT: WalletClient } });
+  const link = await wallet.googleWalletSaveUrl(fixture, url);
+  assert.match(link, /^https:\/\/pay\.google\.com\/gp\/v\/save\//);
+  assert.deepEqual(calls.map((call) => call.method), ["PATCH", "POST", "PATCH"]);
+  assert.ok(calls[0].url.endsWith("/" + calls[1].data.id));
+  assert.equal(calls[2].data.barcode.value, url.href);
 });
 
 test("Apple creates a QR pass with a manifest and a verifiable detached signature", async (t) => {
