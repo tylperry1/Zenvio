@@ -544,3 +544,7 @@
 .go-lookup { display: grid; gap: 12px; max-width: 420px; }
 .go-help { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .go-help .ds-btn[aria-pressed="true"] { border-color: var(--action-primary); color: var(--action-primary); }
+
+.sc-wallet-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; }
+.sc-wallet-option { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px; border: 1px solid var(--ds-line-soft); border-radius: 12px; }
+.sc-share-actions { flex-wrap: wrap; }
