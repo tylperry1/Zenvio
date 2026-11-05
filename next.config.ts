@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
+  outputFileTracingIncludes: { "/api/smart-profiles/wallet/*": ["./public/brand/icon-192.png"] },
   async headers() {
     return [
       {

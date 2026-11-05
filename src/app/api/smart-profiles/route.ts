@@ -4,6 +4,8 @@ import { getPool } from "@/lib/db";
 import { ApiError, body, email, failure, sameOrigin, session, string, uuid } from "@/lib/server";
 import { cardKinds, cleanLinks, cleanSlug, cleanWebsite, newCardToken } from "@/lib/smart-cards";
 
+import { configuredWallets } from "@/lib/smart-wallet";
+
 export const dynamic = "force-dynamic";
 const MAX_PROFILES = 5;
 const MAX_CARDS = 50;
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     const db = getPool();
     const days = Number(request.nextUrl.searchParams.get("days") ?? 30);
     if (![7, 30, 90].includes(days)) throw new ApiError("Choose a 7, 30 or 90 day period.");
-    const [profiles, cards, views, booking, engagement] = await Promise.all([
+    const [profiles, cards, views, booking, engagement, wallet] = await Promise.all([
       db.query("SELECT * FROM private.smart_profiles WHERE user_id=$1 ORDER BY created_at", [owner]),
       db.query("SELECT id,profile_id,token,label,kind,status,created_at,deactivated_at,encoding_confirmed_at,legacy_registration FROM private.smart_cards WHERE user_id=$1 ORDER BY created_at DESC", [owner]),
       db.query(
@@ -50,9 +52,10 @@ export async function GET(request: NextRequest) {
            AND l.first_submitted_at >= ((now() AT TIME ZONE 'UTC')::date-($2::int-1)) AT TIME ZONE 'UTC' GROUP BY 1`,
         [owner, days],
       ),
+      configuredWallets(),
     ]);
     return Response.json(
-      { profiles: profiles.rows, cards: cards.rows, views: views.rows, engagement: engagement.rows, bookingSlug: booking.rows[0]?.slug || null, limits: { profiles: MAX_PROFILES, cards: MAX_CARDS } },
+      { wallet, profiles: profiles.rows, cards: cards.rows, views: views.rows, engagement: engagement.rows, bookingSlug: booking.rows[0]?.slug || null, limits: { profiles: MAX_PROFILES, cards: MAX_CARDS } },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
