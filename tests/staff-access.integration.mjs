@@ -15,6 +15,10 @@ try {
   await db.query("INSERT INTO private.staff_members(user_id,title,permissions,invited_by) VALUES($1,'QA pricing fixture',ARRAY['pricing'],$2)",[id,owner.id]);
   const cookie=signup.cookie;
   let r=await request("/api/admin/operations",cookie);assert.equal(r.status,200);assert.equal(r.data.access.role,"staff");assert.equal(r.data.pricing.length,7);assert.deepEqual(r.data.users,[]);assert.deepEqual(r.data.subscriptions,[]);assert.deepEqual(r.data.integrations,[]);
+  const catalog = await request("/api/admin/pricing", cookie);
+  assert.equal(catalog.status, 200);
+  assert.equal(catalog.data.allowances.individual.envelopes, 10);
+  assert.equal(catalog.data.allowances.team.envelopes, 30);
   assert.equal((await request("/api/admin/economics",cookie)).status,403);
   await db.query(`
     insert into private.provider_usage_reservations

@@ -12,7 +12,8 @@ type Data = {
   packages: Plan[];
   legacy: Plan[];
   limits: Record<string, { types: number; calendars: number; envelopes: number; workflows: number }>;
-  envelopes: { includedPerSeat: number; overageCents: number; capRangeCents: [number, number] };
+  allowances: Record<"individual" | "team", { envelopes: number }>;
+  envelopes: { overageCents: number; capRangeCents: [number, number] };
   features: string[];
   earlyAccess: { offer: string; total: number; open: number };
   history: { id: string; created_at: string; actor: string | null; details: { plans?: { id: string; name: string; monthly: number; annual: number }[] } }[];
@@ -165,7 +166,7 @@ export function AdminPricing() {
 
       <div className="ap-section-title">
         <h2>Current packages</h2>
-        <p>Approved rates are part of the reviewed release and change only through a code update, so the public page and Stripe always agree.</p>
+        <p>Approved rates come from the public catalog. Stripe mappings show the synchronized monthly prices.</p>
       </div>
       <div className="ap-packages">
         {[individual, team].map((p) => (
@@ -184,7 +185,7 @@ export function AdminPricing() {
             <dl className="ds-dl">
               <div><dt>Billing</dt><dd>Monthly only</dd></div>
               <div><dt>Subscribers</dt><dd>{p.subscribers?.active || 0}{p.subscribers?.past_due ? ` · ${p.subscribers.past_due} past due` : ""}</dd></div>
-              <div><dt>Envelopes</dt><dd>{data.envelopes.includedPerSeat} per seat / month</dd></div>
+              <div><dt>Envelopes</dt><dd>{data.allowances[p.id === "team" ? "team" : "individual"].envelopes}{p.id === "team" ? " pooled" : ""} / month</dd></div>
               <div>
                 <dt>Stripe</dt>
                 <dd>
@@ -206,7 +207,7 @@ export function AdminPricing() {
                 </div>
                 <p>
                   {usd(team.monthly)} base{seats > 3 ? ` + ${seats - 3} × ${usd(extra.monthly)}` : ""} = <b>{usd(teamTotal)} / month</b>
-                  <small> · {data.envelopes.includedPerSeat * seats} pooled envelopes</small>
+                  <small> · {data.allowances.team.envelopes} pooled envelopes</small>
                 </p>
               </div>
             )}
@@ -226,7 +227,7 @@ export function AdminPricing() {
         </Panel>
         <Panel title="Signing envelopes & overages" description="Usage beyond the monthly allowance.">
           <dl className="ds-dl ap-envelopes">
-            <div><dt>Included</dt><dd>{data.envelopes.includedPerSeat} per seat each UTC month</dd></div>
+            <div><dt>Included</dt><dd>{data.allowances.individual.envelopes} Individual · {data.allowances.team.envelopes} pooled Teams each UTC month</dd></div>
             <div><dt>Overage price</dt><dd>{usd(data.envelopes.overageCents)} per envelope</dd></div>
             <div><dt>Overages</dt><dd>Off by default</dd></div>
             <div><dt>Spending cap</dt><dd>{usd(data.envelopes.capRangeCents[0])}–{usd(data.envelopes.capRangeCents[1])} set by billing owner</dd></div>

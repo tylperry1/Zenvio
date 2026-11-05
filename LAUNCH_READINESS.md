@@ -1,6 +1,6 @@
 # Zenvio 3.0 launch readiness
 
-Target: November 2, 2026. Current gate: **NOT READY for unrestricted commercial activation**.
+Target: November 5, 2026. Current gate: **NOT READY for unrestricted commercial activation**.
 Baseline: e65f4f67ca68f0ab7452d68924a93972a3cc81ec. Worktree: launch/codex-backend.
 
 Current evidence: existing full QA report docs/qa/ZENVIO_2_0_FULL_QA_AUDIT.md describes earlier passing isolated CI and unresolved live-provider acceptance. That evidence does not validate changes on this branch.
@@ -97,4 +97,4 @@ Email quota candidate (064): shared monthly allowance plus protected operational
 
 ## November 5 commercial launch candidate
 
-Production and GitHub main were verified at bef68ea. The deployed pricing release applied migrations 062–064. This candidate adds account-scoped credit pack review and purchase history and master-admin checkout diagnostics. Checkout requires active ownership, configured credentials, current price mappings and the existing validation flags. Complete Stripe sandbox checkout, renewal, refund, seat proration and Connect fee responsibility verification before commercial activation. Recurring storage/SMS, external cost reconciliation and support remain open in ROADMAP.md.
+Production and GitHub main were verified at bef68ea. The deployed pricing release applied migrations 062–064. This candidate adds account-scoped credit pack review and purchase history, master-admin checkout diagnostics, provider anomaly indicators, and consistent fixed monthly signing allowances in admin pricing. Checkout requires active ownership, configured credentials, current price mappings and the existing validation flags. Complete Stripe sandbox checkout, renewal, refund, seat proration and Connect fee responsibility verification before commercial activation. Recurring storage/SMS, external cost reconciliation and support remain open in ROADMAP.md.
