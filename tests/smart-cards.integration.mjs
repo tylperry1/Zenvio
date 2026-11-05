@@ -85,6 +85,17 @@ try {
   await mkdir("test-results", { recursive: true });
   const browser = await chromium.launch();
   try {
+    const workspace = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      extraHTTPHeaders: { Cookie: owner },
+    });
+    await workspace.goto(`${origin}/app/smart-cards`);
+    await workspace.getByRole("heading", { name: "Wallet & sharing" }).waitFor();
+    assert.equal(await workspace.getByText("Setup pending", { exact: true }).count(), 2);
+    assert.equal(await workspace.getByRole("link", { name: "Download your QR code" }).count(), 1);
+    assert.equal(await workspace.getByRole("button", { name: "Add to Apple Wallet" }).count(), 0);
+    await workspace.close();
+
     for (const [label, width, height] of [["desktop", 1366, 900], ["mobile", 390, 844]]) {
       const page = await browser.newPage({ viewport: { width, height } });
       assert.equal((await page.goto(`${origin}/p/${slug}`)).status(), 200);

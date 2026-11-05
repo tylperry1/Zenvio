@@ -140,6 +140,12 @@ export function SmartCards() {
   const set = (k: keyof Profile) => (e: { target: { value: string } }) => draft && setDraft({ ...draft, [k]: e.target.value });
   const toggle = (k: keyof Profile) => (e: { target: { checked: boolean } }) => draft && setDraft({ ...draft, [k]: e.target.checked });
 
+  const published = Boolean(draft?.id && data?.profiles.some((profile) => profile.id === draft.id && profile.published));
+  const walletHint = (provider: "apple" | "google") => {
+    if (!data?.wallet?.[provider]) return "Setup pending";
+    return published ? "Ready" : "Publish your profile first";
+  };
+
   return (
     <div className="ds-root sc">
       <PageHeader
@@ -219,6 +225,37 @@ export function SmartCards() {
           {draft.archived_at && tab === "profile" ? (
             <Notice>This profile is archived. Its URL remains reserved and its public page is unavailable.</Notice>
           ) : tab === "profile" || !draft.id ? (
+            <>
+            <Panel title="Wallet & sharing" description="Keep your business card on your phone and share it with a QR code.">
+              <div className="sc-wallet-options">
+                {(["apple", "google"] as const).map((provider) => {
+                  const name = provider === "apple" ? "Apple Wallet" : "Google Wallet";
+                  const ready = published && data.wallet?.[provider];
+                  return (
+                    <div className="sc-wallet-option" key={provider}>
+                      <b>{name}</b>
+                      {ready && provider === "apple" ? (
+                        <form method="post" action={`/api/smart-profiles/wallet/apple?id=${encodeURIComponent(draft.id)}`}>
+                          <button className="ds-btn primary sm" disabled={busy}>Add to Apple Wallet</button>
+                        </form>
+                      ) : ready ? (
+                        <button className="ds-btn primary sm" type="button" disabled={busy} onClick={() => void addToGoogleWallet(draft.id)}>
+                          Add to Google Wallet
+                        </button>
+                      ) : <Badge tone="neutral">{walletHint(provider)}</Badge>}
+                    </div>
+                  );
+                })}
+              </div>
+              {published ? (
+                <p className="sc-hint">
+                  {(!data.wallet?.apple || !data.wallet?.google) && "Wallet options marked Setup pending are waiting for Zenvio to activate them. "}
+                  <a href={`/p/${draft.slug}/qr?format=png`}>Download your QR code</a>
+                  {" or "}
+                  <button className="ds-btn sm ghost" type="button" onClick={() => void copy(profileUrl, "Profile link")}>Copy profile link</button>
+                </p>
+              ) : <p className="sc-hint">To start sharing, choose <a href="#smart-card-publish">Publish this profile on the web</a> and save your profile.</p>}
+            </Panel>
             <div className="sc-grid">
               <Panel title={draft.id ? "Edit profile" : "Create your smart profile"} description="Only the details you choose to show appear publicly.">
                 <form
@@ -306,7 +343,7 @@ export function SmartCards() {
                       <input type="checkbox" checked={draft.show_address} onChange={toggle("show_address")} /> Address
                     </label>
                     <label>
-                      <input type="checkbox" checked={draft.published} onChange={toggle("published")} /> Publish this profile on the web
+                      <input id="smart-card-publish" type="checkbox" checked={draft.published} onChange={toggle("published")} /> Publish this profile on the web
                     </label>
                     <label>
                       <input type="checkbox" checked={draft.capture_leads} onChange={toggle("capture_leads")} /> Let visitors share contact details with my CRM
@@ -354,7 +391,7 @@ export function SmartCards() {
                     ))}
                   </dl>
                 </Panel>}
-                {data.profiles.some((profile) => profile.id === draft.id && profile.published) && (
+                {published && (
                   <Panel title="Share" description="Your profile link and QR code always show your latest details.">
                     <div className="sc-share">
                       <div className="sc-qr" role="img" aria-label="QR code for your profile" dangerouslySetInnerHTML={{ __html: qr }} />
@@ -368,25 +405,13 @@ export function SmartCards() {
                         </a>
                         <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=png`}>PNG</a>
                         <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=svg`}>SVG</a>
-                        {data.wallet?.apple && (
-                          <form method="post" action={`/api/smart-profiles/wallet/apple?id=${encodeURIComponent(draft.id)}`}>
-                            <button className="ds-btn sm" disabled={busy}>Add to Apple Wallet</button>
-                          </form>
-                        )}
-                        {data.wallet?.google && (
-                          <button className="ds-btn sm" type="button" disabled={busy} onClick={() => void addToGoogleWallet(draft.id)}>
-                            Add to Google Wallet
-                          </button>
-                        )}
                       </div>
-                      {(data.wallet?.apple || data.wallet?.google) && (
-                        <p className="sc-hint">Wallet passes share a QR code to your live profile. Re-add your Apple pass to refresh the details shown in Wallet.</p>
-                      )}
                     </div>
                   </Panel>
                 )}
               </div>
             </div>
+            </>
           ) : (
             <CardsTab data={data} busy={busy} post={post} copy={copy} origin={origin} profileId={draft.id} />
           )}
