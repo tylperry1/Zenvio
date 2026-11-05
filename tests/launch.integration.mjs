@@ -164,6 +164,12 @@ try{
  const usage=await usageModule.exports.subscriptionUsage(owner);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,450);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').remaining,0);
  assert.equal((await call('/api/admin/economics',null,a.cookie)).status,403);
  assert.equal((await call('/api/billing/addons',{addon:'ai_100',confirm:true},a.cookie)).status,503);
+ const packs=await call('/api/billing/addons',null,a.cookie);
+ assert.equal(packs.status,200);
+ assert.equal(packs.data.enabled,false);
+ assert.deepEqual(packs.data.offers.map(offer=>offer.id),['ai_100','ai_500','envelopes_10','envelope_1','video_1000']);
+ assert.ok(packs.data.offers.every(offer=>offer.available===false));
+ assert.equal((await call('/api/billing/addons',null)).status,401);
  const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
  const stored=(await db.query("select private.workspace_storage_bytes($1)::text n",[owner])).rows[0].n;
  await db.query("insert into private.workspace_meter_overrides(billing_owner,meter,allowance,actor_id,reason,expires_at) values($1,'storageBytes',$2,$1,'Disposable concurrency fixture',now()+interval '1 hour')",[owner,Number(stored)+10]);
