@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { adminSession } from "@/lib/admin";
 import { providerEconomics } from "@/lib/provider-economics";
+import { billingReadiness } from "@/lib/billing-readiness";
 import { getPool } from "@/lib/db";
 import { body,sameOrigin,failure,ApiError,string,uuid } from "@/lib/server";
 import { currentOffers,extraSeatOffer,monthlyAllowances,addonOffers,catalogVersion } from "@/lib/subscription-offers.mjs";
 export const dynamic="force-dynamic";
 export async function GET(){try{
  await adminSession();
- const [economics,settings,history]=await Promise.all([providerEconomics(),getPool().query("select key,value,updated_at from private.platform_settings where key='pricing_v3_launch_promotion'"),getPool().query("select * from private.subscription_price_history order by recorded_at desc limit 100")]);
- return Response.json({catalog:{version:catalogVersion,plans:currentOffers,extraSeat:extraSeatOffer,allowances:monthlyAllowances,addons:addonOffers},economics,settings:settings.rows,priceHistory:history.rows},{headers:{"Cache-Control":"no-store"}});
+ const [economics,settings,history,billing]=await Promise.all([providerEconomics(),getPool().query("select key,value,updated_at from private.platform_settings where key='pricing_v3_launch_promotion'"),getPool().query("select * from private.subscription_price_history order by recorded_at desc limit 100"),billingReadiness()]);
+ return Response.json({catalog:{version:catalogVersion,plans:currentOffers,extraSeat:extraSeatOffer,allowances:monthlyAllowances,addons:addonOffers},economics,billing,settings:settings.rows,priceHistory:history.rows},{headers:{"Cache-Control":"no-store"}});
 }catch(e){return failure(e);}}
 export async function POST(req:NextRequest){try{
  sameOrigin(req);const {token}=await adminSession(),v=await body(req);

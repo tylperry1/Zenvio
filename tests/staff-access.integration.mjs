@@ -15,8 +15,30 @@ try {
   await db.query("INSERT INTO private.staff_members(user_id,title,permissions,invited_by) VALUES($1,'QA pricing fixture',ARRAY['pricing'],$2)",[id,owner.id]);
   const cookie=signup.cookie;
   let r=await request("/api/admin/operations",cookie);assert.equal(r.status,200);assert.equal(r.data.access.role,"staff");assert.equal(r.data.pricing.length,7);assert.deepEqual(r.data.users,[]);assert.deepEqual(r.data.subscriptions,[]);assert.deepEqual(r.data.integrations,[]);
+  const catalog = await request("/api/admin/pricing", cookie);
+  assert.equal(catalog.status, 200);
+  assert.equal(catalog.data.allowances.individual.envelopes, 10);
+  assert.equal(catalog.data.allowances.team.envelopes, 30);
   assert.equal((await request("/api/admin/economics",cookie)).status,403);
-  assert.equal((await request("/api/admin/economics",master.cookie)).status,200);
+  await db.query(`
+    insert into private.provider_usage_reservations
+      (user_id, provider, state, reserved_micros, actual_micros, created_at)
+    select $1, fixture.provider, 'settled', fixture.cost, fixture.cost,
+      (date_trunc('day', now() at time zone 'UTC') at time zone 'UTC')
+        - fixture.days_ago * interval '24 hours' + interval '12 hours'
+    from (values
+      ('qa-spike', 1, 1250000), ('qa-spike', 2, 250000), ('qa-spike', 3, 250000),
+      ('qa-spike', 4, 250000), ('qa-spike', 5, 250000),
+      ('qa-sparse', 1, 1250000), ('qa-sparse', 2, 250000)
+    ) as fixture(provider, days_ago, cost)
+  `, [owner.id]);
+  const economics = await request("/api/admin/economics", master.cookie);
+  assert.equal(economics.status, 200);
+  assert.equal(economics.data.billing.checkoutEnabled, false);
+  const alerts = economics.data.economics.anomalies.filter(alert => alert.provider.startsWith("qa-"));
+  assert.deepEqual(alerts.map(({ provider, spend_micros, baseline_micros }) => ({
+    provider, spend_micros, baseline_micros,
+  })), [{ provider: "qa-spike", spend_micros: "1250000", baseline_micros: "250000" }]);
   assert.equal((await request("/api/admin",cookie)).status,403);
   assert.equal((await request("/api/admin/team",cookie)).status,403);
   assert.equal((await request("/api/admin/team",cookie,{action:"invite",email:"blocked@example.com",name:"Blocked"})).status,403);

@@ -23,11 +23,12 @@ export async function GET(request: NextRequest) {
       "SELECT plan,seats,status,catalog_version,monthly_amount_cents,promotion_ends_at,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
       [token],
     );
+    const { connected, pricesReady, checkoutEnabled } = await billingReadiness();
     return Response.json(
       {
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
-        ...(await billingReadiness()),
+        connected, pricesReady, checkoutEnabled,
         usage: await entitlementUsage(token),
         meteredUsage: await subscriptionUsage(token),
       },

@@ -7,13 +7,40 @@ import {billingReadiness} from "@/lib/billing-readiness";
 import {addonOffers,catalogVersion} from "@/lib/subscription-offers.mjs";
 import {appOrigin} from "@/lib/lifecycle";
 export const dynamic="force-dynamic";
-export async function GET(){try{const {token}=await session();const rows=await getPool().query("select id,addon,quantity,amount_cents,state,refunded_cents,created_at from private.subscription_addon_orders where billing_owner=$1 order by created_at desc limit 100",[token]);return Response.json({orders:rows.rows,enabled:false},{headers:{"Cache-Control":"no-store"}});}catch(e){return failure(e);}}
+function purchasable(offer: (typeof addonOffers)[number]) {
+  return !offer.recurring && offer.unit !== "smsSegments";
+}
+
+async function checkoutReady() {
+  return process.env.ADDON_BILLING_VALIDATED === "true" && (await billingReadiness()).checkoutEnabled;
+}
+
+export async function GET() {
+  try {
+    const { token } = await session();
+    const db = getPool();
+    const [orders, eligibility, ready] = await Promise.all([
+      db.query("select id,addon,quantity,amount_cents,state,refunded_cents,created_at from private.subscription_addon_orders where billing_owner=$1 order by created_at desc limit 100", [token]),
+      db.query("select 1 from private.subscriptions where user_id=$1 and catalog_version=$2 and status='active' and customer_id is not null", [token, catalogVersion]),
+      checkoutReady(),
+    ]);
+    const enabled = ready && eligibility.rows.length > 0;
+    return Response.json({
+      orders: orders.rows,
+      enabled,
+      offers: addonOffers.filter(purchasable).map(offer => ({ ...offer, available: enabled })),
+    }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function POST(req:NextRequest){try{
  sameOrigin(req);const {token}=await session(),v=await body(req);
  const offer=addonOffers.find(a=>a.id===v.addon);
  // Recurring storage/SMS require separate provider economics acceptance. No accidental sale.
- if(!offer||offer.recurring||offer.unit==='smsSegments'||v.confirm!==true)throw new ApiError("This add-on is not available for purchase.",409);
- if(process.env.ADDON_BILLING_VALIDATED!=="true"||!(await billingReadiness()).checkoutEnabled)throw new ApiError("Add-on billing is being validated. No payment has been taken.",503);
+ if(!offer||!purchasable(offer)||v.confirm!==true)throw new ApiError("This add-on is not available for purchase.",409);
+ if(!(await checkoutReady()))throw new ApiError("Add-on billing is being validated. No payment has been taken.",503);
  const db=await getPool().connect();try{
  await db.query("begin");await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))",['billing:'+token]);
  const sub=(await db.query("select * from private.subscriptions where user_id=$1 for update",[token])).rows[0];

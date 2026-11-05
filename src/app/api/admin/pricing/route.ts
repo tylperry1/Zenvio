@@ -4,7 +4,7 @@ import { getPool } from "@/lib/db";
 import { planLimits } from "@/lib/entitlement-policy";
 import { pricing } from "@/lib/platform-settings";
 import { failure } from "@/lib/server";
-import { extraSeatOffer, individualOffer, includedFeatures, teamOffer } from "@/lib/subscription-offers.mjs";
+import { catalogVersion, monthlyAllowances, extraSeatOffer, individualOffer, includedFeatures, teamOffer } from "@/lib/subscription-offers.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET() {
     await adminSession("pricing");
     const db = getPool();
     const [mappings, subscribers, history, early] = await Promise.all([
-      db.query("SELECT plan,period,stripe_price_id FROM private.subscription_prices ORDER BY plan,period"),
+      db.query("SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices ORDER BY plan,period"),
       db.query(
         `SELECT coalesce(plan,'free') plan,
                 count(*) FILTER (WHERE status IN ('active','trialing'))::int active,
@@ -31,12 +31,14 @@ export async function GET() {
       db.query("SELECT count(*)::int total, count(*) FILTER (WHERE claimed_user_id IS NULL)::int open FROM private.early_access_signups"),
     ]);
     const readiness = await billingReadiness();
-    const mapped = (plan: string) =>
-      mappings.rows.filter((m) => m.plan === plan).map((m) => ({ period: m.period, priceId: m.stripe_price_id }));
+    const mapped = (plan: string, current = false) =>
+      mappings.rows
+        .filter(m => m.plan === plan && (!current || (m.period === "monthly" && m.catalog_version === catalogVersion)))
+        .map(m => ({ period: m.period, priceId: m.stripe_price_id }));
     const count = (plan: string) => subscribers.rows.find((r) => r.plan === plan) || { active: 0, past_due: 0, seats: 0 };
     const packages = [individualOffer, teamOffer, extraSeatOffer].map((offer) => ({
       ...offer,
-      stripe: mapped(offer.id),
+      stripe: mapped(offer.id, true),
       subscribers: offer.id === "team_extra" ? null : count(offer.id),
     }));
     const legacy = (await pricing())
@@ -48,9 +50,10 @@ export async function GET() {
         packages,
         legacy,
         limits: { individual: planLimits.individual, team: planLimits.team },
-        envelopes: { includedPerSeat: 20, overageCents: 100, overagesDefault: "off", capRangeCents: [100, 100000] },
+        allowances: monthlyAllowances,
+        envelopes: { overageCents: 100, overagesDefault: "off", capRangeCents: [100, 100000] },
         features: includedFeatures,
-        earlyAccess: { offer: "50% off the first three monthly payments", ...early.rows[0] },
+        earlyAccess: { offer: "50% off the base subscription for the first three monthly billing cycles", ...early.rows[0] },
         history: history.rows,
       },
       { headers: { "Cache-Control": "no-store" } },
