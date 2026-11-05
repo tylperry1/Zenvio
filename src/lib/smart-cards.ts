@@ -74,7 +74,7 @@ export function publicView(p: SmartProfile, bookingSlug: string | null) {
   };
 }
 
-const esc = (v: string) => v.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/[,;]/g, (m) => "\\" + m);
+const esc = (v: string) => v.replace(/\\/g, "\\\\").replace(/\r\n|[\r\n]/g, "\\n").replace(/[,;]/g, (m) => "\\" + m);
 /** vCard 3.0 containing only the publicly visible fields. */
 export function vcard(view: ReturnType<typeof publicView>, origin: string) {
   const [first, ...rest] = view.displayName.split(/\s+/);
@@ -93,12 +93,28 @@ export function vcard(view: ReturnType<typeof publicView>, origin: string) {
     view.bio && `NOTE:${esc(view.bio)}`,
     "END:VCARD",
   ].filter(Boolean);
-  return lines.join("\r\n") + "\r\n";
+  return lines.map(foldVcardLine).join("\r\n") + "\r\n";
+}
+
+function foldVcardLine(line: string) {
+  let output = "";
+  let bytes = 0;
+  for (const character of line) {
+    const width = Buffer.byteLength(character);
+    if (bytes + width > 75) {
+      output += "\r\n ";
+      bytes = 1;
+    }
+    output += character;
+    bytes += width;
+  }
+  return output;
 }
 
 // ---------- Server-side loading (public pages) ----------
 export async function loadPublicProfile(slug: string) {
-  const { getPool } = await import("./db");
+  const { databaseConfigured, getPool } = await import("./db");
+  if (!databaseConfigured()) return null;
   if (!/^[a-z0-9][a-z0-9-]{2,49}$/.test(slug)) return null;
   const r = await getPool().query(
     `SELECT s.*,p.slug booking_slug FROM private.smart_profiles s LEFT JOIN public.profiles p ON p.id=s.user_id
@@ -106,7 +122,7 @@ export async function loadPublicProfile(slug: string) {
     [slug],
   );
   const row = r.rows[0];
-  return row ? { id: row.id as string, view: publicView(row as SmartProfile, row.booking_slug) } : null;
+  return row ? { id: row.id as string, captureLeads: row.capture_leads === true, view: publicView(row as SmartProfile, row.booking_slug) } : null;
 }
 
 /** Aggregate daily view count; throttled per client so counts can't be trivially inflated. */
@@ -117,5 +133,15 @@ export async function recordProfileView(profileId: string, channel: "link" | "ca
     `INSERT INTO private.smart_profile_views(profile_id,day,channel,views) VALUES($1,(now() AT TIME ZONE 'UTC')::date,$2,1)
      ON CONFLICT (profile_id,day,channel) DO UPDATE SET views=smart_profile_views.views+1`,
     [profileId, channel],
+  );
+}
+
+export async function recordProfileAction(profileId: string, action: "vcard" | "booking", clientKey: string) {
+  const [{ getPool }, { allowRequest }] = await Promise.all([import("./db"), import("./booking-protection")]);
+  if (!(await allowRequest("smart-action", `${action}:${clientKey}:${profileId}`, 10, 3600))) return;
+  await getPool().query(
+    `INSERT INTO private.smart_profile_actions(profile_id,day,action,total) VALUES($1,(now() AT TIME ZONE 'UTC')::date,$2,1)
+     ON CONFLICT (profile_id,day,action) DO UPDATE SET total=smart_profile_actions.total+1`,
+    [profileId, action],
   );
 }

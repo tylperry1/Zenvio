@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { SmartCardLeadForm } from "@/components/smart-card-lead-form";
 import { Icon, Logo } from "@/components/icons";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
@@ -43,9 +44,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <Icon name="download" size={16} /> Save contact
           </a>
           {v.bookingUrl && (
-            <Link className="sc-secondary" href={v.bookingUrl}>
+            <a className="sc-secondary" href={`/p/${v.slug}/booking`}>
               <Icon name="calendar" size={16} /> Book a time
-            </Link>
+            </a>
           )}
         </div>
         <ul className="sc-public-list">
@@ -85,6 +86,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </li>
           ))}
         </ul>
+        <div className="sc-public-actions">
+          <a className="sc-secondary" href={`/p/${v.slug}/qr?format=png`}>Download QR code</a>
+        </div>
+        {profile.captureLeads && <SmartCardLeadForm slug={v.slug} />}
       </article>
       <footer className="sc-public-footer">
         <Link href="/">

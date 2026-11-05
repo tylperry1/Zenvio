@@ -23,9 +23,11 @@ type Profile = {
   show_address: boolean;
   accent: string;
   published: boolean;
+  archived_at?: string | null;
+  capture_leads: boolean;
 };
-type Card = { id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; created_at: string };
-type Data = { profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
+type Card = { id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; encoding_confirmed_at: string | null; legacy_registration: boolean; created_at: string };
+type Data = { profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
 
 const kinds = [
   ["card", "NFC business card"],
@@ -47,11 +49,12 @@ const blank = (bookingSlug: string | null): Profile => ({
   address: "",
   links: [],
   show_booking: true,
-  show_phone: true,
-  show_email: true,
+  show_phone: false,
+  show_email: false,
   show_address: false,
   accent: "#365cff",
-  published: true,
+  published: false,
+  capture_leads: false,
 });
 
 export function SmartCards() {
@@ -60,13 +63,14 @@ export function SmartCards() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"profile" | "cards">("profile");
+  const [days, setDays] = useState(30);
   const [selected, setSelected] = useState<string>("");
   const [draft, setDraft] = useState<Profile | null>(null);
   const [qr, setQr] = useState("");
   const [origin, setOrigin] = useState("https://gozenvio.com");
 
-  async function load(selectId?: string) {
-    const r = await fetch("/api/smart-profiles", { cache: "no-store" });
+  async function load(selectId?: string, period = days) {
+    const r = await fetch(`/api/smart-profiles?days=${period}`, { cache: "no-store" });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Unable to load smart profiles.");
     setData(d);
@@ -83,7 +87,7 @@ export function SmartCards() {
   const profileUrl = draft?.id ? `${origin}/p/${draft.slug}` : "";
   useEffect(() => {
     if (!profileUrl) return setQr("");
-    QRCode.toString(`${profileUrl}?via=qr`, { type: "svg", margin: 1, color: { dark: "#151b38", light: "#ffffff" } }).then(setQr).catch(() => setQr(""));
+    QRCode.toString(`${profileUrl}?via=qr`, { type: "svg", margin: 4, color: { dark: "#151b38", light: "#ffffff" } }).then(setQr).catch(() => setQr(""));
   }, [profileUrl]);
 
   async function post(payload: Record<string, unknown>, success: string) {
@@ -123,7 +127,7 @@ export function SmartCards() {
         title="Smart cards"
         description="A digital business profile for tap-to-share NFC cards, QR codes and your email signature. Update it anytime; cards keep working."
         actions={
-          data && data.profiles.length > 0 && data.profiles.length < data.limits.profiles ? (
+          data && data.profiles.length > 0 && data.profiles.filter((p) => !p.archived_at).length < data.limits.profiles ? (
             <button
               className="ds-btn"
               onClick={() => {
@@ -145,14 +149,34 @@ export function SmartCards() {
         <>
           {data.profiles.length > 0 && (
             <div className="ds-kpis">
-              <Kpi label="Profile views · 30 days" icon="users" value={data.profiles.reduce((s, p) => s + views(p.id), 0)} detail="All profiles, all channels" />
-              <Kpi label="Card taps" icon="spark" value={data.profiles.reduce((s, p) => s + views(p.id, "card"), 0)} detail="Through registered cards" />
-              <Kpi label="QR scans" icon="grid" value={data.profiles.reduce((s, p) => s + views(p.id, "qr"), 0)} detail="From your profile QR code" />
+              <Kpi label={`Profile views · ${days} days`} icon="users" value={data.profiles.reduce((s, p) => s + views(p.id), 0)} detail="All profiles, all channels" />
+              <Kpi label="Physical link visits" icon="spark" value={data.profiles.reduce((s, p) => s + views(p.id, "card"), 0)} detail="Through registered cards" />
+              <Kpi label="QR link visits" icon="grid" value={data.profiles.reduce((s, p) => s + views(p.id, "qr"), 0)} detail="From your profile QR code" />
               <Kpi label="Active cards" icon="card" value={data.cards.filter((c) => c.status === "active").length} detail={`${data.cards.length} registered`} />
             </div>
           )}
           <div className="sc-bar">
-            {data.profiles.length > 1 && (
+            <label className="ds-field">
+              Engagement period
+              <select className="ds-select" value={days} disabled={busy} onChange={async (event) => {
+                const period = Number(event.target.value);
+                setBusy(true);
+                try {
+                  const response = await fetch(`/api/smart-profiles?days=${period}`, { cache: "no-store" });
+                  if (!response.ok) throw new Error("Unable to load engagement.");
+                  const result: Data = await response.json();
+                  setData((previous) => previous && { ...previous, views: result.views, engagement: result.engagement });
+                  setDays(period);
+                } catch {
+                  setError("Unable to load engagement.");
+                } finally {
+                  setBusy(false);
+                }
+              }}>
+                <option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option>
+              </select>
+            </label>
+            {data.profiles.length > 0 && (
               <select
                 className="ds-select"
                 aria-label="Profile"
@@ -165,7 +189,7 @@ export function SmartCards() {
               >
                 {data.profiles.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.display_name} · /p/{p.slug}
+                    {p.display_name} · {p.archived_at ? "Archived" : p.published ? "Published" : "Private"}
                   </option>
                 ))}
               </select>
@@ -173,7 +197,9 @@ export function SmartCards() {
             {draft.id && <Segmented label="Smart card sections" value={tab} onChange={setTab} options={[["profile", "Profile"], ["cards", `Cards (${data.cards.length})`]] as const} />}
           </div>
 
-          {tab === "profile" || !draft.id ? (
+          {draft.archived_at && tab === "profile" ? (
+            <Notice>This profile is archived. Its URL remains reserved and its public page is unavailable.</Notice>
+          ) : tab === "profile" || !draft.id ? (
             <div className="sc-grid">
               <Panel title={draft.id ? "Edit profile" : "Create your smart profile"} description="Only the details you choose to show appear publicly.">
                 <form
@@ -192,7 +218,7 @@ export function SmartCards() {
                       <span>
                         Profile address <small>gozenvio.com/p/…</small>
                       </span>
-                      <input value={draft.slug} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} required minLength={3} maxLength={50} placeholder="your-name" />
+                      <input value={draft.slug} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} readOnly={Boolean(draft.id)} required minLength={3} maxLength={50} placeholder="your-name" />
                     </label>
                   </div>
                   <div className="sc-row">
@@ -261,7 +287,10 @@ export function SmartCards() {
                       <input type="checkbox" checked={draft.show_address} onChange={toggle("show_address")} /> Address
                     </label>
                     <label>
-                      <input type="checkbox" checked={draft.published} onChange={toggle("published")} /> Profile is live
+                      <input type="checkbox" checked={draft.published} onChange={toggle("published")} /> Publish this profile on the web
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={draft.capture_leads} onChange={toggle("capture_leads")} /> Let visitors share contact details with my CRM
                     </label>
                   </fieldset>
                   <label className="ds-field sc-accent">
@@ -274,9 +303,9 @@ export function SmartCards() {
                         type="button"
                         className="ds-btn ghost"
                         disabled={busy}
-                        onClick={() => confirm("Delete this profile? Cards linked to it stop working until you reassign them.") && void post({ action: "delete-profile", id: draft.id }, "Profile deleted.")}
+                        onClick={() => confirm("Archive this profile? Links will stop working until physical cards are reassigned.") && void post({ action: "archive-profile", id: draft.id }, "Profile archived.")}
                       >
-                        Delete profile
+                        Archive profile
                       </button>
                     )}
                     <button className="ds-btn primary" disabled={busy}>
@@ -299,7 +328,14 @@ export function SmartCards() {
                     </div>
                   </div>
                 </Panel>
-                {draft.id && (
+                {draft.id && <Panel title={`Profile engagement · ${days} days`}>
+                  <dl>
+                    {([["vcard", "Contact downloads"], ["booking", "Booking link visits"], ["lead", "New contact submissions"]] as const).map(([action, label]) => (
+                      <div key={action}><dt>{label}</dt><dd>{data.engagement.find((item) => item.profile_id === draft.id && item.action === action)?.total ?? 0}</dd></div>
+                    ))}
+                  </dl>
+                </Panel>}
+                {data.profiles.some((profile) => profile.id === draft.id && profile.published) && (
                   <Panel title="Share" description="Your profile link and QR code always show your latest details.">
                     <div className="sc-share">
                       <div className="sc-qr" role="img" aria-label="QR code for your profile" dangerouslySetInnerHTML={{ __html: qr }} />
@@ -311,6 +347,8 @@ export function SmartCards() {
                         <a className="ds-btn sm" href={`/p/${draft.slug}`} target="_blank" rel="noopener">
                           Open profile
                         </a>
+                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=png`}>PNG</a>
+                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=svg`}>SVG</a>
                       </div>
                     </div>
                   </Panel>
@@ -367,7 +405,7 @@ function CardsTab({
               ))}
             </select>
           </label>
-          <button className="ds-btn primary" disabled={busy || data.cards.length >= data.limits.cards}>
+          <button className="ds-btn primary" disabled={busy || data.cards.length >= data.limits.cards || data.profiles.some((p) => p.id === profileId && p.archived_at)}>
             Register card
           </button>
         </form>
@@ -399,7 +437,7 @@ function CardsTab({
                     <button className="ds-btn sm" onClick={() => void copy(url, "Card link")}>
                       Copy link
                     </button>
-                    {data.profiles.length > 1 && (
+                    {data.profiles.some((p) => !p.archived_at && p.id !== c.profile_id) && (
                       <select
                         className="ds-select"
                         aria-label="Linked profile"
@@ -407,7 +445,7 @@ function CardsTab({
                         disabled={busy}
                         onChange={(e) => void post({ action: "update-card", id: c.id, label: c.label, status: c.status, profileId: e.target.value || null }, "Card reassigned.")}
                       >
-                        {data.profiles.map((p) => (
+                        {data.profiles.filter((p) => !p.archived_at || p.id === c.profile_id).map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.display_name}
                           </option>
@@ -417,14 +455,16 @@ function CardsTab({
                     <button
                       className={`ds-btn sm ${c.status === "active" ? "" : "primary"}`}
                       disabled={busy}
-                      onClick={() =>
+                      onClick={() => {
+                        const confirmEncoding = c.status !== "active" && !c.encoding_confirmed_at && !c.legacy_registration;
+                        if (confirmEncoding && !confirm("Confirm that you wrote and read back this exact URL on the tag or printed it as a QR code.")) return;
                         void post(
-                          { action: "update-card", id: c.id, label: c.label, profileId: c.profile_id, status: c.status === "active" ? "deactivated" : "active" },
+                          { action: "update-card", id: c.id, label: c.label, profileId: c.profile_id, status: c.status === "active" ? "deactivated" : "active", confirmEncoding },
                           c.status === "active" ? "Card deactivated. Taps now show an inactive notice." : "Card reactivated.",
-                        )
-                      }
+                        );
+                      }}
                     >
-                      {c.status === "active" ? "Deactivate" : "Reactivate"}
+                      {c.status === "active" ? "Deactivate" : "Activate"}
                     </button>
                   </div>
                 </li>

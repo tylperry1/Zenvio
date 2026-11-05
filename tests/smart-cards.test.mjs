@@ -68,3 +68,12 @@ test("card redirect and profile routes keep tokens private and enforce status", 
   assert.match(api, /WHERE id=\$1 AND user_id=\$2/);
   assert.match(api, /sameOrigin\(request\)/);
 });
+
+test("vCard folds at 75 UTF-8 bytes and prevents field injection with bare carriage returns", () => {
+  const bio = "é".repeat(100) + "\rTEL:123";
+  const card = S.vcard(S.publicView({ ...base, bio }, null), "https://gozenvio.com");
+  for (const line of card.split("\r\n")) assert.ok(Buffer.byteLength(line) <= 75);
+  const unfolded = card.replaceAll("\r\n ", "");
+  assert.ok(unfolded.includes("NOTE:" + "é".repeat(100) + "\\nTEL:123"));
+  assert.doesNotMatch(unfolded, /^TEL:/m);
+});
