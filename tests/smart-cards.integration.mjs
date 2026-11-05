@@ -38,6 +38,12 @@ const profile = { action: "save-profile", slug, display_name: "Card Fixture", ph
 try {
   const owner = await account(ownerEmail);
   const other = await account(`smart-other-${nonce}@example.com`);
+  for (const provider of ["apple", "google"]) {
+    const endpoint = `/api/smart-profiles/wallet/${provider}?id=${crypto.randomUUID()}`;
+    assert.equal((await request(endpoint, {}, owner, "https://other.example")).status, 403);
+    assert.equal((await request(endpoint, {})).status, 401);
+    assert.equal((await request(endpoint, {}, owner)).status, 404);
+  }
   const created = await request("/api/smart-profiles", profile, owner);
   assert.equal(created.status, 200);
   const { id } = await created.json();

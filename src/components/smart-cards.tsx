@@ -27,7 +27,7 @@ type Profile = {
   capture_leads: boolean;
 };
 type Card = { id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; encoding_confirmed_at: string | null; legacy_registration: boolean; created_at: string };
-type Data = { profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
+type Data = { wallet: { apple: boolean; google: boolean }; profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
 
 const kinds = [
   ["card", "NFC business card"],
@@ -108,6 +108,25 @@ export function SmartCards() {
       setBusy(false);
     }
   }
+  async function addToGoogleWallet(profileId: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/smart-profiles/wallet/google?id=${encodeURIComponent(profileId)}`, { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to create the Wallet pass.");
+      const url = new URL(result.saveUrl);
+      if (url.origin !== "https://pay.google.com" || !url.pathname.startsWith("/gp/v/save/")) {
+        throw new Error("Google Wallet returned an invalid save link.");
+      }
+      window.location.assign(url.href);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create the Wallet pass.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function copy(text: string, what: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -349,7 +368,20 @@ export function SmartCards() {
                         </a>
                         <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=png`}>PNG</a>
                         <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=svg`}>SVG</a>
+                        {data.wallet?.apple && (
+                          <form method="post" action={`/api/smart-profiles/wallet/apple?id=${encodeURIComponent(draft.id)}`}>
+                            <button className="ds-btn sm" disabled={busy}>Add to Apple Wallet</button>
+                          </form>
+                        )}
+                        {data.wallet?.google && (
+                          <button className="ds-btn sm" type="button" disabled={busy} onClick={() => void addToGoogleWallet(draft.id)}>
+                            Add to Google Wallet
+                          </button>
+                        )}
                       </div>
+                      {(data.wallet?.apple || data.wallet?.google) && (
+                        <p className="sc-hint">Wallet passes share a QR code to your live profile. Re-add your Apple pass to refresh the details shown in Wallet.</p>
+                      )}
                     </div>
                   </Panel>
                 )}
