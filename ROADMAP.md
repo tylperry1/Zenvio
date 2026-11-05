@@ -169,7 +169,8 @@ Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras 
 | Recurring checkout and price synchronization | Blocked by configuration and sandbox acceptance |
 | Recurring storage and SMS packs | Missing implementation |
 | SMS retail activation | Blocked by provider economics and registration approval |
-| Provider invoice reconciliation, cost alerts and contribution margin | Missing complete implementation |
+| Provider cost anomaly indicators | Built, pending release QA |
+| Provider invoice reconciliation and actual contribution margin | Missing complete implementation |
 | Internal live support and push notifications | Missing implementation |
 | Gelato fulfillment and live integrations | Built, pending provider acceptance |
 
