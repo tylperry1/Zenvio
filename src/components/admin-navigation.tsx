@@ -74,6 +74,27 @@ async function defaultSignOut() {
   if (r.ok) window.location.assign("/sign-in");
 }
 
+/** Conversations waiting on Zenvio, for the Support inbox badge. Refreshes every 30 s. */
+function useSupportWaiting(enabled: boolean) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let stopped = false;
+    const load = () =>
+      fetch("/api/admin/support?summary=1", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => !stopped && d?.counts && setCount(d.counts.open))
+        .catch(() => {});
+    void load();
+    const timer = window.setInterval(() => document.visibilityState === "visible" && void load(), 30000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [enabled]);
+  return count;
+}
+
 export function AdminNavigation({
   view,
   onNavigate,
@@ -88,6 +109,7 @@ export function AdminNavigation({
   const search = useRef<HTMLInputElement>(null);
   const access = useAdminAccess();
   const can = useCan();
+  const supportWaiting = useSupportWaiting(!!access && can("support"));
 
   // "/" jumps to the navigation filter, like most consoles.
   useEffect(() => {
@@ -176,6 +198,11 @@ export function AdminNavigation({
                         <Icon name={item.icon} size={16} />
                       </span>
                       <span className="acx-label">{item.label}</span>
+                      {item.id === "support" && supportWaiting > 0 && (
+                        <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
+                          {supportWaiting > 99 ? "99+" : supportWaiting}
+                        </span>
+                      )}
                       {item.permission === "team" && <span className="acx-pill">Owner</span>}
                     </>
                   );

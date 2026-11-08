@@ -15,19 +15,21 @@ function load(file, mocks = {}) {
   m._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, filename);
   return m.exports;
 }
-const M = load("src/lib/market-mail.ts", { "./db": { getPool: () => ({}) }, "./platform-settings": { integrationValue: async () => "", unsealSecret: (s) => s }, "./resend-diagnostics": { resendFailure: () => new Error("x") } });
+const M = load("src/lib/market-mail.ts", { "./db": { getPool: () => ({}) }, "./platform-settings": { integrationValue: async () => "", unsealSecret: (s) => s }, "./resend-diagnostics": { resendFailure: () => new Error("x") }, "./transactional-email": load("src/lib/transactional-email.ts") });
 const order = { id: "abcdef12-0000-4000-8000-000000000000", user_id: null, customer_name: "Ana <b>Ruiz</b>", total_cents: 4598, refunded_cents: 0, tracking_number: "1Z999", tracking_url: "https://track.example/1Z999", carrier: "UPS", guest_token_sealed: null, items: [{ title: "Tote <script>", quantity: 2, price_cents: 1999 }] };
 
 test("order emails have clear subjects, totals and escaped HTML", () => {
   const c = M.composeMarketEmail("confirmation", order, "https://gozenvio.com/marketplace/order#tok");
-  assert.equal(c.subject, "Order ABCDEF12 confirmed");
-  assert.match(c.text, /\$45\.98 was received/);
+  assert.equal(c.subject, "Your order is confirmed (#ABCDEF12)");
+  assert.match(c.text, /payment of \$45\.98/);
+  assert.match(c.html, /View your order/);
+  assert.match(c.html, /href="https:\/\/gozenvio\.com\/marketplace\/order#tok"/);
   assert.match(c.text, /2 × Tote <script> — \$39\.98/);
   assert.doesNotMatch(c.html, /<script>|<b>Ruiz/);
   assert.match(c.html, /Tote &lt;script&gt;/);
   const s = M.composeMarketEmail("shipped", order, "https://x");
-  assert.match(s.text, /Carrier: UPS\nTracking number: 1Z999\nTrack it: https:\/\/track\.example\/1Z999/);
-  assert.match(M.composeMarketEmail("refunded", { ...order, refunded_cents: 1000 }, "https://x").text, /\$10\.00 has been issued/);
+  assert.match(s.text, /Carrier: UPS\nTracking number: 1Z999\nTrack your package: https:\/\/track\.example\/1Z999/);
+  assert.match(M.composeMarketEmail("refunded", { ...order, refunded_cents: 1000 }, "https://x").text, /refund of \$10\.00/);
 });
 
 test("each order email kind is sent at most once", () => {
