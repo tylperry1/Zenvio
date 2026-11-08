@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { VisitorChatWidget } from "@/components/visitor-support";
 export const metadata = { title: "Zenvio Help Center" };
 const articles = [
   { title: "Publish a booking page", text: "Sign in, create an event type, set its duration, and review your weekly availability and time zone. Copy your booking page link from the workspace and test it before sharing." },
@@ -20,6 +19,5 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
     <p><Link href="/support">Chat with the Zenvio team</Link> · <Link href="/app/support">Support for signed-in customers</Link></p>
     {!found.length && <p>No matching articles. Try another search or send us a message.</p>}
     {found.map((article) => <article key={article.title} className="ds-panel" style={{ padding: 20, marginTop: 14 }}><h2>{article.title}</h2><p>{article.text}</p></article>)}
-    <VisitorChatWidget />
   </main>;
 }
