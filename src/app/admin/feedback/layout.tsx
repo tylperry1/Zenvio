@@ -2,7 +2,7 @@ import "../admin.css";
 import { AdminFrame } from "@/components/admin-frame";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <AdminFrame view="feedback" label="Feedback">
+    <AdminFrame view="feedback" label="Suggestions & feedback">
       {children}
     </AdminFrame>
   );

@@ -366,6 +366,7 @@ export function AppShell({
                 Orders
               </Link>
             )}
+            {!demo && user && <SupportLauncher />}
             <div className="shell-account" ref={menuRef}>
               <button
                 className="shell-account-button"
@@ -425,7 +426,7 @@ export function AppShell({
         )}
         <div className="shell-content">{children}</div>
         {!demo && <InstallPrompt />}
-        {!demo && user && routePath !== "/app/support" && <><AssistantLauncher /><SupportLauncher /></>}
+        {!demo && user && routePath !== "/app/support" && <AssistantLauncher />}
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}
