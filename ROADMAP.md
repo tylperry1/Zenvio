@@ -160,6 +160,23 @@ AI-assisted design, team purchasing, multi-brand management, advanced supplier r
 
 Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras $9.99 monthly. Fixed Teams pools replace per-seat allowance growth only for verified new-version subscriptions. Historical sections describe earlier releases; PRICING_IMPLEMENTATION.md is the current pricing checklist and explicitly lists unfinished meters, add-on activation and financial acceptance gates. Full commercial activation is not complete.
 
+## Customer support center (Claude branch `launch/claude-experience`)
+
+Live chat, suggestions and a customer-service console for Zenvio employees. Migration 066 is additive (support conversations, messages, employee availability, saved replies). Suggestions keep using the existing feedback inbox.
+
+| Item | Status |
+| --- | --- |
+| Customer **Help & support** page (`/app/support`): start conversations by topic, chat thread, mark resolved, 1–5 rating, reply to reopen | Completed and verified (local production build, browser end to end) |
+| Top-bar help button with unread badge and compact chat panel; links to the assistant and to suggestions | Completed and verified |
+| Live updates by polling (5 s in an open thread, 20 s for lists, paused in background tabs) | Completed and verified. There is no websocket transport; replies appear within seconds, not instantly. |
+| Employee **Support inbox** (`/admin/support`): queue with All / Mine / Unassigned, status, topic and search filters; KPIs (needs reply, unassigned, waiting, first response time, satisfaction) | Completed and verified |
+| Reply, internal notes (never shown to customers), assign, priority, status, saved replies, "file as suggestion" into Suggestions & feedback, customer context panel | Completed and verified |
+| Employee availability toggle; customers see whether the team is online | Completed and verified |
+| New delegable **Customer support** permission and a **Customer service** navigation group (Support inbox, Suggestions & feedback) | Completed and verified (support-only employee sees only this area; customers and other employees get 403) |
+| Email to the customer when an employee reply goes unread for 2 minutes (scheduled job, once per message, Resend idempotency key) | Implemented, awaiting Resend configuration in production. Selection logic verified locally; no email was actually sent. |
+| Public (signed-out) chat on the marketing site | Not started. Visitors can still sign up or use the existing contact routes. |
+| Notifying employees of new chats outside the console (email, push or Slack) | Not started. The console refreshes every 15 seconds. |
+
 ## Commercial launch checklist
 
 | Work | Classification |
