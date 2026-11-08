@@ -20,14 +20,26 @@ type Ticket = {
   assignee_name?: string | null;
   name: string;
   email?: string;
+  visitor?: boolean;
   preview: string | null;
   unread: number;
 };
-type Message = { id: string; sender_id: string | null; staff: boolean; internal: boolean; content: string; created_at: string; attachment: boolean };
+export type Message = { id: string; sender_id: string | null; staff: boolean; internal: boolean; content: string; created_at: string; attachment: boolean };
 type Reply = { id: string; title: string; content: string };
 type Member = { id: string; name: string; online: boolean };
-type Counts = { open: number; pending: number; unassigned: number; mine: number; first_response_minutes: number | null; rating: number | null; ratings: number };
+type Counts = {
+  open: number;
+  pending: number;
+  unassigned: number;
+  mine: number;
+  visitors: number;
+  latest_customer: string;
+  first_response_minutes: number | null;
+  rating: number | null;
+  ratings: number;
+};
 type TicketMeta = Ticket & {
+  visitor?: boolean;
   first_response_at: string | null;
   resolved_at: string | null;
   page?: string;
@@ -75,6 +87,129 @@ function usePoll(fn: () => void, ms: number, active = true) {
   }, [ms, active]);
 }
 
+export type LiveState = "connecting" | "live" | "offline";
+
+/**
+ * Subscribes to a support event stream and calls `onChange` when the server
+ * reports new activity. The server closes each stream after ~25 s and the
+ * browser reconnects; the last signature is kept so reconnects don't refetch.
+ * After repeated failures it backs off and the caller's slower polling covers.
+ */
+export function useLive(url: string | null, onChange: () => void) {
+  const [state, setState] = useState<LiveState>("connecting");
+  const ref = useRef(onChange);
+  ref.current = onChange;
+  useEffect(() => {
+    if (!url || typeof EventSource === "undefined") {
+      setState("offline");
+      return;
+    }
+    let source: EventSource | null = null,
+      failures = 0,
+      stopped = false,
+      timer: number | undefined,
+      last: string | null = null;
+    const connect = () => {
+      setState("connecting");
+      source = new EventSource(url);
+      source.addEventListener("open", () => {
+        failures = 0;
+        setState("live");
+      });
+      source.addEventListener("change", (e) => {
+        const data = (e as MessageEvent).data;
+        if (last !== null && data !== last) ref.current();
+        last = data;
+      });
+      source.onerror = () => {
+        failures++;
+        if (failures > 3) {
+          setState("offline");
+          source?.close();
+          timer = window.setTimeout(() => !stopped && connect(), 30000);
+        } else if (source?.readyState === EventSource.CLOSED) {
+          timer = window.setTimeout(() => !stopped && connect(), 2000);
+        }
+      };
+    };
+    connect();
+    return () => {
+      stopped = true;
+      source?.close();
+      window.clearTimeout(timer);
+    };
+  }, [url]);
+  return state;
+}
+
+/** Live status pill and a manual refresh button. */
+export function LiveControls({ state, onRefresh }: { state: LiveState; onRefresh: () => Promise<unknown> | void }) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const label = state === "live" ? "Live" : state === "connecting" ? "Connecting…" : "Auto-refresh";
+  return (
+    <span className="sp-live-controls">
+      <span className={`sp-live ${state}`} role="status" title={state === "live" ? "New messages appear instantly" : state === "offline" ? "Live updates unavailable; refreshing every 30 seconds" : "Connecting to live updates"}>
+        <i aria-hidden="true" />
+        {label}
+      </span>
+      <button
+        type="button"
+        className={`ds-btn ghost sm sp-refresh ${busy ? "spinning" : ""}`}
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onRefresh();
+            setDone(true);
+            window.setTimeout(() => setDone(false), 1500);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Icon name={done ? "check" : "refresh"} size={14} /> {done ? "Updated" : "Refresh"}
+      </button>
+    </span>
+  );
+}
+
+/** A short two-tone chime, generated so no audio file is needed. */
+export function chime() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator(),
+        gain = ctx.createGain();
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + i * 0.12 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.12 + 0.25);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.12);
+      osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+    });
+    window.setTimeout(() => void ctx.close(), 800);
+  } catch {}
+}
+
+const pref = {
+  get: (k: string, d: boolean) => {
+    try {
+      const v = localStorage.getItem(k);
+      return v === null ? d : v === "1";
+    } catch {
+      return d;
+    }
+  },
+  set: (k: string, v: boolean) => {
+    try {
+      localStorage.setItem(k, v ? "1" : "0");
+    } catch {}
+  },
+};
+
 async function send(endpoint: string, data: object) {
   const r = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
   const d = await r.json().catch(() => ({}));
@@ -100,7 +235,7 @@ async function loadThread(endpoint: string, id: string): Promise<Thread> {
   return { ...(first as Thread), messages };
 }
 
-function MessageList({ messages, staff, endpoint, names }: { messages: Message[]; staff: boolean; endpoint: string; names?: Record<string, string> }) {
+export function MessageList({ messages, staff, endpoint, names }: { messages: Message[]; staff: boolean; endpoint: string; names?: Record<string, string> }) {
   const box = useRef<HTMLDivElement>(null);
   const count = messages.length;
   // Scroll the list only, never the page around it.
@@ -175,7 +310,7 @@ function AttachButton({ endpoint, ticket, internal = false, onDone, onError }: {
 }
 
 /** A composer whose idempotency reference is reused for retries of the same draft. */
-function useDraft() {
+export function useDraft() {
   const [text, setText] = useState("");
   const reference = useRef<string | null>(null);
   return {
@@ -194,7 +329,7 @@ function useDraft() {
 
 // ------------------------------------------------------------------ customers
 
-function Availability({ online }: { online: boolean | null }) {
+export function Availability({ online }: { online: boolean | null }) {
   if (online === null) return null;
   return (
     <p className={`sp-availability ${online ? "online" : ""}`}>
@@ -285,7 +420,7 @@ function Rating({ ticket, onRated }: { ticket: TicketMeta; onRated: () => void }
   );
 }
 
-function CustomerThread({ id, onBack, onChange }: { id: string; onBack: () => void; onChange: () => void }) {
+function CustomerThread({ id, version = 0, live = "offline", onBack, onChange }: { id: string; version?: number; live?: LiveState; onBack: () => void; onChange: () => void }) {
   const [data, setData] = useState<Thread | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -304,7 +439,10 @@ function CustomerThread({ id, onBack, onChange }: { id: string; onBack: () => vo
     setData(null);
     void load();
   }, [load]);
-  usePoll(load, 5000);
+  useEffect(() => {
+    if (version) void load();
+  }, [version, load]);
+  usePoll(load, live === "live" ? 30000 : 5000);
   async function submit() {
     if (!draft.text.trim() || busy || !data) return;
     setBusy(true);
@@ -410,7 +548,7 @@ function ConversationList({ items, active, onOpen }: { items: Ticket[]; active?:
   );
 }
 
-function useCustomerTickets(active = true) {
+function useCustomerTickets(active = true, interval = 20000) {
   const [data, setData] = useState<{ tickets: Ticket[]; online: boolean } | null>(null);
   const load = useCallback(async () => {
     const r = await fetch("/api/support", { cache: "no-store" });
@@ -419,7 +557,7 @@ function useCustomerTickets(active = true) {
   useEffect(() => {
     if (active) void load();
   }, [load, active]);
-  usePoll(load, 20000, active);
+  usePoll(load, interval, active);
   useEffect(() => {
     const refresh = () => void load();
     window.addEventListener("zenvio:support-read", refresh);
@@ -429,7 +567,18 @@ function useCustomerTickets(active = true) {
 }
 
 function CustomerSupport() {
-  const { data, load } = useCustomerTickets();
+  const [version, setVersion] = useState(0);
+  const [liveOk, setLiveOk] = useState(true);
+  const { data, load } = useCustomerTickets(true, liveOk ? 60000 : 20000);
+  const live = useLive("/api/support/stream", () => {
+    void load();
+    setVersion((v) => v + 1);
+  });
+  useEffect(() => setLiveOk(live === "live"), [live]);
+  const refresh = async () => {
+    await load();
+    setVersion((v) => v + 1);
+  };
   const [active, setActive] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
   useEffect(() => {
@@ -455,6 +604,7 @@ function CustomerSupport() {
         description="Chat with the Zenvio team, follow your conversations and share suggestions."
         actions={
           <>
+            <LiveControls state={live} onRefresh={refresh} />
             <Link href="/help" className="ds-btn">
               <Icon name="search" size={15} /> Help Center
             </Link>
@@ -510,7 +660,7 @@ function CustomerSupport() {
               />
             </div>
           ) : active ? (
-            <CustomerThread key={active} id={active} onBack={() => open(null)} onChange={load} />
+            <CustomerThread key={active} id={active} version={version} live={live} onBack={() => open(null)} onChange={load} />
           ) : (
             <EmptyState icon="message" title="Pick a conversation">
               Or start a new one — we’re happy to help.
@@ -527,7 +677,12 @@ export function SupportLauncher() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
-  const { data, load, unread } = useCustomerTickets(true);
+  const [version, setVersion] = useState(0);
+  const { data, load, unread } = useCustomerTickets(true, open ? 30000 : 60000);
+  const live = useLive(open ? "/api/support/stream" : null, () => {
+    void load();
+    setVersion((v) => v + 1);
+  });
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -560,6 +715,19 @@ export function SupportLauncher() {
               <Icon name="message" size={16} /> Help & support
             </b>
             <span>
+              <button
+                type="button"
+                className="sp-icon-btn"
+                aria-label="Refresh"
+                title={live === "live" ? "Live — refresh now" : "Refresh"}
+                onClick={() => {
+                  void load();
+                  setVersion((v) => v + 1);
+                }}
+              >
+                <Icon name="refresh" size={15} />
+                {live === "live" && <i className="sp-live-dot" aria-hidden="true" />}
+              </button>
               <Link href={active ? `/app/support?ticket=${active}` : "/app/support"} className="sp-expand" onClick={() => setOpen(false)}>
                 Open full page
               </Link>
@@ -589,7 +757,7 @@ export function SupportLauncher() {
                 />
               </div>
             ) : active ? (
-              <CustomerThread key={active} id={active} onBack={() => (setActive(null), void load())} onChange={load} />
+              <CustomerThread key={active} id={active} version={version} live={live} onBack={() => (setActive(null), void load())} onChange={load} />
             ) : (
               <>
                 <Availability online={data ? data.online : null} />
@@ -625,10 +793,10 @@ export function SupportLauncher() {
 
 // ------------------------------------------------------------------ employees
 
-type Queue = { tickets: Ticket[]; hasMore: boolean; replies: Reply[]; counts: Counts; team: Member[]; available: boolean; me: string };
+type Queue = { tickets: Ticket[]; hasMore: boolean; replies: Reply[]; counts: Counts; team: Member[]; available: boolean; emailAlerts: boolean; me: string };
 
 function SupportConsole() {
-  const [view, setView] = useState<"" | "mine" | "unassigned">("");
+  const [view, setView] = useState<"" | "mine" | "unassigned" | "visitors">("");
   const [status, setStatus] = useState<"active" | Status | "">("active");
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
@@ -637,13 +805,51 @@ function SupportConsole() {
   const [error, setError] = useState("");
   const [active, setActive] = useState<string | null>(null);
   const [repliesOpen, setRepliesOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [version, setVersion] = useState(0);
+  const latest = useRef<string | null>(null);
+  const activeRef = useRef<string | null>(null);
+  activeRef.current = active;
   const load = useCallback(async () => {
     const r = await fetch(`/api/admin/support?${new URLSearchParams({ view, status, q, category, page: String(page) })}`, { cache: "no-store" });
-    const d = await r.json().catch(() => ({}));
+    const d: Queue & { error?: string } = await r.json().catch(() => ({}));
     if (!r.ok) return setError(d.error || "The support inbox couldn’t be loaded.");
     setError("");
     setData(d);
+    // Alert on new customer or visitor messages that arrived since the last load.
+    const newest = d.counts.latest_customer;
+    if (latest.current !== null && BigInt(newest) > BigInt(latest.current)) {
+      const ticket = [...d.tickets].filter((t) => t.unread > 0).sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+      const watching = ticket && ticket.id === activeRef.current && document.visibilityState === "visible";
+      if (!watching) {
+        if (pref.get("zv-support-sound", true)) chime();
+        if (pref.get("zv-support-desktop", true) && typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState !== "visible") {
+          const n = new Notification(ticket ? `${ticket.name || ticket.email || "Customer"}${ticket.visitor ? " (website)" : ""}` : "New support message", {
+            body: ticket ? `${ticket.subject}${ticket.preview ? ` — ${ticket.preview.slice(0, 120)}` : ""}` : "Open the support inbox to reply.",
+            tag: ticket ? `support-${ticket.id}` : "support",
+          });
+          n.onclick = () => {
+            window.focus();
+            if (ticket) select(ticket.id);
+            n.close();
+          };
+        }
+      }
+    }
+    latest.current = newest;
   }, [view, status, q, category, page]);
+  const live = useLive("/api/admin/support/stream", () => {
+    void load();
+    setVersion((v) => v + 1);
+  });
+  // Show the number of conversations needing a reply in the browser tab.
+  useEffect(() => {
+    const base = "Support inbox | Zenvio";
+    document.title = data?.counts.open ? `(${data.counts.open}) ${base}` : base;
+    return () => {
+      document.title = base;
+    };
+  }, [data?.counts.open]);
   useEffect(() => {
     const t = window.setTimeout(() => void load(), q ? 250 : 0);
     return () => window.clearTimeout(t);
@@ -652,7 +858,7 @@ function SupportConsole() {
     const id = new URLSearchParams(window.location.search).get("ticket");
     if (id) setActive(id);
   }, []);
-  usePoll(load, 15000);
+  usePoll(load, live === "live" ? 60000 : 15000);
   const select = (id: string | null) => {
     setActive(id);
     const url = new URL(window.location.href);
@@ -670,6 +876,13 @@ function SupportConsole() {
         description="Live chat from customers. Reply, assign, set priority, add private notes and file suggestions for the product team."
         actions={
           <>
+            <LiveControls
+              state={live}
+              onRefresh={async () => {
+                await load();
+                setVersion((v) => v + 1);
+              }}
+            />
             {data && (
               <button
                 type="button"
@@ -683,6 +896,9 @@ function SupportConsole() {
                 <i aria-hidden="true" /> {data.available ? "Available for chat" : "Away"}
               </button>
             )}
+            <button type="button" className="ds-btn" onClick={() => setAlertsOpen(true)}>
+              <Icon name="bell" size={14} /> Alerts
+            </button>
             <button type="button" className="ds-btn" onClick={() => setRepliesOpen(true)}>
               <Icon name="edit" size={14} /> Saved replies
             </button>
@@ -708,6 +924,7 @@ function SupportConsole() {
                 ["", "All"],
                 ["mine", `Mine${c?.mine ? ` (${c.mine})` : ""}`],
                 ["unassigned", "Unassigned"],
+                ["visitors", `Website${c?.visitors ? ` (${c.visitors})` : ""}`],
               ]}
             />
             <div className="sp-filter-row">
@@ -747,6 +964,7 @@ function SupportConsole() {
                     {t.preview && <span className="sp-list-preview">{t.preview}</span>}
                     <span className="sp-list-tags">
                       <Badge tone={staffStatus[t.status].tone}>{staffStatus[t.status].label}</Badge>
+                      {t.visitor && <Badge tone="info">Website visitor</Badge>}
                       {t.priority !== "normal" && <Badge tone={priorityTone[t.priority]}>{cap(t.priority)}</Badge>}
                       <small>{t.assignee_name ? t.assignee_name.split(" ")[0] : "Unassigned"}</small>
                       {t.unread > 0 && <span className="sp-unread">{t.unread} new</span>}
@@ -773,7 +991,7 @@ function SupportConsole() {
         </section>
         <section className="sp-workspace" aria-label="Conversation">
           {active && data ? (
-            <StaffThread key={active} id={active} team={data.team} replies={data.replies} me={data.me} onBack={() => select(null)} onChange={load} />
+            <StaffThread key={active} id={active} version={version} live={live} team={data.team} replies={data.replies} me={data.me} onBack={() => select(null)} onChange={load} />
           ) : (
             <EmptyState icon="message" title="Select a conversation">
               Pick a conversation from the queue to read and reply.
@@ -782,6 +1000,7 @@ function SupportConsole() {
         </section>
       </div>
       {repliesOpen && data && <SavedReplies replies={data.replies} onClose={() => setRepliesOpen(false)} onChange={load} />}
+      {alertsOpen && data && <AlertSettings emailAlerts={data.emailAlerts} onClose={() => setAlertsOpen(false)} onChange={load} />}
     </div>
   );
 }
@@ -797,7 +1016,25 @@ function Select({ label, value, onChange, children }: { label: string; value: st
   );
 }
 
-function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; team: Member[]; replies: Reply[]; me: string; onBack: () => void; onChange: () => void }) {
+function StaffThread({
+  id,
+  version = 0,
+  live = "offline",
+  team,
+  replies,
+  me,
+  onBack,
+  onChange,
+}: {
+  id: string;
+  version?: number;
+  live?: LiveState;
+  team: Member[];
+  replies: Reply[];
+  me: string;
+  onBack: () => void;
+  onChange: () => void;
+}) {
   const [d, setD] = useState<Thread | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -817,7 +1054,10 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
   useEffect(() => {
     void load();
   }, [load]);
-  usePoll(load, 5000);
+  useEffect(() => {
+    if (version) void load();
+  }, [version, load]);
+  usePoll(load, live === "live" ? 30000 : 5000);
   async function update(patch: Record<string, unknown>) {
     try {
       await send("/api/admin/support", { action: "update", ticket: id, ...patch });
@@ -869,6 +1109,7 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
           </div>
           <Badge tone={staffStatus[t.status].tone}>{staffStatus[t.status].label}</Badge>
         </header>
+        {t.visitor && <Notice tone="info">Website visitor without an account. Replies are emailed to {t.customer_email} with a private link back to this chat. Images can’t be sent to visitors.</Notice>}
         <div className="sp-controls">
           <Select label="Assignee" value={t.assigned_to || ""} onChange={(v) => update({ assigned: v || null })}>
             <option value="">Unassigned</option>
@@ -949,7 +1190,7 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
             }}
           />
           <div className="sp-composer-row">
-            <AttachButton endpoint="/api/admin/support" ticket={id} internal={internal} onDone={load} onError={setError} />
+            {!t.visitor && <AttachButton endpoint="/api/admin/support" ticket={id} internal={internal} onDone={load} onError={setError} />}
             {replies.length > 0 && (
               <select
                 aria-label="Insert saved reply"
@@ -988,6 +1229,8 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
             <dd>{t.customer_name || "—"}</dd>
             <dt>Email</dt>
             <dd>{t.customer_email ? <a href={`mailto:${t.customer_email}`}>{t.customer_email}</a> : "—"}</dd>
+            <dt>Type</dt>
+            <dd>{t.visitor ? "Website visitor" : "Zenvio account"}</dd>
             {t.customer_since && (
               <>
                 <dt>Customer since</dt>
@@ -1007,9 +1250,11 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
               </>
             )}
           </dl>
-          <Link className="sp-link" href="/admin?view=accounts">
-            Customer accounts <Icon name="external" size={12} />
-          </Link>
+          {!t.visitor && (
+            <Link className="sp-link" href="/admin?view=accounts">
+              Customer accounts <Icon name="external" size={12} />
+            </Link>
+          )}
         </Panel>
         <Panel title="Earlier conversations">
           {d.history?.length ? (
@@ -1048,6 +1293,94 @@ function StaffThread({ id, team, replies, me, onBack, onChange }: { id: string; 
         </Panel>
       </aside>
     </div>
+  );
+}
+
+function AlertSettings({ emailAlerts, onClose, onChange }: { emailAlerts: boolean; onClose: () => void; onChange: () => void }) {
+  const [permission, setPermission] = useState<string>(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+  const [desktop, setDesktop] = useState(() => pref.get("zv-support-desktop", true));
+  const [sound, setSound] = useState(() => pref.get("zv-support-sound", true));
+  const [email, setEmail] = useState(emailAlerts);
+  const [error, setError] = useState("");
+  return (
+    <Modal title="Support alerts" onClose={onClose}>
+      <div className="ds-root sp-alerts">
+        {error && <Notice tone="danger">{error}</Notice>}
+        <div className="sp-alert-row">
+          <div>
+            <b>Desktop notifications</b>
+            <small>Pop-up alerts for new messages while this inbox is open in another tab or window.</small>
+          </div>
+          {permission === "granted" ? (
+            <label className="sp-switch">
+              <input
+                type="checkbox"
+                checked={desktop}
+                onChange={(e) => {
+                  setDesktop(e.target.checked);
+                  pref.set("zv-support-desktop", e.target.checked);
+                }}
+              />
+              <span>{desktop ? "On" : "Off"}</span>
+            </label>
+          ) : permission === "denied" ? (
+            <small className="sp-muted">Blocked in your browser settings</small>
+          ) : permission === "unsupported" ? (
+            <small className="sp-muted">Not supported in this browser</small>
+          ) : (
+            <button type="button" className="ds-btn primary sm" onClick={async () => setPermission(await Notification.requestPermission())}>
+              Turn on
+            </button>
+          )}
+        </div>
+        <div className="sp-alert-row">
+          <div>
+            <b>Sound</b>
+            <small>A short chime when a customer or visitor writes.</small>
+          </div>
+          <span className="sp-row-actions">
+            <button type="button" className="ds-btn ghost sm" onClick={() => chime()}>
+              Test
+            </button>
+            <label className="sp-switch">
+              <input
+                type="checkbox"
+                checked={sound}
+                onChange={(e) => {
+                  setSound(e.target.checked);
+                  pref.set("zv-support-sound", e.target.checked);
+                }}
+              />
+              <span>{sound ? "On" : "Off"}</span>
+            </label>
+          </span>
+        </div>
+        <div className="sp-alert-row">
+          <div>
+            <b>Email when I’m away</b>
+            <small>New chats (and replies to conversations assigned to you) are emailed when you haven’t had the inbox open for 3 minutes.</small>
+          </div>
+          <label className="sp-switch">
+            <input
+              type="checkbox"
+              checked={email}
+              onChange={async (e) => {
+                const enabled = e.target.checked;
+                setEmail(enabled);
+                try {
+                  await send("/api/admin/support", { action: "email-alerts", enabled });
+                  onChange();
+                } catch (err) {
+                  setEmail(!enabled);
+                  setError(err instanceof Error ? err.message : "");
+                }
+              }}
+            />
+            <span>{email ? "On" : "Off"}</span>
+          </label>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

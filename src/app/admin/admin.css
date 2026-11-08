@@ -339,6 +339,7 @@
 .admin-v3.acx .acx-sidebar nav>.active .acx-icon{background:var(--action-primary);color:#fff;box-shadow:0 4px 12px #365cff59}
 .admin-v3.acx .acx-sidebar :focus-visible{outline:2px solid #8ea4ff;outline-offset:1px}
 .admin-v3.acx .acx-pill{font-size:10px;font-weight:700;letter-spacing:.04em;color:#ffd99a;background:#ffb4321f;border:1px solid #ffb43240;padding:1px 6px;border-radius:999px}
+.admin-v3.acx .acx-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center}
 .admin-v3.acx .acx-empty{font-size:12px;color:var(--acx-dim);padding:14px 10px;margin:0}
 .admin-v3.acx .acx-footer{flex-shrink:0;border-top:1px solid var(--acx-line);padding:12px 14px 14px;display:grid;gap:10px}
 .admin-v3.acx .acx-identity{display:flex;align-items:center;gap:10px;min-width:0}

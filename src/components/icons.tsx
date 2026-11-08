@@ -173,6 +173,7 @@ export function Icon({
     eye: <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />,
     alert: <path d="M12 4 2.5 20h19L12 4Zm0 6v4m0 3h.01" />,
     truck: <path d="M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
+    refresh: <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" />,
   };
   return (
     <svg
