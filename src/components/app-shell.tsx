@@ -7,6 +7,7 @@ import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { AssistantLauncher } from "./assistant";
+import { SupportButton } from "./support";
 
 type NavItem = {
   id: string;
@@ -105,6 +106,7 @@ function paletteItems(demo: boolean, admin: boolean, jobs: boolean): PaletteItem
           { id: "new-client", label: "Add client", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create" },
           { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
           { id: "ask-assistant", label: "Ask Zenvio Assistant", icon: "sparkles", href: "/app/assistant", group: "Actions", keywords: "ai help chat" },
+          { id: "support", label: "Contact support", icon: "message", href: "/app/support?new=1", group: "Actions", keywords: "help chat customer service question" },
           { id: "feedback", label: "Send feedback", icon: "feedback", href: "/app/feedback", group: "Actions", keywords: "bug idea suggestion" },
         ]),
   ];
@@ -178,6 +180,8 @@ function Breadcrumb({ demo }: { demo: boolean }) {
       ? "Orders"
       : pathname === "/app/feedback"
         ? "Feedback"
+        : pathname === "/app/support"
+          ? "Help & support"
         : current?.label || "Overview";
   return (
     <div className="shell-breadcrumb">
@@ -363,6 +367,7 @@ export function AppShell({
                 Orders
               </Link>
             )}
+            {!demo && user && <SupportButton />}
             <div className="shell-account" ref={menuRef}>
               <button
                 className="shell-account-button"
@@ -395,6 +400,11 @@ export function AppShell({
                   {admin && !demo && (
                     <Link role="menuitem" href="/admin" onClick={() => setMenu(false)}>
                       <Icon name="shield" size={16} /> Admin console
+                    </Link>
+                  )}
+                  {!demo && (
+                    <Link role="menuitem" href="/app/support" onClick={() => setMenu(false)}>
+                      <Icon name="message" size={16} /> Help & support
                     </Link>
                   )}
                   {!demo && (
