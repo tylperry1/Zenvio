@@ -173,8 +173,9 @@ Builds on the native support tickets from migration 066; the API contract, idemp
 | Employee Support inbox: All / Mine / Unassigned, status, topic and name/email search; priority ordering; KPIs (needs reply, unassigned, waiting, first response, satisfaction) | Built and verified locally |
 | Assign, priority, status, internal notes, saved replies (create/delete), "then wait / resolve" after a reply, customer context panel | Built and verified locally |
 | "File as suggestion" sends a customer message to Suggestions & feedback; Customer service navigation group | Built and verified locally |
-| Live updates | Polling (5 s open thread, 15–20 s lists), not websockets |
-| Signed-out chat on the marketing site; alerts to employees outside the console | Not started |
+| Live updates (migration 068) | Built and verified locally: server-sent events push changes to customers, website visitors and the employee inbox (about 1–2 s end to end); slower polling takes over if a stream can't connect. Refresh buttons and a Live indicator on every support view |
+| Website visitor chat (migration 068) | Built and verified locally: "Chat with us" on the home, pricing and help pages and at `/support`; no account needed; private token in an HttpOnly cookie, reply emails carry a private link; CAPTCHA when configured, rate limits and a honeypot; images are account-only |
+| Employee alerts (migration 068) | Built and verified locally: chime and desktop notifications in the inbox, waiting count in the tab title and console navigation, email to away employees for new chats and replies to their assigned conversations (on/off per employee). Emails send once Resend is configured |
 
 ## Commercial launch checklist
 
@@ -188,7 +189,8 @@ Builds on the native support tickets from migration 066; the API contract, idemp
 | Provider cost anomaly indicators | Built, pending release QA |
 | Provider invoice reconciliation and actual contribution margin | Missing complete implementation |
 | Internal live support (chat, employee inbox, topics, priority, availability, ratings, suggestion filing) | Built, pending release QA (migrations 066–067) |
-| Push notifications for support replies and new chats | Missing implementation |
+| Support alerts | Built: in-console sound and desktop notifications plus email to away employees. Background push to a closed browser or phone is not implemented |
+| System email design | Built: shared branded layout for all system emails (inbox preview text, action buttons named for the task, backup link, consistent footer); marketplace and admin alert emails now use it. Preview several samples at Admin → Email preview |
 | Gelato fulfillment and live integrations | Built, pending provider acceptance |
 
 See [launch readiness](LAUNCH_READINESS.md) for activation gates.
