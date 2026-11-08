@@ -10,6 +10,7 @@ export const staffPermissions = {
     label: "Early-access signups",
     description: "Waitlist signups and confirmation status.",
   },
+  support: { label: "Customer support", description: "Zenvio customer tickets and internal notes." },
   feedback: { label: "Feedback", description: "Customer feedback inbox." },
   subscriptions: {
     label: "Subscriptions",
@@ -44,6 +45,7 @@ export const sectionHome: Record<StaffPermission, string> = {
   accounts: "/admin",
   "early-access": "/admin/early-access",
   feedback: "/admin/feedback",
+  support: "/admin/support",
   subscriptions: "/admin/operations?section=subscriptions",
   marketplace: "/admin/operations?section=marketplace",
   integrations: "/admin/operations?section=integrations",

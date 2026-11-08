@@ -1,3 +1,4 @@
+import { transactionalEmail } from "./transactional-email";
 import { resendFailure, ResendDeliveryError } from "./resend-diagnostics";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
@@ -287,6 +288,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
             to: j.recipient,
             subject: j.subject,
             text: unsealSecret(j.payload_ciphertext),
+            ...(j.kind === "customer_message" ? {} : { html: transactionalEmail(j.subject, unsealSecret(j.payload_ciphertext)) }),
           }),
           signal: AbortSignal.timeout(8000),
         });

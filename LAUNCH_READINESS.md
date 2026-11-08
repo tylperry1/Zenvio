@@ -1,3 +1,5 @@
+> Current launch execution and complete route inventory are tracked in [the final audit](docs/qa/FINAL_LAUNCH_AUDIT.md). Earlier release notes below are historical evidence.
+
 # Zenvio 3.0 launch readiness
 
 Target: November 5, 2026. Current gate: **NOT READY for unrestricted commercial activation**.

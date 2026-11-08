@@ -1,3 +1,5 @@
+> Current launch execution and complete route inventory are tracked in [the final audit](docs/qa/FINAL_LAUNCH_AUDIT.md). Earlier release notes below are historical evidence.
+
 # Zenvio 3.0 implementation status
 
 Read docs/ROADMAP.md and docs/qa/ZENVIO_2_0_FULL_QA_AUDIT.md for historical features and evidence. This document tracks the requested backend launch delta. Classification is source-based until current tests prove otherwise.

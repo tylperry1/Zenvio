@@ -1,4 +1,5 @@
 "use client";
+import { SupportLauncher } from "./platform-support";
 import { InstallPrompt } from "./pwa";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -422,7 +423,7 @@ export function AppShell({
         )}
         <div className="shell-content">{children}</div>
         {!demo && <InstallPrompt />}
-        {!demo && user && <AssistantLauncher />}
+        {!demo && user && <><AssistantLauncher /><SupportLauncher /></>}
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}

@@ -32,6 +32,7 @@ function load(file, overrides = {}) {
   m.require = (id) =>
     Object.hasOwn(overrides, id)
       ? overrides[id]
+      : id === "./transactional-email" ? load("src/lib/transactional-email.ts")
       : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
       : id === "./microsoft-calendar" ? { filterMicrosoftSlots: async (_hostId, _email, slots) => slots }
       : id === "./resend-diagnostics"
