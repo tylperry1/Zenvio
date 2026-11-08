@@ -10,7 +10,8 @@ const articles = [
   { title: "Get help from Zenvio", text: "Sign in and open Help & support. Create a conversation with a short subject and describe what happened. Keep passwords, payment card details and private signing links out of messages. Replies appear in your support history." },
 ];
 export default async function Help({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const query = ((await searchParams).q || "").slice(0, 100);
+  const input = (await searchParams).q;
+  const query = typeof input === "string" ? input.slice(0, 100) : "";
   const found = articles.filter((article) => (article.title + " " + article.text).toLowerCase().includes(query.toLowerCase()));
   return <main className="ds-root" style={{ maxWidth: 880, margin: "auto", padding: "40px 20px" }}>
     <Link href="/">Zenvio</Link><h1>How can we help?</h1>

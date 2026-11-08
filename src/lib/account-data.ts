@@ -5,6 +5,7 @@ import { ApiError } from "./server";
 type Query = { sql: string; key: string };
 // Everything a person's account holds that they can take with them.
 const exportQueries: Query[] = [
+  { key: "support_attachments", sql: "SELECT t.id ticket_id,m.id message_id,a.filename,a.content_type,encode(a.data,'base64') content_base64 FROM private.support_attachments a JOIN private.support_messages m ON m.id=a.message_id JOIN private.support_tickets t ON t.id=m.ticket_id WHERE t.user_id=$1 AND NOT m.internal" },
   { key: "support_tickets", sql: "SELECT id,subject,status,created_at,updated_at FROM private.support_tickets WHERE user_id=$1" },
   { key: "support_messages", sql: "SELECT m.content,m.staff,m.created_at FROM private.support_messages m JOIN private.support_tickets t ON t.id=m.ticket_id WHERE t.user_id=$1 AND NOT m.internal ORDER BY m.id" },
   {key:"email_usage",sql:"SELECT kind,protected,state,created_at,accepted_at FROM private.email_usage_events WHERE user_id=$1 OR billing_owner=$1 ORDER BY created_at"},
