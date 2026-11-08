@@ -1,3 +1,4 @@
+import { transactionalEmail } from "./transactional-email";
 import { resendFailure } from "./resend-diagnostics";
 import { createHash } from "node:crypto";
 import { integrationValue } from "./platform-settings";
@@ -37,7 +38,7 @@ export async function sendAccountMail(
       "Content-Type": "application/json",
       "Idempotency-Key": `account-${id}`,
     },
-    body: JSON.stringify({ from: from.trim(), to: email, subject, text }),
+    body: JSON.stringify({ from: from.trim(), to: email, subject, text, html: transactionalEmail(subject, text) }),
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok)

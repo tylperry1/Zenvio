@@ -2,7 +2,7 @@ import type {PoolClient} from "pg";
 import {createHash} from "node:crypto";
 import {ApiError} from "./server";
 import {reserveSubscriptionUnits,settleSubscriptionUnits,usageOwner} from "./subscription-usage";
-export const protectedEmailKinds=new Set(['account_security','booking_confirmation','booking_cancelled','booking_changed','document_complete','payment_review']);
+export const protectedEmailKinds=new Set(['support_reply','account_security','booking_confirmation','booking_cancelled','booking_changed','document_complete','payment_review']);
 /** Transaction caller must commit unknown outcomes. Never retry using a new reference. */
 export async function reserveEmail(db:PoolClient,input:{user:string|null;reference:string;kind:string;recipient:string}){
  await db.query("select pg_advisory_xact_lock(hashtextextended('email-quota-global',0))");

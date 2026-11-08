@@ -12,7 +12,7 @@ function load(file, overrides = {}) {
   m.paths = Module._nodeModulePaths(path.dirname(filename));
   const require = m.require.bind(m);
   m.require = (id) =>
-    Object.hasOwn(overrides, id) ? overrides[id] : require(id);
+    Object.hasOwn(overrides, id) ? overrides[id] : id === "./transactional-email" ? load("src/lib/transactional-email.ts") : require(id);
   m._compile(
     ts.transpileModule(fs.readFileSync(filename, "utf8"), {
       compilerOptions: {

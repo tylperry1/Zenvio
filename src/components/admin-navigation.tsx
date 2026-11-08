@@ -21,6 +21,7 @@ const groups: { label: string; items: Item[] }[] = [
       { id: "overview", icon: "home", label: "Overview", href: "/admin", permission: "accounts" },
       { id: "accounts", icon: "users", label: "Accounts", href: "/admin?view=accounts", permission: "accounts" },
       { id: "early-access", icon: "sparkles", label: "Early access", href: "/admin/early-access", permission: "early-access" },
+      { id: "support", icon: "message", label: "Customer support", href: "/admin/support", permission: "support" },
       { id: "feedback", icon: "feedback", label: "Feedback", href: "/admin/feedback", permission: "feedback" },
     ],
   },
@@ -46,6 +47,7 @@ const groups: { label: string; items: Item[] }[] = [
     items: [
       { id: "integrations", icon: "plug", label: "Connections", href: "/admin/operations?section=integrations", permission: "integrations", hint: "integrations api keys" },
       { id: "assistant", icon: "sparkles", label: "AI assistant", href: "/admin/assistant", permission: "assistant" },
+      { id: "email-preview", icon: "mail", label: "Email preview", href: "/admin/email-preview", permission: "integrations" },
       { id: "health", icon: "shield", label: "System health", href: "/admin/operations?section=health", permission: "health" },
     ],
   },
