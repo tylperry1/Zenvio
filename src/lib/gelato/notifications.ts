@@ -1,3 +1,4 @@
+import { transactionalEmail } from "../transactional-email";
 import type { PoolClient } from "pg";
 import { getPool } from "../db";
 import { integrationValue } from "../platform-settings";
@@ -40,7 +41,7 @@ export async function deliverAdminAlerts(limit = 20) {
       const r = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${key.trim()}`, "Content-Type": "application/json", "Idempotency-Key": `admin-alert-${m.idempotencyKey}` },
-        body: JSON.stringify({ from: from.trim(), to: m.to, subject: m.subject, text: m.text }),
+        body: JSON.stringify({ from: from.trim(), to: m.to, subject: m.subject, text: m.text, html: transactionalEmail(m.subject, m.text) }),
         signal: AbortSignal.timeout(15000),
       });
       if (!r.ok) throw new Error(`resend_${r.status}`);

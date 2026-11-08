@@ -264,8 +264,8 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         if (staff && !internal && !ticket.user_id) await queueVisitorReply(db, ticket, reference);
         else if (staff && !internal) await queueDelivery(db, {
           user: ticket.user_id, kind: "support_reply", key: "support:" + reference, to: ticket.email,
-          subject: "Zenvio support replied",
-          text: `You have a new reply about “${ticket.subject}”.\n\nRead and reply securely in Zenvio:\n${appOrigin()}/app/support?ticket=${id}\n\nThis email does not accept replies.`,
+          subject: `New reply: ${ticket.subject}`.slice(0, 200),
+          text: `The Zenvio support team replied to your conversation “${ticket.subject}”.\n\nRead the reply and respond in Zenvio:\n${appOrigin()}/app/support?ticket=${id}\n\nPlease reply in Zenvio rather than to this email so the team sees your message.`,
         });
         if (!staff) await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
       }
@@ -359,7 +359,7 @@ export async function supportAttachment(request: NextRequest, staff: boolean, up
       await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_attachment_added',$2)", [current.token, JSON.stringify({ ticket: ticketId, internal })]);
       if (!internal) await queueDelivery(db, {
         user: ticket.user_id, kind: "support_reply", key: "support:" + reference, to: ticket.email,
-        subject: "Zenvio support shared an attachment", text: `View the reply securely in Zenvio:\n${appOrigin()}/app/support?ticket=${ticketId}`,
+        subject: `New image: ${ticket.subject}`.slice(0, 200), text: `The Zenvio support team shared an image in your conversation “${ticket.subject}”.\n\nView it in Zenvio:\n${appOrigin()}/app/support?ticket=${ticketId}`,
       });
     }
     await db.query("COMMIT");

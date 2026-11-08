@@ -27,8 +27,8 @@ export async function queueVisitorReply(db: DB, ticket: { id: string; subject: s
     kind: "visitor_reply",
     to: ticket.visitor_email,
     key: "visitor:" + reference,
-    subject: "Zenvio support replied",
-    text: `You have a new reply about “${ticket.subject}”.\n\nRead and reply here:\n${link}\n\nKeep this link private: anyone with it can read this conversation. This email does not accept replies.`,
+    subject: `New reply: ${ticket.subject}`.slice(0, 200),
+    text: `The Zenvio support team replied to your message “${ticket.subject}”.\n\nRead the reply and respond:\n${link}\n\nThis link is private to you — please don’t forward it. Reply in the chat rather than to this email so the team sees your message.`,
   });
 }
 
@@ -66,7 +66,7 @@ export async function queueStaffAlert(db: DB, ticketId: string, kind: "staff_new
       user: member.id,
       key: kind === "staff_new_ticket" ? `alert:new:${t.id}:${member.id}` : `alert:reply:${t.id}:${member.id}:${window}`,
       subject: kind === "staff_new_ticket" ? `New support chat: ${t.subject}`.slice(0, 200) : `New reply: ${t.subject}`.slice(0, 200),
-      text: `${t.who} (${source}) ${kind === "staff_new_ticket" ? "started a conversation" : "replied"}: “${t.subject}”.\n\nOpen the support inbox:\n${appOrigin()}/admin/support?ticket=${t.id}\n\nYou get these emails while you're away from the console. Turn them off in the support inbox.`,
+      text: `${t.who} (${source}) ${kind === "staff_new_ticket" ? "started a new conversation" : "replied to a conversation"}: “${t.subject}”.\n\nOpen the conversation:\n${appOrigin()}/admin/support?ticket=${t.id}\n\nYou’re receiving this because you’re on the Zenvio support team and away from the inbox. You can turn these emails off under Alerts in the support inbox.`,
     });
   }
 }

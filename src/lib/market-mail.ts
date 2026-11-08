@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { integrationValue, unsealSecret } from "./platform-settings";
 import { resendFailure } from "./resend-diagnostics";
+import { transactionalEmail } from "./transactional-email";
 
 type DB = Pick<PoolClient, "query">;
 export type MarketEmailKind = "confirmation" | "in_production" | "shipped" | "delivered" | "refunded" | "cancelled" | "delayed";
@@ -20,7 +21,6 @@ export async function queueMarketEmail(db: DB, orderId: string, kind: MarketEmai
 }
 
 const usd = (c: number) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
-const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 type Order = {
   id: string;
@@ -42,38 +42,25 @@ export function composeMarketEmail(kind: MarketEmailKind, order: Order, orderUrl
   const lines = order.items.map((i) => `${i.quantity} × ${i.title} — ${usd(i.price_cents * i.quantity)}`);
   const copy: Record<MarketEmailKind, { subject: string; lead: string; extra?: string[] }> = {
     confirmation: {
-      subject: `Order ${ref} confirmed`,
-      lead: `Thanks for your order. Your payment of ${usd(order.total_cents)} was received. We'll email you when production starts and again when it ships.`,
+      subject: `Your order is confirmed (#${ref})`,
+      lead: `Thank you for your order. We’ve received your payment of ${usd(order.total_cents)}. We’ll email you when production starts and again when it ships.`,
     },
-    in_production: { subject: `Order ${ref} is in production`, lead: "Good news: your order is now being produced. We'll send tracking details as soon as it ships." },
+    in_production: { subject: `Your order is in production (#${ref})`, lead: "Your order is now being produced. We’ll send tracking details as soon as it ships." },
     shipped: {
-      subject: `Order ${ref} has shipped`,
-      lead: "Your order is on its way.",
-      extra: [order.carrier && `Carrier: ${order.carrier}`, order.tracking_number && `Tracking number: ${order.tracking_number}`, order.tracking_url && `Track it: ${order.tracking_url}`].filter(Boolean) as string[],
+      subject: `Your order has shipped (#${ref})`,
+      lead: "Good news — your order is on its way.",
+      extra: [order.carrier && `Carrier: ${order.carrier}`, order.tracking_number && `Tracking number: ${order.tracking_number}`, order.tracking_url && `Track your package: ${order.tracking_url}`].filter(Boolean) as string[],
     },
-    delivered: { subject: `Order ${ref} was delivered`, lead: "Your order has been marked as delivered. If anything isn't right, reply to this email and we'll help." },
-    refunded: { subject: `Refund for order ${ref}`, lead: `A refund of ${usd(order.refunded_cents || order.total_cents)} has been issued. It usually appears on your statement within 5–10 business days.` },
-    cancelled: { subject: `Order ${ref} was cancelled`, lead: "Your order was cancelled. If you were charged, any refund is confirmed separately." },
-    delayed: { subject: `Update on order ${ref}`, lead: "Something needs our attention before your order can continue. Our team is on it and will contact you if we need anything from you." },
+    delivered: { subject: `Your order was delivered (#${ref})`, lead: "Your order has been marked as delivered. If anything isn’t right, contact us from your order page and we’ll make it right." },
+    refunded: { subject: `Your refund is on its way (#${ref})`, lead: `We’ve issued a refund of ${usd(order.refunded_cents || order.total_cents)}. It usually appears on your statement within 5–10 business days.` },
+    cancelled: { subject: `Your order was cancelled (#${ref})`, lead: "Your order has been cancelled. If you were charged, we’ll confirm your refund in a separate email." },
+    delayed: { subject: `An update on your order (#${ref})`, lead: "Your order needs a little more time before it can continue. Our team is on it and will contact you if we need anything from you." },
   };
   const c = copy[kind];
-  const text = [`Hi ${first},`, "", c.lead, ...(c.extra?.length ? ["", ...c.extra] : []), "", "Your order:", ...lines, "", `View your order: ${orderUrl}`, "", "— Zenvio Marketplace"].join("\n");
-  const html = `<!doctype html><html><body style="margin:0;background:#f6f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#151b38">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e1e6f0">
-<tr><td style="background:#151b38;padding:18px 24px;color:#ffffff;font-weight:700;font-size:18px">zenvio <span style="font-weight:500;color:#a8b8ff;font-size:13px">Marketplace</span></td></tr>
-<tr><td style="padding:24px">
-<p style="margin:0 0 6px;font-size:13px;color:#687390">Order ${escapeHtml(ref)}</p>
-<h1 style="margin:0 0 14px;font-size:22px">${escapeHtml(c.subject.replace(/^Order \w+ /, "Your order ").replace(/^Refund for order \w+/, "Your refund"))}</h1>
-<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#4a5571">Hi ${escapeHtml(first)}, ${escapeHtml(c.lead)}</p>
-${(c.extra || []).map((e) => `<p style="margin:0 0 6px;font-size:14px">${escapeHtml(e)}</p>`).join("")}
-<table role="presentation" width="100%" style="margin:16px 0;border-top:1px solid #eef1f7">${order.items
-    .map((i) => `<tr><td style="padding:8px 0;font-size:14px">${i.quantity} × ${escapeHtml(i.title)}</td><td align="right" style="padding:8px 0;font-size:14px">${usd(i.price_cents * i.quantity)}</td></tr>`)
-    .join("")}</table>
-<a href="${escapeHtml(orderUrl)}" style="display:inline-block;background:#365cff;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 18px;border-radius:10px">View your order</a>
-</td></tr></table>
-<p style="font-size:12px;color:#687390;margin:14px 0 0">Zenvio Marketplace · Payments processed by Stripe</p>
-</td></tr></table></body></html>`;
+  const text = [`Hi ${first},`, "", c.lead, ...(c.extra?.length ? ["", ...c.extra] : []), "", `Order #${ref}:`, ...lines, `Total — ${usd(order.total_cents)}`, "", `View your order:`, orderUrl, "", "Zenvio Marketplace"].join("\n");
+  const rows: [string, string][] = [...order.items.map((i): [string, string] => [`${i.quantity} × ${i.title}`, usd(i.price_cents * i.quantity)]), ["Total", usd(order.total_cents)]];
+  const htmlText = [`Hi ${first},`, "", c.lead, ...(c.extra?.length ? ["", ...c.extra] : []), "", `Order #${ref}`].join("\n");
+  const html = transactionalEmail(c.subject, htmlText, { action: { label: "View your order", url: orderUrl }, rows, preheader: c.lead });
   return { subject: c.subject, text, html };
 }
 

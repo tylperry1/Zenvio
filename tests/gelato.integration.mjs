@@ -340,7 +340,7 @@ try {
     assert(r.sent >= 3);
     assert.equal((await marketMail.deliverMarketEmails(50)).sent, 0);
     const kinds = mails.map((m) => m.subject);
-    assert(kinds.some((s) => / confirmed$/.test(s)) && kinds.some((s) => / has shipped$/.test(s)) && kinds.some((s) => / is in production$/.test(s)), kinds.join(" | "));
+    assert(kinds.some((s) => /^Your order is confirmed \(#/.test(s)) && kinds.some((s) => /^Your order has shipped \(#/.test(s)) && kinds.some((s) => /^Your order is in production \(#/.test(s)), kinds.join(" | "));
     for (const m of mails) assert(!/\b9\.00\b|cost/i.test(m.text || ""));
   });
 
