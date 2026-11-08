@@ -29,9 +29,13 @@ try {
   const users = (await db.query('SELECT id,email FROM public."user" WHERE email=ANY($1)', [[ownerEmail, staffEmail]])).rows;
   const staffId = users.find((user) => user.email === staffEmail).id;
   await db.query('UPDATE public."user" SET "emailVerified"=true WHERE id=$1', [staffId]);
-  await db.query("INSERT INTO private.staff_members(user_id,title,permissions,workspace_plan,enabled) VALUES($1,'Support fixture',ARRAY['support'],'individual',true)", [staffId]);
+  await db.query("INSERT INTO private.staff_members(user_id,title,permissions,workspace_plan,enabled) VALUES($1,'Support fixture',ARRAY['support','integrations'],'individual',true)", [staffId]);
   assert.equal((await request("/api/support")).status, 401);
   assert.equal((await request("/api/admin/support", undefined, owner)).status, 403);
+  assert.equal((await request("/api/admin/email-preview", undefined, owner)).status, 403);
+  const preview = await request("/api/admin/email-preview", undefined, staff);
+  assert.equal(preview.status, 200);
+  assert.match((await preview.json()).html, /Zenvio/);
   const data = { action: "create", subject: "Booking help", content: "I need help with availability.", reference: randomUUID() };
   const created = await request("/api/support", data, owner);
   assert.equal(created.status, 200, await created.clone().text());
@@ -76,6 +80,9 @@ try {
     await admin.goto(origin + "/admin/support?ticket=" + id);
     await admin.getByText(note.content, { exact: true }).waitFor();
     await admin.screenshot({ path: "test-results/support-admin.png", fullPage: true });
+    await admin.goto(origin + "/admin/email-preview");
+    await admin.getByRole("heading", { name: "Transactional email preview" }).waitFor();
+    await admin.screenshot({ path: "test-results/email-preview.png", fullPage: true });
   } finally { await browser.close(); }
   await db.query("UPDATE private.staff_members SET enabled=false WHERE user_id=$1", [staffId]);
   assert.equal((await request("/api/admin/support", undefined, staff)).status, 403);
