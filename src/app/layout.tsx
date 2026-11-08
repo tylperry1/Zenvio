@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/pwa";
+import { PublicChat } from "@/components/public-chat";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "./platform.css";
@@ -76,6 +77,7 @@ export default function RootLayout({
       <body>
         {children}
         <ServiceWorkerRegister />
+        <PublicChat />
       </body>
     </html>
   );

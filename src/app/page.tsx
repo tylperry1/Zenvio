@@ -1,4 +1,3 @@
-import { VisitorChatWidget } from "@/components/visitor-support";
 import {launchPromotionEnabled} from "@/lib/pricing-policy";
 import { PublicPricing } from "@/components/public-pricing";
 import Link from "next/link";
@@ -68,7 +67,6 @@ export default async function Home() {
       <section className="mk-final mk-container"><div><p className="mk-eyebrow">LESS BACK-AND-FORTH. MORE POSSIBILITY.</p><h2>Your next good thing{" "}<br />starts with a conversation.</h2><p>Give it a place on the calendar.</p></div><Link href="/early-access" className="button on-dark">Reserve your launch offer <Icon name="arrow" size={18}/></Link></section>
     </main>
     <footer className="mk-footer mk-container"><div><Link href="/" aria-label="Zenvio home"><Logo /></Link><p>Good things, on the calendar.</p></div><nav aria-label="Footer"><a href="#product">Product</a><Link href="/demo">Demo</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/privacy#your-rights">Do not sell or share my info</Link><a href="mailto:hello@gozenvio.com">Contact</a></nav><span>© {new Date().getFullYear()} Zenvio</span></footer>
-    <VisitorChatWidget />
     <section className="mk-legal mk-container" aria-label="Disclosures"><p>Zenvio is software that helps businesses schedule, communicate and get agreements signed. It isn’t a party to the services, estimates, agreements or payments between a business and its clients, and it doesn’t provide legal, tax, licensing or financial advice. Businesses are responsible for their own licensing, pricing, contract terms and messaging consent. Payments are processed by Stripe under Stripe’s terms; processing fees are separate. Zenvio Assistant uses AI that can make mistakes; review every preview before you approve it. Product images and booking examples are illustrations using sample data. Features may be limited during early access, and launch pricing and offers are subject to the <Link href="/terms">Terms</Link>. Google Calendar is a trademark of Google LLC; Outlook is a trademark of Microsoft Corporation; Zenvio isn’t affiliated with or endorsed by them.</p></section>
   </div>;
 }
