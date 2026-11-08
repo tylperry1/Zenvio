@@ -77,3 +77,10 @@ export async function protectBooking(request: NextRequest, captcha: unknown) {
   if (keys && !(await verifyCaptcha(keys.secret, captcha, ip)))
     throw new ApiError("Please complete the verification and try again.", 400);
 }
+
+// Verifies a CAPTCHA token when CAPTCHA is configured; a no-op otherwise.
+export async function requireCaptcha(request: NextRequest, token: unknown) {
+  const keys = await captchaKeys();
+  if (keys && !(await verifyCaptcha(keys.secret, token, clientIp(request))))
+    throw new ApiError("Please complete the verification and try again.", 400);
+}

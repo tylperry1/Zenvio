@@ -179,6 +179,7 @@ function runnerFixture({ busy = false, configured = true } = {}) {
       "./workflows": { scheduleWorkflows: call("workflows") },
       "./gelato/follow-up": { processMarketplaceJobs: call("marketplace") },
       "./market-mail": { deliverMarketEmails: call("market-emails") },
+      "./support-notify": { deliverSupportNotifications: call("support-notifications") },
       "./lifecycle": {
         purgeExpiredDeliverySecrets: call("purge"),
         materializeReminders: call("reminders"),
@@ -218,6 +219,7 @@ test("scheduler records bounded successful work and never labels missing mail co
       "waitlist-offers",
       "marketplace",
       "market-emails",
+      "support-notifications",
       "delivery",
     ],
   );

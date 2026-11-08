@@ -6,6 +6,7 @@ import { queueDelivery, appOrigin } from "./lifecycle";
 import { attachmentResponse, normalizeAttachment, readUpload } from "./uploads";
 import { ApiError, body, sameOrigin, session, string, uuid } from "./server";
 import { isSupportCategory, supportPriorities } from "./support-options";
+import { queueStaffAlert, queueVisitorReply } from "./support-notify";
 
 const AGENT_ONLINE_MINUTES = 3;
 type Q = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
@@ -50,6 +51,8 @@ async function supportCounts(db: Q, me: string) {
               count(*) FILTER (WHERE status='pending')::int pending,
               count(*) FILTER (WHERE status<>'resolved' AND assigned_to IS NULL)::int unassigned,
               count(*) FILTER (WHERE status<>'resolved' AND assigned_to=$1)::int mine,
+              count(*) FILTER (WHERE status<>'resolved' AND user_id IS NULL)::int visitors,
+              (SELECT coalesce(max(id),0) FROM private.support_messages WHERE NOT staff)::text latest_customer,
               round(avg(extract(epoch FROM first_response_at-created_at)/60) FILTER (WHERE first_response_at IS NOT NULL AND created_at > now()-interval '30 days'))::int first_response_minutes,
               round(avg(rating) FILTER (WHERE rating IS NOT NULL AND created_at > now()-interval '30 days'),1)::float rating,
               count(rating) FILTER (WHERE created_at > now()-interval '30 days')::int ratings
@@ -59,9 +62,29 @@ async function supportCounts(db: Q, me: string) {
   ).rows[0];
 }
 
+/** Change signature for a signed-in customer's live stream. */
+export async function customerSignature(userId: string) {
+  const { rows } = await getPool().query(
+    `SELECT coalesce(max(m.id),0)::text m,max(t.updated_at)::text u FROM private.support_tickets t
+       LEFT JOIN private.support_messages m ON m.ticket_id=t.id AND NOT m.internal WHERE t.user_id=$1`,
+    [userId],
+  );
+  return { ...rows[0], online: await supportOnline() };
+}
+
+/** Change signature for the employee inbox: any new message or ticket change. */
+export async function staffSignature() {
+  const { rows } = await getPool().query(
+    `SELECT (SELECT coalesce(max(id),0) FROM private.support_messages)::text m,
+            (SELECT max(updated_at) FROM private.support_tickets)::text u`,
+  );
+  return rows[0];
+}
+
 export async function supportGet(request: NextRequest, staff: boolean) {
   const current = staff ? await adminSession("support") : await session();
   const db = getPool();
+  if (staff && request.nextUrl.searchParams.get("summary")) return { counts: await supportCounts(db, current.token) };
   const ticket = request.nextUrl.searchParams.get("ticket");
   if (ticket) {
     const id = uuid(ticket);
@@ -85,16 +108,24 @@ export async function supportGet(request: NextRequest, staff: boolean) {
       result.ticket = (
         await db.query(
           `SELECT t.id,t.subject,t.status,t.category,t.priority,t.rating,t.created_at,t.updated_at,t.assigned_to,t.first_response_at,t.resolved_at
-                  ${staff ? ',t.page,t.user_id,u.name customer_name,u.email customer_email,u."createdAt" customer_since,a.name assignee_name' : ""}
-             FROM private.support_tickets t JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to WHERE t.id=$1`,
+                  ${staff ? ',t.page,t.user_id,coalesce(u.name,t.visitor_name) customer_name,coalesce(u.email,t.visitor_email) customer_email,u."createdAt" customer_since,a.name assignee_name,(t.user_id IS NULL) visitor' : ""}
+             FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to WHERE t.id=$1`,
           [id],
         )
       ).rows[0];
       if (staff) {
-        const owner = (result.ticket as { user_id: string }).user_id;
+        const meta = result.ticket as { user_id: string | null; customer_email: string };
+        // Earlier conversations: the account's, or a visitor's earlier chats from the same email.
         const [history, feedback] = await Promise.all([
-          db.query("SELECT id,subject,status,created_at FROM private.support_tickets WHERE user_id=$1 AND id<>$2 ORDER BY created_at DESC LIMIT 5", [owner, id]),
-          db.query("SELECT id,category,message,status,created_at FROM private.feedback WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5", [owner]),
+          db.query(
+            `SELECT id,subject,status,created_at FROM private.support_tickets
+              WHERE id<>$2 AND (user_id=$1 OR ($1::uuid IS NULL AND user_id IS NULL AND lower(visitor_email)=lower($3)))
+              ORDER BY created_at DESC LIMIT 5`,
+            [meta.user_id, id, meta.customer_email],
+          ),
+          meta.user_id
+            ? db.query("SELECT id,category,message,status,created_at FROM private.feedback WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5", [meta.user_id])
+            : Promise.resolve({ rows: [] }),
         ]);
         result.history = history.rows;
         result.feedback = feedback.rows;
@@ -111,29 +142,33 @@ export async function supportGet(request: NextRequest, staff: boolean) {
   const view = staff ? params.get("view") ?? "" : "";
   const category = isSupportCategory(params.get("category")) ? params.get("category")! : "";
   const tickets = await db.query(
-    `SELECT t.id,t.subject,t.status,t.assigned_to,t.updated_at,t.created_at,t.category,t.priority,t.rating,u.name,
-       ${staff ? "u.email,a.name assignee_name," : ""}
+    `SELECT t.id,t.subject,t.status,t.assigned_to,t.updated_at,t.created_at,t.category,t.priority,t.rating,coalesce(u.name,t.visitor_name) name,
+       ${staff ? "coalesce(u.email,t.visitor_email) email,a.name assignee_name,(t.user_id IS NULL) visitor," : ""}
        (SELECT CASE WHEN EXISTS(SELECT 1 FROM private.support_attachments a WHERE a.message_id=m.id) THEN 'Image: '||m.content ELSE m.content END
           FROM private.support_messages m WHERE m.ticket_id=t.id AND NOT m.internal ORDER BY m.id DESC LIMIT 1) preview,
        (SELECT count(*)::int FROM private.support_messages m WHERE m.ticket_id=t.id AND NOT m.internal
         AND m.staff<>$1 AND m.id>CASE WHEN $1 THEN t.staff_read ELSE t.customer_read END) unread
-       FROM private.support_tickets t JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to
+       FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to
        WHERE ($1::boolean OR t.user_id=$2) AND ($3='' OR t.status=$3 OR ($3='active' AND t.status<>'resolved'))
-       AND ($4='' OR strpos(lower(t.subject),lower($4))>0 OR ($1 AND (strpos(lower(u.email),lower($4))>0 OR strpos(lower(coalesce(u.name,'')),lower($4))>0)))
-       AND ($6='' OR ($6='mine' AND t.assigned_to=$2) OR ($6='unassigned' AND t.assigned_to IS NULL))
+       AND ($4='' OR strpos(lower(t.subject),lower($4))>0 OR ($1 AND (strpos(lower(coalesce(u.email,t.visitor_email)),lower($4))>0 OR strpos(lower(coalesce(u.name,t.visitor_name,'')),lower($4))>0)))
+       AND ($6='' OR ($6='mine' AND t.assigned_to=$2) OR ($6='unassigned' AND t.assigned_to IS NULL) OR ($6='visitors' AND t.user_id IS NULL))
        AND ($7='' OR t.category=$7)
        ORDER BY CASE WHEN $1 AND t.status<>'resolved' THEN CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 ELSE 2 END ELSE 2 END,
                 t.updated_at DESC,t.id LIMIT 31 OFFSET $5`,
     [staff, current.token, status, q, page * 30, view, category],
   );
   if (!staff) return { tickets: tickets.rows.slice(0, 30), hasMore: tickets.rows.length > 30, replies: [], online: await supportOnline(db) };
-  const [replies, counts, team, available] = await Promise.all([
+  const [replies, counts, team, available, alerts] = await Promise.all([
     db.query("SELECT id,title,content FROM private.support_replies ORDER BY title LIMIT 100"),
     supportCounts(db, current.token),
     supportTeam(db),
     agentHeartbeat(current.token, undefined, db),
+    db.query("SELECT email_alerts FROM private.support_agents WHERE user_id=$1", [current.token]),
   ]);
-  return { tickets: tickets.rows.slice(0, 30), hasMore: tickets.rows.length > 30, replies: replies.rows, counts, team, available, me: current.token };
+  return {
+    tickets: tickets.rows.slice(0, 30), hasMore: tickets.rows.length > 30, replies: replies.rows, counts, team, available,
+    emailAlerts: alerts.rows[0]?.email_alerts ?? true, me: current.token,
+  };
 }
 
 export async function supportPost(request: NextRequest, staff: boolean) {
@@ -161,6 +196,15 @@ export async function supportPost(request: NextRequest, staff: boolean) {
       const available = await agentHeartbeat(current.token, input.available === true, db);
       await db.query("COMMIT");
       return { ok: true, available };
+    }
+    if (staff && input.action === "email-alerts") {
+      const { rows } = await db.query(
+        `INSERT INTO private.support_agents(user_id,email_alerts) VALUES($1,$2)
+         ON CONFLICT (user_id) DO UPDATE SET email_alerts=$2 RETURNING email_alerts`,
+        [current.token, input.enabled === true],
+      );
+      await db.query("COMMIT");
+      return { ok: true, emailAlerts: rows[0].email_alerts };
     }
     if (staff && input.action === "suggestion") {
       // Files a customer's message in the Suggestions & feedback inbox.
@@ -195,7 +239,7 @@ export async function supportPost(request: NextRequest, staff: boolean) {
     } else {
       id = uuid(input.ticket);
     }
-    const ticket = (await db.query('SELECT t.*,u.email FROM private.support_tickets t JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
+    const ticket = (await db.query('SELECT t.*,coalesce(u.email,t.visitor_email) email FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
       [id, staff, current.token])).rows[0];
     if (!ticket) throw new ApiError("Conversation not found.", 404);
     if (reference) {
@@ -217,11 +261,13 @@ export async function supportPost(request: NextRequest, staff: boolean) {
              first_response_at=CASE WHEN $3 AND NOT $2 THEN coalesce(first_response_at,now()) ELSE first_response_at END
            WHERE id=$1`,
           [id, internal, staff, after]);
-        if (staff && !internal) await queueDelivery(db, {
+        if (staff && !internal && !ticket.user_id) await queueVisitorReply(db, ticket, reference);
+        else if (staff && !internal) await queueDelivery(db, {
           user: ticket.user_id, kind: "support_reply", key: "support:" + reference, to: ticket.email,
           subject: "Zenvio support replied",
           text: `You have a new reply about “${ticket.subject}”.\n\nRead and reply securely in Zenvio:\n${appOrigin()}/app/support?ticket=${id}\n\nThis email does not accept replies.`,
         });
+        if (!staff) await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
       }
     } else if (input.action === "update") {
       const status = String(input.status ?? ticket.status);
@@ -284,10 +330,11 @@ export async function supportAttachment(request: NextRequest, staff: boolean, up
     await db.query("BEGIN");
     await db.query('SELECT id FROM public."user" WHERE id=$1 FOR UPDATE', [current.token]);
     const ticket = (await db.query(
-      'SELECT t.*,u.email FROM private.support_tickets t JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
+      'SELECT t.*,u.email FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
       [ticketId, staff, current.token],
     )).rows[0];
     if (!ticket) throw new ApiError("Conversation not found.", 404);
+    if (!ticket.user_id) throw new ApiError("Images can’t be shared with website visitors. Send a written reply instead.", 409);
     const prior = await db.query("SELECT ticket_id,sender_id FROM private.support_messages WHERE reference=$1", [reference]);
     if (prior.rowCount) {
       if (prior.rows[0].ticket_id !== ticketId || prior.rows[0].sender_id !== current.token) throw new ApiError("Upload reference already used.", 409);

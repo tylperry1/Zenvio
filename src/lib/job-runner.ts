@@ -9,6 +9,7 @@ import {runMicrosoftJobs} from "./microsoft-calendar";
 import { scheduleWorkflows } from "./workflows";
 import { processMarketplaceJobs } from "./gelato/follow-up";
 import { deliverMarketEmails } from "./market-mail";
+import { deliverSupportNotifications } from "./support-notify";
 import {
   materializeReminders,
   drainDeliveries,
@@ -66,6 +67,7 @@ export async function processScheduledJobs() {
     await processMarketplaceJobs().catch(() => null);
     // Marketplace order emails retry here; failures never block other jobs.
     await deliverMarketEmails().catch(() => {});
+    await deliverSupportNotifications().catch(() => {});
     const result = await drainDeliveries(undefined, 20);
     if (!result.configured) throw Error("mail_unconfigured");
     await pool.query(

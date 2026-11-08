@@ -14,11 +14,11 @@ test("support extras migration is additive and private", () => {
 });
 
 test("employee-only fields never reach customers", () => {
-  assert.match(lib, /\$\{staff \? "u\.email,a\.name assignee_name," : ""\}/);
-  assert.match(lib, /\$\{staff \? ',t\.page,t\.user_id,u\.name customer_name,u\.email customer_email/);
-  assert.match(lib, /if \(staff\) \{\s*const owner/);
+  assert.match(lib, /\$\{staff \? "coalesce\(u\.email,t\.visitor_email\) email,a\.name assignee_name,\(t\.user_id IS NULL\) visitor," : ""\}/);
+  assert.match(lib, /\$\{staff \? ',t\.page,t\.user_id,coalesce\(u\.name,t\.visitor_name\) customer_name,coalesce\(u\.email,t\.visitor_email\) customer_email/);
+  assert.match(lib, /if \(staff\) \{\s*const meta/);
   // Search by name or email is staff-only.
-  assert.match(lib, /OR \(\$1 AND \(strpos\(lower\(u\.email\)/);
+  assert.match(lib, /OR \(\$1 AND \(strpos\(lower\(coalesce\(u\.email,t\.visitor_email\)\)/);
 });
 
 test("staff-only actions are gated and priority/rating are validated", () => {

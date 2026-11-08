@@ -1,4 +1,5 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
+import { deliverSupportNotifications } from "@/lib/support-notify";
 import { failure } from "@/lib/server";
 import { supportGet, supportPost } from "@/lib/support";
 export const dynamic = "force-dynamic";
@@ -7,6 +8,10 @@ export async function GET(request: NextRequest) {
   catch (error) { return failure(error); }
 }
 export async function POST(request: NextRequest) {
-  try { return Response.json(await supportPost(request, false)); }
+  try {
+    const result = await supportPost(request, false);
+    after(() => deliverSupportNotifications().then(() => {}, () => {}));
+    return Response.json(result);
+  }
   catch (error) { return failure(error); }
 }
