@@ -21,7 +21,13 @@ const groups: { label: string; items: Item[] }[] = [
       { id: "overview", icon: "home", label: "Overview", href: "/admin", permission: "accounts" },
       { id: "accounts", icon: "users", label: "Accounts", href: "/admin?view=accounts", permission: "accounts" },
       { id: "early-access", icon: "sparkles", label: "Early access", href: "/admin/early-access", permission: "early-access" },
-      { id: "feedback", icon: "feedback", label: "Feedback", href: "/admin/feedback", permission: "feedback" },
+    ],
+  },
+  {
+    label: "Customer service",
+    items: [
+      { id: "support", icon: "message", label: "Support inbox", href: "/admin/support", permission: "support", hint: "live chat customer service help desk tickets" },
+      { id: "feedback", icon: "feedback", label: "Suggestions & feedback", href: "/admin/feedback", permission: "feedback", hint: "ideas bugs" },
     ],
   },
   {

@@ -10,7 +10,11 @@ export const staffPermissions = {
     label: "Early-access signups",
     description: "Waitlist signups and confirmation status.",
   },
-  feedback: { label: "Feedback", description: "Customer feedback inbox." },
+  support: {
+    label: "Customer support",
+    description: "Live chat inbox: reply to customers, assign conversations and file suggestions.",
+  },
+  feedback: { label: "Suggestions & feedback", description: "Customer suggestions and feedback inbox." },
   subscriptions: {
     label: "Subscriptions",
     description: "Customer subscriptions, renewals and cancellations.",
@@ -43,6 +47,7 @@ export function isStaffPermission(value: unknown): value is StaffPermission {
 export const sectionHome: Record<StaffPermission, string> = {
   accounts: "/admin",
   "early-access": "/admin/early-access",
+  support: "/admin/support",
   feedback: "/admin/feedback",
   subscriptions: "/admin/operations?section=subscriptions",
   marketplace: "/admin/operations?section=marketplace",
