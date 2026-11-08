@@ -162,6 +162,20 @@ AI-assisted design, team purchasing, multi-brand management, advanced supplier r
 
 Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras $9.99 monthly. Fixed Teams pools replace per-seat allowance growth only for verified new-version subscriptions. Historical sections describe earlier releases; PRICING_IMPLEMENTATION.md is the current pricing checklist and explicitly lists unfinished meters, add-on activation and financial acceptance gates. Full commercial activation is not complete.
 
+## Customer service center (extends native support, migration 067)
+
+Builds on the native support tickets from migration 066; the API contract, idempotent message references, attachments and reply emails are unchanged.
+
+| Item | Status |
+| --- | --- |
+| Customer chat at `/app/support`: topics, online/away indicator, chat thread with images, mark resolved, 1–5 rating, reply to reopen | Built and verified locally (production build, browser end to end, existing support fixture) |
+| Top-bar help button with unread badge and compact chat panel (Help Center, assistant and suggestion links) | Built and verified locally |
+| Employee Support inbox: All / Mine / Unassigned, status, topic and name/email search; priority ordering; KPIs (needs reply, unassigned, waiting, first response, satisfaction) | Built and verified locally |
+| Assign, priority, status, internal notes, saved replies (create/delete), "then wait / resolve" after a reply, customer context panel | Built and verified locally |
+| "File as suggestion" sends a customer message to Suggestions & feedback; Customer service navigation group | Built and verified locally |
+| Live updates | Polling (5 s open thread, 15–20 s lists), not websockets |
+| Signed-out chat on the marketing site; alerts to employees outside the console | Not started |
+
 ## Commercial launch checklist
 
 | Work | Classification |
@@ -173,7 +187,8 @@ Current new-subscription model: Individual $29.99, Teams $49.99/3 seats, extras 
 | SMS retail activation | Blocked by provider economics and registration approval |
 | Provider cost anomaly indicators | Built, pending release QA |
 | Provider invoice reconciliation and actual contribution margin | Missing complete implementation |
-| Internal live support and push notifications | Missing implementation |
+| Internal live support (chat, employee inbox, topics, priority, availability, ratings, suggestion filing) | Built, pending release QA (migrations 066–067) |
+| Push notifications for support replies and new chats | Missing implementation |
 | Gelato fulfillment and live integrations | Built, pending provider acceptance |
 
 See [launch readiness](LAUNCH_READINESS.md) for activation gates.

@@ -10,8 +10,8 @@ export const staffPermissions = {
     label: "Early-access signups",
     description: "Waitlist signups and confirmation status.",
   },
-  support: { label: "Customer support", description: "Zenvio customer tickets and internal notes." },
-  feedback: { label: "Feedback", description: "Customer feedback inbox." },
+  support: { label: "Customer support", description: "Live chat inbox: reply, assign, prioritize, internal notes and saved replies." },
+  feedback: { label: "Suggestions & feedback", description: "Customer suggestions and feedback inbox." },
   subscriptions: {
     label: "Subscriptions",
     description: "Customer subscriptions, renewals and cancellations.",
