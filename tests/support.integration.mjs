@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
+import sharp from "sharp";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 
@@ -43,8 +44,19 @@ try {
   const reply = { action: "message", ticket: id, content: "Please review your event availability.", reference: randomUUID() };
   assert.equal((await request("/api/admin/support", reply, staff)).status, 200);
   assert.equal((await request("/api/admin/support", reply, staff)).status, 200);
+  const image = await sharp({ create: { width: 10, height: 10, channels: 3, background: "#365cff" } }).png().toBuffer();
+  const upload = await fetch(origin + "/api/support/attachment?" + new URLSearchParams({ ticket: id, reference: randomUUID(), filename: "screenshot.png" }), {
+    method: "POST", headers: { Origin: origin, Cookie: owner, "Content-Type": "image/png" }, body: image,
+  });
+  assert.equal(upload.status, 200, await upload.text());
   const history = await (await request("/api/support?ticket=" + id, undefined, owner)).json();
-  assert.equal(history.messages.length, 2);
+  assert.equal(history.messages.length, 3);
+  const attachment = history.messages.find((message) => message.attachment);
+  assert.ok(attachment);
+  const download = await request("/api/support/attachment?message=" + attachment.id, undefined, owner);
+  assert.equal(download.status, 200);
+  assert.equal(download.headers.get("content-type"), "image/jpeg");
+  assert.equal((await request("/api/support/attachment?message=" + attachment.id, undefined, stranger)).status, 404);
   assert.ok(history.messages.every((message) => !message.internal));
   assert.equal((await db.query("SELECT count(*)::int n FROM private.delivery_jobs WHERE dedupe_key=$1", ["support:" + reply.reference])).rows[0].n, 1);
   assert.equal((await request("/api/admin/support", { action: "update", ticket: id, assigned: "self", status: "pending" }, staff)).status, 200);

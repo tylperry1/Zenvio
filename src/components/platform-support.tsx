@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, Notice, PageHeader, Panel } from "./ds";
 
 type Ticket = { id: string; subject: string; status: string; name: string; unread: number; assigned_to: string | null };
-type Message = { id: string; staff: boolean; internal: boolean; content: string; created_at: string };
+type Message = { attachment: boolean; id: string; staff: boolean; internal: boolean; content: string; created_at: string };
 type Reply = { id: string; title: string; content: string };
 
 export function PlatformSupport({ staff = false, compact = false }: { staff?: boolean; compact?: boolean }) {
@@ -118,7 +118,9 @@ export function PlatformSupport({ staff = false, compact = false }: { staff?: bo
           </div>}
           <ol className="support-history" aria-label="Conversation history">{messages.map((message) => <li className={message.internal ? "support-note" : ""} key={message.id}>
             <b>{message.internal ? "Internal note" : message.staff ? "Zenvio team" : "Customer"}</b>
-            <p>{message.content}</p><small>{new Date(message.created_at).toLocaleString()}</small>
+            <p>{message.content}</p>
+            {message.attachment && <a href={endpoint + "/attachment?message=" + message.id}>Download image</a>}
+            <small>{new Date(message.created_at).toLocaleString()}</small>
           </li>)}</ol>
           {(!staff || selected) && <form className="sc-form" onSubmit={async (event) => {
             event.preventDefault();
@@ -132,6 +134,20 @@ export function PlatformSupport({ staff = false, compact = false }: { staff?: bo
             </select></label>}
             <label className="ds-field">{internal ? "Private note" : "Message"}<textarea required maxLength={4000} rows={5} value={content} onChange={(event) => setContent(event.target.value)} /></label>
             {staff && <label><input type="checkbox" checked={internal} onChange={(event) => setInternal(event.target.checked)} /> Internal note visible to Zenvio staff</label>}
+            {selected && <label className="ds-field">Attach an image (up to 2 MB)
+              <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                setBusy(true);
+                try {
+                  const url = endpoint + "/attachment?" + new URLSearchParams({ ticket: selected, filename: file.name, reference: crypto.randomUUID(), internal: String(internal) });
+                  const response = await fetch(url, { method: "POST", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
+                  if (!response.ok) throw new Error((await response.json()).error || "Unable to upload.");
+                } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to upload."); }
+                finally { setBusy(false); }
+              }} />
+            </label>}
             <div className="sc-share-actions">
               <button className="ds-btn primary" disabled={busy}>{busy ? "Sending…" : internal ? "Save private note" : "Send message"}</button>
               {staff && <button type="button" className="ds-btn" disabled={busy || !content.trim()} onClick={() => {

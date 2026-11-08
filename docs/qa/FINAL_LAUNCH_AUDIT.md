@@ -12,9 +12,9 @@ Production baseline observed for this execution is main 6881844228eb8b9e12a3d98f
 | Core booking, document signing, CRM, Teams, tenant isolation | Implemented, requires final verification | Run final-revision isolated API and browser suites. Real Google/Microsoft authorization and external delivery require provider acceptance. |
 | Monthly subscription catalog | Implemented, requires final verification | subscription-offers.mjs fixes 2999/4999/999 cents, no annual public offers. Existing provider prices preserved. |
 | Stripe billing and Connect | Blocked by credentials or approval | Confirm vault signing secret, sandbox account, catalog, complete acceptance and actual Connect charge fee liability. Validation flags must remain off. |
-| Native support | Implemented, requires final verification | Migration 066, owner-scoped /api/support and delegated support permission for /api/admin/support. Durable replies and internal notes. Support attachments and advanced assignment remain incomplete. |
+| Native support | Implemented, requires final verification | Migration 066, owner-scoped /api/support and delegated support permission for /api/admin/support. Durable replies and internal notes. Authorized image attachments are re-encoded, capped at 2 MB each, 10 per ticket and 20 MB per account. Advanced assignment and PDF attachment scanning remain incomplete. |
 | Support email notifications | Implemented, requires final verification | Existing encrypted delivery queue and protected operational reserve. Real Resend acceptance remains open. |
-| Transactional email branding | Implemented, requires final verification | Shared escaped HTML for account/security and durable lifecycle sends, retained plain text. Marketplace templates retained. Review requests and supplier-specific templates require separate visual review. |
+| Transactional email branding | Implemented, requires final verification | Shared escaped HTML for account/security and durable lifecycle sends, retained plain text. Marketplace templates retained. Admin email preview and self-addressed test-send are available. Review requests and supplier-specific templates require separate visual review. |
 | Help Center | Implemented, requires final verification | Searchable /help with static instructions for implemented features. |
 | Wallets | Blocked by credentials or approval | Existing signed-pass implementation, default-off flags, real signing/issuer and phone acceptance pending. |
 | Smart Cards digital | Implemented, requires final verification | Existing tenant and browser fixture. Repeat on final revision. |
@@ -248,6 +248,12 @@ Each route requires its own workflow evidence. Source presence is recorded separ
 - `/p/[slug]/lead` — POST — `src/app/p/[slug]/lead/route.ts`
 - `/p/[slug]/qr` — GET — `src/app/p/[slug]/qr/route.ts`
 - `/p/[slug]/vcard` — GET — `src/app/p/[slug]/vcard/route.ts`
+
+- `/api/support/attachment` — GET, POST — owner-only attachment access.
+- `/api/admin/support/attachment` — GET, POST — delegated support permission and internal-note controls.
+
+- `/admin/email-preview` — delegated integration access, HTML and plain-text preview.
+- `/api/admin/email-preview` — GET, POST — delegated integration access and self-addressed test-send.
 
 ### Migrations
 

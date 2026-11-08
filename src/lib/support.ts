@@ -3,6 +3,7 @@ import { adminSession, adminAccess, canAccess } from "./admin";
 import { allowRequest } from "./booking-protection";
 import { getPool } from "./db";
 import { queueDelivery, appOrigin } from "./lifecycle";
+import { attachmentResponse, normalizeAttachment, readUpload } from "./uploads";
 import { ApiError, body, sameOrigin, session, string, uuid } from "./server";
 
 export async function supportGet(request: NextRequest, staff: boolean) {
@@ -16,7 +17,7 @@ export async function supportGet(request: NextRequest, staff: boolean) {
     const after = request.nextUrl.searchParams.get("after") ?? "0";
     if (!/^\d{1,18}$/.test(after)) throw new ApiError("Invalid message cursor.");
     const messages = await db.query(
-      `SELECT id::text,sender_id,staff,internal,content,created_at FROM private.support_messages
+      `SELECT id::text,sender_id,staff,internal,content,created_at,EXISTS(SELECT 1 FROM private.support_attachments a WHERE a.message_id=m.id) attachment FROM private.support_messages m
        WHERE ticket_id=$1 AND ($2::boolean OR NOT internal) AND id>$3::bigint ORDER BY id LIMIT 100`,
       [id, staff, after],
     );
@@ -119,4 +120,69 @@ export async function supportPost(request: NextRequest, staff: boolean) {
     await db.query("ROLLBACK");
     throw error;
   } finally { db.release(); }
+}
+
+
+export async function supportAttachment(request: NextRequest, staff: boolean, upload: boolean) {
+  if (upload) sameOrigin(request);
+  const current = staff ? await adminSession("support") : await session();
+  if (!upload) {
+    const message = request.nextUrl.searchParams.get("message") ?? "";
+    if (!/^\d{1,18}$/.test(message)) throw new ApiError("Invalid attachment.");
+    const result = await getPool().query(
+      `SELECT a.data,a.content_type,a.filename FROM private.support_attachments a
+       JOIN private.support_messages m ON m.id=a.message_id JOIN private.support_tickets t ON t.id=m.ticket_id
+       WHERE m.id=$1 AND ($2::boolean OR (t.user_id=$3 AND NOT m.internal))`,
+      [message, staff, current.token],
+    );
+    if (!result.rowCount) throw new ApiError("Attachment not found.", 404);
+    return attachmentResponse(result.rows[0]);
+  }
+  if (!(await allowRequest("support-upload", current.token, 20, 3600))) throw new ApiError("Too many uploads. Try again later.", 429);
+  const ticketId = uuid(request.nextUrl.searchParams.get("ticket"));
+  const reference = uuid(request.nextUrl.searchParams.get("reference"));
+  const source = await readUpload(request, 2000000, "image");
+  const file = await normalizeAttachment(source, request.nextUrl.searchParams.get("filename") ?? "image");
+  if (file.contentType !== "image/jpeg" || file.data.length > 2000000) throw new ApiError("Choose a JPEG, PNG or WebP image under 2 MB.", 415);
+  const internal = staff && request.nextUrl.searchParams.get("internal") === "true";
+  const db = await getPool().connect();
+  try {
+    await db.query("BEGIN");
+    await db.query('SELECT id FROM public."user" WHERE id=$1 FOR UPDATE', [current.token]);
+    const ticket = (await db.query(
+      'SELECT t.*,u.email FROM private.support_tickets t JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
+      [ticketId, staff, current.token],
+    )).rows[0];
+    if (!ticket) throw new ApiError("Conversation not found.", 404);
+    const prior = await db.query("SELECT ticket_id,sender_id FROM private.support_messages WHERE reference=$1", [reference]);
+    if (prior.rowCount) {
+      if (prior.rows[0].ticket_id !== ticketId || prior.rows[0].sender_id !== current.token) throw new ApiError("Upload reference already used.", 409);
+      await db.query("COMMIT");
+      return Response.json({ ok: true });
+    }
+    await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["support-upload:" + ticket.user_id]);
+    const quota = (await db.query(
+      `SELECT count(*) FILTER (WHERE m.ticket_id=$2)::int ticket_count,
+       coalesce(sum(octet_length(a.data)),0)::bigint total_bytes FROM private.support_attachments a
+       JOIN private.support_messages m ON m.id=a.message_id JOIN private.support_tickets t ON t.id=m.ticket_id
+       WHERE t.user_id=$1`, [ticket.user_id, ticketId],
+    )).rows[0];
+    if (quota.ticket_count >= 10 || Number(quota.total_bytes) + file.data.length > 20000000) throw new ApiError("Support attachment limit reached. Contact the team for another secure sharing option.", 409);
+    const message = (await db.query(
+      "INSERT INTO private.support_messages(ticket_id,sender_id,staff,internal,content,reference) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
+      [ticketId, current.token, staff, internal, file.filename, reference],
+    )).rows[0];
+    await db.query("INSERT INTO private.support_attachments(message_id,content_type,filename,data) VALUES($1,$2,$3,$4)", [message.id, file.contentType, file.filename, file.data]);
+    await db.query("UPDATE private.support_tickets SET updated_at=now(),status=CASE WHEN $2 THEN status ELSE 'open' END WHERE id=$1", [ticketId, internal]);
+    if (staff) {
+      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_attachment_added',$2)", [current.token, JSON.stringify({ ticket: ticketId, internal })]);
+      if (!internal) await queueDelivery(db, {
+        user: ticket.user_id, kind: "support_reply", key: "support:" + reference, to: ticket.email,
+        subject: "Zenvio support shared an attachment", text: `View the reply securely in Zenvio:\n${appOrigin()}/app/support?ticket=${ticketId}`,
+      });
+    }
+    await db.query("COMMIT");
+    return Response.json({ ok: true });
+  } catch (error) { await db.query("ROLLBACK"); throw error; }
+  finally { db.release(); }
 }

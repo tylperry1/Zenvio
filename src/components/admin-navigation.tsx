@@ -47,6 +47,7 @@ const groups: { label: string; items: Item[] }[] = [
     items: [
       { id: "integrations", icon: "plug", label: "Connections", href: "/admin/operations?section=integrations", permission: "integrations", hint: "integrations api keys" },
       { id: "assistant", icon: "sparkles", label: "AI assistant", href: "/admin/assistant", permission: "assistant" },
+      { id: "email-preview", icon: "mail", label: "Email preview", href: "/admin/email-preview", permission: "integrations" },
       { id: "health", icon: "shield", label: "System health", href: "/admin/operations?section=health", permission: "health" },
     ],
   },

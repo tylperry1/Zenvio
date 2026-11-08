@@ -33,4 +33,12 @@ alter table private.support_tickets enable row level security;
 alter table private.support_messages enable row level security;
 alter table private.support_replies enable row level security;
 revoke all on private.support_tickets,private.support_messages,private.support_replies from public,anon,authenticated;
+create table private.support_attachments (
+ message_id bigint primary key references private.support_messages(id) on delete cascade,
+ content_type text not null check(content_type='image/jpeg'),
+ filename text not null check(length(filename) between 1 and 160),
+ data bytea not null check(octet_length(data)<=2000000)
+);
+alter table private.support_attachments enable row level security;
+revoke all on private.support_attachments from public,anon,authenticated;
 commit;
