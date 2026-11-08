@@ -561,3 +561,5 @@
 @media(max-width: 700px) { .support-grid { grid-template-columns: minmax(0,1fr); } }
 .support-popover { width: min(620px, calc(100vw - 40px)); max-height: calc(100dvh - 180px); overflow-y: auto; }
 .support-compact { grid-template-columns: minmax(0,1fr); }
+.support-history li > small { display: block; margin-top: 10px; color: var(--text-muted); }
+.support-history li > a { display: inline-block; margin-bottom: 2px; color: var(--action-primary); }

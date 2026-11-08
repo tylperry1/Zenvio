@@ -30,6 +30,7 @@ const groups: NavGroup[] = [
     items: [
       { id: "overview", label: "Overview", icon: "home", href: "/app", view: "", demo: true },
       { id: "assistant", label: "Assistant", icon: "sparkles", href: "/app/assistant" },
+      { id: "support", label: "Zenvio support", icon: "message", href: "/app/support" },
       { id: "inbox", label: "Inbox", icon: "message", href: "/app/inbox" },
     ],
   },
@@ -208,6 +209,7 @@ export function AppShell({
   jobs?: boolean;
   children: ReactNode;
 }) {
+  const routePath = usePathname();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
@@ -423,7 +425,7 @@ export function AppShell({
         )}
         <div className="shell-content">{children}</div>
         {!demo && <InstallPrompt />}
-        {!demo && user && <><AssistantLauncher /><SupportLauncher /></>}
+        {!demo && user && routePath !== "/app/support" && <><AssistantLauncher /><SupportLauncher /></>}
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}
