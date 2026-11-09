@@ -27,11 +27,11 @@ const groups: { label: string; items: Item[] }[] = [
     label: "Customer service",
     items: [
       { id: "support", icon: "message", label: "Support inbox", href: "/admin/support", permission: "support", hint: "live chat customer support tickets help desk" },
-      { id: "feedback", icon: "feedback", label: "Suggestions & feedback", href: "/admin/feedback", permission: "feedback", hint: "ideas bugs" },
+      { id: "feedback", icon: "feedback", label: "Feedback", href: "/admin/feedback", permission: "feedback", hint: "ideas bugs suggestions" },
     ],
   },
   {
-    label: "Revenue",
+    label: "Billing",
     items: [
       { id: "subscriptions", icon: "card", label: "Subscriptions", href: "/admin/operations?section=subscriptions", permission: "subscriptions" },
       { id: "pricing", icon: "spark", label: "Pricing", href: "/admin/operations?section=pricing", permission: "pricing" },
@@ -106,6 +106,7 @@ export function AdminNavigation({
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({});
   const search = useRef<HTMLInputElement>(null);
   const access = useAdminAccess();
   const can = useCan();
@@ -123,7 +124,7 @@ export function AdminNavigation({
       ) {
         e.preventDefault();
         setOpen(true);
-        search.current?.focus();
+        window.requestAnimationFrame(() => search.current?.focus());
       }
     }
     window.addEventListener("keydown", onKey);
@@ -186,53 +187,69 @@ export function AdminNavigation({
           <kbd aria-hidden="true">/</kbd>
         </label>
         <div className="acx-groups">
-          {visible.map((g) => (
-            <div className="acx-group" key={g.label}>
-              <p>{g.label}</p>
-              <nav aria-label={g.label}>
-                {g.items.map((item) => {
-                  const active = view === item.id;
-                  const content = (
-                    <>
-                      <span className="acx-icon">
-                        <Icon name={item.icon} size={16} />
-                      </span>
-                      <span className="acx-label">{item.label}</span>
-                      {item.id === "support" && supportWaiting > 0 && (
-                        <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
-                          {supportWaiting > 99 ? "99+" : supportWaiting}
+          {visible.map((g) => {
+            const groupId = `admin-group-${g.label.toLowerCase().replaceAll(" ", "-")}`;
+            const containsCurrent = g.items.some((item) => item.id === view);
+            const expanded = Boolean(q) || (groupOverrides[g.label] ??
+              (containsCurrent || g.label === "Workspace" || g.label === "Customer service"));
+            return (
+              <section className="acx-group" key={g.label}>
+                <button
+                  type="button"
+                  className="acx-group-toggle"
+                  aria-expanded={expanded}
+                  aria-controls={groupId}
+                  disabled={Boolean(q)}
+                  onClick={() => setGroupOverrides((previous) => ({ ...previous, [g.label]: !expanded }))}
+                >
+                  <span>{g.label}</span>
+                  <Icon name="chevronDown" size={14} />
+                </button>
+                <nav id={groupId} aria-label={g.label} hidden={!expanded}>
+                  {g.items.map((item) => {
+                    const active = view === item.id;
+                    const content = (
+                      <>
+                        <span className="acx-icon">
+                          <Icon name={item.icon} size={16} />
                         </span>
-                      )}
-                      {item.permission === "team" && <span className="acx-pill">Owner</span>}
-                    </>
-                  );
-                  return onNavigate && ["overview", "accounts", "audit"].includes(item.id) ? (
-                    <button
-                      key={item.id}
-                      className={active ? "active" : ""}
-                      aria-current={active ? "page" : undefined}
-                      onClick={() => {
-                        onNavigate(item.id);
-                        setOpen(false);
-                      }}
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className={active ? "active" : ""}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      {content}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          ))}
+                        <span className="acx-label">{item.label}</span>
+                        {item.id === "support" && supportWaiting > 0 && (
+                          <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
+                            {supportWaiting > 99 ? "99+" : supportWaiting}
+                          </span>
+                        )}
+                        {item.permission === "team" && <span className="acx-pill">Owner</span>}
+                      </>
+                    );
+                    return onNavigate && ["overview", "accounts", "audit"].includes(item.id) ? (
+                      <button
+                        key={item.id}
+                        className={active ? "active" : ""}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => {
+                          onNavigate(item.id);
+                          setOpen(false);
+                        }}
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={active ? "active" : ""}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {content}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </section>
+            );
+          })}
           {!visible.length && <p className="acx-empty">No sections match “{filter}”.</p>}
         </div>
         <div className="acx-footer">
@@ -246,10 +263,10 @@ export function AdminNavigation({
             </span>
           </div>
           <div className="acx-footer-actions">
-            <Link href="/app" title="Open my dashboard">
-              <Icon name="home" size={15} /> Dashboard
+            <Link href="/app" title="Open my workspace">
+              <Icon name="home" size={15} /> Workspace
             </Link>
-            <Link href="/marketplace" target="_blank" title="Preview marketplace">
+            <Link href="/marketplace" target="_blank" rel="noopener noreferrer" title="Open storefront">
               <Icon name="external" size={15} /> Storefront
             </Link>
             <button onClick={signOut} title="Sign out" aria-label="Sign out">
