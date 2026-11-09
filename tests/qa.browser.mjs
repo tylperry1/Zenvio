@@ -63,7 +63,7 @@ try {
   await adminMenu.setViewportSize({ width: 390, height: 844 });
   await adminMenu.getByRole("button", { name: "Toggle admin navigation" }).click();
   await adminMenu.getByRole("link", { name: "Support inbox" }).waitFor();
-  await adminMenu.getByRole("button", { name: "Sign out" }).waitFor();
+  await adminMenu.locator("#admin-console-links").getByRole("button", { name: "Sign out" }).waitFor();
   assert.ok(await adminMenu.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await adminMenu.screenshot({ path: "test-results/admin-menu-mobile.png" });
 
