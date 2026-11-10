@@ -124,6 +124,28 @@ try {
   const sitemap=await guest.request.get(origin+"/sitemap.xml");assert.equal(sitemap.status(),200);assert.doesNotMatch(await sitemap.text(),/\/portal|\/admin|\/api/);
   const privateResponse=await guest.request.get(origin+"/api/account");assert.equal(privateResponse.status(),401);assert.match(privateResponse.headers()["x-robots-tag"],/noindex/);
   const memberAdmin=await member.request.get(origin+"/api/admin");assert.equal(memberAdmin.status(),403);
+  const teamList = await member.request.get(origin + "/api/teams");
+  assert.equal(teamList.status(), 200);
+  const fixtureTeam = (await teamList.json()).organizations.find((org) => org.slug === "fixture-team");
+  assert.ok(fixtureTeam);
+  const inviteEmail = "browser-invited@example.com";
+  const invitation = await member.request.post(origin + "/api/teams", {
+    headers: { Origin: origin },
+    data: { action: "invite", organization: fixtureTeam.id, email: inviteEmail, role: "staff" },
+  });
+  assert.equal(invitation.status(), 200, await invitation.text());
+  const invitePage = await guest.newPage();
+  await invitePage.setViewportSize({ width: 390, height: 844 });
+  await invitePage.goto(origin + (await invitation.json()).invitationPath);
+  await invitePage.getByLabel("Your name").fill("Browser Teammate");
+  assert.equal(await invitePage.getByLabel("Invited email").inputValue(), inviteEmail);
+  assert.equal(await invitePage.getByLabel("Invited email").getAttribute("readonly"), "");
+  await invitePage.getByLabel("Create a password").fill("An-isolated-password-123456789!");
+  await invitePage.getByRole("button", { name: "Create account and join" }).click();
+  await invitePage.waitForURL("**/app/team");
+  const membership = await guest.request.get(origin + "/api/teams?id=" + fixtureTeam.id);
+  assert.equal(membership.status(), 200);
+  assert.equal((await membership.json()).role, "staff");
   assert.deepEqual(errors,[]);
   for (const route of [...new Set(apiTimings.map(r=>r.route))]) {
     const samples=apiTimings.filter(r=>r.route===route).map(r=>r.elapsedMs).sort((a,b)=>a-b);

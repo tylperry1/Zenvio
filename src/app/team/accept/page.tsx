@@ -1,8 +1,8 @@
-import { TeamBooking } from "@/components/team-booking";
+import { TeamInvitation } from "@/components/team-invitation";
 export const metadata = {
   robots: { index: false, follow: false },
   referrer: "no-referrer" as const,
 };
 export default function Page() {
-  return <TeamBooking accept />;
+  return <TeamInvitation />;
 }

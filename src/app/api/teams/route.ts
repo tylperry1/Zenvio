@@ -10,6 +10,9 @@ import { mailReady } from "@/lib/mail";
 import { platformOrigin } from "@/lib/transactional-email";
 import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
+import { getAuth } from "@/lib/auth";
+import { allowAuthAttempt } from "@/lib/auth-rate-limit";
+import type { Pool, PoolClient } from "pg";
 import {
   body,
   session,
@@ -20,6 +23,8 @@ import {
   email,
   slug,
   integer,
+  password,
+  configuration,
   ApiError,
 } from "@/lib/server";
 import { teamRole } from "@/lib/teams";
@@ -69,65 +74,129 @@ export async function GET(req: NextRequest) {
     return failure(e);
   }
 }
+type Invite = { id: string; organization_id: string; email: string; role: string };
+
+async function pendingInvite(db: Pool | PoolClient, hash: string, lock = false): Promise<Invite> {
+  const { rows } = await db.query<Invite>(
+    `SELECT id,organization_id,email,role FROM private.team_invites
+      WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at>now()${lock ? " FOR UPDATE" : ""}`,
+    [hash],
+  );
+  if (!rows[0]) throw new ApiError("This invitation is invalid, expired, or already used. Ask your team to send a new link.", 403);
+  return rows[0];
+}
+
+async function lockInvite(db: PoolClient, hash: string, organization: string) {
+  // Match invite and revoke operations: lock the organization before its invite row.
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["team:" + organization]);
+  return pendingInvite(db, hash, true);
+}
+
+async function joinTeam(db: PoolClient, invite: Invite, userId: string) {
+  const owner = (
+    await db.query(
+      "SELECT owner_id FROM private.organizations WHERE id=$1",
+      [invite.organization_id],
+    )
+  ).rows[0];
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+owner.owner_id]);
+  const existingMember=(await db.query("SELECT role,active FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[invite.organization_id,userId])).rows[0];
+  if(existingMember?.role==="owner" || existingMember?.active) throw new ApiError("You already have an active membership in this workspace.",409);
+  const usage = await entitlementUsage(owner.owner_id, db);
+  if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
+    throw new ApiError(
+      "This workspace requires an active Teams subscription.",
+      409,
+    );
+  const count = (
+    await db.query(
+      "SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=(SELECT owner_id FROM private.organizations WHERE id=$1) AND m.active AND m.user_id<>$2",
+      [invite.organization_id, userId],
+    )
+  ).rows[0].n;
+  if (count >= usage.seats)
+    throw new ApiError(
+      "The owner must add a paid seat before this invitation can be accepted.",
+      409,
+    );
+  await db.query(
+    "INSERT INTO private.memberships(organization_id,user_id,role) VALUES($1,$2,$3) ON CONFLICT(organization_id,user_id) DO UPDATE SET active=true,role=$3",
+    [invite.organization_id, userId, invite.role],
+  );
+  await db.query(
+    "UPDATE private.team_invites SET accepted_at=now() WHERE id=$1",
+    [invite.id],
+  );
+}
+
+async function prepareInvitation(req: NextRequest, v: Record<string, unknown>) {
+  configuration();
+  const hash = documentHash(string(v.token, "invite", 64, 64));
+  const pool = getPool();
+  const invite = await pendingInvite(pool, hash);
+  const existing = (await pool.query('SELECT id FROM public."user" WHERE email=$1', [invite.email])).rows[0];
+  const auth = getAuth();
+  if (v.action === "inspect-invite") {
+    const current = await auth.api.getSession({ headers: req.headers });
+    const mode = current?.user.email.toLowerCase() === invite.email ? "accept" : existing ? "sign-in" : "register";
+    return Response.json({ email: invite.email, mode }, { headers: { "Cache-Control": "no-store" } });
+  }
+  if (existing) throw new ApiError("An account already uses this email. Sign in to join your team.", 409);
+  if (invite.email === (process.env.MASTER_ADMIN_EMAIL || "").trim().toLowerCase())
+    throw new ApiError("Use your private owner setup link to create this account.", 403);
+  const name = string(v.name, "name", 100, 2);
+  const secret = password(v.password);
+  if (!await allowAuthAttempt("sign-up", invite.email))
+    throw new ApiError("Too many attempts. Please wait a minute and try again.", 429);
+  const hashedPassword = await (await auth.$context).password.hash(secret);
+  const db = await pool.connect();
+  try {
+    await db.query("BEGIN");
+    const locked = await lockInvite(db, hash, invite.organization_id);
+    // The private email link proves control of the invited address. Create the
+    // credential, membership and invite redemption in the same transaction.
+    const { rows } = await db.query(
+      'INSERT INTO public."user"(name,email,"emailVerified") VALUES($1,$2,true) ON CONFLICT(email) DO NOTHING RETURNING id',
+      [name, locked.email],
+    );
+    const user = rows[0]?.id;
+    if (!user) throw new ApiError("An account already uses this email. Sign in to join your team.", 409);
+    await db.query(
+      `INSERT INTO public.account("accountId","providerId","userId",password) VALUES($1,'credential',$2,$3)`,
+      [user, user, hashedPassword],
+    );
+    await joinTeam(db, locked, user);
+    await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'team_accept',$2)",
+      [user, JSON.stringify({ organization: locked.organization_id, source: "invitation_registration" })]);
+    await db.query("COMMIT");
+    return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    await db.query("ROLLBACK");
+    throw e;
+  } finally {
+    db.release();
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     sameOrigin(req);
-    const { token, user } = await session(),
-      v = await body(req),
-      db = await getPool().connect();
+    const v = await body(req);
+    if (v.action === "inspect-invite" || v.action === "register-invite")
+      return await prepareInvitation(req, v);
+    const { token, user } = await session();
+    const db = await getPool().connect();
     try {
       await db.query("BEGIN");
       let result: any = { ok: true };
       let deliveryOwner: string | undefined;
       if (v.action === "accept") {
-        const invite = (
-          await db.query(
-            "SELECT * FROM private.team_invites WHERE token_hash=$1 AND accepted_at IS NULL AND expires_at>now() FOR UPDATE",
-            [documentHash(string(v.token, "invite", 64, 64))],
-          )
-        ).rows[0];
-        if (!invite || invite.email !== user.email.toLowerCase())
-          throw new ApiError(
-            "Sign in with the invited email to accept this invitation.",
-            403,
-          );
-        await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-          "team:" + invite.organization_id,
-        ]);
-        const owner = (
-          await db.query(
-            "SELECT owner_id FROM private.organizations WHERE id=$1",
-            [invite.organization_id],
-          )
-        ).rows[0];
-        await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+owner.owner_id]);
-        const existingMember=(await db.query("SELECT role,active FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[invite.organization_id,token])).rows[0];
-        if(existingMember?.role==="owner" || existingMember?.active) throw new ApiError("You already have an active membership in this workspace.",409);
-        const usage = await entitlementUsage(owner.owner_id, db);
-        if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
-          throw new ApiError(
-            "This workspace requires an active Teams subscription.",
-            409,
-          );
-        const count = (
-          await db.query(
-            "SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=(SELECT owner_id FROM private.organizations WHERE id=$1) AND m.active AND m.user_id<>$2",
-            [invite.organization_id, token],
-          )
-        ).rows[0].n;
-        if (count >= usage.seats)
-          throw new ApiError(
-            "The owner must add a paid seat before this invitation can be accepted.",
-            409,
-          );
-        await db.query(
-          "INSERT INTO private.memberships(organization_id,user_id,role) VALUES($1,$2,$3) ON CONFLICT(organization_id,user_id) DO UPDATE SET active=true,role=$3",
-          [invite.organization_id, token, invite.role],
-        );
-        await db.query(
-          "UPDATE private.team_invites SET accepted_at=now() WHERE id=$1",
-          [invite.id],
-        );
+        const hash = documentHash(string(v.token, "invite", 64, 64));
+        const pending = await pendingInvite(db, hash);
+        if (pending.email !== user.email.toLowerCase())
+          throw new ApiError("Sign in with the invited email to accept this invitation.", 403);
+        const invite = await lockInvite(db, hash, pending.organization_id);
+        await joinTeam(db, invite, token);
       } else if (v.action === "create") {
         const usage = await entitlementUsage(token, db);
         if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
@@ -216,7 +285,7 @@ export async function POST(req: NextRequest) {
 
 ${new URL(path, platformOrigin()).href}
 
-Sign in with the email address that received this invitation. Keep this link private. If you weren’t expecting an invitation, you can ignore this email.`,
+Open the invitation to set up your account or sign in with the invited email address. Keep this link private. If you weren’t expecting an invitation, you can ignore this email.`,
               expires: new Date(invite.expires_at),
             });
             deliveryOwner = role.owner_id;

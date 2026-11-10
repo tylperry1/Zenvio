@@ -480,6 +480,33 @@ try {
     ).status,
     200,
   );
+  const newEmail = "invited-new@example.com";
+  const newInvite = await request("/api/teams", { action: "invite", organization, email: newEmail, role: "staff" }, alice.cookie);
+  assert.equal(newInvite.status, 200, JSON.stringify(newInvite.data));
+  const newToken = newInvite.data.invitationPath.split("token=")[1];
+  const inspected = await request("/api/teams", { action: "inspect-invite", token: newToken });
+  assert.equal(inspected.status, 200, JSON.stringify(inspected.data));
+  assert.deepEqual(inspected.data, { email: newEmail, mode: "register" });
+  const registration = { action: "register-invite", token: newToken, name: "Invited Teammate", password, email: "ignored@example.com" };
+  const results = await Promise.all([request("/api/teams", registration), request("/api/teams", registration)]);
+  assert.equal(results.filter((r) => r.status === 200).length, 1, JSON.stringify(results.map((r) => r.data)));
+  assert.ok(results.some((r) => r.status === 403 || r.status === 409));
+  assert.equal((await request("/api/teams", { action: "inspect-invite", token: newToken })).status, 403);
+  const signedIn = await request("/api/auth", { action: "sign-in", email: newEmail, password });
+  assert.equal(signedIn.status, 200, JSON.stringify(signedIn.data));
+  const joined = await request("/api/teams?id=" + organization, null, signedIn.cookie);
+  assert.equal(joined.status, 200, JSON.stringify(joined.data));
+  assert.equal(joined.data.role, "staff");
+  const fullEmail = "invite-no-seat@example.com";
+  const fullInvite = await request("/api/teams", { action: "invite", organization, email: fullEmail, role: "staff" }, alice.cookie);
+  assert.equal(fullInvite.status, 200);
+  const fullToken = fullInvite.data.invitationPath.split("token=")[1];
+  const full = await request("/api/teams", { ...registration, token: fullToken });
+  assert.equal(full.status, 409, JSON.stringify(full.data));
+  assert.match(full.data.error, /paid seat/);
+  assert.equal((await db.query('SELECT 1 FROM public."user" WHERE email=$1', [fullEmail])).rowCount, 0);
+  const invitedMember = joined.data.members.find((member) => member.email === newEmail);
+  assert.equal((await request("/api/teams", { action: "remove", organization, user_id: invitedMember.user_id }, alice.cookie)).status, 200);
   const staffUsage = (await request("/api/usage", null, bob.cookie)).data;
   assert.equal(staffUsage.plan, "teams");
   // Teams envelopes are a pooled allowance: per-seat allowance × paid seats.
