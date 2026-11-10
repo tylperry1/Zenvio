@@ -12,3 +12,10 @@ test("transactional branding escapes customer input and uses only platform URLs 
   const link = module.exports.transactionalEmail("Your booking", "https://gozenvio.com/reschedule#token=fixture");
   assert.match(link, /href="https:\/\/gozenvio.com\/reschedule#token=fixture"/);
 });
+
+test("team invitation email uses its private acceptance link", () => {
+  const url = module.exports.platformOrigin() + "/team/accept#token=fixture";
+  const html = module.exports.transactionalEmail("You’re invited to join a team on Zenvio", url);
+  assert.ok(html.includes(`href="${url}"`));
+  assert.match(html, />Join your team<\/a>/);
+});

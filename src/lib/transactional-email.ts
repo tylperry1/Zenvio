@@ -18,7 +18,7 @@ export type EmailOptions = {
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const URL_PATTERN = /https:\/\/[^\s<>"']+/g;
 
-function platformOrigin() {
+export function platformOrigin() {
   const configured = process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com";
   try {
     const url = new URL(configured);
@@ -46,6 +46,7 @@ export function actionLabel(url: string) {
     [/^\/waitlist-offer\b/, "Claim this time"],
     [/^\/review\b/, "Leave a review"],
     [/^\/gift-card\b/, "View gift card"],
+    [/^\/team\/accept$/, "Join your team"],
     [/^\/(book|team)\b/, "View booking page"],
     [/^\/demo\b/, "Explore the demo"],
     [/^\/pricing\b/, "See pricing"],
