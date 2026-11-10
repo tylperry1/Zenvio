@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
+import { getPool } from "../db";
+import { environment } from "./provider-policy";
 import { integrationValue } from "../platform-settings";
 import { ApiError } from "../server";
 import type { AiProviderConfig } from "./contracts";
@@ -32,8 +34,35 @@ export type ProviderRound = {
     };
 };
 export const aiKeyName = (provider: AiProviderConfig["provider"]) => provider === "gemini" ? "GEMINI_API_KEY" : provider === "cloudflare" ? "CLOUDFLARE_AI_TOKEN" : "ANTHROPIC_API_KEY";
-export async function aiProviderConfigured(c: AiProviderConfig) {
-    return Boolean(c.enabled && c.model && c.privateDataApproved && c.toolCompatible && (await integrationValue(aiKeyName(c.provider))) && (c.provider !== "cloudflare" || await integrationValue("CLOUDFLARE_ACCOUNT_ID")));
+export async function aiCredentialsConfigured(provider: AiProviderConfig["provider"]) {
+    const key = (await integrationValue(aiKeyName(provider))).trim();
+    return Boolean(key && (provider !== "cloudflare" || /^[a-f0-9]{32}$/i.test((await integrationValue("CLOUDFLARE_ACCOUNT_ID")).trim())));
+}
+
+export async function aiProviderConfigured(config: AiProviderConfig) {
+    return Boolean(config.enabled && config.model && config.privateDataApproved && config.toolCompatible &&
+        config.inputMicrosPerMillion > 0 && config.outputMicrosPerMillion > 0 &&
+        config.monthlyCapMicros > 0 && config.workspaceMonthlyCapMicros > 0 &&
+        await aiCredentialsConfigured(config.provider));
+}
+
+export async function latestAiProbe(config: AiProviderConfig) {
+    if (!config.model) return null;
+    const { rows } = await getPool().query(
+        `SELECT action, created_at FROM private.operation_log
+         WHERE action IN ('ai_model_probe_passed', 'ai_model_probe_failed')
+           AND details->>'environment'=$1 AND details->>'provider'=$2 AND details->>'model'=$3
+           AND details->>'maxOutputTokens'=$4
+         ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [environment(), config.provider, config.model, String(config.maxOutputTokens)],
+    );
+    const row = rows[0];
+    return row ? { passed: row.action === "ai_model_probe_passed", checkedAt: row.created_at as string } : null;
+}
+
+export async function aiProviderReady(config: AiProviderConfig) {
+    if (!await aiProviderConfigured(config)) return false;
+    return config.provider !== "gemini" || (await latestAiProbe(config))?.passed === true;
 }
 function blocks(m: Message): Block[] { return typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content; }
 export function geminiContents(messages: Message[]) {
@@ -73,15 +102,15 @@ function tokenCount(value: unknown) { if (!Number.isSafeInteger(value) || Number
 export async function providerRound(c: AiProviderConfig, system: string, messages: Message[], tools: Tool[]): Promise<ProviderRound> {
     if (!await aiProviderConfigured(c))
         throw new ApiError("The selected AI provider is unavailable or unapproved.", 503);
-    const key = await integrationValue(aiKeyName(c.provider));
+    const key = (await integrationValue(aiKeyName(c.provider))).trim();
     let url: string, headers: Record<string, string>, payload: unknown;
     if (c.provider === "gemini") {
         url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(c.model)}:generateContent`;
         headers = { "x-goog-api-key": key };
-        payload = { systemInstruction: { parts: [{ text: system }] }, contents: geminiContents(messages), tools: [{ functionDeclarations: tools.map(t => ({ name: t.name, description: t.description, parameters: t.input_schema })) }], generationConfig: { maxOutputTokens: c.maxOutputTokens } };
+        payload = { systemInstruction: { parts: [{ text: system }] }, contents: geminiContents(messages), tools: [{ functionDeclarations: tools.map(t => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }], generationConfig: { maxOutputTokens: c.maxOutputTokens } };
     }
     else if (c.provider === "cloudflare") {
-        const account = await integrationValue("CLOUDFLARE_ACCOUNT_ID");
+        const account = (await integrationValue("CLOUDFLARE_ACCOUNT_ID")).trim();
         if (!/^[a-f0-9]{32}$/i.test(account))
             throw new ApiError("Invalid Cloudflare account configuration.", 503);
         url = `https://api.cloudflare.com/client/v4/accounts/${account}/ai/v1/chat/completions`;

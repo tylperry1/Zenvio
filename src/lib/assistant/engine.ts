@@ -4,7 +4,7 @@ import { integrationValue } from "../platform-settings";
 import { ApiError } from "../server";
 import { recordUsage } from "./limits";
 import { aiConfiguration, estimatedMicros, reserveUsage, settleUsage, uncertainUsage } from "../launch/provider-policy";
-import { aiKeyName, aiProviderConfigured, providerRound } from "../launch/ai-provider";
+import { aiKeyName, aiProviderReady, providerRound } from "../launch/ai-provider";
 import { toolByName, toolDefinitions, ToolInputError, type Preview, type ToolContext } from "./tools";
 
 export const ASSISTANT_MODEL = "claude-opus-5-5";
@@ -41,7 +41,7 @@ export function setAssistantClientFactory(next: typeof factory) {
 }
 
 export async function assistantConfigured() {
-  return aiProviderConfigured(await aiConfiguration());
+  return aiProviderReady(await aiConfiguration());
 }
 
 type Row = { role: "user" | "assistant"; content: string };
@@ -62,7 +62,7 @@ export async function runAssistantTurn(
   emit: (event: AssistantEvent) => void,
 ) {
   const config = await aiConfiguration();
-  if (!await aiProviderConfigured(config)) throw new ApiError("The selected AI provider needs administrator configuration and approval.", 503);
+  if (!await aiProviderReady(config)) throw new ApiError("The selected AI provider needs administrator configuration and approval.", 503);
   const apiKey = (await integrationValue(aiKeyName(config.provider))).trim();
   const client = config.provider === "anthropic" ? factory(apiKey) : null;
   const pool = getPool();

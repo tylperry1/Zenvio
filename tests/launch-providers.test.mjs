@@ -151,3 +151,52 @@ test('Microsoft external metadata editing preserves the version precondition and
   assert.deepEqual(JSON.parse(patch.options.body),{subject:'New title',location:{displayName:'New office'}});
  }finally{global.fetch=before;for(const [k,v] of [['MICROSOFT_EXTERNAL_EDITING_ENABLED',enabled],['MICROSOFT_EXTERNAL_EDITING_VALIDATED',validated]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
 });
+
+test("Gemini activation requires its own vault key and a matching successful synthetic probe", async () => {
+  const keys = [];
+  let probe = [];
+  let queried;
+  const fixture = loader({
+    db: { getPool: () => ({ query: async (_sql, parameters) => { queried = parameters; return { rows: probe }; } }) },
+    "platform-settings": { integrationValue: async (name) => { keys.push(name); return name === "GEMINI_API_KEY" ? "fixture-key" : ""; } },
+  });
+  const { defaultAiConfig, environment } = fixture("src/lib/launch/provider-policy.ts");
+  const { aiProviderReady } = fixture("src/lib/launch/ai-provider.ts");
+  const config = { ...defaultAiConfig, enabled: true, model: "gemini-fixture", privateDataApproved: true, toolCompatible: true,
+    inputMicrosPerMillion: 100000, outputMicrosPerMillion: 500000 };
+  assert.equal(await aiProviderReady(config), false);
+  assert.deepEqual(queried, [environment(), "gemini", config.model, String(config.maxOutputTokens)]);
+  probe = [{ action: "ai_model_probe_passed", created_at: "2026-11-09T00:00:00Z" }];
+  assert.equal(await aiProviderReady(config), true);
+  assert.equal(await aiProviderReady({ ...config, privateDataApproved: false }), false);
+  assert.equal(await aiProviderReady({ ...config, workspaceMonthlyCapMicros: 0 }), false);
+  probe = [{ action: "ai_model_probe_failed", created_at: "2026-11-09T00:01:00Z" }];
+  assert.equal(await aiProviderReady(config), false);
+  assert.ok(keys.length > 0);
+  assert.deepEqual([...new Set(keys)], ["GEMINI_API_KEY"]);
+});
+
+test("Gemini adapter sends supported tool schema and includes thinking in metered output", async (t) => {
+  const fixture = loader({ db, "platform-settings": { integrationValue: async (key) => {
+    assert.equal(key, "GEMINI_API_KEY");
+    return "fixture-key";
+  } } });
+  const { defaultAiConfig } = fixture("src/lib/launch/provider-policy.ts");
+  const { providerRound } = fixture("src/lib/launch/ai-provider.ts");
+  const schema = { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false };
+  t.mock.method(globalThis, "fetch", async (url, request) => {
+    assert.match(url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-fixture:generateContent$/);
+    assert.equal(request.headers["x-goog-api-key"], "fixture-key");
+    assert.deepEqual(JSON.parse(request.body).tools[0].functionDeclarations[0].parametersJsonSchema, schema);
+    return Response.json({
+      candidates: [{ finishReason: "STOP", content: { parts: [{ functionCall: { name: "zenvio_probe", args: { ok: true } } }] } }],
+      usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 10, thoughtsTokenCount: 15 },
+    });
+  });
+  const result = await providerRound({ ...defaultAiConfig, enabled: true, model: "gemini-fixture",
+    privateDataApproved: true, toolCompatible: true, inputMicrosPerMillion: 100000, outputMicrosPerMillion: 500000 },
+    "Synthetic test", [{ role: "user", content: "Call the probe." }], [{ name: "zenvio_probe", input_schema: schema }]);
+  assert.equal(result.stop_reason, "tool_use");
+  assert.deepEqual(result.content[0].input, { ok: true });
+  assert.deepEqual(result.usage, { input_tokens: 20, output_tokens: 25 });
+});

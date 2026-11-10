@@ -5,7 +5,7 @@ export const environment = () => process.env.VERCEL_ENV || process.env.NODE_ENV 
 export const defaultAiConfig: AiProviderConfig = {
     enabled: false, provider: "gemini", model: "", toolCompatible: false, privateDataApproved: false,
     inputMicrosPerMillion: 0, outputMicrosPerMillion: 0,
-    monthlyCapMicros: 0, workspaceMonthlyCapMicros: 0, maxOutputTokens: 2048, fallback: "none",
+    monthlyCapMicros: 10_000_000, workspaceMonthlyCapMicros: 5_000_000, maxOutputTokens: 2048, fallback: "none",
 };
 export function validateAiConfig(value: unknown): AiProviderConfig {
     if (!value || typeof value !== "object" || Array.isArray(value))

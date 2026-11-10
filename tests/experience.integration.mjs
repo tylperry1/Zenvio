@@ -249,6 +249,43 @@ try {
   assert.equal((await request("/api/feedback", undefined, bob)).data.feedback.length, 0, "members only see their own feedback");
   assert.equal((await request("/api/video", undefined, alice)).data.available, false, "video is reported as not available");
 
+  {
+    // Provider settings can be reviewed with an encrypted fixture key and no live provider calls.
+    const owner = await account("owner@example.com", "Fixture Owner");
+    const saved = await request("/api/admin/launch/providers", undefined, owner);
+    assert.equal(saved.status, 200, saved.text);
+    const config = { ...saved.data.ai, enabled: false, provider: "gemini", model: "gemini-fixture", privateDataApproved: true, toolCompatible: true };
+    const reason = "Isolated Gemini activation fixture";
+    const fixtureKey = "gemini-fixture-key";
+    const keySave = await request("/api/admin/operations", { action: "integration", key: "GEMINI_API_KEY", value: fixtureKey }, owner);
+    assert.equal(keySave.status, 200, keySave.text);
+    try {
+      assert.equal((await request("/api/admin/launch/providers", { ai: config, reason }, alice)).status, 403);
+      assert.equal((await request("/api/admin/launch/providers", { ai: config, reason }, owner)).status, 200);
+      const readiness = await request("/api/admin/assistant", undefined, owner);
+      assert.equal(readiness.status, 200, readiness.text);
+      assert.equal(readiness.data.ai.provider, "gemini");
+      assert.equal(readiness.data.credentialConfigured, true);
+      assert.equal(readiness.data.configured, false);
+      assert.equal(readiness.data.probe, null);
+      assert.ok(!readiness.text.includes(fixtureKey));
+      assert.equal((await request("/api/admin/launch/providers", { ai: { ...config, enabled: true }, reason }, owner)).status, 409);
+      assert.equal((await request("/api/admin/launch/providers/probe", { confirmation: "RUN_BILLABLE_MODEL_PROBE" }, alice)).status, 403);
+      assert.equal((await request("/api/admin/launch/providers/probe", {}, owner)).status, 409);
+
+      // Simulate the audit record from a settled synthetic probe in the isolated database.
+      await db.query("INSERT INTO private.operation_log(action,details) VALUES('ai_model_probe_passed',$1)", [JSON.stringify({
+        environment: readiness.data.environment, provider: "gemini", model: config.model, maxOutputTokens: config.maxOutputTokens, synthetic: true,
+      })]);
+      assert.equal((await request("/api/admin/launch/providers", { ai: { ...config, enabled: true }, reason }, owner)).status, 200);
+      assert.equal((await request("/api/assistant", undefined, alice)).data.configured, true);
+      assert.equal((await request("/api/admin/launch/providers", { ai: { ...config, enabled: true, model: "another-gemini-fixture" }, reason }, owner)).status, 409);
+    } finally {
+      await db.query("DELETE FROM private.integration_secrets WHERE key='GEMINI_API_KEY'");
+      assert.equal((await request("/api/admin/launch/providers", { ai: saved.data.ai, reason }, owner)).status, 200);
+    }
+  }
+
   console.log("Zenvio 2.1 integration checks passed");
 } finally {
   await mock.close();
