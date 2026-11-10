@@ -156,6 +156,10 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "SELECT id FROM private.signing_documents WHERE id=$1 FOR SHARE",
           [j.document_id],
         );
+      const teamInviteValid = j.kind !== "team_invite" || !!(await db.query(
+        "SELECT 1 FROM private.team_invites WHERE id=$1 AND email=$2 AND accepted_at IS NULL AND expires_at>now() FOR SHARE",
+        [j.dedupe_key.slice("team-invite:".length), j.recipient],
+      )).rowCount;
       let earlyAccessExists = true;
       if (j.early_access_id)
         earlyAccessExists = !!(await db.query(
@@ -172,7 +176,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         await db.query("COMMIT");
         continue;
       }
-      let valid = earlyAccessExists && new Date(j.expires_at).getTime() > Date.now();
+      let valid = teamInviteValid && earlyAccessExists && new Date(j.expires_at).getTime() > Date.now();
       if (j.booking_id) {
         const b = (
           await db.query(

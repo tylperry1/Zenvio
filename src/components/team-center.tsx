@@ -36,7 +36,7 @@ export function TeamCenter() {
     [memberSearch, setMemberSearch] = useState(""),
     [staffFilter, setStaffFilter] = useState(""),
     [modal, setModal] = useState<"create" | "invite" | "event" | null>(null),
-    [link, setLink] = useState("");
+    [invite, setInvite] = useState<{ link: string; emailQueued: boolean } | null>(null);
   const toast = useToast();
   const { confirm, node: confirmNode } = useConfirm();
   async function load() {
@@ -71,8 +71,8 @@ export function TeamCenter() {
         }),
         d = await r.json();
       if (!r.ok) throw Error(d.error);
-      if (d.invitationPath) setLink(location.origin + d.invitationPath);
-      toast.show(success);
+      if (d.invitationPath) setInvite({ link: location.origin + d.invitationPath, emailQueued: d.emailQueued === true });
+      else toast.show(success);
       await load();
       await open(d.id || selected);
       return true;
@@ -533,22 +533,24 @@ export function TeamCenter() {
           onClose={() => {
             if (busy) return;
             setModal(null);
-            setLink("");
+            setInvite(null);
           }}
         >
-          {link ? (
+          {invite ? (
             <div className="ui-form">
-              <Alert tone="success" title="Invitation created">
-                Send this private link to the person you invited. They must sign in with the invited email address. Zenvio
-                hasn’t emailed it.
+              <Alert tone={invite.emailQueued ? "success" : "warning"} title={invite.emailQueued ? "Invitation email queued" : "Email delivery unavailable"}>
+                {invite.emailQueued
+                  ? "Zenvio will email the invitation. You can also share this private link."
+                  : "Copy this private link and send it directly to the person you invited."}
+                {" "}They’ll need to sign in with the invited email address.
               </Alert>
-              <CopyField label="Invitation link" value={link} />
+              <CopyField label="Invitation link" value={invite.link} />
               <div className="ui-modal-actions">
                 <button
                   className="ui-btn ui-btn-primary"
                   onClick={() => {
                     setModal(null);
-                    setLink("");
+                    setInvite(null);
                   }}
                 >
                   Done
@@ -577,7 +579,7 @@ export function TeamCenter() {
                   Cancel
                 </button>
                 <button className="ui-btn ui-btn-primary" disabled={busy}>
-                  {busy ? "Creating…" : "Create invitation"}
+                  {busy ? "Sending…" : "Send invitation"}
                 </button>
               </div>
             </form>

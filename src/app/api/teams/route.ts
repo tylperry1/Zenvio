@@ -5,7 +5,9 @@ import {
   runGoogleJobs,
   drainCalendarCleanup,
 } from "@/lib/google-calendar";
-import { scheduleBooking, drainDeliveries } from "@/lib/lifecycle";
+import { scheduleBooking, drainDeliveries, queueDelivery } from "@/lib/lifecycle";
+import { mailReady } from "@/lib/mail";
+import { platformOrigin } from "@/lib/transactional-email";
 import { NextRequest, after } from "next/server";
 import { getPool } from "@/lib/db";
 import {
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.query("BEGIN");
       let result: any = { ok: true };
+      let deliveryOwner: string | undefined;
       if (v.action === "accept") {
         const invite = (
           await db.query(
@@ -181,13 +184,43 @@ export async function POST(req: NextRequest) {
             throw new ApiError("Only owners can invite administrators.", 403);
           const existingMember=(await db.query('SELECT m.role FROM private.memberships m JOIN public."user" u ON u.id=m.user_id WHERE m.organization_id=$1 AND lower(u.email)=$2',[organization,address])).rows[0];
           if(existingMember) throw new ApiError("This person already belongs to the team. Use the member controls to change their role or reactivate them.",409);
+          const recent = (await db.query(
+            `SELECT (count(*) FILTER (WHERE created_at>now()-interval '1 hour'))::int AS total,
+                    bool_or(email=$2 AND created_at>now()-interval '1 minute') AS just_invited,
+                    bool_or(email=$2 AND role='administrator' AND accepted_at IS NULL AND expires_at>now()) AS manager_invite
+               FROM private.team_invites
+              WHERE organization_id=$1 AND (created_at>now()-interval '1 hour' OR (email=$2 AND accepted_at IS NULL AND expires_at>now()))`,
+            [organization, address],
+          )).rows[0];
+          if (recent.manager_invite && role.role !== "owner")
+            throw new ApiError("Only the owner can replace a manager invitation.", 403);
+          if (recent.just_invited || recent.total >= 30)
+            throw new ApiError("Too many recent invitations. Wait before trying again.", 429);
           await db.query("UPDATE private.team_invites SET expires_at=now() WHERE organization_id=$1 AND email=$2 AND accepted_at IS NULL",[organization,address]);
           const secret = signingToken();
-          await db.query(
-            "INSERT INTO private.team_invites(organization_id,email,role,token_hash) VALUES($1,$2,$3,$4)",
+          const invite = (await db.query(
+            "INSERT INTO private.team_invites(organization_id,email,role,token_hash) VALUES($1,$2,$3,$4) RETURNING id,expires_at",
             [organization, address, v.role, documentHash(secret)],
-          );
-          result.invitationPath = "/team/accept#token=" + secret;
+          )).rows[0];
+          const path = "/team/accept#token=" + secret;
+          result.invitationPath = path;
+          result.emailQueued = Boolean(process.env.INTEGRATION_ENCRYPTION_KEY) && await mailReady();
+          if (result.emailQueued) {
+            await queueDelivery(db, {
+              user: role.owner_id,
+              kind: "team_invite",
+              key: "team-invite:" + invite.id,
+              to: address,
+              subject: "You’re invited to join a team on Zenvio",
+              text: `You’ve been invited to join a Zenvio workspace as ${v.role === "administrator" ? "a manager" : "a staff member"}.
+
+${new URL(path, platformOrigin()).href}
+
+Sign in with the email address that received this invitation. Keep this link private. If you weren’t expecting an invitation, you can ignore this email.`,
+              expires: new Date(invite.expires_at),
+            });
+            deliveryOwner = role.owner_id;
+          }
         } else if (v.action === "remove") {
           const target = uuid(v.user_id);
           const m = (
@@ -400,7 +433,15 @@ export async function POST(req: NextRequest) {
       }
       await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)", [token,"team_"+String(v.action),JSON.stringify({organization:v.organization||result.id||null,target:v.user_id||null})]);
       await db.query("COMMIT");
-      return Response.json(result);
+      const owner = deliveryOwner;
+      if (owner) after(async () => {
+        try {
+          await drainDeliveries(owner, 5);
+        } catch {
+          console.error("Team invitation delivery will retry in the scheduled job.");
+        }
+      });
+      return Response.json(result, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       await db.query("ROLLBACK");
       throw e;
