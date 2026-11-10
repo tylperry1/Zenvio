@@ -3,20 +3,21 @@ import { getPool } from "@/lib/db";
 import { adminSession } from "@/lib/admin";
 import { ApiError, body, email, failure, integer, sameOrigin, uuid } from "@/lib/server";
 import { assistantPolicy } from "@/lib/assistant/limits";
-import { assistantConfigured } from "@/lib/assistant/engine";
+import { aiConfiguration, environment } from "@/lib/launch/provider-policy";
+import { aiCredentialsConfigured, aiProviderConfigured, latestAiProbe } from "@/lib/launch/ai-provider";
 export const dynamic = "force-dynamic";
 
 // Platform-wide assistant switch and limits, per-account overrides, usage and the action audit trail.
 export async function GET() {
   try {
-    await adminSession("assistant");
+    const { access } = await adminSession("assistant");
     const pool = getPool();
-    const [policy, configured, usage, top, overrides, actions] = await Promise.all([
+    const [policy, ai, usage, top, overrides, actions, spend] = await Promise.all([
       assistantPolicy(),
-      assistantConfigured(),
+      aiConfiguration(),
       pool.query(
         `SELECT day,sum(requests)::int requests,sum(input_tokens)::bigint input_tokens,sum(output_tokens)::bigint output_tokens,count(*)::int users
-           FROM private.ai_usage WHERE day>=current_date-29 GROUP BY day ORDER BY day`,
+           FROM private.ai_usage WHERE day>=least(current_date-29,date_trunc('month',current_date)::date) GROUP BY day ORDER BY day`,
       ),
       pool.query(
         `SELECT u.id,u.name,u.email,sum(a.requests)::int requests,sum(a.input_tokens+a.output_tokens)::bigint tokens
@@ -31,9 +32,19 @@ export async function GET() {
         `SELECT a.id,a.tool,a.status,a.preview->>'title' title,a.error,a.created_at,a.completed_at,u.email
            FROM private.ai_actions a JOIN public."user" u ON u.id=a.user_id ORDER BY a.created_at DESC LIMIT 50`,
       ),
+      pool.query(
+        `SELECT coalesce(sum(actual_micros) FILTER (WHERE state='settled'),0)::text settled,
+                coalesce(sum(reserved_micros) FILTER (WHERE state IN ('reserved','uncertain')),0)::text reserved
+           FROM private.provider_usage_reservations WHERE provider='ai' AND created_at>=date_trunc('month',now())`,
+      ),
     ]);
+    const [credentialConfigured, providerConfigured, probe] = await Promise.all([
+      aiCredentialsConfigured(ai.provider), aiProviderConfigured(ai), latestAiProbe(ai),
+    ]);
+    const configured = providerConfigured && (ai.provider !== "gemini" || probe?.passed === true);
     return Response.json(
-      { policy, configured, usage: usage.rows, top: top.rows, overrides: overrides.rows, actions: actions.rows },
+      { policy, configured, ai, credentialConfigured, probe, spend: spend.rows[0], environment: environment(),
+        canManageProvider: access.role === "master_admin", usage: usage.rows, top: top.rows, overrides: overrides.rows, actions: actions.rows },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

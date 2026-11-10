@@ -1,22 +1,37 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { AiProviderConfig, AiProviderId } from "@/lib/launch/contracts";
 import { Alert, Badge, Card, EmptyState, Field, Skeleton, Toggle, formatDateTime, useToast } from "./ui";
 
 type Data = {
   policy: { enabled: boolean; dailyRequests: number; monthlyTokens: number };
   configured: boolean;
+  ai: AiProviderConfig;
+  credentialConfigured: boolean;
+  probe: { passed: boolean; checkedAt: string } | null;
+  spend: { settled: string; reserved: string };
+  environment: string;
+  canManageProvider: boolean;
   usage: { day: string; requests: number; input_tokens: string; output_tokens: string; users: number }[];
   top: { id: string; name: string; email: string; requests: number; tokens: string }[];
   overrides: { user_id: string; name: string; email: string; enabled: boolean; daily_requests: number | null; monthly_tokens: string | null }[];
   actions: { id: string; tool: string; status: string; title: string; error: string | null; created_at: string; completed_at: string | null; email: string }[];
 };
+const providerNames: Record<AiProviderId, string> = { gemini: "Google Gemini", anthropic: "Anthropic", cloudflare: "Cloudflare Workers AI" };
+const dollars = (micros: number | string) => new Intl.NumberFormat("en-US", {
+  style: "currency", currency: "USD", maximumFractionDigits: 6,
+}).format(Number(micros) / 1_000_000);
+
 const fmt = (n: number | string) => Number(n).toLocaleString();
 
 export function AssistantAdmin() {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [policy, setPolicy] = useState<Data["policy"] | null>(null),
+    [provider, setProvider] = useState<AiProviderConfig | null>(null),
+    [reason, setReason] = useState(""),
+    [providerBusy, setProviderBusy] = useState(false),
     [override, setOverride] = useState({ email: "", enabled: true, dailyRequests: "", monthlyTokens: "" });
   const toast = useToast();
   async function load() {
@@ -26,6 +41,7 @@ export function AssistantAdmin() {
       if (!r.ok) throw Error(d.error);
       setData(d);
       setPolicy(d.policy);
+      setProvider(d.ai);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t load assistant settings.");
     }
@@ -50,6 +66,28 @@ export function AssistantAdmin() {
       return false;
     }
   }
+  async function updateProvider(test: boolean) {
+    if (!provider) return;
+    if (test && !window.confirm("Run a small billable test with synthetic data?")) return;
+    setProviderBusy(true);
+    try {
+      const response = await fetch(`/api/admin/launch/providers${test ? "/probe" : ""}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(test ? { confirmation: "RUN_BILLABLE_MODEL_PROBE" } : { ai: provider, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error || "Provider request failed.");
+      if (!test) { setReason(""); await load(); }
+      toast.show(test ? "Connection test passed. Tool calling and token metering verified." : "Provider settings saved.");
+    } catch (cause) {
+      toast.show(cause instanceof Error ? cause.message : "Provider request failed.", true);
+    } finally {
+      if (test) await load();
+      setProviderBusy(false);
+    }
+  }
+  const savedProvider = data && provider && JSON.stringify(provider) === JSON.stringify(data.ai);
   const month = data?.usage.filter((u) => u.day.slice(0, 7) === new Date().toISOString().slice(0, 7));
   return (
     <main className="ea-admin">
@@ -58,18 +96,83 @@ export function AssistantAdmin() {
           <h1>AI assistant</h1>
           <p>Turn the assistant on or off, set usage limits, and review every action members approved.</p>
         </div>
-        {data && <Badge tone={data.configured ? "success" : "warning"}>{data.configured ? "API key configured" : "API key missing"}</Badge>}
+        {data && <Badge tone={data.configured && data.policy.enabled ? "success" : "warning"}>{data.configured && data.policy.enabled ? "Assistant ready" : "Setup required"}</Badge>}
       </header>
       {error && <Alert tone="danger">{error}</Alert>}
       {!data && !error && <Skeleton rows={6} />}
       {data && policy && (
         <>
-          {!data.configured && (
-            <Alert tone="warning" title="The assistant can’t run yet">
-              Add the Anthropic API key in <Link href="/admin/operations?section=integrations">Integrations</Link>. The key stays on the server.
-            </Alert>
-          )}
-          <Card title="Platform limits" description="Applies to every account unless an override below says otherwise.">
+          <Card title="AI provider" description={`Provider settings for ${data.environment}.`}>
+            <div className="aa-stats">
+              <div><span>Selected provider</span><b>{providerNames[data.ai.provider]}</b></div>
+              <div><span>Provider access</span><b>{data.ai.enabled ? "Enabled" : "Disabled"}</b></div>
+              <div><span>Credential</span><b>{data.credentialConfigured ? "Configured" : "Missing"}</b></div>
+            </div>
+            <p>Model <strong>{data.ai.model || "Choose a model"}</strong></p>
+            <p>Connection test <strong>{data.probe ? (data.probe.passed ? "Passed" : "Failed") : "Pending"}</strong>
+              {data.probe && ` · ${formatDateTime(data.probe.checkedAt)}`}
+            </p>
+            <p>Configured monthly spending caps <strong>{dollars(data.ai.monthlyCapMicros)} platform</strong> · <strong>{dollars(data.ai.workspaceMonthlyCapMicros)} per workspace</strong></p>
+            {!data.credentialConfigured && (
+              <Alert tone="warning">Add the {providerNames[data.ai.provider]} credential in <Link href="/admin/operations?section=integrations">Connections</Link>.</Alert>
+            )}
+            {data.canManageProvider && provider && (
+              <form className="ui-form" onSubmit={(event) => { event.preventDefault(); void updateProvider(false); }}>
+                <p>Save the provider and model with access disabled, run the connection test, then approve private-data use and enable access. Use the rates for your model and billing tier.</p>
+                <div className="ui-form-grid">
+                  <Field label="Provider">
+                    <select className="ui-input" value={provider.provider} disabled={providerBusy}
+                      onChange={(event) => setProvider({ ...provider, provider: event.target.value as AiProviderId, model: "", enabled: false,
+                        toolCompatible: false, privateDataApproved: false, inputMicrosPerMillion: 0, outputMicrosPerMillion: 0 })}>
+                      {Object.entries(providerNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Model ID">
+                    <input className="ui-input" required maxLength={160} disabled={providerBusy} value={provider.model}
+                      onChange={(event) => setProvider({ ...provider, model: event.target.value.trim().replace(provider.provider === "gemini" ? /^models\// : /^$/, ""), enabled: false, toolCompatible: false, privateDataApproved: false })} />
+                  </Field>
+                  {([
+                    ["inputMicrosPerMillion", "Input price per million tokens (USD)"],
+                    ["outputMicrosPerMillion", "Output price per million tokens (USD)"],
+                    ["monthlyCapMicros", "Monthly platform cap (USD)"],
+                    ["workspaceMonthlyCapMicros", "Monthly workspace cap (USD)"],
+                  ] as const).map(([key, label]) => (
+                    <Field key={key} label={label}>
+                      <input className="ui-input" type="number" min="0" step="0.000001" disabled={providerBusy}
+                        value={provider[key] / 1_000_000}
+                        onChange={(event) => setProvider({ ...provider, [key]: Math.round(Number(event.target.value) * 1_000_000) })} />
+                    </Field>
+                  ))}
+                  <Field label="Maximum output tokens">
+                    <input className="ui-input" type="number" min={256} max={16000} disabled={providerBusy} value={provider.maxOutputTokens}
+                      onChange={(event) => setProvider({ ...provider, maxOutputTokens: Number(event.target.value), enabled: false, toolCompatible: false })} />
+                  </Field>
+                  <Field label="Reason for change">
+                    <input className="ui-input" required minLength={8} maxLength={500} disabled={providerBusy} value={reason} onChange={(event) => setReason(event.target.value)} />
+                  </Field>
+                </div>
+                {provider.provider === "gemini" && <p><a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noreferrer">Gemini models</a> · <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noreferrer">Gemini pricing</a></p>}
+                <label className="aa-toggle">
+                  <input type="checkbox" checked={provider.privateDataApproved} disabled={providerBusy}
+                    onChange={(event) => setProvider({ ...provider, privateDataApproved: event.target.checked, enabled: false })} />
+                  This provider account is approved for private workspace data
+                </label>
+                <label className="aa-toggle">
+                  <input type="checkbox" checked={provider.enabled} disabled={providerBusy || (!provider.enabled &&
+                    (provider.provider !== data.ai.provider || provider.model !== data.ai.model || provider.maxOutputTokens !== data.ai.maxOutputTokens ||
+                    !data.probe?.passed || !provider.privateDataApproved))}
+                    onChange={(event) => setProvider({ ...provider, enabled: event.target.checked, toolCompatible: event.target.checked || provider.toolCompatible })} />
+                  Enable this provider
+                </label>
+                <div className="ui-form-grid">
+                  <button className="ui-btn ui-btn-primary" disabled={providerBusy}>Save provider settings</button>
+                  <button className="ui-btn ui-btn-secondary" type="button" disabled={providerBusy || !savedProvider || !data.ai.model || !data.credentialConfigured}
+                    onClick={() => void updateProvider(true)}>Run connection test</button>
+                </div>
+              </form>
+            )}
+          </Card>
+          <Card title="Account request limits" description="Daily request and monthly token limits are additional safeguards. Eligible Individual and Teams plans also use the workspace’s pooled AI credits.">
             <form
               className="ui-form"
               onSubmit={(e) => {
@@ -106,7 +209,8 @@ export function AssistantAdmin() {
               <button className="ui-btn ui-btn-primary">Save limits</button>
             </form>
           </Card>
-          <Card title="This month">
+          <Card title="This month" description="Estimated provider charges based on configured token rates. Outstanding reservations count toward the spending cap.">
+            <p><strong>{dollars(data.spend.settled)}</strong> estimated cost · <strong>{dollars(data.spend.reserved)}</strong> outstanding reservations</p>
             <div className="aa-stats">
               <div>
                 <span>Requests</span>
