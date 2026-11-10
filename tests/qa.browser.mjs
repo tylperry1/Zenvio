@@ -50,6 +50,18 @@ try {
   }
   const adminMenu = pages[2];
   await adminMenu.setViewportSize({ width: 1440, height: 900 });
+  await adminMenu.goto(origin + "/admin/operations?section=health");
+  const platformNav = adminMenu.getByRole("navigation", { name: "Platform", exact: true });
+  const healthLink = platformNav.getByRole("link", { name: "System health" });
+  await healthLink.waitFor();
+  assert.equal(await healthLink.getAttribute("aria-current"), "page");
+  const group = platformNav.locator("..");
+  const appearance = await group.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { background: style.backgroundColor, padding: style.padding, border: style.borderTopWidth };
+  });
+  assert.deepEqual(appearance, { background: "rgba(0, 0, 0, 0)", padding: "0px", border: "0px" });
+  await adminMenu.screenshot({ path: "test-results/admin-health-sidebar.png" });
   await adminMenu.goto(origin + "/admin");
   const billingToggle = adminMenu.getByRole("button", { name: "Billing", exact: true });
   assert.equal(await billingToggle.getAttribute("aria-expanded"), "false");
