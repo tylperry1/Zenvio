@@ -193,7 +193,7 @@ export function AdminNavigation({
             const expanded = Boolean(q) || (groupOverrides[g.label] ??
               (containsCurrent || g.label === "Workspace" || g.label === "Customer service"));
             return (
-              <section className="acx-group" key={g.label}>
+              <div className="acx-group" key={g.label}>
                 <button
                   type="button"
                   className="acx-group-toggle"
@@ -247,7 +247,7 @@ export function AdminNavigation({
                     );
                   })}
                 </nav>
-              </section>
+              </div>
             );
           })}
           {!visible.length && <p className="acx-empty">No sections match “{filter}”.</p>}
