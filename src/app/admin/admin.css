@@ -773,3 +773,9 @@
 .sp-family-rev li{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;font-size:13.5px}
 .sp-family-rev small{color:var(--text-muted);font-size:12px}
 .sp-family-rev b{font-variant-numeric:tabular-nums}
+
+/* Supplier providers stay within Commerce → Suppliers, rather than global navigation. */
+.supplier-views {display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;padding:4px;background:#eef1f8;border-radius:10px;width:fit-content;max-width:100%}
+.supplier-views a {display:inline-flex;align-items:center;min-height:38px;padding:8px 14px;border-radius:7px;font-size:13px;font-weight:600;color:#536078;text-decoration:none}
+.supplier-views a[aria-current="page"] {background:#fff;color:#151b38;box-shadow:0 1px 3px #151b3814}
+.supplier-views a:focus-visible {outline:2px solid #365cff;outline-offset:2px}

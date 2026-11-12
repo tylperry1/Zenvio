@@ -137,6 +137,21 @@ try {
   ]);
   await adminMenu.getByText("Marketplace is visible. Checkout still requires its own readiness checks.",{exact:true}).waitFor();
 
+  await adminMenu.setViewportSize({width:1440,height:1000});
+  await adminMenu.goto(origin+"/admin/suppliers");
+  const commerceMenu=adminMenu.getByRole("navigation",{name:"Commerce",exact:true});
+  assert.equal(await commerceMenu.locator('a[href="/admin/gelato"]').count(),0);
+  await adminMenu.getByRole("navigation",{name:"Supplier sections"}).getByRole("link",{name:"Integrations",exact:true}).click();
+  await adminMenu.getByRole("heading",{name:"Gelato",exact:true}).waitFor();
+  assert.equal(await commerceMenu.getByRole("link",{name:"Suppliers & pricing",exact:true}).getAttribute("aria-current"),"page");
+  await adminMenu.screenshot({path:"test-results/commerce-supplier-integrations-desktop.png",fullPage:true});
+  await adminMenu.setViewportSize({width:390,height:844});
+  assert.ok(await adminMenu.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await adminMenu.screenshot({path:"test-results/commerce-supplier-integrations-mobile.png",fullPage:true});
+  await adminMenu.goto(origin+"/admin/gelato");
+  assert.equal(new URL(adminMenu.url()).pathname,"/admin/suppliers");
+  assert.equal(new URL(adminMenu.url()).searchParams.get("view"),"integrations");
+
   // Customer-product UI acceptance stays in the isolated fixture: no provider checkout.
   await pages[1].goto(origin+"/app/growth");
   const offerForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create an offer",exact:true})});
