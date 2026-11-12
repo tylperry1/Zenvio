@@ -282,3 +282,9 @@
 .modal .appointment-form > label > select,
 .modal .appointment-form > label > textarea {margin:0;min-height:44px;line-height:1.4}
 .modal .appointment-form > p {margin:0;line-height:1.5}
+
+/* Keep workspace section names visible rather than clipping them on phones. */
+@media (max-width:640px) {
+  .shell .platform-page .ui-tabs {flex-wrap:wrap;overflow:visible;gap:4px}
+  .shell .platform-page .ui-tabs.ui-tabs > button {min-height:40px;margin:0;padding:8px 10px}
+}
