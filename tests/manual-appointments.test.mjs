@@ -1,3 +1,4 @@
+import {availabilityRules,availabilityPeriods} from "../src/lib/availability-rules.mjs";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -23,6 +24,7 @@ m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
 m.require = (id) =>
+  id === "@/lib/availability-rules.mjs" ? {availabilityRules,availabilityPeriods} :
   id === "@/lib/manual-booking" ? { createManualBooking: async () => { throw new ApiError("Unconfigured override fixture", 400); } } :
   id === "@/lib/marketplace-visibility" ? { marketplaceVisible: async () => false } :
   id === "@/lib/microsoft-calendar"

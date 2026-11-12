@@ -925,7 +925,7 @@ try {
   // Private manual override bypasses published hours, never identity or conflicts.
   const manualEvent=(await db.query("INSERT INTO public.event_types(user_id,title,slug,duration,buffer) VALUES($1,'After hours','after-hours',30,15) RETURNING id",[aid])).rows[0];
   const manualDate=new Date(Date.now()+25*86400000);manualDate.setUTCHours(3,7,0,0);
-  const manual={action:"create-appointment",event_id:manualEvent.id,starts_at:manualDate.toISOString(),name:"After Hours Client",email:"after-hours@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true,overrideReason:"Client requested an evening appointment"};
+  const manual={action:"create-appointment",event_id:manualEvent.id,starts_at:manualDate.toISOString(),name:"After Hours Client",email:"after-hours@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true,overrideReason:"Client requested an evening appointment",location:"After-hours meeting room"};
   assert.equal((await request("/api/workspace",manual)).status,401);
   assert.equal((await request("/api/workspace",manual,bob.cookie)).status,404);
   assert.equal((await request("/api/workspace",{...manual,overrideConfirmed:false},alice.cookie)).status,400);
@@ -933,6 +933,52 @@ try {
   assert.equal((await request("/api/workspace",{...manual,email:"overlap@example.com"},alice.cookie)).status,409);
   assert.equal((await request("/api/book",{host:wa.profile.slug,event:"after-hours",starts_at:manual.starts_at,name:"Public Guest",email:"public-after@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true})).status,409);
   assert.equal((await db.query("SELECT count(*)::int n FROM private.operation_log WHERE actor_id=$1 AND action='manual_booking_availability_override'",[aid])).rows[0].n,1);
+
+
+  // Scheduling customization is enforced by the same transactional public slot function.
+  const savedAvailability=(await request("/api/workspace",null,alice.cookie)).data;
+  const customizeDays=savedAvailability.availability.map(d=>({...d,start_time:"09:00",end_time:"17:00",enabled:true,periods:[{start:"09:00",end:"12:00"},{start:"13:00",end:"17:00"}]}));
+  const customDay=(await db.query("SELECT to_char((now() AT TIME ZONE timezone)::date+45,'YYYY-MM-DD') AS day_key FROM public.profiles WHERE id=$1",[aid])).rows[0].day_key;
+  const customRules={noticeMinutes:0,horizonDays:60,intervalMinutes:30,exceptions:[]};
+  assert.equal((await request("/api/workspace",{action:"availability",days:customizeDays},alice.cookie)).status,200);
+  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,intervalMinutes:0}},alice.cookie)).status,400);
+  const initialRulesSave=await request("/api/workspace",{action:"availability-rules",rules:customRules},alice.cookie);
+  assert.equal(initialRulesSave.status,200,JSON.stringify(initialRulesSave.data));
+  const customizedSlots=async()=> (await db.query("SELECT starts_at,to_char(starts_at AT TIME ZONE $4,'HH24:MI') local_time FROM public.public_slots($1,$2,$3)",[wa.profile.slug,"after-hours",customDay,wa.profile.timezone])).rows;
+  let customSlots=await customizedSlots();
+  assert.ok(customSlots.some(s=>s.local_time==="09:00"));
+  assert.ok(customSlots.some(s=>s.local_time==="13:00"));
+  assert.ok(!customSlots.some(s=>s.local_time>="12:00"&&s.local_time<"13:00"),"Lunch break must not offer slots");
+  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,horizonDays:1}},alice.cookie)).status,200);
+  assert.equal((await customizedSlots()).length,0,"Booking horizon applies to public availability");
+  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,exceptions:[{date:customDay,periods:[]}]}},alice.cookie)).status,200);
+  assert.equal((await customizedSlots()).length,0,"Date closure overrides weekly hours");
+  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,exceptions:[{date:customDay,periods:[{start:"19:00",end:"20:00"}]}]}},alice.cookie)).status,200);
+  customSlots=await customizedSlots();assert.equal(customSlots.length,2);
+  const normalLocation=await request("/api/workspace",{action:"create-appointment",event_id:manualEvent.id,starts_at:new Date(customSlots[0].starts_at).toISOString(),name:"Location Guest",email:"location-fixture@example.com",location:"120 Main Street, Suite 5",answers:{}},alice.cookie);
+  assert.equal(normalLocation.status,201,JSON.stringify(normalLocation.data));
+  const locationBooking=(await db.query("SELECT id,location FROM public.bookings WHERE user_id=$1 AND guest_email='location-fixture@example.com'",[aid])).rows[0];
+  assert.equal(locationBooking.location,"120 Main Street, Suite 5");
+  const calendarLocation=await request("/api/calendar?from="+encodeURIComponent(new Date(customSlots[0].starts_at).toISOString())+"&to="+encodeURIComponent(new Date(+new Date(customSlots[0].starts_at)+86400000).toISOString()),null,alice.cookie);
+  assert.equal(calendarLocation.data.events.find(e=>e.id===locationBooking.id).location,"120 Main Street, Suite 5");
+  assert.equal((await request("/api/workspace",{action:"availability",days:savedAvailability.availability.map(d=>({...d,start_time:d.start_time.slice(0,5),end_time:d.end_time.slice(0,5)}))},alice.cookie)).status,200);
+  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:savedAvailability.profile.availability_rules},alice.cookie)).status,200);
+
+  // A covered team seat is nested, while a member's independently billed plan stays a root.
+  assert.equal((await request("/api/admin/subscriptions",{action:"grant",userId:aid,plan:"team",expires:new Date(Date.now()+30*86400000).toISOString(),reason:"Isolated grouping fixture"},owner.cookie)).status,200);
+  const groupedChild=crypto.randomUUID();
+  await db.query('INSERT INTO public."user"(id,name,email) VALUES($1,$2,$3)',[groupedChild,"Grouped Team Member","grouped-team-member@example.com"]);
+  await db.query("INSERT INTO private.memberships(organization_id,user_id,role,active) VALUES($1,$2,'staff',true)",[organization,groupedChild]);
+  let groupedList=(await request("/api/admin/subscriptions?search=grouped-team-member",null,owner.cookie)).data;
+  assert.ok(groupedList.accounts.find(a=>a.user_id===aid)?.team_members.some(m=>m.user_id===groupedChild));
+  assert.ok(!groupedList.accounts.some(a=>a.user_id===groupedChild));
+  await db.query("INSERT INTO private.subscriptions(user_id,plan,status,subscription_id) VALUES($1,'individual','active','sub_grouped_independent_fixture') ON CONFLICT(user_id) DO UPDATE SET plan='individual',status='active',subscription_id='sub_grouped_independent_fixture'",[groupedChild]);
+  groupedList=(await request("/api/admin/subscriptions?search=grouped-team-member",null,owner.cookie)).data;
+  assert.ok(groupedList.accounts.some(a=>a.user_id===groupedChild),"An independent personal subscription must remain separately manageable");
+  await db.query("UPDATE private.subscriptions SET status='canceled' WHERE user_id=$1",[groupedChild]);
+  groupedList=(await request("/api/admin/subscriptions?search=grouped-team-member",null,owner.cookie)).data;
+  assert.ok(groupedList.accounts.find(a=>a.user_id===aid)?.team_members.some(m=>m.user_id===groupedChild),"An old canceled subscription must not hide a covered team seat");
+  await db.query("UPDATE private.memberships SET active=false WHERE organization_id=$1 AND user_id=$2",[organization,groupedChild]);
 
   console.log(
     "PASS upgrade integration: migrations, ownership, required intake snapshots, immutable reschedule IDs and reminder cancellation, encrypted per-recipient delivery, template versions, client links, workflow permissions, team invitations and shared reservations, provider/payment gates, and admin isolation.",

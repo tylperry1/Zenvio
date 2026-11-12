@@ -13,7 +13,7 @@ export function download(content: string, name: string, type: string) {
 }
 export function calendarDownload(b: Booking, title: string, location: string, description = "") {
   download(
-    icsContent({ ...b, title: bookingCalendarTitle(title, b.guest_name), location, description: bookingCalendarDescription(description, (b as Booking & {intake_snapshot?: unknown}).intake_snapshot) }),
+    icsContent({ ...b, title: bookingCalendarTitle(title, b.guest_name), location: b.location ?? location, description: bookingCalendarDescription(description, (b as Booking & {intake_snapshot?: unknown}).intake_snapshot) }),
     `zenvio-${b.id}.ics`,
     "text/calendar;charset=utf-8",
   );

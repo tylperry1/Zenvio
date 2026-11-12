@@ -37,7 +37,7 @@ export async function queueDelivery(
   let text = input.text;
   if (input.booking && ["booking_confirmation", "booking_changed", "booking_reminder"].includes(input.kind)) {
     const b = (await db.query(
-      "SELECT b.*,e.title,e.location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.id=$1 AND b.user_id=$2",
+      "SELECT b.*,e.title,coalesce(b.location,e.location) AS location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.id=$1 AND b.user_id=$2",
       [input.booking, input.user],
     )).rows[0];
     if (b && (input.revision === undefined || b.revision === input.revision)) {

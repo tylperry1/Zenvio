@@ -173,7 +173,7 @@ const listAppointments: ReadTool<{ from: string; to: string; status: string; lim
     if (input.status === "past") where.push("b.status='confirmed' AND b.ends_at<now()");
     if (input.status === "cancelled") where.push("b.status='cancelled'");
     const { rows } = await getPool().query(
-      `SELECT b.id,b.guest_name,b.guest_email,b.starts_at,b.ends_at,b.status,b.notes,b.contact_id,e.title,e.location
+      `SELECT b.id,b.guest_name,b.guest_email,b.starts_at,b.ends_at,b.status,b.notes,b.contact_id,e.title,coalesce(b.location,e.location) AS location
          FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id
         WHERE ${where.join(" AND ")} ORDER BY b.starts_at ${input.status === "past" ? "DESC" : "ASC"} LIMIT ${input.limit}`,
       values,

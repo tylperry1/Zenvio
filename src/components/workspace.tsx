@@ -1,4 +1,6 @@
 "use client";
+import { TimezoneSelect } from "./timezone-select";
+import { AvailabilityEditor } from "./availability-editor";
 import { ProfilePhoto } from "./profile-photo";
 import { BookingDesign } from "./booking-design";
 import { IntakeAnswers } from "./intake-answers";
@@ -55,6 +57,8 @@ function greeting(now: Date, timeZone: string) {
   return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 }
 export function Workspace({ demo = false }: { demo?: boolean }) {
+  const [displayZone,setDisplayZone]=useState("UTC");
+  useEffect(()=>setDisplayZone(Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC"),[]);
   const router = useRouter();
   const params = useSearchParams();
   const view = viewFor(params.get("view"));
@@ -256,13 +260,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
-      timeZone: profile?.timezone,
+      timeZone: displayZone,
     }).format(new Date(date));
   const formatTime = (date: string) =>
     new Intl.DateTimeFormat("en-US", {
       hour: "numeric",
       minute: "2-digit",
-      timeZone: profile?.timezone,
+      timeZone: displayZone,
     }).format(new Date(date));
   const eventFor = (id: string) => data?.events.find((e) => e.id === id);
   function eventCard(event: EventType) {
@@ -297,7 +301,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </button>
         </div>
         <h3>{event.title}</h3>
-        <p>{event.description}</p>
+        <p>{event.description || "A dedicated time to connect. Share this link so clients can choose a time that works."}</p>
         <div className="event-meta">
           <span>
             <Icon name="clock" size={15} />
@@ -305,15 +309,11 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </span>
           <span>
             <Icon name="video" size={15} />
-            {event.location.toLowerCase().includes("video")
-              ? "Video call"
-              : event.location.toLowerCase().includes("phone")
-                ? "Phone call"
-                : "Custom location"}
+            {event.location || "Location arranged with guest"}
           </span>
         </div>
         <div className="event-link">
-          /{profile?.slug}/{event.slug}
+          gozenvio.com/book/{profile?.slug}/{event.slug}
         </div>
         <div className="event-card-footer">
           <span className="event-share-actions">
@@ -394,13 +394,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <b>
                   {new Date(b.starts_at).toLocaleDateString("en-US", {
                     day: "numeric",
-                    timeZone: profile?.timezone,
+                    timeZone: displayZone,
                   })}
                 </b>
                 <small>
                   {new Date(b.starts_at).toLocaleDateString("en-US", {
                     month: "short",
-                    timeZone: profile?.timezone,
+                    timeZone: displayZone,
                   })}
                 </small>
               </span>
@@ -507,7 +507,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           <PageHeader
             title={
               view === "Overview"
-                ? `${greeting(now, data.profile.timezone)}, ${data.profile.name.split(" ")[0]}`
+                ? `${greeting(now, displayZone)}, ${data.profile.name.split(" ")[0]}`
                 : view === "Event types"
                   ? "Booking links"
                   : view === "Contacts"
@@ -516,7 +516,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             }
             description={
               view === "Overview"
-                ? `${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: data.profile.timezone })} · Here’s what’s coming up.`
+                ? `${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: displayZone })} · Here’s what’s coming up.`
                 : view === "Event types"
                   ? "The appointment types guests can book from your page."
                   : view === "Bookings"
@@ -575,8 +575,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 </div>
                 <div className="brief-date">
                   <Icon name="calendar" size={24} />
-                  <strong>{now.toLocaleDateString("en-US", { day: "numeric", timeZone: data.profile.timezone })}</strong>
-                  <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: data.profile.timezone })}</span>
+                  <strong>{now.toLocaleDateString("en-US", { day: "numeric", timeZone: displayZone })}</strong>
+                  <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: displayZone })}</span>
                 </div>
               </div>
               <SetupChecklist
@@ -850,7 +850,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                         const day = i + 1;
                         const rows = listBookings.filter((b) => {
                           const parts = new Intl.DateTimeFormat("en-US", {
-                            timeZone: data.profile.timezone,
+                            timeZone: displayZone,
                             year: "numeric",
                             month: "numeric",
                             day: "numeric",
@@ -912,7 +912,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   selectedDay
                     ? listBookings.filter((b) => {
                         const date = new Intl.DateTimeFormat("en-CA", {
-                          timeZone: data.profile.timezone,
+                          timeZone: displayZone,
                           year: "numeric",
                           month: "2-digit",
                           day: "2-digit",
@@ -957,6 +957,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               days={data.availability}
               busy={busy}
               timezone={data.profile.timezone}
+              rules={data.profile.availability_rules}
+              onSaveRules={(rules)=>mutate({action:"availability-rules",rules},d=>({...d,profile:{...d.profile,availability_rules:rules}}),"Booking rules saved.")}
               onSave={(days) =>
                 mutate(
                   { action: "availability", days },
@@ -1362,7 +1364,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   Where
                 </dt>
                 <dd>
-                  {eventFor(selectedBooking.event_id)?.location ||
+                  {selectedBooking.location ?? eventFor(selectedBooking.event_id)?.location ??
                     "Contact your host"}
                 </dd>
               </div>
@@ -1416,7 +1418,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 calendarDownload(
                   selectedBooking,
                   eventFor(selectedBooking.event_id)?.title || "Appointment",
-                  eventFor(selectedBooking.event_id)?.location || "",
+                  selectedBooking.location ?? eventFor(selectedBooking.event_id)?.location ?? "",
                   eventFor(selectedBooking.event_id)?.description || "",
                 )
               }
@@ -1612,177 +1614,6 @@ function EventEditor({
     </form>
   );
 }
-function AvailabilityEditor({
-  days,
-  busy,
-  timezone,
-  onSave,
-  onSettings,
-}: {
-  days: Availability[];
-  busy: boolean;
-  timezone: string;
-  onSave: (days: Availability[]) => Promise<boolean>;
-  onSettings: () => void;
-}) {
-  const [draft, setDraft] = useState(
-    days.map((d) => ({
-      ...d,
-      start_time: d.start_time.slice(0, 5),
-      end_time: d.end_time.slice(0, 5),
-    })),
-  );
-  const [error, setError] = useState("");
-  const dirty =
-    JSON.stringify(draft) !==
-    JSON.stringify(
-      days.map((d) => ({
-        ...d,
-        start_time: d.start_time.slice(0, 5),
-        end_time: d.end_time.slice(0, 5),
-      })),
-    );
-  return (
-    <div className="availability-layout">
-      <section className="panel availability-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Your weekly hours</h2>
-            <p>When guests can book you each week.</p>
-          </div>
-          <span className="status">Weekly schedule</span>
-        </div>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (draft.some((d) => d.start_time >= d.end_time)) {
-              setError("Each end time must be after its start time.");
-              return;
-            }
-            setError("");
-            await onSave(draft);
-          }}
-        >
-          {draft.map((day, i) => (
-            <div
-              className={`availability-row ${!day.enabled ? "day-off" : ""}`}
-              key={day.day}
-            >
-              <label className="day-label">
-                <input
-                  type="checkbox"
-                  checked={day.enabled}
-                  onChange={(e) =>
-                    setDraft(
-                      draft.map((d, j) =>
-                        j === i ? { ...d, enabled: e.target.checked } : d,
-                      ),
-                    )
-                  }
-                />
-                {dayNames[day.day]}
-              </label>
-              {day.enabled ? (
-                <div className="time-range">
-                  <input
-                    aria-label={`${dayNames[day.day]} start time`}
-                    type="time"
-                    required
-                    value={day.start_time}
-                    onChange={(e) =>
-                      setDraft(
-                        draft.map((d, j) =>
-                          j === i ? { ...d, start_time: e.target.value } : d,
-                        ),
-                      )
-                    }
-                  />
-                  <span>—</span>
-                  <input
-                    aria-label={`${dayNames[day.day]} end time`}
-                    type="time"
-                    required
-                    value={day.end_time}
-                    onChange={(e) =>
-                      setDraft(
-                        draft.map((d, j) =>
-                          j === i ? { ...d, end_time: e.target.value } : d,
-                        ),
-                      )
-                    }
-                  />
-                  <button
-                    className="icon-button"
-                    type="button"
-                    aria-label={`Copy ${dayNames[day.day]} hours to weekdays`}
-                    onClick={() =>
-                      setDraft(
-                        draft.map((d) =>
-                          d.day > 0 && d.day < 6
-                            ? {
-                                ...d,
-                                start_time: day.start_time,
-                                end_time: day.end_time,
-                              }
-                            : d,
-                        ),
-                      )
-                    }
-                  >
-                    <Icon name="link" size={15} />
-                  </button>
-                </div>
-              ) : (
-                <span className="unavailable-label">
-                  Unavailable
-                </span>
-              )}
-            </div>
-          ))}
-          {error && (
-            <p className="notice error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="availability-footer">
-            <span className="muted">
-              {dirty
-                ? "You have unsaved changes."
-                : "All changes saved."}
-            </span>
-            <button className="button primary small" disabled={busy || !dirty}>
-              {busy ? "Saving…" : "Save availability"}
-              <Icon name="check" size={16} />
-            </button>
-          </div>
-        </form>
-      </section>
-      <aside className="availability-aside">
-        <div className="panel">
-          <Icon name="globe" size={23} />
-          <h3>Timezone</h3>
-          <p>All weekly hours use your timezone:</p>
-          <b>{timezone.replaceAll("_", " ")}</b>
-          <button className="inline-link" onClick={onSettings}>
-            Change timezone <Icon name="arrow" size={15} />
-          </button>
-        </div>
-        <div className="soft-note">
-          <Icon name="link" size={24} />
-          <h3>Buffers and booking window</h3>
-          <p>
-            Add buffers to each event type to leave space between conversations.
-            Guests can book 2 hours to 90 days ahead.
-          </p>
-          <p>
-            Connect Google Calendar in Settings to check busy times and sync
-            your Zenvio appointments.
-          </p>
-        </div>
-      </aside>
-    </div>
-  );
-}
 function Settings({
   data,
   demo,
@@ -1810,7 +1641,7 @@ function Settings({
   onReset: () => void;
 }) {
   const [slug, setSlug] = useState(data.profile.slug);
-  const zones = [...new Set([data.profile.timezone, ...timezones])];
+  const [settingsZone,setSettingsZone]=useState(data.profile.timezone);
   return (
     <div className="settings-layout">
       {!demo && (
@@ -1935,13 +1766,7 @@ function Settings({
           </label>
           <label>
             Your timezone
-            <select name="timezone" defaultValue={data.profile.timezone}>
-              {zones.map((z) => (
-                <option key={z} value={z}>
-                  {z.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
+            <TimezoneSelect name="timezone" value={settingsZone} onChange={setSettingsZone} businessZone={data.profile.timezone} />
           </label>
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : "Save profile"}

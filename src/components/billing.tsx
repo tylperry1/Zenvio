@@ -1,4 +1,5 @@
 "use client";
+import { Tabs } from "./ui";
 import { BillingAddons } from "./billing-addons";
 import { EnvelopeAllowance, type EnvelopeBudget } from "./envelope-allowance";
 import { PageHeader } from "./app-shell";
@@ -19,7 +20,9 @@ import {
   type Subscription,
 } from "@/lib/billing-types";
 type Data = { meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
+const allowanceValue=(meter:string,value:number)=>meter==="storageBytes" ? value>=1024**3 ? `${(value/1024**3).toLocaleString(undefined,{maximumFractionDigits:1})} GB` : `${(value/1024**2).toLocaleString(undefined,{maximumFractionDigits:1})} MB` : value.toLocaleString();
 export function Billing() {
+  const [tab,setTab]=useState<"overview"|"plans"|"usage"|"invoices">("overview");
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -96,7 +99,12 @@ export function Billing() {
     }
   }
   const sub = data?.subscription;
-  const managedByTeam=Boolean(data?.usage.shared.length && !data.usage.canManageTeamBilling && !sub?.has_subscription);
+  const ownBillingActive=Boolean(sub?.has_subscription && !["canceled","incomplete_expired"].includes(sub.status));
+  const effectivePlan=data?.usage.plan || sub?.plan || "free";
+  const displayPlan=ownBillingActive ? sub?.plan || effectivePlan : effectivePlan;
+  const includedAccess=Boolean(sub && !ownBillingActive && effectivePlan!=="free");
+  const planLabel=data?.plans.find(p=>p.id===displayPlan)?.name || ({team:"Teams",teams:"Teams",individual:"Individual",free:"Free"} as Record<string,string>)[displayPlan] || displayPlan;
+  const managedByTeam=Boolean(data?.usage.shared.length && !data.usage.canManageTeamBilling && !ownBillingActive);
   return (
     <div className="platform-page billing-page">
       <main>
@@ -113,6 +121,7 @@ export function Billing() {
             </button>
           }
         />
+        <Tabs label="Billing sections" value={tab} onChange={setTab} tabs={[{id:"overview",label:"Overview"},{id:"plans",label:"Plans"},{id:"usage",label:"Usage & credits"},{id:"invoices",label:"Invoices"}]} />
         {error && (
           <p role="alert" className="billing-error">
             {error}{" "}
@@ -132,14 +141,14 @@ export function Billing() {
           sub &&
           data && (
             <>
-              <section className="subscription-account-card">
-                <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{sub.cancel_at_period_end ? "Renewal off" : sub.has_subscription ? sub.status.replaceAll("_", " ") : data.usage.shared.length ? "Team member" : "Free workspace"}</span></div>
-                <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : data.plans.find(p=>p.id===sub.plan)?.name || sub.plan}</h2><p>{sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : sub.has_subscription ? `Current billing period ends ${billingDate(sub.current_period_end)}.` : data.usage.shared.length ? "Your seat is managed by the team owner." : "Explore the workspace, then choose the package that fits."}</p></div>{["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{sub.monthly_amount_cents != null ? money(sub.monthly_amount_cents) : 'See your Stripe invoice'}</strong><span>subscription amount · taxes and active discounts shown on invoices</span></div>}</div>
-                <div className="subscription-account-details"><div><span>Paid seats</span><b>{sub.has_subscription ? sub.seats||1 : data.usage.shared.length ? "Managed by your team" : "Not subscribed"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
+              {tab === "overview" && <section className="subscription-account-card">
+                <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{managedByTeam ? "Team member" : ownBillingActive ? sub.cancel_at_period_end ? "Renewal off" : sub.status.replaceAll("_", " ") : includedAccess ? "Included access" : "Free workspace"}</span></div>
+                <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : planLabel}</h2><p>{managedByTeam ? "Your seat is managed by the team owner." : ownBillingActive ? sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : `Current billing period ends ${billingDate(sub.current_period_end)}.` : includedAccess ? "Your plan access is included. This account has no recurring subscription charge." : "Explore the workspace, then choose the package that fits."}</p></div>{ownBillingActive && ["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{sub.monthly_amount_cents != null ? money(sub.monthly_amount_cents) : 'See your Stripe invoice'}</strong><span>subscription amount · taxes and active discounts shown on invoices</span></div>}</div>
+                <div className="subscription-account-details"><div><span>Paid seats</span><b>{managedByTeam ? "Managed by your team" : ownBillingActive ? sub.seats||1 : includedAccess && ["team","teams"].includes(effectivePlan) ? `${data.usage.seats} included seats` : "No paid subscription"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
                 <div className="subscription-account-actions"><button className="billing-secondary" disabled={busy||!data.connected||!sub.has_customer} onClick={()=>void action("portal")}><Icon name="card" size={16}/>Payment details & receipts <Icon name="external" size={14}/></button>{canChangeSubscription(sub)&&<button className="subscription-text-button" disabled={busy||!data.connected} onClick={()=>setConfirm(sub.cancel_at_period_end?"resume":"cancel")}>{sub.cancel_at_period_end?"Resume renewal":"Cancel renewal"}</button>}</div>
-              </section>
-              {sub.has_subscription && !["individual","team"].includes(sub.plan) && <p className="subscription-legacy-note"><Icon name="shield" size={18}/>You’re on a legacy package. Your existing subscription price and benefits stay in place unless you explicitly choose a new package.</p>}
-              {!(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
+              </section>}
+              {ownBillingActive && !["individual","team"].includes(sub.plan) && <p className="subscription-legacy-note"><Icon name="shield" size={18}/>You’re on a legacy package. Your existing subscription price and benefits stay in place unless you explicitly choose a new package.</p>}
+              {tab === "plans" && !(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
               {!data.connected && (
                 <p className="billing-note">
                   Online billing is not connected yet. Your current workspace
@@ -147,10 +156,10 @@ export function Billing() {
                 </p>
               )}
               {sub.promotion_ends_at && <p role="status">Your launch promotion ends {billingDate(sub.promotion_ends_at)}. Your normal base subscription price resumes afterward; see your invoices for exact discounts and taxes.</p>}
-              {data.meteredUsage && <section className="subscription-invoices"><h2>Your usage and credits</h2><p>{data.meteredUsage.enforced ? "New pooled allowances · UTC calendar month" : "Your existing subscription terms remain in place. New catalog allowances do not replace your contract."}</p><div className="subscription-usage-grid">{data.meteredUsage.meters.filter(m=>['aiCredits','videoMinutes','storageBytes','emails'].includes(m.meter)).map(m=><div key={m.meter}><h3>{m.meter==='aiCredits'?'AI credits':m.meter==='videoMinutes'?'Video participant-minutes':m.meter==='emails'?'Transactional emails':'Private storage · bytes'}</h3><p>{m.used.toLocaleString()} consumed or reserved · {m.remaining.toLocaleString()} remaining</p><p>{m.included} included this month · {m.purchasedRemaining} purchased credits remaining</p></div>)}</div><p>SMS usage and provider invoices are still being reconciled; a missing meter is not zero usage.</p></section>}
-              <BillingAddons />
-              <EnvelopeAllowance key={JSON.stringify(data.usage.envelope)} budget={data.usage.envelope} ready={data.checkoutEnabled} onUpdated={()=>void load().catch(e=>setError(e.message))}/>
-              <section className="subscription-invoices">
+              {tab === "usage" && data.meteredUsage && <section className="subscription-invoices"><h2>Your usage and credits</h2><p>{data.meteredUsage.enforced ? "Monthly allowances reset on the first day of each month (UTC)." : "Your existing subscription terms remain in place. New catalog allowances do not replace your contract."}</p><div className="subscription-usage-grid">{data.meteredUsage.meters.filter(m=>['aiCredits','videoMinutes','storageBytes','emails'].includes(m.meter)).map(m=><div key={m.meter}><h3>{m.meter==='aiCredits'?'AI credits':m.meter==='videoMinutes'?'Video participant-minutes':m.meter==='emails'?'Transactional emails':'Private storage'}</h3><p>{allowanceValue(m.meter,m.used)} used or pending · {allowanceValue(m.meter,m.remaining)} remaining</p><p>{allowanceValue(m.meter,m.included)} included this month · {allowanceValue(m.meter,m.purchasedRemaining)} in extra credits</p></div>)}</div><p>Text-message usage is reported separately. Refer to your invoices for billed amounts.</p></section>}
+              {tab === "usage" && <><BillingAddons />
+              <EnvelopeAllowance key={JSON.stringify(data.usage.envelope)} budget={data.usage.envelope} ready={data.checkoutEnabled} onUpdated={()=>void load().catch(e=>setError(e.message))}/></>}
+              {tab === "invoices" && <section className="subscription-invoices">
                 <div className="billing-section-heading">
                   <div>
                     <h2>Invoice history</h2>
@@ -184,7 +193,9 @@ export function Billing() {
                       : "No invoices yet. Free workspaces have no recurring bill."}
                   </p>
                 )}
-              </section>
+              </section>}
+              {tab === "overview" && <div className="billing-next-actions"><button className="ui-btn ui-btn-primary" onClick={()=>setTab("plans")}>Compare plans</button><button className="ui-btn ui-btn-secondary" onClick={()=>setTab("usage")}>View usage & credits</button><button className="ui-btn ui-btn-secondary" onClick={()=>setTab("invoices")}>Invoice history</button></div>}
+              {tab === "plans" && managedByTeam && <p className="billing-note">Your team owner manages your plan. Your seat is included in the team subscription.</p>}
             </>
           )
         )}
@@ -227,7 +238,7 @@ export function Billing() {
             </div>
           </Modal>
         )}
-        <UsagePanel key={`${sub?.plan}:${sub?.seats}:${sub?.status}:${data?.usage.plan}:${data?.usage.seats}`} />
+        {tab === "usage" && <UsagePanel key={`${sub?.plan}:${sub?.seats}:${sub?.status}:${data?.usage.plan}:${data?.usage.seats}`} />}
         <div className="subscription-help"><Icon name="shield" size={20}/><div><b>Clear billing. No surprises.</b><p>Owners control paid seats. Clients and document recipients are free. <Link href="/pricing">Compare packages and limits</Link>.</p></div></div>
 
       </main>

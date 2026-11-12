@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     });
     if (!info?.length)
       throw new ApiError("This booking page is unavailable.", 404);
+    const policy=(await getPool().query("SELECT availability_rules FROM public.profiles WHERE slug=$1",[host])).rows[0]?.availability_rules;
     const date = request.nextUrl.searchParams.get("date");
     let slots: string[] = [];
     if (date) {
@@ -56,6 +57,8 @@ export async function GET(request: NextRequest) {
       {
         event: {
           ...info[0],
+          booking_window_days: Number(policy?.horizonDays ?? 90),
+          minimum_notice_minutes: Number(policy?.noticeMinutes ?? 120),
           questions:
             (
               await getPool().query(

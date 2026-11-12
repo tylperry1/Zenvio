@@ -1,4 +1,6 @@
+export type AvailabilityRules = {noticeMinutes:number;horizonDays:number;intervalMinutes:number;exceptions:{date:string;periods:{start:string;end:string}[]}[]};
 export type Profile = {
+  availability_rules?: AvailabilityRules;
   id: string;
   name: string;
   slug: string;
@@ -23,6 +25,7 @@ export type EventType = {
   deleted_at?: string | null;
 };
 export type Availability = {
+  periods?: {start:string;end:string}[] | null;
   day: number;
   enabled: boolean;
   start_time: string;
@@ -66,6 +69,8 @@ export type WorkspaceData = {
   contactCount?: number;
 };
 export type PublicEvent = {
+  booking_window_days?: number;
+  minimum_notice_minutes?: number;
   payment?: {
     payment_mode: string;
     price_cents: number;
