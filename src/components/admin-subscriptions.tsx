@@ -19,6 +19,7 @@ type Account = Subscription & {
 };
 const planName = (plan: string) =>
   ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams", pro: "Pro", business: "Business" })[plan] || plan;
+const subscriptionEnded = (account: Subscription) => ["canceled", "incomplete_expired"].includes(account.status);
 const inMonths = (n: number) => {
   const d = new Date();
   d.setMonth(d.getMonth() + n);
@@ -247,9 +248,11 @@ export function AdminSubscriptions() {
                         </td>
                         <td>
                           {s.has_subscription
-                            ? s.cancel_at_period_end
-                              ? "Off · ending"
-                              : "On"
+                            ? subscriptionEnded(s)
+                              ? "Ended"
+                              : s.cancel_at_period_end
+                                ? "Off · ending"
+                                : "On"
                             : "—"}
                         </td>
                         <td>{billingDate(s.current_period_end)}</td>
@@ -342,9 +345,11 @@ export function AdminSubscriptions() {
               <small>Renewal</small>
               <b>
                 {selected.has_subscription
-                  ? selected.cancel_at_period_end
-                    ? "Turned off"
-                    : "Automatic"
+                  ? subscriptionEnded(selected)
+                    ? "Ended"
+                    : selected.cancel_at_period_end
+                      ? "Turned off"
+                      : "Automatic"
                   : "No recurring payment"}
               </b>
             </div>
