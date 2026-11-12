@@ -942,7 +942,8 @@ try {
   const customRules={noticeMinutes:0,horizonDays:60,intervalMinutes:30,exceptions:[]};
   assert.equal((await request("/api/workspace",{action:"availability",days:customizeDays},alice.cookie)).status,200);
   assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,intervalMinutes:0}},alice.cookie)).status,400);
-  assert.equal((await request("/api/workspace",{action:"availability-rules",rules:customRules},alice.cookie)).status,200);
+  const initialRulesSave=await request("/api/workspace",{action:"availability-rules",rules:customRules},alice.cookie);
+  assert.equal(initialRulesSave.status,200,JSON.stringify(initialRulesSave.data));
   const customizedSlots=async()=> (await db.query("SELECT starts_at,to_char(starts_at AT TIME ZONE $4,'HH24:MI') local_time FROM public.public_slots($1,$2,$3)",[wa.profile.slug,"after-hours",customDay,wa.profile.timezone])).rows;
   let customSlots=await customizedSlots();
   assert.ok(customSlots.some(s=>s.local_time==="09:00"));
@@ -974,6 +975,9 @@ try {
   await db.query("INSERT INTO private.subscriptions(user_id,plan,status,subscription_id) VALUES($1,'individual','active','sub_grouped_independent_fixture') ON CONFLICT(user_id) DO UPDATE SET plan='individual',status='active',subscription_id='sub_grouped_independent_fixture'",[groupedChild]);
   groupedList=(await request("/api/admin/subscriptions?search=grouped-team-member",null,owner.cookie)).data;
   assert.ok(groupedList.accounts.some(a=>a.user_id===groupedChild),"An independent personal subscription must remain separately manageable");
+  await db.query("UPDATE private.subscriptions SET status='canceled' WHERE user_id=$1",[groupedChild]);
+  groupedList=(await request("/api/admin/subscriptions?search=grouped-team-member",null,owner.cookie)).data;
+  assert.ok(groupedList.accounts.find(a=>a.user_id===aid)?.team_members.some(m=>m.user_id===groupedChild),"An old canceled subscription must not hide a covered team seat");
   await db.query("UPDATE private.memberships SET active=false WHERE organization_id=$1 AND user_id=$2",[organization,groupedChild]);
 
   console.log(

@@ -11,7 +11,7 @@
 - Admin subscription hierarchy groups covered active team seats under their billing owner. Independent subscriptions and explicit plan grants remain separately manageable. Search can find a parent through its team members; pagination counts root groups.
 
 ## Migration
-072_scheduling_customization.sql is additive. Existing weekly hours and booking rules preserve their prior defaults. Existing appointments fall back to their event location; new appointments snapshot it.
+072_scheduling_customization.sql is additive. 073_availability_rules_permissions.sql grants authenticated hosts permission to update only the new settings column, under the existing owner RLS policy. Existing weekly hours and booking rules preserve their prior defaults. Existing appointments fall back to their event location; new appointments snapshot it.
 
 ## Verification
 Local availability validation tests and TypeScript parsing passed. Final CI, migration compatibility, API/security regressions and desktop/mobile screenshot review are required before release. No live provider charges or supplier orders are part of these checks.
