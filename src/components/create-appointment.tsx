@@ -63,7 +63,7 @@ export function CreateAppointment({
   return (
     <Modal title="Create appointment" onClose={onClose}>
       <form
-        className="stack-form"
+        className="stack-form appointment-form"
         onSubmit={async (e) => {
           e.preventDefault();
           if (busy || loading) return;

@@ -16,8 +16,8 @@ try {
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
-    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth"]],
-    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team"]],
+    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/support","/app/marketing","/app/smart-cards"]],
+    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
     for(const [page,routes] of groups) {
@@ -32,6 +32,30 @@ try {
           assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
           assert.deepEqual(await table.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["150","450"]);
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
+        }
+        if(route === "/app/inbox") {
+          const filters = page.getByRole("tablist", {name: "Filter conversations"});
+          await filters.getByRole("tab", {name: "Closed", exact: true}).waitFor();
+          const layout = await filters.evaluate(node => {
+            const parent = node.getBoundingClientRect();
+            return {overflow: node.scrollWidth - node.clientWidth, tabsFit: [...node.querySelectorAll('[role="tab"]')].every(tab => {
+              const box = tab.getBoundingClientRect();
+              return box.left >= parent.left - 1 && box.right <= parent.right + 1 && box.top >= parent.top - 1 && box.bottom <= parent.bottom + 1;
+            })};
+          });
+          assert.ok(layout.overflow <= 1 && layout.tabsFit, `Inbox filters must fit at ${width}px: ${JSON.stringify(layout)}`);
+          await filters.getByRole("tab", {name: "Closed", exact: true}).click();
+          assert.equal(await filters.getByRole("tab", {name: "Closed", exact: true}).getAttribute("aria-selected"), "true");
+          await page.screenshot({path: `test-results/inbox-filters-${width}.png`});
+        }
+        if(route === "/admin/suppliers?view=integrations") {
+          const sections = page.getByRole("group", {name: "Gelato sections"});
+          const last = sections.getByRole("button", {name: "Sync & logs", exact: true});
+          await last.waitFor();
+          assert.ok(await sections.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Supplier section controls must fit without sideways scrolling");
+          await last.click();
+          assert.equal(await last.getAttribute("aria-pressed"), "true");
+          await page.screenshot({path: `test-results/supplier-sections-${width}.png`});
         }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);
@@ -78,6 +102,24 @@ try {
     await calendarPage.screenshot({ path: `test-results/calendar-connection-${width}.png` });
   }
   await calendarPage.unroute("**/api/calendars/google");
+  for (const width of [390, 1440]) {
+    await calendarPage.setViewportSize({width, height:900});
+    await calendarPage.goto(origin+"/app/calendar");
+    await calendarPage.getByRole("button", {name:"+ New appointment", exact:true}).click();
+    const appointmentDialog=calendarPage.getByRole("dialog", {name:"Create appointment"});
+    const spacing=await appointmentDialog.locator(".appointment-form > label").evaluateAll(labels=>labels.map(label=>{
+      const style=getComputedStyle(label);
+      return {top:style.marginTop,bottom:style.marginBottom};
+    }));
+    assert.ok(spacing.length>0 && spacing.every(s=>s.top==="0px" && s.bottom==="0px"), "Appointment labels must not double the form grid spacing");
+    await appointmentDialog.getByLabel("Enter a custom time outside availability").check();
+    await appointmentDialog.getByLabel("Custom time", {exact:true}).waitFor();
+    await appointmentDialog.getByLabel("Reason for override", {exact:true}).waitFor();
+    assert.ok(await appointmentDialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1), "Appointment dialog must fit the viewport");
+    await calendarPage.screenshot({path:`test-results/manual-appointment-spacing-${width}.png`});
+    await appointmentDialog.getByRole("button", {name:"Close dialog",exact:true}).click();
+  }
+
   const adminMenu = pages[2];
   await adminMenu.setViewportSize({ width: 1440, height: 900 });
   await adminMenu.goto(origin + "/admin/operations?section=health");

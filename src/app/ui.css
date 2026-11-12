@@ -267,6 +267,7 @@
   margin: 0 0 20px;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .ui-tabs.ui-tabs.ui-tabs > button {
   display: inline-flex;

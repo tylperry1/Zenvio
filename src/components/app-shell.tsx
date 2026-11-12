@@ -30,7 +30,6 @@ const groups: NavGroup[] = [
     items: [
       { id: "overview", label: "Overview", icon: "home", href: "/app", view: "", demo: true },
       { id: "assistant", label: "Assistant", icon: "sparkles", href: "/app/assistant" },
-      { id: "support", label: "Zenvio support", icon: "message", href: "/app/support" },
       { id: "inbox", label: "Inbox", icon: "message", href: "/app/inbox" },
     ],
   },
@@ -70,6 +69,7 @@ const groups: NavGroup[] = [
       { id: "settings", label: "Settings", icon: "settings", href: "/app?view=settings", view: "settings", demo: true },
       { id: "connections", label: "Calendar connections", icon: "plug", href: "/app/connections" },
       { id: "billing", label: "Plan & billing", icon: "shield", href: "/app/billing" },
+      { id: "support", label: "Zenvio support", icon: "message", href: "/app/support" },
     ],
   },
 ];

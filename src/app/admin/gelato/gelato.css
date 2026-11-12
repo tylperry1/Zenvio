@@ -38,3 +38,7 @@
 .gz-timeline { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: var(--ds-text-sm); }
 .gz-timeline p { margin: 2px 0 0; color: var(--text-muted); font-size: var(--ds-text-xs); }
 @media (max-width: 960px) { .gz-grid { grid-template-columns: 1fr; } }
+
+/* Keep every supplier section discoverable on narrow screens. */
+.gz > .ds-segmented {flex-wrap:wrap;overflow:visible;gap:4px}
+.ds-root.gz > .ds-segmented > button {flex:1 0 auto;height:auto;min-height:40px;padding:8px 12px}
