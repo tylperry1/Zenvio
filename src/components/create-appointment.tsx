@@ -102,9 +102,7 @@ export function CreateAppointment({
         }}
       >
         <p>
-          Schedule on behalf of a client. Times use{" "}
-          {data.profile.timezone.replaceAll("_", " ")} and respect your
-          availability, buffers, and connected calendar. An explicit manual override can bypass published availability; conflicts remain blocked.
+          Schedule on behalf of a client. Published availability follows {data.profile.timezone.replaceAll("_", " ")}; displayed times use your selected time zone. A manual override can bypass published hours while calendar conflicts and buffers remain protected.
         </p>
         {!events.length && (
           <p role="status">
