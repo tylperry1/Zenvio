@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { teamPermissions, type TeamPermission } from "@/lib/team-permissions";
 import { SuiteShell } from "./suite-shell";
 import {
   Alert,
@@ -84,7 +85,8 @@ export function TeamCenter() {
     }
   }
   const org = orgs?.find((o) => o.id === selected);
-  const manager = data && data.role !== "staff";
+  const can = (permission: TeamPermission) => data?.role === "owner" || Boolean(data?.permissions?.includes(permission));
+  const manager = data?.role === "owner" || can("settings");
   const members: Member[] = data?.members || [];
   const nameOf = (id: string) => members.find((m) => m.user_id === id)?.name || "Former member";
   return (
@@ -153,12 +155,12 @@ export function TeamCenter() {
             </div>
             <div className="team-seats">
               <span>
-                <b>{data.occupied}</b> of {data.seats} seats in use
+                <b>{data.occupied}</b> {data.unlimitedSeats ? "members · unlimited seats" : `of ${data.seats} seats in use`}
               </span>
-              <Meter value={data.occupied} max={data.seats} label="Seats in use" />
+              {!data.unlimitedSeats && <Meter value={data.occupied} max={data.seats} label="Seats in use" />}
               {data.canManageBilling && (
                 <Link href="/app/billing" className="team-seat-link">
-                  Manage seats
+                  {data.unlimitedSeats ? "Teams plan included" : "Manage seats"}
                 </Link>
               )}
             </div>
@@ -179,7 +181,7 @@ export function TeamCenter() {
             <>
               <Card
                 title="Members"
-                description="Everyone on the team uses their own account. Each active member uses a paid seat."
+                description={data.unlimitedSeats ? "Teams access is included for this workspace. Add teammates without a seat limit." : "Everyone uses their own account. Active members share the team’s seat allowance."}
                 actions={
                   <>
                     <input
@@ -190,7 +192,7 @@ export function TeamCenter() {
                       value={memberSearch}
                       onChange={(e) => setMemberSearch(e.target.value)}
                     />
-                    {manager && (
+                    {can("members") && (
                       <button className="ui-btn ui-btn-primary" onClick={() => setModal("invite")}>
                         <Icon name="plus" size={15} /> Invite
                       </button>
@@ -214,7 +216,7 @@ export function TeamCenter() {
                         .filter((m) => `${m.name} ${m.email}`.toLowerCase().includes(memberSearch.toLowerCase()))
                         .map((m) => {
                           const canManage =
-                            manager && m.role !== "owner" && (data.role === "owner" || m.role === "staff");
+                            can("members") && m.role !== "owner" && (data.role === "owner" || m.role === "staff");
                           return (
                             <tr key={m.user_id}>
                               <td>
@@ -293,7 +295,7 @@ export function TeamCenter() {
                   </table>
                 </div>
               </Card>
-              {manager && (
+              {can("members") && (
                 <Card title="Pending invitations" flush>
                   {!data.invitations?.length ? (
                     <EmptyState icon="mail" title="No pending invitations">
@@ -335,7 +337,7 @@ export function TeamCenter() {
               title="Shared booking pages"
               description="Clients book a team appointment type and Zenvio assigns the available staff member who was booked least recently."
               actions={
-                manager && (
+                can("pages") && (
                   <button className="ui-btn ui-btn-primary" onClick={() => setModal("event")}>
                     <Icon name="plus" size={15} /> New booking page
                   </button>
@@ -424,7 +426,7 @@ export function TeamCenter() {
                               <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
                             </td>
                             <td className="ui-cell-actions">
-                              {manager && b.status === "confirmed" && (
+                              {can("appointments") && b.status === "confirmed" && (
                                 <span className="team-row-actions">
                                   <select
                                     className="ui-input team-role"
@@ -485,7 +487,7 @@ export function TeamCenter() {
 
           {tab === "settings" && manager && (
             <>
-              <Card title="Workspace name">
+              {can("settings") && <Card title="Workspace name">
                 <form
                   className="team-rename"
                   onSubmit={(e) => {
@@ -500,16 +502,11 @@ export function TeamCenter() {
                     Save
                   </button>
                 </form>
-              </Card>
-              <Card title="Permissions">
-                <dl className="ui-dl">
-                  <dt>Owner</dt>
-                  <dd>Everything, including manager roles, billing, and paid seats.</dd>
-                  <dt>Managers</dt>
-                  <dd>Invite and manage staff, rename the team, and manage shared booking pages and appointments.</dd>
-                  <dt>Staff</dt>
-                  <dd>Receive team appointments and see the team schedule.</dd>
-                </dl>
+              </Card>}
+              <Card title="Role permissions">
+                <p className="team-permission-note">Owners keep full control of billing, role assignments and permissions. Team permissions apply only to this workspace; platform admin access is managed separately.</p>
+                {data.role === "owner" ? <TeamRolePermissions key={org.id + JSON.stringify(data.rolePermissions)} roles={data.rolePermissions} busy={busy} onSave={(role, permissions) => action({action:"permissions",role,permissions},"Role permissions updated.")} /> : <p>Ask your team owner to change role permissions.</p>}
+
               </Card>
             </>
           )}
@@ -755,4 +752,13 @@ function SharedEventForm({
       </div>
     </form>
   );
+}
+
+function TeamRolePermissions({roles,busy,onSave}:{roles:Record<string,TeamPermission[]>;busy:boolean;onSave:(role:string,permissions:TeamPermission[])=>Promise<boolean>}) {
+ const [draft,setDraft]=useState(roles);
+ return <div className="team-permission-editor">{(["administrator","staff"] as const).map(role=><form key={role} onSubmit={e=>{e.preventDefault();void onSave(role,draft[role]||[]);}}>
+ <h3>{roleLabel(role)}</h3><p>{role==="administrator"?"Delegate the responsibilities your managers need.":"Choose whether staff can help manage this workspace."}</p>
+ <fieldset disabled={busy}><legend className="sr-only">{roleLabel(role)} permissions</legend>{Object.entries(teamPermissions).map(([key,label])=><label key={key}><input type="checkbox" checked={(draft[role]||[]).includes(key as TeamPermission)} onChange={e=>setDraft(current=>({...current,[role]:e.target.checked?[...(current[role]||[]),key as TeamPermission]:(current[role]||[]).filter(p=>p!==key)}))}/>{label}</label>)}</fieldset>
+ <button className="ui-btn ui-btn-primary" disabled={busy}>{busy?"Saving…":`Save ${roleLabel(role).toLowerCase()} permissions`}</button>
+ </form>)}</div>;
 }

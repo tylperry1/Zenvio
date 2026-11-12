@@ -535,6 +535,42 @@ try {
     ).status,
     409,
   );
+  // Role policies are owner-controlled and enforced on every request.
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"staff",permissions:["settings"]},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"rename",organization,name:"Delegated fixture team"},bob.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"staff",permissions:["members"]},bob.cookie)).status,403);
+  assert.equal((await request("/api/teams",{action:"role",organization,user_id:aid,role:"staff"},bob.cookie)).status,403);
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"staff",permissions:["billing"]},alice.cookie)).status,400);
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"staff",permissions:[]},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"rename",organization,name:"Must not rename"},bob.cookie)).status,403);
+  assert.equal((await request("/api/teams",{action:"role",organization,user_id:bid,role:"administrator"},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"administrator",permissions:[]},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"invite",organization,email:"no-manager-authority@example.com",role:"staff"},bob.cookie)).status,403);
+  assert.equal((await request("/api/teams",{action:"permissions",organization,role:"administrator",permissions:["members","pages","appointments","settings","schedule"]},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"role",organization,user_id:bid,role:"staff"},alice.cookie)).status,200);
+  assert.equal((await request("/api/teams",{action:"role",organization,user_id:aid,role:"staff"},alice.cookie)).status,409);
+  const masterTeam=await request("/api/teams",{action:"create",name:"Platform fixture team",slug:"platform-unlimited"},owner.cookie);
+  assert.equal(masterTeam.status,200,JSON.stringify(masterTeam.data));
+  for(let n=0;n<4;n++){
+    const email=`platform-teammate-${n}@example.com`;
+    const account=await signup(email,`Platform teammate ${n}`);
+    assert.equal(account.status,200);
+    const invitation=await request("/api/teams",{action:"invite",organization:masterTeam.data.id,email,role:"staff"},owner.cookie);
+    assert.equal(invitation.status,200);
+    const accepted=await request("/api/teams",{action:"accept",token:invitation.data.invitationPath.split("token=")[1]},account.cookie);
+    assert.equal(accepted.status,200,JSON.stringify(accepted.data));
+    const allowance=(await request("/api/usage",null,account.cookie)).data;
+    assert.equal(allowance.plan,"team");
+    assert.equal(allowance.unlimitedSeats,true);
+  }
+  const masterState=(await request("/api/teams?id="+masterTeam.data.id,null,owner.cookie)).data;
+  assert.equal(masterState.occupied,5);
+  assert.equal(masterState.seats,null);
+  assert.equal(masterState.unlimitedSeats,true);
+  const masterBilling=(await request("/api/billing",null,owner.cookie)).data;
+  assert.equal(masterBilling.usage.plan,"team");
+  assert.equal(masterBilling.usage.platformIncluded,true);
+  assert.equal(masterBilling.usage.unlimitedSeats,true);
   const shared = await request(
     "/api/teams",
     {

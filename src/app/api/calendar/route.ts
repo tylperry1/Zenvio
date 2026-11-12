@@ -1,3 +1,4 @@
+import { canManageTeam } from "@/lib/team-permissions";
 import { teamRole } from "@/lib/teams";
 import { NextRequest } from "next/server";
 import { session, failure, string, uuid, ApiError } from "@/lib/server";
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       const role = await teamRole(getPool(), token, uuid(organization));
       members = (
         await getPool().query(
-          `SELECT m.user_id,u.name FROM private.memberships m JOIN public."user" u ON u.id=m.user_id WHERE m.organization_id=$1 ${role.role === "staff" ? "AND m.active AND m.user_id=$2" : ""}`,
+          `SELECT m.user_id,u.name FROM private.memberships m JOIN public."user" u ON u.id=m.user_id WHERE m.organization_id=$1 ${!canManageTeam(role.role, role.permissions, "schedule") ? "AND m.active AND m.user_id=$2" : ""}`,
           role.role === "staff" ? [organization, token] : [organization],
         )
       ).rows;

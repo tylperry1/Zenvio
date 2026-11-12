@@ -39,6 +39,11 @@ export async function entitlementUsage(
   ).rows;
   if (["teams", "team"].includes(effective) && roots.length)
     seats = roots.find((r) => r.owner_id === user)?.seats || roots[0].seats;
+  const unlimitedSeats = roots.length > 0 && Boolean((await db.query(
+    "SELECT 1 FROM private.platform_roles WHERE user_id=ANY($1::uuid[]) AND enabled LIMIT 1",
+    [roots.map(root => root.owner_id)],
+  )).rows.length);
+  const platformIncluded = Boolean((await db.query("SELECT 1 FROM private.platform_roles WHERE user_id=$1 AND enabled", [user])).rows.length);
   const shared = [];
   for (const root of roots) {
     const count = (
@@ -59,6 +64,8 @@ export async function entitlementUsage(
   return {
     envelope,
     shared,
+    unlimitedSeats,
+    platformIncluded,
     canManageTeamBilling: roots.some((r) => r.owner_id === user),
     plan: effective,
     seats,

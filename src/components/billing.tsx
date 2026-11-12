@@ -19,7 +19,7 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/billing-types";
-type Data = { meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
+type Data = { meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; unlimitedSeats?: boolean; platformIncluded?: boolean; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
 const allowanceValue=(meter:string,value:number)=>meter==="storageBytes" ? value>=1024**3 ? `${(value/1024**3).toLocaleString(undefined,{maximumFractionDigits:1})} GB` : `${(value/1024**2).toLocaleString(undefined,{maximumFractionDigits:1})} MB` : value.toLocaleString();
 export function Billing() {
   const [tab,setTab]=useState<"overview"|"plans"|"usage"|"invoices">("overview");
@@ -34,6 +34,13 @@ export function Billing() {
     } | null>(null),
     [invoiceBusy, setInvoiceBusy] = useState(false),
     [invoiceError, setInvoiceError] = useState("");
+  async function syncPlan() {
+    if(busy) return;
+    setBusy(true);setError("");
+    try {const response=await fetch("/api/billing/plan-sync",{method:"POST"}),result=await response.json();if(!response.ok)throw Error(result.error);setMessage(result.message);await load();}
+    catch(error){setError(error instanceof Error?error.message:"Unable to sync the plan.");}
+    finally{setBusy(false);}
+  }
   async function load() {
     const r = await fetch("/api/billing", { cache: "no-store" }),
       d = await r.json();
@@ -142,13 +149,14 @@ export function Billing() {
           data && (
             <>
               {tab === "overview" && <section className="subscription-account-card">
-                <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{managedByTeam ? "Team member" : ownBillingActive ? sub.cancel_at_period_end ? "Renewal off" : sub.status.replaceAll("_", " ") : includedAccess ? "Included access" : "Free workspace"}</span></div>
+                <div className="subscription-account-top"><span className="subscription-kicker">YOUR WORKSPACE SUBSCRIPTION</span><span className="subscription-status">{managedByTeam ? "Team member" : ownBillingActive ? sub.cancel_at_period_end ? "Renewal off" : sub.status.replaceAll("_", " ") : data.usage.platformIncluded ? "Platform included" : includedAccess ? "Included access" : "Free workspace"}</span></div>
                 <div className="subscription-account-main"><div><h2>{managedByTeam ? "Your team has you covered." : planLabel}</h2><p>{managedByTeam ? "Your seat is managed by the team owner." : ownBillingActive ? sub.cancel_at_period_end ? `Paid access continues until ${billingDate(sub.current_period_end)}.` : `Current billing period ends ${billingDate(sub.current_period_end)}.` : includedAccess ? "Your plan access is included. This account has no recurring subscription charge." : "Explore the workspace, then choose the package that fits."}</p></div>{ownBillingActive && ["individual","team"].includes(sub.plan) && <div className="subscription-current-price"><strong>{sub.monthly_amount_cents != null ? money(sub.monthly_amount_cents) : 'See your Stripe invoice'}</strong><span>subscription amount · taxes and active discounts shown on invoices</span></div>}</div>
-                <div className="subscription-account-details"><div><span>Paid seats</span><b>{managedByTeam ? "Managed by your team" : ownBillingActive ? sub.seats||1 : includedAccess && ["team","teams"].includes(effectivePlan) ? `${data.usage.seats} included seats` : "No paid subscription"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
-                <div className="subscription-account-actions"><button className="billing-secondary" disabled={busy||!data.connected||!sub.has_customer} onClick={()=>void action("portal")}><Icon name="card" size={16}/>Payment details & receipts <Icon name="external" size={14}/></button>{canChangeSubscription(sub)&&<button className="subscription-text-button" disabled={busy||!data.connected} onClick={()=>setConfirm(sub.cancel_at_period_end?"resume":"cancel")}>{sub.cancel_at_period_end?"Resume renewal":"Cancel renewal"}</button>}</div>
+                <div className="subscription-account-details"><div><span>Team seats</span><b>{managedByTeam ? "Managed by your team" : ownBillingActive ? sub.seats||1 : data.usage.unlimitedSeats ? "Unlimited teammates" : includedAccess && ["team","teams"].includes(effectivePlan) ? `${data.usage.seats} included seats` : "No paid subscription"}</b></div><div><span>Signing</span><b>{["individual","team"].includes(data.usage.plan)?"Included":"See your usage allowance"}</b></div><div><span>Billing control</span><b>{managedByTeam?"Team owner":"Your account"}</b></div></div>
+                <div className="subscription-account-actions">{!managedByTeam && <button className="billing-secondary" disabled={busy || !data.connected} onClick={()=>void syncPlan()}>Sync plan to Stripe</button>}<button className="billing-secondary" disabled={busy||!data.connected||!sub.has_customer} onClick={()=>void action("portal")}><Icon name="card" size={16}/>Payment details & receipts <Icon name="external" size={14}/></button>{canChangeSubscription(sub)&&<button className="subscription-text-button" disabled={busy||!data.connected} onClick={()=>setConfirm(sub.cancel_at_period_end?"resume":"cancel")}>{sub.cancel_at_period_end?"Resume renewal":"Cancel renewal"}</button>}</div>
               </section>}
               {ownBillingActive && !["individual","team"].includes(sub.plan) && <p className="subscription-legacy-note"><Icon name="shield" size={18}/>You’re on a legacy package. Your existing subscription price and benefits stay in place unless you explicitly choose a new package.</p>}
-              {tab === "plans" && !(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
+              {tab === "plans" && data.usage.platformIncluded && <p className="subscription-legacy-note">Teams is included for the master admin with unlimited teammates. No paid seat upgrade is required.</p>}
+              {tab === "plans" && !data.usage.platformIncluded && !(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
               {!data.connected && (
                 <p className="billing-note">
                   Online billing is not connected yet. Your current workspace
