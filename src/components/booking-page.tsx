@@ -68,6 +68,7 @@ export function BookingPage({
             host: data.profile.name,
             host_slug: "demo",
             timezone: data.profile.timezone,
+            booking_window_days: data.profile.availability_rules?.horizonDays,
             bio: data.profile.bio,
             title: e.title,
             description: e.description,
@@ -108,6 +109,7 @@ export function BookingPage({
       date,
       timeZone: data.profile.timezone,
       availability: data.availability,
+      rules: data.profile.availability_rules,
       duration: e.duration,
       buffer: e.buffer,
       bookings: data.bookings.map((b) => ({

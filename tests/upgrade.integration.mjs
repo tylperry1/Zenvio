@@ -938,7 +938,7 @@ try {
   // Scheduling customization is enforced by the same transactional public slot function.
   const savedAvailability=(await request("/api/workspace",null,alice.cookie)).data;
   const customizeDays=savedAvailability.availability.map(d=>({...d,start_time:"09:00",end_time:"17:00",enabled:true,periods:[{start:"09:00",end:"12:00"},{start:"13:00",end:"17:00"}]}));
-  const customDay=(await db.query("SELECT to_char((now() AT TIME ZONE timezone)::date+45,'YYYY-MM-DD') day FROM public.profiles WHERE id=$1",[aid])).rows[0].day;
+  const customDay=(await db.query("SELECT to_char((now() AT TIME ZONE timezone)::date+45,'YYYY-MM-DD') AS day_key FROM public.profiles WHERE id=$1",[aid])).rows[0].day_key;
   const customRules={noticeMinutes:0,horizonDays:60,intervalMinutes:30,exceptions:[]};
   assert.equal((await request("/api/workspace",{action:"availability",days:customizeDays},alice.cookie)).status,200);
   assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,intervalMinutes:0}},alice.cookie)).status,400);

@@ -1,3 +1,4 @@
+import {availabilityRules} from "./availability-rules.mjs";
 export function dateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -41,27 +42,33 @@ export function slotsForDay({
   buffer,
   bookings,
   now = new Date(),
+  rules = {},
 }) {
   const [y, m, d] = date.split("-").map(Number);
   const day = new Date(y, m - 1, d).getDay();
   const available = availability.find((a) => a.day === day);
-  if (!available?.enabled) return [];
+  const policy=availabilityRules(rules);
+  const today=inZone(now,timeZone);
+  const localToday=`${today.year}-${today.month}-${today.day}`;
+  if(date<localToday || Date.parse(date+"T00:00:00Z")>Date.parse(localToday+"T00:00:00Z")+policy.horizonDays*86400000)return [];
+  const exception=policy.exceptions.find(e=>e.date===date);
+  const ranges=exception ? exception.periods : available?.enabled ? available.periods ?? [{start:available.start_time,end:available.end_time}] : [];
   const clock = (t) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
   const result = [];
-  for (
-    let t = clock(available.start_time);
-    t + duration <= clock(available.end_time);
-    t += 15
+  for (const range of ranges) for (
+    let t = clock(range.start);
+    t + duration <= clock(range.end);
+    t += policy.intervalMinutes
   ) {
     const start = zonedDate(
       date,
       `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`,
       timeZone,
     );
-    if (!start || +start < +now + 7200000) continue;
+    if (!start || +start < +now + policy.noticeMinutes * 60000) continue;
     const end = +start + (duration + buffer) * 60000;
     if (
       bookings.some(
@@ -74,7 +81,7 @@ export function slotsForDay({
       continue;
     result.push(start.toISOString());
   }
-  return result;
+  return [...new Set(result)].sort();
 }
 export function icsContent({
   id,
