@@ -9,6 +9,8 @@ import {
   type Invoice,
 } from "@/lib/billing-types";
 type Account = Subscription & {
+  effective_plan?: string;
+  platform_included?: boolean;
   user_id: string;
   name: string;
   email: string;
@@ -215,8 +217,9 @@ export function AdminSubscriptions() {
                           {!!s.team_members?.length && <small className="subscription-team-count">{s.team_members.length} linked team {s.team_members.length===1?"member":"members"}</small>}
                         </td>
                         <td>
-                          {planName(s.override_plan || s.plan)}
-                          {s.override_plan && (
+                          {planName(s.effective_plan || s.override_plan || s.plan)}
+                          {s.platform_included && <small className="billing-cell-detail">Platform included · unlimited seats</small>}
+                          {s.override_plan && !s.platform_included && (
                             <small className="billing-cell-detail">
                               Granted until {billingDate(s.override_expires)}
                             </small>
@@ -227,7 +230,7 @@ export function AdminSubscriptions() {
                             className="billing-badge"
                             data-tone={
                               !s.has_subscription
-                                ? s.override_plan
+                                ? s.platform_included || s.override_plan
                                   ? "info"
                                   : "neutral"
                                 : s.status === "active"
@@ -241,6 +244,7 @@ export function AdminSubscriptions() {
                           >
                             {s.has_subscription
                               ? s.status.replaceAll("_", " ")
+                              : s.platform_included ? "Included"
                               : s.override_plan
                                 ? "Granted"
                                 : "Free"}
@@ -316,7 +320,7 @@ export function AdminSubscriptions() {
             if (!busy && !invoiceBusy && !accessBusy) setSelected(null);
           }}
         >
-          <div className="admin-subscription-identity"><span className="admin-subscription-avatar" aria-hidden="true">{selected.name.slice(0, 1).toUpperCase()}</span><div><h3>{selected.name}</h3><p>{selected.email}</p></div><span className="billing-badge" data-tone="info">{planName(selected.override_plan || selected.plan)}</span></div>
+          <div className="admin-subscription-identity"><span className="admin-subscription-avatar" aria-hidden="true">{selected.name.slice(0, 1).toUpperCase()}</span><div><h3>{selected.name}</h3><p>{selected.email}</p></div><span className="billing-badge" data-tone="info">{planName(selected.effective_plan || selected.override_plan || selected.plan)}</span></div>
           <nav className="admin-subscription-nav" aria-label="Subscription details">
             {[["overview", "Overview"], ["access", "Plan access"], ["invoices", "Invoices"]].map(([key, label]) => <button key={key} type="button" aria-pressed={detailSection === key} disabled={busy || invoiceBusy || accessBusy} onClick={() => setDetailSection(key)}>{label}</button>)}
           </nav>
@@ -328,13 +332,13 @@ export function AdminSubscriptions() {
               <small>Plan in effect</small>
               <b>
                 {planName(selected.override_plan || selected.plan)}
-                {selected.override_plan && ` (granted until ${billingDate(selected.override_expires)})`}
+                {!selected.platform_included && selected.override_plan && ` (granted until ${billingDate(selected.override_expires)})`}
               </b>
             </div>
             <div>
               <small>Status</small>
               <b>
-                {selected.has_subscription ? selected.status.replaceAll("_", " ") : selected.override_plan ? "Granted access" : "Free workspace"}
+                {selected.has_subscription ? selected.status.replaceAll("_", " ") : selected.platform_included ? "Platform included" : selected.override_plan ? "Granted access" : "Free workspace"}
               </b>
             </div>
             <div>
@@ -355,7 +359,8 @@ export function AdminSubscriptions() {
             </div>
           </div>
           {!!selected.team_members?.length && <section className="admin-subscription-team"><h3>Covered team members <span>{selected.team_members.length}</span></h3><p>These seats are managed by this account.</p><ul>{selected.team_members.map(member => <li key={member.user_id}><div><b>{member.name}</b><small>{member.email}</small></div><span>{member.team_name}</span></li>)}</ul></section>}
-          {selected.override_plan && <p className="admin-subscription-note">Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing subscription remains unchanged.</p>}
+          {selected.platform_included && <p className="admin-subscription-note">Teams access is included for the master admin, with unlimited teammates. Stripe billing remains separate from this platform entitlement.</p>}
+          {!selected.platform_included && selected.override_plan && <p className="admin-subscription-note">Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing subscription remains unchanged.</p>}
           {canChangeSubscription(selected) ? (
             <form className="admin-subscription-renewal"
               onSubmit={(e) => {

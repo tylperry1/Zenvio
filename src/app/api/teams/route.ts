@@ -28,6 +28,7 @@ import {
   ApiError,
 } from "@/lib/server";
 import { teamRole } from "@/lib/teams";
+import { canManageTeam, resolveTeamPermissions, teamActionPermission, teamPermissions } from "@/lib/team-permissions";
 import { entitlementUsage } from "@/lib/entitlements";
 import { signingToken, documentHash } from "@/lib/document-signing";
 export const dynamic = "force-dynamic";
@@ -59,15 +60,16 @@ export async function GET(req: NextRequest) {
     ).rows;
     const bookings = (
       await getPool().query(
-        `SELECT b.id,b.user_id,b.guest_name,b.starts_at,b.ends_at,b.status,e.title FROM public.bookings b JOIN private.team_event_types e ON e.id=b.team_event_id WHERE b.organization_id=$1 ${role.role === "staff" ? "AND b.user_id=$2" : ""} ORDER BY starts_at DESC LIMIT 200`,
-        role.role === "staff" ? [id, token] : [id],
+        `SELECT b.id,b.user_id,b.guest_name,b.starts_at,b.ends_at,b.status,e.title FROM public.bookings b JOIN private.team_event_types e ON e.id=b.team_event_id WHERE b.organization_id=$1 ${!canManageTeam(role.role, role.permissions, "schedule") ? "AND b.user_id=$2" : ""} ORDER BY starts_at DESC LIMIT 200`,
+        !canManageTeam(role.role, role.permissions, "schedule") ? [id, token] : [id],
       )
     ).rows;
     const usage = await entitlementUsage(role.owner_id);
-    const invitations = role.role === "staff" ? [] : (await getPool().query("SELECT id,email,role,expires_at,created_at FROM private.team_invites WHERE organization_id=$1 AND accepted_at IS NULL AND expires_at>now() ORDER BY created_at DESC", [id])).rows;
+    const invitations = !canManageTeam(role.role, role.permissions, "members") ? [] : (await getPool().query("SELECT id,email,role,expires_at,created_at FROM private.team_invites WHERE organization_id=$1 AND accepted_at IS NULL AND expires_at>now() ORDER BY created_at DESC", [id])).rows;
     const occupied = (await getPool().query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active", [role.owner_id])).rows[0].n;
+    const policies = (await getPool().query("SELECT role,permissions FROM private.team_role_permissions WHERE organization_id=$1", [id])).rows;
     return Response.json(
-      { role: role.role, members, events, bookings, invitations, seats:usage.seats, occupied, canManageBilling:role.role==="owner" },
+      { role: role.role, permissions: role.permissions, rolePermissions: Object.fromEntries(["administrator","staff"].map(name => [name, resolveTeamPermissions(name, policies.find(p => p.role === name)?.permissions)])), members, events, bookings, invitations, seats:usage.unlimitedSeats ? null : usage.seats, unlimitedSeats:usage.unlimitedSeats, plan:usage.plan, occupied, canManageBilling:role.role==="owner" },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
@@ -114,7 +116,7 @@ async function joinTeam(db: PoolClient, invite: Invite, userId: string) {
       [invite.organization_id, userId],
     )
   ).rows[0].n;
-  if (count >= usage.seats)
+  if (!usage.unlimitedSeats && count >= usage.seats)
     throw new ApiError(
       "The owner must add a paid seat before this invitation can be accepted.",
       409,
@@ -217,12 +219,22 @@ export async function POST(req: NextRequest) {
         result.id = id;
       } else {
         const organization = uuid(v.organization);
-        await teamRole(db, token, organization, true);
+        await teamRole(db, token, organization);
         await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
           "team:" + organization,
         ]);
-        const role = await teamRole(db, token, organization, true);
-        if (v.action === "rename") {
+        const role = await teamRole(db, token, organization);
+        if (v.action === "role" || v.action === "permissions") {
+          if (role.role !== "owner") throw new ApiError("Only the team owner can assign roles and permissions.",403);
+        } else {
+          const permission = teamActionPermission[String(v.action)];
+          if (!permission || !canManageTeam(role.role, role.permissions, permission)) throw new ApiError("Your team role does not allow this action.",403);
+        }
+        if (v.action === "permissions") {
+          if (!["administrator","staff"].includes(String(v.role)) || !Array.isArray(v.permissions) || v.permissions.some(p => typeof p !== "string" || !Object.hasOwn(teamPermissions,p))) throw new ApiError("Choose a team role and valid permissions.");
+          const permissions = [...new Set(v.permissions)];
+          await db.query("INSERT INTO private.team_role_permissions(organization_id,role,permissions) VALUES($1,$2,$3) ON CONFLICT(organization_id,role) DO UPDATE SET permissions=$3,updated_at=now()", [organization,v.role,permissions]);
+        } else if (v.action === "rename") {
           await db.query("UPDATE private.organizations SET name=$2 WHERE id=$1", [organization,string(v.name,"workspace name",100,2)]);
         } else if (v.action === "revoke-invite") {
           const invitation = (await db.query("SELECT role FROM private.team_invites WHERE id=$1 AND organization_id=$2 AND accepted_at IS NULL FOR UPDATE", [uuid(v.invite_id),organization])).rows[0];
@@ -233,7 +245,7 @@ export async function POST(req: NextRequest) {
           const target=uuid(v.user_id);
           const member=(await db.query("SELECT role FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[organization,target])).rows[0];
           if (!member) throw new ApiError("Member not found.",404);
-          assertMemberControl(role.role,member.role,target===token,String(v.action));
+          assertMemberControl(role.role,member.role,target===token,String(v.action),true);
           if (v.action==="role") {
             if (!["staff","administrator"].includes(String(v.role))) throw new ApiError("Choose Staff or Manager.");
             await db.query("UPDATE private.memberships SET role=$3 WHERE organization_id=$1 AND user_id=$2",[organization,target,v.role]);
@@ -242,7 +254,7 @@ export async function POST(req: NextRequest) {
             const usage=await entitlementUsage(role.owner_id,db);
             if (!["team","teams"].includes(usage.plan)||!usage.canManageTeamBilling) throw new ApiError("An active Teams subscription is required.",409);
             const count=(await db.query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active AND m.user_id<>$2",[role.owner_id,target])).rows[0].n;
-            if(count>=usage.seats) throw new ApiError("The owner must add a seat before reactivating this member.",409);
+            if(!usage.unlimitedSeats && count>=usage.seats) throw new ApiError("The owner must add a seat before reactivating this member.",409);
             await db.query("UPDATE private.memberships SET active=true WHERE organization_id=$1 AND user_id=$2",[organization,target]);
           }
         } else if (v.action === "invite") {
@@ -500,7 +512,7 @@ Open the invitation to set up your account or sign in with the invited email add
           if (!b.rowCount) throw new ApiError("Appointment not found.", 404);
         } else throw new ApiError("Invalid team action.");
       }
-      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)", [token,"team_"+String(v.action),JSON.stringify({organization:v.organization||result.id||null,target:v.user_id||null})]);
+      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)", [token,"team_"+String(v.action),JSON.stringify({organization:v.organization||result.id||null,target:v.user_id||null,role:v.role||null,permissions:v.action==="permissions"?v.permissions:undefined})]);
       await db.query("COMMIT");
       const owner = deliveryOwner;
       if (owner) after(async () => {
