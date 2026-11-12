@@ -43,7 +43,11 @@ try {
         results.push({route,width,status:response.status(),overflow,timing});
         assert(overflow<=1,`${route} at ${width}px overflows ${overflow}px`);
         assert.equal(await page.getByText("Application error",{exact:true}).count(),0,route);
-        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing"].includes(route))
+        if(route === "/app/clients" && width <= 640) {
+          const clientOverflow=await page.locator(".client-table-wrap").evaluate(n=>n.scrollWidth-n.clientWidth);
+          assert(clientOverflow <= 1, "mobile client records must fit without sideways scrolling");
+        }
+        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing","/app/clients"].includes(route))
           await page.screenshot({path:`test-results/qa-${route.replace(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
       }
     }

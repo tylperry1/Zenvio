@@ -234,10 +234,10 @@ export function ClientCenter() {
                           {c.name}
                         </span>
                       </td>
-                      <td>{c.email}</td>
-                      <td>{c.company || "—"}</td>
-                      <td>{c.appointments}</td>
-                      <td>{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
+                      <td data-label="Email">{c.email}</td>
+                      <td data-label="Company">{c.company || "—"}</td>
+                      <td data-label="Appointments">{c.appointments}</td>
+                      <td data-label="Last appointment">{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

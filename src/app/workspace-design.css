@@ -247,3 +247,21 @@
 .shell .shell-nav-group summary:focus-visible {outline:2px solid #9bb0ff;outline-offset:2px;border-radius:5px}
 .shell .shell-nav-group a {min-height:38px;padding:9px 12px;margin-bottom:2px}
 @media (prefers-reduced-motion:reduce) {.shell .shell-nav-group summary svg {transition:none}}
+
+/* Readable client records and complete portal navigation on phones. */
+@media(max-width:640px) {
+  .shell .platform-page .client-list-toolbar {padding:16px;gap:12px}
+  .shell .platform-page label.client-search {min-width:0;width:100%;padding:10px 12px}
+  .shell .platform-page .client-table-wrap {overflow:visible}
+  .shell .platform-page .client-table {display:block;min-width:0;width:100%}
+  .shell .platform-page .client-table thead {position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .shell .platform-page .client-table tbody {display:block}
+  .shell .platform-page .client-table tr {display:grid;grid-template-columns:minmax(0,1fr);padding:16px;border-top:1px solid var(--border);gap:8px}
+  .shell .platform-page .client-table td {display:block;padding:0;border:0;min-width:0;white-space:normal;overflow-wrap:anywhere}
+  .shell .platform-page .client-table td[data-label]::before {content:attr(data-label);display:block;font-size:11px;color:var(--text-muted);margin-bottom:2px}
+  .shell .platform-page .client-table td:first-child {margin-bottom:6px}
+  .shell .platform-page .client-name {white-space:normal}
+  .shell .platform-page .client-table tr:focus-visible {outline:2px solid var(--focus-ring);outline-offset:-3px}
+  .portal-page .ui-tabs {flex-wrap:wrap;overflow:visible;gap:4px}
+  .portal-page .ui-tabs.ui-tabs > button {flex:1 0 auto;min-height:44px}
+}
