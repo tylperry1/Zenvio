@@ -165,3 +165,79 @@
  .availability-off {grid-column:2;grid-row:1;justify-self:end}
  .shell .availability-workspace .availability-add,.shell .availability-workspace .availability-copy {font-size:12px;padding:4px 0}
 }
+
+/* Focused admin billing dialog: compact defaults, independent scrolling, explicit workflows. */
+.modal.admin-subscription-dialog{width:calc(100% - 32px);max-width:720px;max-height:90svh;padding:0;border-radius:16px;overflow:auto}
+.admin-subscription-dialog .modal-heading{padding:20px 24px;margin:0;border-bottom:1px solid #e5eaf3}
+.admin-subscription-dialog .modal-heading h2{font-size:18px;font-weight:650}
+.admin-subscription-dialog .admin-subscription-identity{display:flex;align-items:center;gap:12px;padding:20px 24px}
+.admin-subscription-avatar{display:grid;place-items:center;flex:0 0 40px;height:40px;border-radius:12px;background:#edf1ff;color:#365cff;font-weight:700}
+.admin-subscription-identity>div{min-width:0;flex:1}
+.admin-subscription-dialog h3{font-size:15px;line-height:1.4;margin:0 0 8px}
+.admin-subscription-dialog p{font-size:13px;line-height:1.6;color:#64718a;margin:0 0 16px;overflow-wrap:anywhere}
+.admin-subscription-dialog .admin-subscription-identity h3{margin:0 0 3px}
+.admin-subscription-dialog .admin-subscription-identity p{margin:0;font-size:12px}
+.admin-subscription-nav{display:flex;gap:6px;padding:0 24px 14px;border-bottom:1px solid #e5eaf3}
+.admin-subscription-dialog .admin-subscription-nav button{margin:0;min-height:40px;padding:9px 14px;border:0;border-radius:8px;background:transparent;color:#63718a;font-size:13px}
+.admin-subscription-dialog .admin-subscription-nav button[aria-pressed=true]{background:#edf1ff;color:#294de1;font-weight:650}
+.admin-subscription-body{padding:24px;min-height:240px}
+.admin-subscription-dialog .billing-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 0 22px;margin:0 0 20px;border:0;border-bottom:1px solid #e5eaf3}
+.admin-subscription-dialog .billing-detail-grid>div{display:grid;gap:6px;min-width:0}
+.admin-subscription-dialog .billing-detail-grid small{font-size:12px;color:#748199}
+.admin-subscription-dialog .billing-detail-grid b{font-size:14px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.admin-subscription-dialog .plan-access,.admin-subscription-dialog .admin-subscription-renewal{display:grid;gap:16px;margin:0;padding:0;border:0;background:none}
+.admin-subscription-dialog .plan-access h3,.admin-subscription-dialog .plan-access p,.admin-subscription-dialog .admin-subscription-renewal h3,.admin-subscription-dialog .admin-subscription-renewal p{margin:0}
+.admin-subscription-dialog label{display:grid;gap:7px;margin:0;font-size:12px;font-weight:600;line-height:1.5}
+.admin-subscription-dialog input,.admin-subscription-dialog select,.admin-subscription-dialog textarea{box-sizing:border-box;width:100%;min-width:0;min-height:42px;margin:0;padding:10px 12px;border:1px solid #d5ddeb;border-radius:8px;background:#fff;color:#18223d;font:inherit;font-size:14px;font-weight:400;line-height:1.4}
+.admin-subscription-dialog textarea{resize:vertical}
+.admin-subscription-dialog .plan-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0}
+.admin-subscription-dialog .plan-access-presets{display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.admin-subscription-dialog button{margin:0;min-height:40px;font-size:13px}
+.admin-subscription-dialog .plan-access-presets button{padding:8px 12px;font-size:12px}
+.admin-subscription-dialog .plan-access-actions{display:flex;justify-content:flex-end;gap:10px;margin:0;padding-top:4px;flex-wrap:wrap}
+.admin-subscription-dialog .admin-subscription-renewal>button{justify-self:start}
+.admin-subscription-team{margin-bottom:20px}
+.admin-subscription-team h3 span{font-size:11px;color:#365cff;background:#edf1ff;padding:3px 7px;border-radius:6px;margin-left:6px}
+.admin-subscription-team ul{list-style:none;margin:0;padding:0}
+.admin-subscription-team li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf0f6;font-size:12px}
+.admin-subscription-team li>div{min-width:0}
+.admin-subscription-team small{display:block;color:#748199;margin-top:4px;overflow-wrap:anywhere}
+.admin-subscription-team li>span{color:#748199;text-align:right}
+.admin-subscription-dialog .admin-subscription-note{padding:12px;background:#f5f7fd;border-radius:8px}
+.admin-subscription-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 24px;border-top:1px solid #e5eaf3;background:#fafbfe}
+.admin-subscription-footer>span{font-size:11px;color:#748199}
+.admin-subscription-dialog .admin-subscription-invoices{margin:0;padding:0;border:0;background:none}
+@media(max-width:540px){.modal.admin-subscription-dialog{width:calc(100% - 20px);max-height:94svh}.admin-subscription-dialog .modal-heading,.admin-subscription-dialog .admin-subscription-identity,.admin-subscription-body{padding:18px}.admin-subscription-nav{padding:0 18px 12px;gap:2px}.admin-subscription-dialog .admin-subscription-nav button{padding:9px 12px}.admin-subscription-dialog .plan-access-grid{grid-template-columns:1fr}.admin-subscription-footer{padding:14px 18px}.admin-subscription-dialog .billing-detail-grid{gap:18px 12px}.admin-subscription-dialog .plan-access-actions>button{flex:1}.admin-subscription-identity>.billing-badge{font-size:11px}.admin-subscription-team li{align-items:flex-start}}
+
+/* Shared public and workspace allowance comparison. */
+.pricing-allowances.pricing-allowances{padding:24px;margin:24px 0;border:1px solid #dfe5ef;border-radius:14px;background:#fff;min-width:0}
+.pricing-allowances .allowance-heading{margin:0 0 20px}
+.pricing-allowances.pricing-allowances h3{font-size:19px;letter-spacing:-.025em;line-height:1.35;margin:5px 0 8px}
+.pricing-allowances.pricing-allowances p{font-size:13px;line-height:1.65;color:#64718a;margin:0;max-width:none}
+.pricing-allowances .allowance-heading p{max-width:660px}
+.allowance-table-wrap{border:1px solid #e3e8f2;border-radius:10px;overflow:hidden}
+.pricing-allowances .allowance-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0;font-size:13px}
+.pricing-allowances .allowance-table th,.pricing-allowances .allowance-table td{padding:14px 16px;text-align:left;border:0;border-bottom:1px solid #e8ecf4;line-height:1.5;background:#fff;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
+.pricing-allowances .allowance-table thead th{background:#f5f7fc;font-size:12px;color:#65728a;font-weight:600}
+.pricing-allowances .allowance-table th:first-child{width:46%}
+.pricing-allowances .allowance-table tbody th{font-weight:500;color:#33415b}
+.pricing-allowances .allowance-table td{font-variant-numeric:tabular-nums;color:#18223d;font-weight:600}
+.pricing-allowances .allowance-table tr:last-child>*{border-bottom:0}
+.pricing-allowances .allowance-table thead span{display:block;font-size:10px;font-weight:400;color:#8290a6;margin-top:2px}
+.pricing-allowances.pricing-allowances .allowance-summary{font-size:12px;margin:12px 0}
+.allowance-details{border-bottom:1px solid #e5eaf3;padding:14px 0}
+.allowance-details summary{cursor:pointer;font-size:12px;line-height:1.5;color:#50617d;font-weight:600;min-height:28px;align-content:center}
+.pricing-allowances.pricing-allowances .allowance-details p{font-size:12px;margin:10px 0;max-width:740px}
+.allowance-addons-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:26px 0 12px}
+.pricing-allowances .allowance-addons-heading h3{margin:0 0 5px}
+.allowance-coming-soon{font-size:11px;white-space:nowrap;border-radius:6px;padding:6px 9px;background:#f0f3f9;color:#66758e}
+.pricing-allowances.pricing-allowances .allowance-availability{font-size:12px;margin:0 0 16px}
+.pricing-allowances .allowance-addons{display:grid;grid-template-columns:1fr 1fr;gap:10px;list-style:none;padding:0;margin:0 0 8px}
+.pricing-allowances .allowance-addons li{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:0;padding:16px;border:1px solid #e3e8f2;border-radius:9px;min-width:0}
+.allowance-addons li>div{min-width:0}
+.pricing-allowances .allowance-addons h4{font-size:13px;line-height:1.5;font-weight:600;margin:0 0 5px;color:#24324d}
+.allowance-addons li>div>span{font-size:11px;color:#7c899f;line-height:1.5;display:block}
+.pricing-allowances .allowance-addons li>p{flex-shrink:0;text-align:right;line-height:1.3}
+.allowance-addons strong{font-size:16px;font-weight:650;color:#18223d;font-variant-numeric:tabular-nums}
+.allowance-addons small{display:block;font-size:10px;color:#7c899f;margin-top:5px}
+@media(max-width:640px){.pricing-allowances.pricing-allowances{padding:18px;margin:20px 0}.pricing-allowances .allowance-addons{grid-template-columns:minmax(0,1fr)}.pricing-allowances .allowance-table th,.pricing-allowances .allowance-table td{padding:12px 9px;font-size:12px}.pricing-allowances .allowance-table thead th{font-size:11px}.pricing-allowances .allowance-table th:first-child{width:44%}.pricing-allowances .allowance-addons li{padding:14px}.allowance-addons-heading{align-items:flex-start}}

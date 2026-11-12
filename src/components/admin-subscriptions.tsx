@@ -19,6 +19,7 @@ type Account = Subscription & {
 };
 const planName = (plan: string) =>
   ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams", pro: "Pro", business: "Business" })[plan] || plan;
+const subscriptionEnded = (account: Subscription) => ["canceled", "incomplete_expired"].includes(account.status);
 const inMonths = (n: number) => {
   const d = new Date();
   d.setMonth(d.getMonth() + n);
@@ -48,7 +49,9 @@ export function AdminSubscriptions() {
       hasMore: boolean;
     } | null>(null),
     [detailError, setDetailError] = useState(""),
-    [invoiceBusy, setInvoiceBusy] = useState(false);
+    [invoiceBusy, setInvoiceBusy] = useState(false),
+    [accessBusy, setAccessBusy] = useState(false),
+    [detailSection, setDetailSection] = useState("overview");
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -245,9 +248,11 @@ export function AdminSubscriptions() {
                         </td>
                         <td>
                           {s.has_subscription
-                            ? s.cancel_at_period_end
-                              ? "Off · ending"
-                              : "On"
+                            ? subscriptionEnded(s)
+                              ? "Ended"
+                              : s.cancel_at_period_end
+                                ? "Off · ending"
+                                : "On"
                             : "—"}
                         </td>
                         <td>{billingDate(s.current_period_end)}</td>
@@ -256,6 +261,7 @@ export function AdminSubscriptions() {
                             className="billing-secondary"
                             onClick={() => {
                               setSelected(s);
+                              setDetailSection("overview");
                               setInvoices(null);
                               setDetailError("");
                             }}
@@ -304,12 +310,19 @@ export function AdminSubscriptions() {
       </section>
       {selected && (
         <Modal
-          title={`${selected.name} · Billing`}
+          title="Manage subscription"
+          className="admin-subscription-dialog"
           onClose={() => {
-            if (!busy && !invoiceBusy) setSelected(null);
+            if (!busy && !invoiceBusy && !accessBusy) setSelected(null);
           }}
         >
-          <p>{selected.email}</p>
+          <div className="admin-subscription-identity"><span className="admin-subscription-avatar" aria-hidden="true">{selected.name.slice(0, 1).toUpperCase()}</span><div><h3>{selected.name}</h3><p>{selected.email}</p></div><span className="billing-badge" data-tone="info">{planName(selected.override_plan || selected.plan)}</span></div>
+          <nav className="admin-subscription-nav" aria-label="Subscription details">
+            {[["overview", "Overview"], ["access", "Plan access"], ["invoices", "Invoices"]].map(([key, label]) => <button key={key} type="button" aria-pressed={detailSection === key} disabled={busy || invoiceBusy || accessBusy} onClick={() => setDetailSection(key)}>{label}</button>)}
+          </nav>
+          <div className="admin-subscription-body">
+          {detailError && <p role="alert" className="billing-error">{detailError}</p>}
+          {detailSection === "overview" && <>
           <div className="billing-detail-grid">
             <div>
               <small>Plan in effect</small>
@@ -321,7 +334,7 @@ export function AdminSubscriptions() {
             <div>
               <small>Status</small>
               <b>
-                {selected.has_subscription ? selected.status : "Free workspace"}
+                {selected.has_subscription ? selected.status.replaceAll("_", " ") : selected.override_plan ? "Granted access" : "Free workspace"}
               </b>
             </div>
             <div>
@@ -332,20 +345,19 @@ export function AdminSubscriptions() {
               <small>Renewal</small>
               <b>
                 {selected.has_subscription
-                  ? selected.cancel_at_period_end
-                    ? "Turned off"
-                    : "Automatic"
+                  ? subscriptionEnded(selected)
+                    ? "Ended"
+                    : selected.cancel_at_period_end
+                      ? "Turned off"
+                      : "Automatic"
                   : "No recurring payment"}
               </b>
             </div>
           </div>
-          {detailError && (
-            <p role="alert" className="billing-error">
-              {detailError}
-            </p>
-          )}
+          {!!selected.team_members?.length && <section className="admin-subscription-team"><h3>Covered team members <span>{selected.team_members.length}</span></h3><p>These seats are managed by this account.</p><ul>{selected.team_members.map(member => <li key={member.user_id}><div><b>{member.name}</b><small>{member.email}</small></div><span>{member.team_name}</span></li>)}</ul></section>}
+          {selected.override_plan && <p className="admin-subscription-note">Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing subscription remains unchanged.</p>}
           {canChangeSubscription(selected) ? (
-            <form
+            <form className="admin-subscription-renewal"
               onSubmit={(e) => {
                 e.preventDefault();
                 void change(
@@ -388,15 +400,17 @@ export function AdminSubscriptions() {
                 : "This account has no paid subscription. No cancellation is needed."}
             </p>
           )}
-          <PlanAccess
+          </>}
+          {detailSection === "access" && <PlanAccess
             account={selected}
+            onBusyChange={setAccessBusy}
             onDone={(text) => {
               setMessage(text);
               setSelected(null);
               setRevision((n) => n + 1);
             }}
-          />
-          <h3>Invoices</h3>
+          />}
+          {detailSection === "invoices" && <section className="admin-subscription-invoices"><h3>Invoice history</h3><p>{selected.has_customer ? "Review invoices and payment status from Stripe." : "No billing customer is linked to this account. Invoices will appear after billing is set up."}</p>
           <button
             className="billing-secondary"
             disabled={!selected.has_customer || invoiceBusy}
@@ -424,6 +438,9 @@ export function AdminSubscriptions() {
             {invoiceBusy ? "Loading…" : "Load latest invoices"}
           </button>
           {invoices && <InvoiceList {...invoices} />}
+          </section>}
+          </div>
+          <footer className="admin-subscription-footer"><span>Changes are recorded in the audit log.</span><button type="button" className="billing-secondary" disabled={busy || invoiceBusy || accessBusy} onClick={() => setSelected(null)}>Done</button></footer>
         </Modal>
       )}
     </>
@@ -432,7 +449,7 @@ export function AdminSubscriptions() {
 
 // Give an account plan access without charging it (comp, trial extension, support fix),
 // or remove that access. Saved as an audited, expiring override.
-function PlanAccess({ account, onDone }: { account: Account; onDone: (message: string) => void }) {
+function PlanAccess({ account, onDone, onBusyChange }: { account: Account; onDone: (message: string) => void; onBusyChange: (busy: boolean) => void }) {
   const [plan, setPlan] = useState(account.override_plan || (account.plan === "free" ? "individual" : account.plan)),
     [expires, setExpires] = useState(account.override_expires ? String(account.override_expires).slice(0, 10) : inMonths(1)),
     [reason, setReason] = useState(""),
@@ -440,6 +457,7 @@ function PlanAccess({ account, onDone }: { account: Account; onDone: (message: s
     [error, setError] = useState("");
   async function send(action: "grant" | "revoke") {
     setBusy(true);
+    onBusyChange(true);
     setError("");
     try {
       const r = await fetch("/api/admin/subscriptions", {
@@ -458,6 +476,7 @@ function PlanAccess({ account, onDone }: { account: Account; onDone: (message: s
       setError(e instanceof Error ? e.message : "Unable to update plan access.");
     } finally {
       setBusy(false);
+      onBusyChange(false);
     }
   }
   return (
@@ -470,8 +489,7 @@ function PlanAccess({ account, onDone }: { account: Account; onDone: (message: s
     >
       <h3>Plan access</h3>
       <p>
-        Give this account a plan without charging it — for a comp, a trial extension or a support fix. It overrides the
-        Stripe plan until the end date, then the account returns to its paid or Free plan.
+        Grant temporary access without a charge. When it expires, the account returns to its underlying plan. Stripe billing is unchanged.
         {account.override_reason && ` Current reason: ${account.override_reason}`}
       </p>
       {error && (
@@ -489,7 +507,7 @@ function PlanAccess({ account, onDone }: { account: Account; onDone: (message: s
           </select>
         </label>
         <label>
-          Until
+          Access ends
           <input
             type="date"
             required

@@ -5,8 +5,10 @@ export function Modal({
   title,
   children,
   onClose,
+  className,
 }: {
   title: string;
+  className?: string;
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -19,7 +21,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={["modal", className].filter(Boolean).join(" ")}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
