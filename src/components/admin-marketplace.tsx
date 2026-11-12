@@ -78,6 +78,11 @@ export function AdminMarketplace() {
       setBusy(false);
     }
   }
+  async function toggleVisibility(visible:boolean) {
+    const previous=data;
+    setData(current=>current ? {...current,settings:{...current.settings,visible}} : current);
+    if(!(await save({action:"visibility",visible}))) setData(previous);
+  }
   async function openOrder(id: string) {
     setBusy(true);
     setDetailError("");
@@ -419,7 +424,7 @@ export function AdminMarketplace() {
                   <p>Hide the storefront and new purchases while retaining existing orders, refunds and fulfillment tools.</p>
                   <label className="check-label">
                     <input type="checkbox" role="switch" aria-label="Marketplace visible to customers" checked={data.settings.visible} disabled={busy}
-                      onChange={e => void save({action:"visibility",visible:e.target.checked})} />
+                      onChange={e => void toggleVisibility(e.target.checked)} />
                     Show marketplace to customers
                   </label>
                   <p role="status">{data.settings.visible ? "Marketplace is visible. Checkout still requires its own readiness checks." : "Marketplace is hidden."}</p>
