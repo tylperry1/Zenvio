@@ -5,6 +5,12 @@ import Stripe from 'stripe';
 import {createDecipheriv,createHash} from 'node:crypto';
 import {individualOffer,teamOffer,extraSeatOffer,catalogVersion,launchCouponId,launchProducts} from '../src/lib/subscription-offers.mjs';
 if(process.env.VERCEL_ENV!=='production'||!process.env.DATABASE_URL){console.log('Subscription catalog provisioning skipped outside production.');process.exit(0);}
+// Catalog changes require an explicit synchronization request while checkout is off.
+// This keeps unrelated production releases independent of billing activation.
+if(process.env.BILLING_CHECKOUT_ENABLED!=='true'&&process.env.BILLING_CATALOG_SYNC_ENABLED!=='true'){
+ console.log('Subscription checkout is disabled; catalog synchronization was not requested.');
+ process.exit(0);
+}
 const pool=new Pool({connectionString:postgresConnectionString(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL),max:1,connectionTimeoutMillis:15000});
 const db=await pool.connect();
 async function secret(name){const r=await db.query('SELECT ciphertext FROM private.integration_secrets WHERE key=$1',[name]);if(!r.rows[0])return process.env[name]||'';if(!process.env.INTEGRATION_ENCRYPTION_KEY)throw Error('Integration encryption is not configured');const [iv,tag,data]=r.rows[0].ciphertext.split('.');const d=createDecipheriv('aes-256-gcm',createHash('sha256').update(process.env.INTEGRATION_ENCRYPTION_KEY).digest(),Buffer.from(iv,'base64'));d.setAuthTag(Buffer.from(tag,'base64'));return Buffer.concat([d.update(Buffer.from(data,'base64')),d.final()]).toString();}
