@@ -33,6 +33,14 @@ try {
           assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
           assert.deepEqual(await table.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["150","450"]);
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
+          const allowances = page.getByRole("region", {name:"Included in your workspace"});
+          await allowances.getByText("How usage is measured", {exact:true}).click();
+          await allowances.getByText("Credit, storage and SMS terms", {exact:true}).click();
+          assert.equal(await allowances.locator(".allowance-addons li").count(), 8);
+          assert.ok(await allowances.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Allowances must fit the viewport");
+          await page.screenshot({path:`test-results/pricing-allowances-${width}.png`});
+          await allowances.getByText("How usage is measured", {exact:true}).click();
+          await allowances.getByText("Credit, storage and SMS terms", {exact:true}).click();
         }
         if(route === "/admin/operations") {
           await page.getByRole("button", {name: "Manage", exact: true}).first().click();

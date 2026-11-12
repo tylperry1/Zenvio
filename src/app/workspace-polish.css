@@ -208,3 +208,36 @@
 .admin-subscription-footer>span{font-size:11px;color:#748199}
 .admin-subscription-dialog .admin-subscription-invoices{margin:0;padding:0;border:0;background:none}
 @media(max-width:540px){.modal.admin-subscription-dialog{width:calc(100% - 20px);max-height:94svh}.admin-subscription-dialog .modal-heading,.admin-subscription-dialog .admin-subscription-identity,.admin-subscription-body{padding:18px}.admin-subscription-nav{padding:0 18px 12px;gap:2px}.admin-subscription-dialog .admin-subscription-nav button{padding:9px 12px}.admin-subscription-dialog .plan-access-grid{grid-template-columns:1fr}.admin-subscription-footer{padding:14px 18px}.admin-subscription-dialog .billing-detail-grid{gap:18px 12px}.admin-subscription-dialog .plan-access-actions>button{flex:1}.admin-subscription-identity>.billing-badge{font-size:11px}.admin-subscription-team li{align-items:flex-start}}
+
+/* Shared public and workspace allowance comparison. */
+.pricing-allowances.pricing-allowances{padding:24px;margin:24px 0;border:1px solid #dfe5ef;border-radius:14px;background:#fff;min-width:0}
+.pricing-allowances .allowance-heading{margin:0 0 20px}
+.pricing-allowances.pricing-allowances h3{font-size:19px;letter-spacing:-.025em;line-height:1.35;margin:5px 0 8px}
+.pricing-allowances.pricing-allowances p{font-size:13px;line-height:1.65;color:#64718a;margin:0;max-width:none}
+.pricing-allowances .allowance-heading p{max-width:660px}
+.allowance-table-wrap{border:1px solid #e3e8f2;border-radius:10px;overflow:hidden}
+.pricing-allowances .allowance-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0;font-size:13px}
+.pricing-allowances .allowance-table th,.pricing-allowances .allowance-table td{padding:14px 16px;text-align:left;border:0;border-bottom:1px solid #e8ecf4;line-height:1.5;background:#fff;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
+.pricing-allowances .allowance-table thead th{background:#f5f7fc;font-size:12px;color:#65728a;font-weight:600}
+.pricing-allowances .allowance-table th:first-child{width:46%}
+.pricing-allowances .allowance-table tbody th{font-weight:500;color:#33415b}
+.pricing-allowances .allowance-table td{font-variant-numeric:tabular-nums;color:#18223d;font-weight:600}
+.pricing-allowances .allowance-table tr:last-child>*{border-bottom:0}
+.pricing-allowances .allowance-table thead span{display:block;font-size:10px;font-weight:400;color:#8290a6;margin-top:2px}
+.pricing-allowances.pricing-allowances .allowance-summary{font-size:12px;margin:12px 0}
+.allowance-details{border-bottom:1px solid #e5eaf3;padding:14px 0}
+.allowance-details summary{cursor:pointer;font-size:12px;line-height:1.5;color:#50617d;font-weight:600;min-height:28px;align-content:center}
+.pricing-allowances.pricing-allowances .allowance-details p{font-size:12px;margin:10px 0;max-width:740px}
+.allowance-addons-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:26px 0 12px}
+.pricing-allowances .allowance-addons-heading h3{margin:0 0 5px}
+.allowance-coming-soon{font-size:11px;white-space:nowrap;border-radius:6px;padding:6px 9px;background:#f0f3f9;color:#66758e}
+.pricing-allowances.pricing-allowances .allowance-availability{font-size:12px;margin:0 0 16px}
+.pricing-allowances .allowance-addons{display:grid;grid-template-columns:1fr 1fr;gap:10px;list-style:none;padding:0;margin:0 0 8px}
+.pricing-allowances .allowance-addons li{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:0;padding:16px;border:1px solid #e3e8f2;border-radius:9px;min-width:0}
+.allowance-addons li>div{min-width:0}
+.pricing-allowances .allowance-addons h4{font-size:13px;line-height:1.5;font-weight:600;margin:0 0 5px;color:#24324d}
+.allowance-addons li>div>span{font-size:11px;color:#7c899f;line-height:1.5;display:block}
+.pricing-allowances .allowance-addons li>p{flex-shrink:0;text-align:right;line-height:1.3}
+.allowance-addons strong{font-size:16px;font-weight:650;color:#18223d;font-variant-numeric:tabular-nums}
+.allowance-addons small{display:block;font-size:10px;color:#7c899f;margin-top:5px}
+@media(max-width:640px){.pricing-allowances.pricing-allowances{padding:18px;margin:20px 0}.pricing-allowances .allowance-addons{grid-template-columns:minmax(0,1fr)}.pricing-allowances .allowance-table th,.pricing-allowances .allowance-table td{padding:12px 9px;font-size:12px}.pricing-allowances .allowance-table thead th{font-size:11px}.pricing-allowances .allowance-table th:first-child{width:44%}.pricing-allowances .allowance-addons li{padding:14px}.allowance-addons-heading{align-items:flex-start}}
