@@ -1,4 +1,5 @@
 import "../admin.css";
+import "../gelato/gelato.css";
 import { AdminFrame } from "@/components/admin-frame";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
