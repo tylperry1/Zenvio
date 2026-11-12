@@ -133,18 +133,24 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
         <>
           <ul className="ui-list">
             {data.connections.map((c) => {
-              const ok = c.status === "connected";
+              const ok = c.status === "connected" && !c.last_error;
+              const apiDisabled = c.last_error?.includes("Google Calendar API is disabled");
               return (
                 <li key={c.account_sub} className="gc-account">
                   <span className="ui-list-icon">
                     <Icon name="calendar" size={16} />
                   </span>
                   <div className="ui-list-main">
-                    <b>{c.account_email}</b>
+                    <b className="gc-email">{c.account_email}</b>
                     <small>
                       Primary calendar · {c.last_sync_at ? `last synced ${formatDateTime(c.last_sync_at)}` : "not synced yet"}
                     </small>
-                    {c.last_error && <small className="pay-error">{c.last_error}</small>}
+                    {c.last_error && <small className="pay-error" role="status">{c.last_error}</small>}
+                    {apiDisabled && data.isAdmin && (
+                      <a className="gc-setup-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noreferrer">
+                        Enable Google Calendar API in the OAuth project ↗
+                      </a>
+                    )}
                     <div className="gc-prefs">
                       <label>
                         <Toggle
@@ -178,7 +184,7 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                       </label>
                     </div>
                   </div>
-                  <Badge tone={ok ? "success" : "warning"}>{ok ? "Connected" : "Reconnect needed"}</Badge>
+                  <Badge tone={ok ? "success" : "warning"}>{ok ? "Connected" : c.status === "connected" ? "Needs attention" : "Reconnect needed"}</Badge>
                   <div className="gc-actions">
                     <button
                       className="ui-btn ui-btn-ghost ui-btn-sm"
@@ -187,7 +193,7 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                     >
                       Test
                     </button>
-                    {!ok && (
+                    {c.status !== "connected" && (
                       <button className="ui-btn ui-btn-secondary ui-btn-sm" disabled={busy} onClick={() => void action("connect")}>
                         Reconnect
                       </button>

@@ -1,3 +1,4 @@
+import { deliverySender } from "./booking-email";
 import { transactionalEmail } from "./transactional-email";
 import { resendFailure, ResendDeliveryError } from "./resend-diagnostics";
 import type { PoolClient } from "pg";
@@ -116,9 +117,10 @@ export async function materializeReminders(user?: string) {
   }
 }
 export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: string) {
-  const [key, from] = await Promise.all([
+  const [key, from, bookingFrom] = await Promise.all([
     integrationValue("RESEND_API_KEY"),
     integrationValue("AUTH_EMAIL_FROM"),
+    integrationValue("BOOKING_EMAIL_FROM"),
   ]);
   if (!key.trim() || !from.trim() || !process.env.INTEGRATION_ENCRYPTION_KEY)
     return { sent: 0, configured: false };
@@ -135,11 +137,12 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       // Persist the first attempt before contacting the provider. A rollback after an
       // accepted send must not erase the start of its provider idempotency window.
       const claim = await db.query(
-        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()) WHERE id=$1 AND status='queued' RETURNING claimed_at",
-        [j.id],
+        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),sender=coalesce(sender,$2) WHERE id=$1 AND status='queued' RETURNING claimed_at,sender",
+        [j.id, j.attempts > 0 ? from.trim() : deliverySender(j.kind, from, bookingFrom)],
       );
       if (!claim.rowCount) continue;
       j.claimed_at = claim.rows[0]?.claimed_at || j.claimed_at || new Date();
+      j.sender = claim.rows[0]?.sender || j.sender || from.trim();
       await db.query("BEGIN");
       // Lock the source before the job, matching signing and rescheduling transactions.
       if (j.booking_id)
@@ -287,7 +290,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
             "Idempotency-Key": "zenvio-delivery-" + j.id,
           },
           body: JSON.stringify({
-            from: from.trim(),
+            from: j.sender,
             ...(j.reply_to?{reply_to:j.reply_to}:{}),
             to: j.recipient,
             subject: j.subject,

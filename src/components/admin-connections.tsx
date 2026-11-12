@@ -35,9 +35,10 @@ const providers: Provider[] = [
     fields: [
       { key: "RESEND_API_KEY", label: "API key", secret: true },
       { key: "AUTH_EMAIL_FROM", label: "Verified sender", hint: "e.g. Zenvio <hello@gozenvio.com>", secret: false },
+      { key: "BOOKING_EMAIL_FROM", label: "Booking sender (optional)", hint: "Defaults to bookings@ on your verified sender domain. Use e.g. Zenvio Bookings <meet@gozenvio.com> on the same domain.", secret: false },
       { key: "RESEND_WEBHOOK_SECRET", label: "Webhook signing secret", secret: true },
     ],
-    optional: ["RESEND_WEBHOOK_SECRET"],
+    optional: ["RESEND_WEBHOOK_SECRET", "BOOKING_EMAIL_FROM"],
     endpoints: [{ label: "Delivery webhook", path: "/api/messaging/resend" }],
     docs: { label: "Resend dashboard", href: "https://resend.com/api-keys" },
   },
