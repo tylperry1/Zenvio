@@ -419,7 +419,7 @@ export function AdminMarketplace() {
                 </>
               )}
               {tab === "settings" && data.settings.canManageVisibility && (
-                <section className="panel">
+                <section className="panel marketplace-visibility">
                   <h2>Marketplace visibility</h2>
                   <p>Hide the storefront and new purchases while retaining existing orders, refunds and fulfillment tools.</p>
                   <label className="check-label">

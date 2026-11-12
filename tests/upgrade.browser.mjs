@@ -63,7 +63,8 @@ try {
   await manualDialog.getByLabel("Time zone",{exact:true}).selectOption("auto");
   assert.equal(await manualDialog.getByLabel("Time zone",{exact:true}).inputValue(),"auto");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({path:"test-results/manual-timezone-mobile.png",fullPage:true});
+  await manualDialog.evaluate(d=>{d.scrollTop=0;});
+  await page.screenshot({path:"test-results/manual-timezone-mobile.png"});
   await manualDialog.getByRole("button",{name:"Close dialog"}).click();
 
   for (const route of [
