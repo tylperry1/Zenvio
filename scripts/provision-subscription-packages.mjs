@@ -32,7 +32,7 @@ try{
    }
    const couponId=launchCouponId;
    let coupon;
-   try{coupon=await stripe.coupons.retrieve(couponId);}catch(e){if(e.code!=='resource_missing')throw e;coupon=await stripe.coupons.create({id:couponId,name:'Early adopter: 50% off first 3 months',percent_off:50,duration:'repeating',duration_in_months:3,applies_to:{products:launchProducts}},{idempotencyKey:couponId});}
+   try{coupon=await stripe.coupons.retrieve(couponId,{expand:['applies_to']});}catch(e){if(e.code!=='resource_missing')throw e;coupon=await stripe.coupons.create({id:couponId,name:'Early adopter: 50% off first 3 months',percent_off:50,duration:'repeating',duration_in_months:3,applies_to:{products:launchProducts},expand:['applies_to']},{idempotencyKey:couponId});}
    if(coupon.deleted||coupon.percent_off!==50||coupon.duration!=='repeating'||coupon.duration_in_months!==3||coupon.applies_to?.products.length!==2||!launchProducts.every(id=>coupon.applies_to.products.includes(id)))throw Error('Early-adopter coupon needs review');
    console.log('Individual, Teams base, and additional-seat recurring prices verified. Existing subscriptions unchanged.');
    await db.query("COMMIT");

@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       const promotion = (await db.query("SELECT value FROM private.platform_settings WHERE key='pricing_v3_launch_promotion'")).rows[0]?.value;
       let launchDiscount = false;
       if (promotion?.enabled === true && reservation && (!reservation.claimed_user_id || reservation.claimed_user_id === token) && existing.data.length === 0) {
-        const coupon = await stripe.coupons.retrieve(launchCouponId);
+        const coupon = await stripe.coupons.retrieve(launchCouponId, {expand:["applies_to"]});
         if (!validLaunchCoupon(coupon)) throw new ApiError("Your reserved early-adopter offer needs billing review. No payment has been taken.",503);
         launchDiscount = true;
         await db.query("UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",[reservation.id,token]);
