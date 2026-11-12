@@ -2,7 +2,7 @@ import type { PoolClient } from "pg";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, email, failure, sameOrigin, session, string, uuid } from "@/lib/server";
-import { cardKinds, cleanLinks, cleanSlug, cleanWebsite, newCardToken } from "@/lib/smart-cards";
+import { cardKinds, cleanCardDestination, cleanLinks, cleanSlug, cleanWebsite, newCardToken } from "@/lib/smart-cards";
 
 import { configuredWallets } from "@/lib/smart-wallet";
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (![7, 30, 90].includes(days)) throw new ApiError("Choose a 7, 30 or 90 day period.");
     const [profiles, cards, views, booking, engagement, wallet] = await Promise.all([
       db.query("SELECT * FROM private.smart_profiles WHERE user_id=$1 ORDER BY created_at", [owner]),
-      db.query("SELECT id,profile_id,token,label,kind,status,created_at,deactivated_at,encoding_confirmed_at,legacy_registration FROM private.smart_cards WHERE user_id=$1 ORDER BY created_at DESC", [owner]),
+      db.query("SELECT id,profile_id,token,label,kind,status,created_at,deactivated_at,encoding_confirmed_at,legacy_registration,destination_kind,destination_url FROM private.smart_cards WHERE user_id=$1 ORDER BY created_at DESC", [owner]),
       db.query(
         `SELECT v.profile_id,v.channel,sum(v.views)::int views FROM private.smart_profile_views v
            JOIN private.smart_profiles p ON p.id=v.profile_id
@@ -144,6 +144,15 @@ export async function POST(request: NextRequest) {
         if (!created.rowCount) throw new ApiError("Choose a profile that is not archived.", 409);
         return Response.json({ ok: true, token });
       });
+    }
+    if (input.action === "card-destination") {
+      const destination=cleanCardDestination(input.destinationKind,input.destinationUrl);
+      const r=await db.query(`WITH card AS (
+        UPDATE private.smart_cards SET destination_kind=$3,destination_url=$4 WHERE id=$1 AND user_id=$2 RETURNING id,profile_id,status
+      ) INSERT INTO private.smart_card_activity(card_id,action,profile_id,status) SELECT id,'updated',profile_id,status FROM card`,[uuid(input.id),owner,destination.kind,destination.url]);
+      if(!r.rowCount) throw new ApiError("Card not found.",404);
+      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'nfc_destination_updated',$2)",[owner,JSON.stringify({cardId:input.id,kind:destination.kind})]);
+      return Response.json({ok:true});
     }
     if (input.action === "update-card") {
       const id = uuid(input.id);

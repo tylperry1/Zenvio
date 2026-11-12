@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { TimezoneSelect } from "./timezone-select";
+import { localBookingStart } from "@/lib/recurrence.mjs";
 import { Modal } from "./modal";
 import type { WorkspaceData } from "@/lib/types";
 
@@ -17,6 +19,9 @@ export function CreateAppointment({
   onSave: (values: Record<string, unknown>) => Promise<boolean>;
 }) {
   const events = data.events.filter((e) => e.active && !e.deleted_at);
+  const [override,setOverride]=useState(false);
+  const [manualTime,setManualTime]=useState("");
+  const [zone,setZone]=useState(data.profile.timezone);
   const [eventId, setEventId] = useState(events[0]?.id || "");
   const [date, setDate] = useState("");
   const [start, setStart] = useState("");
@@ -34,7 +39,7 @@ export function CreateAppointment({
     setSlots([]);
     setStart("");
     setError("");
-    if (!date || !event) return;
+    if (!date || !event || override) { setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true);
     fetch(
@@ -54,18 +59,25 @@ export function CreateAppointment({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [date, event?.slug, data.profile.slug]);
+  }, [date, event?.slug, data.profile.slug, override]);
   return (
     <Modal title="Create appointment" onClose={onClose}>
       <form
         className="stack-form"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!start || busy || loading) return;
+          if (busy || loading) return;
+          let chosen = start;
+          try {if(override) chosen=localBookingStart(`${date}T${manualTime}`,zone);}
+          catch(error) {setError((error as Error).message);return;}
+          if(!chosen) {setError("Choose a valid time. This local time may not exist because of daylight saving time.");return;}
           const f = new FormData(e.currentTarget);
           const success = await onSave({
             event_id: eventId,
-            starts_at: start,
+            starts_at: chosen,
+            overrideAvailability: override,
+            overrideConfirmed: f.get("overrideConfirmed") === "on",
+            overrideReason: f.get("overrideReason"),
             name,
             email,
             answers: Object.fromEntries(
@@ -92,7 +104,7 @@ export function CreateAppointment({
         <p>
           Schedule on behalf of a client. Times use{" "}
           {data.profile.timezone.replaceAll("_", " ")} and respect your
-          availability, buffers, and connected calendar.
+          availability, buffers, and connected calendar. An explicit manual override can bypass published availability; conflicts remain blocked.
         </p>
         {!events.length && (
           <p role="status">
@@ -114,8 +126,16 @@ export function CreateAppointment({
             ))}
           </select>
         </label>
+        <label className="check-label">
+          <input type="checkbox" checked={override} disabled={busy} onChange={e=>setOverride(e.target.checked)} />
+          Enter a custom time outside availability
+        </label>
         <label>
-          Date
+          Time zone
+          <TimezoneSelect value={zone} onChange={setZone} businessZone={data.profile.timezone} disabled={busy} />
+        </label>
+        <label>
+          {override ? "Appointment date in selected time zone" : `Availability date (${data.profile.timezone})`}
           <input
             type="date"
             required
@@ -124,7 +144,7 @@ export function CreateAppointment({
             onChange={(e) => setDate(e.target.value)}
           />
         </label>
-        <label>
+        {!override && <label>
           Available time
           <select
             required
@@ -138,15 +158,20 @@ export function CreateAppointment({
             {slots.map((s) => (
               <option key={s} value={s}>
                 {new Date(s).toLocaleTimeString([], {
-                  timeZone: data.profile.timezone,
+                  timeZone: zone,
                   hour: "numeric",
                   minute: "2-digit",
                 })}
               </option>
             ))}
           </select>
-        </label>
-        {date && event && !loading && !slots.length && !error && (
+        </label>}
+        {override && <>
+          <label>Custom time<input type="time" required value={manualTime} onChange={e=>setManualTime(e.target.value)} disabled={busy} /></label>
+          <label>Reason for override<input name="overrideReason" required minLength={5} maxLength={500} placeholder="e.g. Client requested an evening appointment" disabled={busy} /></label>
+          <label className="check-label"><input name="overrideConfirmed" type="checkbox" required disabled={busy} />I confirm this time may be outside published availability. Calendar conflicts will still be checked.</label>
+        </>}
+        {!override && date && event && !loading && !slots.length && !error && (
           <p role="status">
             No available times. Choose another date. Booking times are 2 hours
             to 90 days ahead.
@@ -261,7 +286,7 @@ export function CreateAppointment({
         {error && <p role="alert">{error}</p>}
         <button
           className="button primary full"
-          disabled={busy || loading || !start}
+          disabled={busy || loading || (override ? !date || !manualTime : !start)}
         >
           {busy ? "Creating…" : "Create appointment"}
         </button>

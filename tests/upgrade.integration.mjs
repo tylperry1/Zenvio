@@ -910,6 +910,30 @@ try {
   assert.equal(runnerState.last_error, "Email delivery is not configured.");
   assert.equal(runnerState.last_success_at, null);
   assert.equal(runnerState.locked_until, null);
+
+  // Owner-only storefront switch preserves order access while blocking new shopping.
+  assert.equal((await request("/api/admin/marketplace",{action:"visibility",visible:false},alice.cookie)).status,403);
+  assert.equal((await request("/api/admin/marketplace",{action:"visibility",visible:false},owner.cookie)).status,200);
+  assert.equal((await request("/api/marketplace")).status,404);
+  assert.equal((await request("/api/marketplace",{lines:[]})).status,404);
+  assert.equal((await fetch(origin+"/marketplace")).status,404);
+  assert.equal((await fetch(origin+"/marketplace/orders",{headers:{Cookie:alice.cookie}})).status,200);
+  assert.equal((await request("/api/workspace",null,alice.cookie)).data.marketplaceVisible,false);
+  assert.equal((await request("/api/admin/marketplace",{action:"visibility",visible:true},owner.cookie)).status,200);
+  assert.equal((await request("/api/marketplace")).status,200);
+
+  // Private manual override bypasses published hours, never identity or conflicts.
+  const manualEvent=(await db.query("INSERT INTO public.event_types(user_id,title,slug,duration,buffer) VALUES($1,'After hours','after-hours',30,15) RETURNING id",[aid])).rows[0];
+  const manualDate=new Date(Date.now()+25*86400000);manualDate.setUTCHours(3,7,0,0);
+  const manual={action:"create-appointment",event_id:manualEvent.id,starts_at:manualDate.toISOString(),name:"After Hours Client",email:"after-hours@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true,overrideReason:"Client requested an evening appointment"};
+  assert.equal((await request("/api/workspace",manual)).status,401);
+  assert.equal((await request("/api/workspace",manual,bob.cookie)).status,404);
+  assert.equal((await request("/api/workspace",{...manual,overrideConfirmed:false},alice.cookie)).status,400);
+  assert.equal((await request("/api/workspace",manual,alice.cookie)).status,201);
+  assert.equal((await request("/api/workspace",{...manual,email:"overlap@example.com"},alice.cookie)).status,409);
+  assert.equal((await request("/api/book",{host:wa.profile.slug,event:"after-hours",starts_at:manual.starts_at,name:"Public Guest",email:"public-after@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true})).status,409);
+  assert.equal((await db.query("SELECT count(*)::int n FROM private.operation_log WHERE actor_id=$1 AND action='manual_booking_availability_override'",[aid])).rows[0].n,1);
+
   console.log(
     "PASS upgrade integration: migrations, ownership, required intake snapshots, immutable reschedule IDs and reminder cancellation, encrypted per-recipient delivery, template versions, client links, workflow permissions, team invitations and shared reservations, provider/payment gates, and admin isolation.",
   );

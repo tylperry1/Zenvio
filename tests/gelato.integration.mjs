@@ -151,7 +151,7 @@ try {
   const actor = randomUUID(), other = randomUUID();
   const tag = Date.now().toString(36);
   await pool.query('INSERT INTO public."user"(id,name,email) VALUES($1,$2,$3),($4,$5,$6)', [actor, "Buyer One", `buyer-${tag}@example.com`, other, "Other Buyer", `other-${tag}@example.com`]);
-  await pool.query("UPDATE private.platform_settings SET value=value||'{\"checkoutEnabled\":true,\"guestCheckoutEnabled\":true}'::jsonb WHERE key='marketplace'");
+  await pool.query("UPDATE private.platform_settings SET value=value||'{\"visible\":true,\"checkoutEnabled\":true,\"guestCheckoutEnabled\":true}'::jsonb WHERE key='marketplace'");
   const buyer = { userId: actor, guestHash: null };
   const intruder = { userId: other, guestHash: null };
   const guest = { userId: null, guestHash: "a".repeat(64) };

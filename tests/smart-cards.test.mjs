@@ -77,3 +77,11 @@ test("vCard folds at 75 UTF-8 bytes and prevents field injection with bare carri
   assert.ok(unfolded.includes("NOTE:" + "é".repeat(100) + "\\nTEL:123"));
   assert.doesNotMatch(unfolded, /^TEL:/m);
 });
+
+
+test("NFC destinations accept HTTPS links and reject scripts or embedded credentials",()=>{
+  assert.deepEqual(S.cleanCardDestination("profile","ignored"),{kind:"profile",url:""});
+  assert.deepEqual(S.cleanCardDestination("review","https://g.page/r/example/review"),{kind:"review",url:"https://g.page/r/example/review"});
+  for(const bad of ["javascript:alert(1)","http://example.com","https://user:pass@example.com","https://example.com/\nredirect"]) assert.throws(()=>S.cleanCardDestination("review",bad));
+  assert.throws(()=>S.cleanCardDestination("unknown","https://example.com"));
+});

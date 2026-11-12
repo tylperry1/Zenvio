@@ -16,8 +16,8 @@
 - Browser attempt: bundled Playwright browser absent; system Chromium launch rejected by runtime socket restrictions (Operation not permitted). No screenshot was reviewed or represented as passing.
 
 ## Release blockers
-- Automatic approval review rejected GitHub push; release branch remains local until explicit publication approval.
-- CI, authenticated visual review and production deployment remain pending.
+- Initial shell publication was blocked; owner approval was subsequently given and the release shipped through PR #44 at production commit 07087fd.
+- PR #44 CI passed on final revision 132e11f. Desktop/mobile screenshots were reviewed before merge; production deployment reached READY with gozenvio.com assigned.
 - Full role-by-role review of all 67 page routes and marketing feature-copy reconciliation is still open. This release is the first functional/navigation pass, not a completed platform-wide design audit.
 - Real iPhone Calendar import and live email delivery still require acceptance testing.
 

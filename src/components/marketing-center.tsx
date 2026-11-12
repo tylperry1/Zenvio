@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, BarChart, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate, relativeTime } from "./ds";
@@ -72,12 +73,12 @@ async function copyText(text: string) {
 }
 
 export function MarketingCenter() {
-  const [tab, setTab] = useState<"share" | "sources" | "reviews">("share");
+  const [tab, setTab] = useState<"share" | "sources" | "reviews" | "nfc">("share");
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     const t = new URLSearchParams(location.search).get("tab");
-    if (t === "sources" || t === "reviews") setTab(t);
+    if (t === "sources" || t === "reviews" || t === "nfc") setTab(t);
     fetch("/api/workspace", { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
@@ -99,12 +100,18 @@ export function MarketingCenter() {
           setTab(v);
           history.replaceState(null, "", `/app/marketing${v === "share" ? "" : `?tab=${v}`}`);
         }}
-        options={[["share", "Share & embed"], ["sources", "Booking sources"], ["reviews", "Reviews"]] as const}
+        options={[["share", "Share & embed"], ["sources", "Booking sources"], ["reviews", "Reviews"], ["nfc", "NFC products"]] as const}
       />
       {error && <Notice tone="danger">{error}</Notice>}
       {tab === "share" && (workspace ? <Share workspace={workspace} /> : !error && <Skeleton height={320} />)}
       {tab === "sources" && <SourcesTab />}
       {tab === "reviews" && <ReviewsTab />}
+      {tab === "nfc" && <Panel title="Programmable NFC products" description="Turn a tap into a review, booking or business connection.">
+        <p>Use review stands, business cards, stickers, keychains or tags. Register a product in Smart Cards, write its permanent Zenvio link to the chip, then change its destination whenever you need.</p>
+        <ul><li>Review page: send visitors to your Google or other review link.</li><li>Booking page: open your current scheduling page.</li><li>Business profile: share contact details and links.</li><li>Website or offer: change campaigns without replacing the product.</li></ul>
+        <Link className="ds-btn primary" href="/app/smart-cards?tab=cards">Manage NFC products</Link>
+        <p className="sc-hint">Bring your own writable NFC product and use a compatible NFC writer. Zenvio manages the link; automatic physical encoding and product fulfillment are not enabled. Invite honest feedback from every customer; tap counts do not verify a submitted review.</p>
+      </Panel>}
     </div>
   );
 }

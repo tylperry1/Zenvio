@@ -1,3 +1,4 @@
+import { requireMarketplaceVisible } from "@/lib/marketplace-visibility";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { failure, uuid, ApiError } from "@/lib/server";
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     const id = uuid(request.nextUrl.searchParams.get("id"));
     const preview = request.nextUrl.searchParams.get("preview") === "1";
     const admin = preview && viewer.user ? canAccess(await adminAccess(viewer.user.id), "marketplace") : false;
+    if (!admin) await requireMarketplaceVisible();
     if (preview && !admin) throw new ApiError("Preview requires marketplace access.", 403);
     const p = (
       await getPool().query(
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     const family = (await getPool().query("SELECT f.slug,f.name FROM private.marketplace_categories c JOIN private.marketplace_families f ON f.slug=c.family WHERE c.name=$1", [p.category])).rows[0] || null;
     if (!sp)
       return Response.json(
-        { product: { ...product, customizable: false }, family, supplier: null, checkoutReady: settings.checkoutEnabled && settings.paymentConfigured, guest: viewer.guest },
+        { product: { ...product, customizable: false }, family, supplier: null, checkoutReady: settings.visible && settings.checkoutEnabled && settings.paymentConfigured, guest: viewer.guest },
         { headers: { "Cache-Control": "no-store" } },
       );
     const rule = await supplierProductRule(getPool(), { ...sp, category: p.category }, await gelatoSupplierId());
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
           artworkRequirements: sp.artwork_requirements,
           shippingNote: "Shipping is calculated from your address with a live quote before payment.",
         },
-        checkoutReady: settings.checkoutEnabled && settings.paymentConfigured,
+        checkoutReady: settings.visible && settings.checkoutEnabled && settings.paymentConfigured,
         guest: viewer.guest,
         preview: admin,
       },

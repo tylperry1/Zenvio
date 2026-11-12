@@ -1,3 +1,4 @@
+import { requireMarketplaceVisible } from "@/lib/marketplace-visibility";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import {
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    await requireMarketplaceVisible();
     // Browsing is public; checkout decides between account and guest.
     const signedIn = await currentUser().catch(() => null);
     const q = request.nextUrl.searchParams,
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
         categoryFamilies: Object.fromEntries(familyOfCategory.map((r) => [r.name, r.family])),
         total: counts[0].total,
         page,
-        checkoutReady: settings.checkoutEnabled && settings.paymentConfigured,
+        checkoutReady: settings.visible && settings.checkoutEnabled && settings.paymentConfigured,
         signedIn: Boolean(signedIn),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -69,6 +71,7 @@ export async function GET(request: NextRequest) {
 }
 export async function POST(request: NextRequest) {
   try {
+    await requireMarketplaceVisible();
     sameOrigin(request);
     const input = await body(request);
     cartLines(input.lines);

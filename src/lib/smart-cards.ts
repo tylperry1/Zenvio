@@ -145,3 +145,13 @@ export async function recordProfileAction(profileId: string, action: "vcard" | "
     [profileId, action],
   );
 }
+
+export function cleanCardDestination(kind:unknown,value:unknown) {
+  if(!["profile","review","booking","website"].includes(String(kind))) throw new ApiError("Choose a tap destination.");
+  if(kind === "profile" || kind === "booking") return {kind:String(kind),url:""};
+  const raw=typeof value === "string" ? value.trim() : "";
+  let url:URL;
+  try {url=new URL(raw);} catch {throw new ApiError("Enter a valid HTTPS destination.");}
+  if(raw.length>500||url.protocol!=="https:"||url.username||url.password||!url.hostname.includes(".")||/[\r\n]/.test(raw)) throw new ApiError("Enter a valid HTTPS destination without credentials.");
+  return {kind:String(kind),url:url.href};
+}

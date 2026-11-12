@@ -1,3 +1,5 @@
+import { createManualBooking } from "@/lib/manual-booking";
+import { marketplaceVisible } from "@/lib/marketplace-visibility";
 import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
 import { getPool } from "@/lib/db";
 import { intakeAnswers } from "@/lib/intake";
@@ -73,6 +75,7 @@ export async function GET() {
         bookingCount: counts.bookings,
         contactCount: counts.contacts,
         platformRole: role,
+        marketplaceVisible: await marketplaceVisible(),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -116,6 +119,10 @@ export async function POST(request: NextRequest) {
     }
     switch (input.action) {
       case "create-appointment": {
+        if(input.overrideAvailability === true) {
+          await createManualBooking(token,input);
+          return Response.json({ok:true,message:"Appointment created outside published availability."},{status:201});
+        }
         const eventId = uuid(input.event_id);
         const [events, profiles] = await Promise.all([
           backend(`/rest/v1/event_types?id=eq.${eventId}&select=*`, {}, token),

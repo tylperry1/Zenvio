@@ -163,7 +163,7 @@ export function OrderDetails({
     </>
   );
 }
-export function MarketplaceOrders() {
+export function MarketplaceOrders({marketplaceVisible=false}:{marketplaceVisible?:boolean}) {
   const [orders, setOrders] = useState<MarketOrder[]>([]),
     [selected, setSelected] = useState<MarketOrder | null>(null),
     [page, setPage] = useState(0),
@@ -212,7 +212,7 @@ export function MarketplaceOrders() {
         <PageHeader
           title="Your orders"
           description="Payment status, production, and delivery updates."
-          actions={
+          actions={marketplaceVisible &&
             <Link className="billing-secondary" href="/marketplace">
               Back to marketplace
             </Link>
@@ -334,7 +334,7 @@ export function MarketplaceOrders() {
                   <div className="billing-empty">
                     <h3>No orders yet</h3>
                     <p>Your marketplace purchases will appear here.</p>
-                    <Link href="/marketplace">Browse products →</Link>
+                    {marketplaceVisible && <Link href="/marketplace">Browse products →</Link>}
                   </div>
                 )}
               </div>

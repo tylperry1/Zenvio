@@ -36,7 +36,7 @@ const https = (value: unknown, name: string, max = 500) => {
 };
 export async function GET(request: NextRequest) {
   try {
-    await adminSession("marketplace");
+    const { access } = await adminSession("marketplace");
     const q = request.nextUrl.searchParams;
     if (q.get("order"))
       return Response.json(await marketOrderDetail(uuid(q.get("order"))), {
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         products,
         orders,
         metrics: { ...metrics[0], ...counts[0] },
-        settings: await marketSettings(),
+        settings: { ...await marketSettings(), canManageVisibility: access.role === "master_admin" },
         page,
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -79,14 +79,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token } = await adminSession("marketplace"),
+    const { token, access } = await adminSession("marketplace"),
       input = await body(request);
     const client = await getPool().connect();
     try {
       await client.query("BEGIN");
       let details: Record<string, unknown> = {};
       let sendEmails = false;
-      if (input.action === "supplier") {
+      if (input.action === "visibility") {
+        if (access.role !== "master_admin") throw new ApiError("Only the master admin can change marketplace visibility.", 403);
+        if (typeof input.visible !== "boolean") throw new ApiError("Choose marketplace visibility.");
+        await client.query("UPDATE private.platform_settings SET value=value||$1::jsonb,updated_at=now() WHERE key='marketplace'", [JSON.stringify({visible:input.visible})]);
+        details = {visible:input.visible};
+      } else if (input.action === "supplier") {
         if (
           !["dropship", "wholesale", "print_on_demand"].includes(
             String(input.fulfillment),

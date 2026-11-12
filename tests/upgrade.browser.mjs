@@ -53,7 +53,19 @@ try {
     path: "test-results/upgrade-create-desktop.png",
     fullPage: true,
   });
+  const manualDialog=page.getByRole("dialog");
+  await manualDialog.getByLabel("Enter a custom time outside availability").check();
+  await manualDialog.getByLabel("Time zone",{exact:true}).selectOption("America/Los_Angeles");
+  await manualDialog.getByLabel("Appointment date in selected time zone").fill("2026-12-20");
+  await manualDialog.getByLabel("Custom time",{exact:true}).fill("19:15");
+  await manualDialog.getByLabel("Reason for override").fill("Client requested an evening appointment");
+  await manualDialog.getByLabel("I confirm this time may be outside published availability. Calendar conflicts will still be checked.").check();
+  await manualDialog.getByLabel("Time zone",{exact:true}).selectOption("auto");
+  assert.equal(await manualDialog.getByLabel("Time zone",{exact:true}).inputValue(),"auto");
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({path:"test-results/manual-timezone-mobile.png",fullPage:true});
+  await manualDialog.getByRole("button",{name:"Close dialog"}).click();
+
   for (const route of [
     "calendar",
     "clients",

@@ -2023,7 +2023,7 @@ function Settings({
               </span>
               <Icon name="arrow" size={15} />
             </Link>
-            <Link href="/marketplace">
+            {data.marketplaceVisible && <Link href="/marketplace">
               <span>
                 <Icon name="link" size={18} />
                 <span>
@@ -2032,7 +2032,7 @@ function Settings({
                 </span>
               </span>
               <Icon name="arrow" size={15} />
-            </Link>
+            </Link>}
           </div>
         )}
         {!demo && <AccountData />}

@@ -265,3 +265,8 @@
   .portal-page .ui-tabs {flex-wrap:wrap;overflow:visible;gap:4px}
   .portal-page .ui-tabs.ui-tabs > button {flex:1 0 auto;min-height:44px}
 }
+
+.sc-destination {margin-top:10px;max-width:480px}
+.sc-destination summary {cursor:pointer;color:var(--action-primary);font-size:13px;padding:8px 0}
+.sc-destination .ui-form {padding-block:10px}
+.sc-destination input,.sc-destination select {max-width:100%;min-width:0}

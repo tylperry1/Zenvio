@@ -26,7 +26,7 @@ type Profile = {
   archived_at?: string | null;
   capture_leads: boolean;
 };
-type Card = { id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; encoding_confirmed_at: string | null; legacy_registration: boolean; created_at: string };
+type Card = { destination_kind: string; destination_url: string; id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; encoding_confirmed_at: string | null; legacy_registration: boolean; created_at: string };
 type Data = { wallet: { apple: boolean; google: boolean }; profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
 
 const kinds = [
@@ -81,6 +81,7 @@ export function SmartCards() {
   }
   useEffect(() => {
     setOrigin(window.location.origin);
+    if(new URLSearchParams(window.location.search).get("tab") === "cards") setTab("cards");
     load().catch((e) => setError(e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -486,9 +487,10 @@ function CardsTab({
                       </Badge>
                     </b>
                     <small>
-                      Opens {profileName(c.profile_id)} · registered {formatDate(c.created_at)}
+                      Opens {c.destination_kind === "review" ? "review page" : c.destination_kind === "booking" ? "booking page" : c.destination_kind === "website" ? "website" : profileName(c.profile_id)} · registered {formatDate(c.created_at)}
                     </small>
                     <code>{url}</code>
+                    <CardDestination key={c.id+":"+c.destination_kind+":"+c.destination_url} card={c} busy={busy} post={post} />
                   </div>
                   <div className="sc-card-actions">
                     <button className="ds-btn sm" onClick={() => void copy(url, "Card link")}>
@@ -536,4 +538,19 @@ function CardsTab({
       </Panel>
     </div>
   );
+}
+
+function CardDestination({card,busy,post}:{card:Card;busy:boolean;post:(p:Record<string,unknown>,s:string)=>Promise<Record<string,unknown>|null>}) {
+  const [kind,setKind]=useState(card.destination_kind || "profile");
+  const [url,setUrl]=useState(card.destination_url || "");
+  return <details className="sc-destination"><summary>Program tap destination</summary>
+    <form className="ui-form" onSubmit={e=>{e.preventDefault();void post({action:"card-destination",id:card.id,destinationKind:kind,destinationUrl:url},"Tap destination saved. The encoded link stays the same.");}}>
+      <label className="ds-field">Tap opens<select value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}>
+        <option value="profile">Digital business profile</option><option value="review">Review page</option><option value="booking">Booking page</option><option value="website">Website or offer</option>
+      </select></label>
+      {["review","website"].includes(kind) && <label className="ds-field">HTTPS destination<input type="url" required maxLength={500} value={url} disabled={busy} onChange={e=>setUrl(e.target.value)} placeholder="https://..." /></label>}
+      <p className="sc-hint">Encode the permanent Zenvio link once. Future destination changes do not require rewriting the chip. Review taps are visits, not verified reviews.</p>
+      <button className="ds-btn sm primary" disabled={busy}>Save tap destination</button>
+    </form>
+  </details>;
 }

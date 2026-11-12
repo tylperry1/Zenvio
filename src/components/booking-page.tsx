@@ -1,4 +1,5 @@
 "use client";
+import { TimezoneSelect } from "./timezone-select";
 import { captureAttribution, readAttribution } from "@/lib/attribution-client";
 import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { PublicPhoto } from "./profile-photo";
@@ -837,19 +838,7 @@ export function BookingPage({
                     <Icon name="globe" size={16} />
                     <label>
                       Show times in
-                      <select
-                        value={zone}
-                        onChange={(e) => setZone(e.target.value)}
-                        aria-label="Display timezone"
-                      >
-                        {[...new Set([zone, event.timezone, ...timezones])].map(
-                          (z) => (
-                            <option key={z} value={z}>
-                              {z.replaceAll("_", " ")}
-                            </option>
-                          ),
-                        )}
-                      </select>
+                      <TimezoneSelect value={zone} onChange={setZone} businessZone={event.timezone} label="Display timezone" />
                     </label>
                   </div>
                   <p className="helper-text">
