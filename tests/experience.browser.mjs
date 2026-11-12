@@ -36,6 +36,10 @@ try {
       assert.equal(await page.locator("h1").count(), 1, route);
       assert(!(await page.getByText("Application error").count()), route);
       await noHorizontalScroll(page, `${route} (${viewport.name})`);
+      if (route === "assistant") {
+        await page.locator(".as-welcome").waitFor();
+        assert.equal(await page.locator(".as-log").evaluate(n => n.scrollTop), 0, "empty assistant must show its heading, not scroll to the last suggestion");
+      }
       await page.screenshot({ path: `test-results/v21-${route}-${viewport.name}.png` });
     }
 

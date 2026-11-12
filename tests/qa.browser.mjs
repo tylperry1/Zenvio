@@ -43,7 +43,11 @@ try {
         results.push({route,width,status:response.status(),overflow,timing});
         assert(overflow<=1,`${route} at ${width}px overflows ${overflow}px`);
         assert.equal(await page.getByText("Application error",{exact:true}).count(),0,route);
-        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing"].includes(route))
+        if(route === "/app/clients" && width <= 640) {
+          const clientOverflow=await page.locator(".client-table-wrap").evaluate(n=>n.scrollWidth-n.clientWidth);
+          assert(clientOverflow <= 1, "mobile client records must fit without sideways scrolling");
+        }
+        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing","/app/clients"].includes(route))
           await page.screenshot({path:`test-results/qa-${route.replace(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
       }
     }
@@ -77,6 +81,14 @@ try {
   const adminMenu = pages[2];
   await adminMenu.setViewportSize({ width: 1440, height: 900 });
   await adminMenu.goto(origin + "/admin/operations?section=health");
+  const workspaceMenu = pages[1];
+  await workspaceMenu.setViewportSize({width:1440,height:1000});
+  await workspaceMenu.goto(origin+"/app/clients");
+  const businessGroup = workspaceMenu.locator(".shell-nav-group").filter({has:workspaceMenu.locator("summary",{hasText:"Business"})});
+  assert.equal(await businessGroup.getAttribute("open"),null);
+  await businessGroup.locator("summary").click();
+  await businessGroup.getByRole("link",{name:"Team",exact:true}).waitFor();
+  await workspaceMenu.screenshot({path:"test-results/workspace-menu-compact.png"});
   const platformNav = adminMenu.getByRole("navigation", { name: "Platform", exact: true });
   const healthLink = platformNav.getByRole("link", { name: "System health" });
   await healthLink.waitFor();

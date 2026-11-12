@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       throw new ApiError("Client not found.", 404);
     if (v.action === "edit")
       await getPool().query(
-        "UPDATE public.contacts SET name=$3,email=$4,company=$5,notes=$6 WHERE id=$1 AND user_id=$2",
+        "UPDATE public.contacts SET name=$3,email=$4,company=$5,notes=$6,phone=$7,address=$8 WHERE id=$1 AND user_id=$2",
         [
           id,
           token,
@@ -169,6 +169,8 @@ export async function POST(req: NextRequest) {
           email(v.email),
           string(v.company || "", "company", 100, 0),
           string(v.notes || "", "notes", 2000, 0),
+          string(v.phone || "", "phone", 40, 0),
+          string(v.address || "", "address", 500, 0),
         ],
       );
     else if (v.action === "link_envelope") {

@@ -148,22 +148,24 @@ function Navigation({
       {groups.map((group) => {
         const items = group.items.filter((i) => visible(i, demo, jobs));
         if (!items.length) return null;
+        const links = items.map((item) => (
+          <Link
+            key={item.id}
+            href={hrefFor(item, demo)}
+            className={current?.id === item.id ? "active" : ""}
+            aria-current={current?.id === item.id ? "page" : undefined}
+            onClick={onNavigate}
+          >
+            <Icon name={item.icon} size={18} />
+            <span>{item.label}</span>
+          </Link>
+        ));
+        if (!group.label) return <div className="shell-nav-group" key="home">{links}</div>;
         return (
-          <div className="shell-nav-group" key={group.label || "home"}>
-            {group.label && <p>{group.label}</p>}
-            {items.map((item) => (
-              <Link
-                key={item.id}
-                href={hrefFor(item, demo)}
-                className={current?.id === item.id ? "active" : ""}
-                aria-current={current?.id === item.id ? "page" : undefined}
-                onClick={onNavigate}
-              >
-                <Icon name={item.icon} size={18} />
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
+          <details className="shell-nav-group" key={group.label + (group.items.some(i => i.id === current?.id) ? "-active" : "")} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
+            <summary>{group.label}<Icon name="chevron" size={12} /></summary>
+            {links}
+          </details>
         );
       })}
     </>

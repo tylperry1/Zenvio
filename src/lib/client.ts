@@ -1,4 +1,5 @@
 import { icsContent } from "./scheduling.mjs";
+import { bookingCalendarTitle, bookingCalendarDescription } from "./calendar-invitation.mjs";
 import type { Booking } from "./types";
 export function download(content: string, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -10,9 +11,9 @@ export function download(content: string, name: string, type: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function calendarDownload(b: Booking, title: string, location: string) {
+export function calendarDownload(b: Booking, title: string, location: string, description = "") {
   download(
-    icsContent({ ...b, title, location, description: b.notes }),
+    icsContent({ ...b, title: bookingCalendarTitle(title, b.guest_name), location, description: bookingCalendarDescription(description, (b as Booking & {intake_snapshot?: unknown}).intake_snapshot) }),
     `zenvio-${b.id}.ics`,
     "text/calendar;charset=utf-8",
   );

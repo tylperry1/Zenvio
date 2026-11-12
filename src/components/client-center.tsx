@@ -90,6 +90,8 @@ export function ClientCenter() {
     if (params.get("new")) setAdding(true);
   }, [params]);
   async function save(v: any) {
+    setBusy(true);
+    setError("");
     try {
       const r = await fetch("/api/clients", {
           method: "POST",
@@ -104,6 +106,9 @@ export function ClientCenter() {
       await load();
     } catch (e) {
       setError((e as Error).message);
+      throw e;
+    } finally {
+      setBusy(false);
     }
   }
   const timeline = detail
@@ -229,10 +234,10 @@ export function ClientCenter() {
                           {c.name}
                         </span>
                       </td>
-                      <td>{c.email}</td>
-                      <td>{c.company || "—"}</td>
-                      <td>{c.appointments}</td>
-                      <td>{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
+                      <td data-label="Email">{c.email}</td>
+                      <td data-label="Company">{c.company || "—"}</td>
+                      <td data-label="Appointments">{c.appointments}</td>
+                      <td data-label="Last appointment">{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -638,7 +643,7 @@ function ClientDetail({
                 e.preventDefault();
                 void onSave({ action: "edit", ...Object.fromEntries(new FormData(e.currentTarget)) }).then(() =>
                   setEditing(false),
-                );
+                ).catch(() => {});
               }}
             >
               <Field label="Name">
@@ -646,6 +651,12 @@ function ClientDetail({
               </Field>
               <Field label="Email">
                 <input name="email" type="email" required defaultValue={c.email} />
+              </Field>
+              <Field label="Phone">
+                <input name="phone" type="tel" maxLength={40} defaultValue={c.phone || ""} />
+              </Field>
+              <Field label="Address">
+                <textarea name="address" maxLength={500} rows={3} defaultValue={c.address || ""} />
               </Field>
               <Field label="Company">
                 <input name="company" defaultValue={c.company} />
@@ -669,6 +680,10 @@ function ClientDetail({
                 <dd>
                   <a href={"mailto:" + c.email}>{c.email}</a>
                 </dd>
+                <dt>Phone</dt>
+                <dd>{c.phone || "—"}</dd>
+                <dt>Address</dt>
+                <dd style={{whiteSpace: "pre-line"}}>{c.address || "—"}</dd>
                 <dt>Company</dt>
                 <dd>{c.company || "—"}</dd>
                 <dt>Client since</dt>
