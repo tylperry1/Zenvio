@@ -13,6 +13,8 @@ export const integrationFields = {
   AUTH_EMAIL_FROM: "Verified sender email",
   BOOKING_EMAIL_FROM: "Booking sender on the verified email domain",
   STRIPE_SECRET_KEY: "Stripe secret key",
+  STRIPE_SANDBOX_WEBHOOK_SECRET:"Stripe sandbox acceptance webhook signing secret",
+  STRIPE_SANDBOX_SECRET_KEY:"Stripe sandbox acceptance key (test mode only)",
   STRIPE_GROWTH_WEBHOOK_SECRET: "Stripe customer-product webhook signing secret",
   STRIPE_CONNECT_WEBHOOK_SECRET:
     "Stripe Connect appointment-payment webhook signing secret",
@@ -114,8 +116,9 @@ export async function saveIntegration(
   }
 }
 export async function pricing() {
+  const catalog=await (await import("./billing-catalog")).currentCatalog();
   const { rows } = await getPool().query(
     "SELECT value FROM private.platform_settings WHERE key='pricing'",
   );
-  return [...(rows[0]?.value || []).filter((p: {id:string}) => !["individual", "team", "team_extra"].includes(p.id)), individualOffer, teamOffer, extraSeatOffer];
+  return [...(rows[0]?.value || []).filter((p: {id:string}) => !["individual", "team", "team_extra"].includes(p.id)), ...catalog.offers];
 }

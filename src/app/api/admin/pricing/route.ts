@@ -1,3 +1,4 @@
+import {currentCatalog} from "@/lib/billing-catalog";
 import { adminSession } from "@/lib/admin";
 import { billingReadiness } from "@/lib/billing-readiness";
 import { getPool } from "@/lib/db";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await adminSession("pricing");
-    const db = getPool();
+    const db = getPool(), catalog=await currentCatalog();
     const [mappings, subscribers, history, early] = await Promise.all([
       db.query("SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices ORDER BY plan,period"),
       db.query(
@@ -26,17 +27,17 @@ export async function GET() {
       db.query(
         `SELECT l.id,l.details,l.created_at,u.email actor
            FROM private.operation_log l LEFT JOIN public."user" u ON u.id=l.actor_id
-          WHERE l.action='pricing_updated' ORDER BY l.created_at DESC LIMIT 20`,
+          WHERE l.action IN ('pricing_updated','admin_billing_publish') ORDER BY l.created_at DESC LIMIT 20`,
       ),
       db.query("SELECT count(*)::int total, count(*) FILTER (WHERE claimed_user_id IS NULL)::int open FROM private.early_access_signups"),
     ]);
     const readiness = await billingReadiness();
     const mapped = (plan: string, current = false) =>
       mappings.rows
-        .filter(m => m.plan === plan && (!current || (m.period === "monthly" && m.catalog_version === catalogVersion)))
+        .filter(m => m.plan === plan && (!current || (m.period === "monthly" && m.catalog_version === catalog.version)))
         .map(m => ({ period: m.period, priceId: m.stripe_price_id }));
     const count = (plan: string) => subscribers.rows.find((r) => r.plan === plan) || { active: 0, past_due: 0, seats: 0 };
-    const packages = [individualOffer, teamOffer, extraSeatOffer].map((offer) => ({
+    const packages = catalog.offers.map((offer) => ({
       ...offer,
       stripe: mapped(offer.id, true),
       subscribers: offer.id === "team_extra" ? null : count(offer.id),
@@ -50,7 +51,7 @@ export async function GET() {
         packages,
         legacy,
         limits: { individual: planLimits.individual, team: planLimits.team },
-        allowances: monthlyAllowances,
+        allowances: catalog.allowances,
         envelopes: { overageCents: 100, overagesDefault: "off", capRangeCents: [100, 100000] },
         features: includedFeatures,
         earlyAccess: { offer: "50% off the base subscription for the first three monthly billing cycles", ...early.rows[0] },

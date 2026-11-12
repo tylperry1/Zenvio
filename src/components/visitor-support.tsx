@@ -252,6 +252,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
 /** Floating "Chat with us" button for public pages. */
 export function VisitorChatWidget() {
   const [open, setOpen] = useState(false);
+  const [expanded,setExpanded]=useState(false);
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -271,12 +272,13 @@ export function VisitorChatWidget() {
         </button>
       )}
       {open && (
-        <div id="zenvio-visitor-chat" className="ds-root sp-panel vc-panel" role="dialog" aria-label="Chat with Zenvio">
+        <div id="zenvio-visitor-chat" className={`ds-root sp-panel vc-panel ${expanded?"sp-panel-expanded":""}`} role="dialog" aria-label="Chat with Zenvio">
           <header className="sp-panel-head">
             <b>
               <Icon name="message" size={16} /> Chat with Zenvio
             </b>
             <span>
+              <button type="button" aria-label={expanded?"Minimize chat":"Expand chat"} onClick={()=>setExpanded(v=>!v)}>{expanded?"Minimize":"Expand"}</button>
               <Link href="/support" className="sp-expand">
                 Open full page
               </Link>

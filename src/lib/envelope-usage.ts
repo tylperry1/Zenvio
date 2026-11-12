@@ -12,12 +12,12 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const owner: string = roots[0]?.owner_id || user;
   const row = (await db.query(`SELECT private.effective_plan($1) plan,s.plan subscription_plan,s.status,s.customer_id,s.subscription_id,s.envelope_allowance,s.catalog_version,coalesce(s.seats,1) seats,coalesce(o.enabled,false) enabled,coalesce(o.monthly_cap_cents,0) cap FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.envelope_overage_settings o ON o.user_id=u.id WHERE u.id=$1`, [owner])).rows[0];
   const plan = (row?.plan || "free") as Plan;
-  const perSeat = ["individual", "team"].includes(plan) ? row?.envelope_allowance || 20 : (planLimits[plan] || planLimits.free).envelopes;
+  const perSeat = ["individual", "team"].includes(plan) ? row?.envelope_allowance ?? 20 : (planLimits[plan] || planLimits.free).envelopes;
   const seats = roots[0]?.seats || 1;
   const used = (await db.query(`SELECT count(*)::int sent,coalesce(sum(charge_cents),0)::int spent FROM private.envelope_usage WHERE billing_owner=$1 AND sent_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [owner])).rows[0];
   const eligible = ["individual", "team"].includes(row?.subscription_plan) && row?.status === "active" && Boolean(row?.customer_id && row?.subscription_id);
   const purchased=Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining",[owner])).rows[0]?.remaining||0);
-  return { purchasedRemaining:Math.max(0,purchased), creditDebt:purchased<0, catalogVersion: row?.catalog_version || "legacy", pooled: row?.catalog_version === "2026-11-v3", owner, canManage: owner === user, plan, perSeat, seats, included: row?.catalog_version === "2026-11-v3" && ["individual","team"].includes(plan) ? (plan === "team" ? 30 : 10) : perSeat * seats, sent: used?.sent || 0, spent: used?.spent || 0, enabled: Boolean(row?.enabled), cap: row?.cap || 0, eligible, customer: row?.customer_id, subscription: row?.subscription_id };
+  return { purchasedRemaining:Math.max(0,purchased), creditDebt:purchased<0, catalogVersion: row?.catalog_version || "legacy", pooled: (row?.catalog_version === "2026-11-v3" || row?.catalog_version?.startsWith("release-")), owner, canManage: owner === user, plan, perSeat, seats, included: (row?.catalog_version === "2026-11-v3" || row?.catalog_version?.startsWith("release-")) && ["individual","team"].includes(plan) ? (row?.catalog_version==="2026-11-v3" ? (plan==="team"?30:10) : row?.envelope_allowance ?? (plan==="team"?30:10)) : perSeat * seats, sent: used?.sent || 0, spent: used?.spent || 0, enabled: Boolean(row?.enabled), cap: row?.cap || 0, eligible, customer: row?.customer_id, subscription: row?.subscription_id };
 }
 export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number }) {
   if (budget.sent < budget.included) return 0;
@@ -35,7 +35,7 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
   budget = current;
   if ((await db.query("SELECT 1 FROM private.envelope_usage WHERE source_kind=$1 AND source_id=$2", [kind, id])).rowCount) return;
   let purchased=false;
-  if(budget.catalogVersion==='2026-11-v3'&&budget.sent>=budget.included&&['individual','team'].includes(budget.plan)){
+  if((budget.catalogVersion==='2026-11-v3'||budget.catalogVersion.startsWith('release-'))&&budget.sent>=budget.included&&['individual','team'].includes(budget.plan)){
     await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",['subscription-usage:'+budget.owner]);
     const current=await envelopeBudget(user,db);
     if(current.creditDebt)throw new ApiError("Refunded signing credits require billing review before additional sends.",409);

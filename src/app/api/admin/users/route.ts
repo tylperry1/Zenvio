@@ -12,6 +12,7 @@ import {
   uuid,
 } from "@/lib/server";
 export const dynamic = "force-dynamic";
+export async function GET(request:NextRequest){try{await adminSession("accounts");const id=uuid(request.nextUrl.searchParams.get("id"));const account=(await getPool().query('SELECT deactivated_at FROM public."user" WHERE id=$1',[id])).rows[0];if(!account)throw new ApiError("User not found.",404);return Response.json(account,{headers:{"Cache-Control":"no-store"}});}catch(e){return failure(e);}}
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     const input = await body(request),
       id = uuid(input.id);
     const reason = string(input.reason, "reason", 500, 5);
-    if (input.action !== "edit" && input.action !== "delete")
+    if (!["edit","delete","deactivate","reactivate"].includes(String(input.action)))
       throw new ApiError("Invalid user action.");
     const client = await getPool().connect();
     try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       ).rows[0];
       if (!account) throw new ApiError("User not found.", 404);
       const roles = await client.query(
-        "SELECT user_id FROM private.platform_roles WHERE user_id=$1 AND enabled=true",
+        "SELECT user_id FROM private.platform_roles WHERE user_id=$1",
         [id],
       );
       if (
@@ -54,7 +55,10 @@ export async function POST(request: NextRequest) {
           "Zenvio employee accounts can only be changed by the master admin.",
           409,
         );
-      if (input.action === "delete") {
+      if(input.action==="deactivate"||input.action==="reactivate"){
+        await client.query('UPDATE public."user" SET deactivated_at=CASE WHEN $2 THEN now() ELSE NULL END,"updatedAt"=now() WHERE id=$1',[id,input.action==="deactivate"]);
+        await client.query('DELETE FROM public.session WHERE "userId"=$1',[id]);
+      } else if (input.action === "delete") {
         if (input.confirmation !== account.email)
           throw new ApiError(
             "Type the user's email exactly to confirm deletion.",
@@ -113,6 +117,7 @@ export async function POST(request: NextRequest) {
             "Finish this user's pending calendar sync before deleting the account.",
             409,
           );
+        for(const table of ["private.client_activity","private.google_calendar_cleanup","private.entitlement_overrides","private.team_event_staff","private.memberships"])await client.query(`DELETE FROM ${table} WHERE user_id=$1`,[id]);
         await client.query('DELETE FROM public."user" WHERE id=$1', [id]);
       } else {
         const name = string(input.name, "name", 100, 2),
@@ -150,7 +155,7 @@ export async function POST(request: NextRequest) {
         "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)",
         [
           token,
-          input.action === "delete" ? "user_deleted" : "user_edited",
+          "user_"+String(input.action),
           JSON.stringify({
             userId: id,
             reason,
@@ -182,12 +187,13 @@ export async function POST(request: NextRequest) {
           message:
             input.action === "delete"
               ? "User deleted successfully."
-              : "User updated successfully.",
+              : input.action==="deactivate"?"Account deactivated and sessions revoked. Billing and legal records are retained.":input.action==="reactivate"?"Account reactivated. The user can sign in again.":"User updated successfully.",
         },
         { headers: { "Cache-Control": "no-store" } },
       );
     } catch (e) {
       await client.query("ROLLBACK");
+      if ((e as {code?:string}).code === "23503") throw new ApiError("This account has records that must be retained. Deactivate the account instead; billing and legal records will be preserved.",409);
       if ((e as { code?: string }).code === "23505")
         throw new ApiError("That email is already in use.", 409);
       throw e;

@@ -1,3 +1,4 @@
+import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { getPool } from "./db";
@@ -8,6 +9,11 @@ export const mailConfigured = () =>
 function createAuth() {
   return betterAuth({
     appName: "Zenvio",
+    databaseHooks:{session:{create:{before:async(value)=>{
+      const account=(await getPool().query('SELECT deactivated_at FROM public."user" WHERE id=$1 FOR SHARE',[value.userId])).rows[0];
+      if(account?.deactivated_at)throw new APIError("FORBIDDEN",{message:"This account is deactivated. Contact support."});
+      return {data:value};
+    }}}},
     database: getPool(),
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL:

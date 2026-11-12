@@ -44,6 +44,8 @@ export async function session() {
     const current = await getAuth().api.getSession({ headers: await headers() });
     if (!current)
         throw new ApiError("Please sign in to continue.", 401);
+    const {getPool}=await import("./db");
+    if((await getPool().query('SELECT 1 FROM public."user" WHERE id=$1 AND deactivated_at IS NOT NULL',[current.user.id])).rowCount)throw new ApiError("This account is deactivated. Contact support.",403);
     return { token: current.user.id, user: current.user };
 }
 export function sameOrigin(request: NextRequest) {

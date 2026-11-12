@@ -325,6 +325,7 @@ export function AdminSubscriptions() {
             {[["overview", "Overview"], ["access", "Plan access"], ["invoices", "Invoices"]].map(([key, label]) => <button key={key} type="button" aria-pressed={detailSection === key} disabled={busy || invoiceBusy || accessBusy} onClick={() => setDetailSection(key)}>{label}</button>)}
           </nav>
           <div className="admin-subscription-body">
+          <p><a href={`/admin/billing?userId=${selected.user_id}`}>Manage package, seats & proration</a></p>
           {detailError && <p role="alert" className="billing-error">{detailError}</p>}
           {detailSection === "overview" && <>
           <div className="billing-detail-grid">

@@ -19,7 +19,7 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/billing-types";
-type Data = { meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; unlimitedSeats?: boolean; platformIncluded?: boolean; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
+type Data = { catalog?:import("@/lib/billing-catalog").BillingCatalog; meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; unlimitedSeats?: boolean; platformIncluded?: boolean; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
 const allowanceValue=(meter:string,value:number)=>meter==="storageBytes" ? value>=1024**3 ? `${(value/1024**3).toLocaleString(undefined,{maximumFractionDigits:1})} GB` : `${(value/1024**2).toLocaleString(undefined,{maximumFractionDigits:1})} MB` : value.toLocaleString();
 export function Billing() {
   const [tab,setTab]=useState<"overview"|"plans"|"usage"|"invoices">("overview");
@@ -156,7 +156,7 @@ export function Billing() {
               </section>}
               {ownBillingActive && !["individual","team"].includes(sub.plan) && <p className="subscription-legacy-note"><Icon name="shield" size={18}/>You’re on a legacy package. Your existing subscription price and benefits stay in place unless you explicitly choose a new package.</p>}
               {tab === "plans" && data.usage.platformIncluded && <p className="subscription-legacy-note">Teams is included for the master admin with unlimited teammates. No paid seat upgrade is required.</p>}
-              {tab === "plans" && !data.usage.platformIncluded && !(managedByTeam) && <Enrollment enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
+              {tab === "plans" && !data.usage.platformIncluded && !(managedByTeam) && <Enrollment catalog={data.catalog} enabled={data.checkoutEnabled} currentPlan={sub.plan} currentSeats={sub.seats||1} hasSubscription={Boolean(sub.has_subscription)} onUpdated={()=>{void load();}}/>}
               {!data.connected && (
                 <p className="billing-note">
                   Online billing is not connected yet. Your current workspace

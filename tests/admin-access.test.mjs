@@ -38,7 +38,7 @@ function load(relative) {
       : id === "./auth" || id === "@/lib/auth"
         ? { mailConfigured: () => false, getAuth: () => ({api:{getSession:async()=> token ? {user:{id:token,email:"owner@example.com",role:"master_admin"}} : null}}) }
       : id === "./db"
-        ? {databaseConfigured:()=>true}
+        ? {databaseConfigured:()=>true,getPool:()=>({query:async()=>({rowCount:0,rows:[]})})}
       : id === "./postgres-backend"
         ? {postgresBackend:async(path,options,userId,scope)=>{
             requests.push({path,options,scope});

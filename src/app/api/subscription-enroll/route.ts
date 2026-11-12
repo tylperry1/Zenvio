@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     if (v.period && v.period !== "monthly") throw new ApiError("These packages use monthly billing.");
     const plan = String(v.plan);
     const seats = plan === "team" ? integer(v.seats, "seats", 3, 1000) : 1;
+    const catalog=await (await import("@/lib/billing-catalog")).currentCatalog();
     const requested = subscriptionLines(plan, seats);
     if (!(await billingReadiness()).checkoutEnabled) throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
     const db = await getPool().connect(), stripe = await stripeClient();
@@ -27,9 +28,9 @@ export async function POST(req: NextRequest) {
       const lines: {price:string;quantity:number}[] = [];
       for (const line of requested) {
         const map = (await db.query("SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period='monthly'", [line.plan])).rows[0];
-        if (!map || map.catalog_version !== catalogVersion) throw new ApiError("This package is temporarily unavailable.", 503);
+        if (!map || map.catalog_version !== catalog.version) throw new ApiError("This package is temporarily unavailable.", 503);
         const price = await stripe.prices.retrieve(map.stripe_price_id);
-        const offer = [individualOffer, teamOffer, extraSeatOffer].find((p) => p.id === line.plan)!;
+        const offer = catalog.offers.find((p) => p.id === line.plan)!;
         if (price.product !== `zenvio_${offer.id}_v3` || !price.active || price.currency !== "usd" || price.unit_amount !== offer.monthly || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) throw new ApiError("The recurring price could not be verified. No payment has been taken.", 503);
         lines.push({price:price.id,quantity:line.quantity});
       }
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
         launchDiscount = true;
         await db.query("UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",[reservation.id,token]);
       }
-      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",...(launchDiscount ? {discounts:[{coupon:launchCouponId}]} : {}),client_reference_id:token,metadata:{user_id:token,plan,catalog_version:catalogVersion},subscription_data:{metadata:{user_id:token,plan,catalog_version:catalogVersion}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
+      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",...(launchDiscount ? {discounts:[{coupon:launchCouponId}]} : {allow_promotion_codes:true}),client_reference_id:token,metadata:{user_id:token,plan,catalog_version:catalog.version},subscription_data:{metadata:{user_id:token,plan,catalog_version:catalogVersion}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
       await db.query("COMMIT");
       return Response.json({url:checkout.url});
     } catch(e) {await db.query("ROLLBACK");throw e;} finally {db.release();}

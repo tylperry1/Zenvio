@@ -33,6 +33,7 @@ const groups: { label: string; items: Item[] }[] = [
   {
     label: "Billing",
     items: [
+      {id:"billing-center",icon:"card",label:"Billing & revenue",href:"/admin/billing",permission:"team"},
       { id: "subscriptions", icon: "card", label: "Subscriptions", href: "/admin/operations?section=subscriptions", permission: "subscriptions" },
       { id: "pricing", icon: "spark", label: "Pricing", href: "/admin/operations?section=pricing", permission: "pricing" },
       { id: "entitlements", icon: "layers", label: "Plans & entitlements", href: "/admin/entitlements", permission: "entitlements" },
@@ -49,6 +50,7 @@ const groups: { label: string; items: Item[] }[] = [
   {
     label: "Platform",
     items: [
+      {id:"launch",icon:"shield",label:"Launch controls",href:"/admin/launch",permission:"team"},
       { id: "integrations", icon: "plug", label: "Connections", href: "/admin/operations?section=integrations", permission: "integrations", hint: "integrations api keys" },
       { id: "assistant", icon: "sparkles", label: "AI assistant", href: "/admin/assistant", permission: "assistant" },
       { id: "email-preview", icon: "mail", label: "Email preview", href: "/admin/email-preview", permission: "integrations" },

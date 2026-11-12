@@ -1,8 +1,8 @@
 import { monthlyAllowances, addonOffers } from "@/lib/subscription-offers.mjs";
 import { money } from "@/lib/billing-types";
 
-export function PricingAllowances() {
-  const i = monthlyAllowances.individual, t = monthlyAllowances.team;
+export function PricingAllowances({allowances=monthlyAllowances}:{allowances?:import("@/lib/billing-catalog").BillingCatalog["allowances"]}={}) {
+  const i = allowances.individual, t = allowances.team;
   const rows = [
     ["Transactional emails", i.emails.toLocaleString(), t.emails.toLocaleString()],
     ["AI credits", i.aiCredits, t.aiCredits],
