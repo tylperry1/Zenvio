@@ -79,7 +79,7 @@ try {
   await adminMenu.goto(origin + "/admin/operations?section=health");
   const workspaceMenu = pages[1];
   await workspaceMenu.setViewportSize({width:1440,height:1000});
-  await workspaceMenu.goto(origin+"/app");
+  await workspaceMenu.goto(origin+"/app/clients");
   const businessGroup = workspaceMenu.locator(".shell-nav-group").filter({has:workspaceMenu.locator("summary",{hasText:"Business"})});
   assert.equal(await businessGroup.getAttribute("open"),null);
   await businessGroup.locator("summary").click();
