@@ -156,3 +156,12 @@
 
 .availability-editor-card > header > select {width:240px;flex:0 0 240px}
 @media(max-width:640px){.availability-editor-card > header > select {width:100%;flex:auto}}
+
+@media(max-width:640px){
+ .availability-day {grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:14px 20px}
+ .availability-day-toggle {grid-column:1;grid-row:1}
+ .availability-copy {grid-column:2;grid-row:1;justify-self:end}
+ .availability-ranges {grid-column:1/-1;grid-row:2}
+ .availability-off {grid-column:2;grid-row:1;justify-self:end}
+ .shell .availability-workspace .availability-add,.shell .availability-workspace .availability-copy {font-size:12px;padding:4px 0}
+}

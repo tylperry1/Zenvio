@@ -8,6 +8,7 @@ const errors=[],results=[],apiTimings=[];
 fs.mkdirSync("test-results",{recursive:true});
 try {
   const guest=await browser.newContext(),member=await browser.newContext(),admin=await browser.newContext();
+  await member.addInitScript(()=>localStorage.setItem("zenvio-link-prompt-skipped","1"));
   for (const [context,email] of [[member,"alice@example.com"],[admin,"owner@example.com"]]) {
     const r=await context.request.post(origin+"/api/auth",{headers:{Origin:origin},data:{action:"sign-in",email,password:"An-isolated-password-123456789!"}});
     assert.equal(r.status(),200,await r.text());
