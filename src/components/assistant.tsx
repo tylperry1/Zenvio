@@ -250,7 +250,8 @@ export function AssistantChat({
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
+    const log = scroller.current;
+    if (log) log.scrollTo({ top: items.length ? log.scrollHeight : 0, behavior: items.length ? "smooth" : "instant" });
   }, [items]);
 
   const send = useCallback(
