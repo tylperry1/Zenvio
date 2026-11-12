@@ -545,10 +545,10 @@ function CardDestination({card,busy,post}:{card:Card;busy:boolean;post:(p:Record
   const [url,setUrl]=useState(card.destination_url || "");
   return <details className="sc-destination"><summary>Program tap destination</summary>
     <form className="ui-form" onSubmit={e=>{e.preventDefault();void post({action:"card-destination",id:card.id,destinationKind:kind,destinationUrl:url},"Tap destination saved. The encoded link stays the same.");}}>
-      <label className="ds-field">Tap opens<select value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}>
+      <label className="ds-field">Tap opens<select aria-label="Tap opens" value={kind} disabled={busy} onChange={e=>setKind(e.target.value)}>
         <option value="profile">Digital business profile</option><option value="review">Review page</option><option value="booking">Booking page</option><option value="website">Website or offer</option>
       </select></label>
-      {["review","website"].includes(kind) && <label className="ds-field">HTTPS destination<input type="url" required maxLength={500} value={url} disabled={busy} onChange={e=>setUrl(e.target.value)} placeholder="https://..." /></label>}
+      {["review","website"].includes(kind) && <label className="ds-field">HTTPS destination<input aria-label="HTTPS destination" type="url" required maxLength={500} value={url} disabled={busy} onChange={e=>setUrl(e.target.value)} placeholder="https://..." /></label>}
       <p className="sc-hint">Encode the permanent Zenvio link once. Future destination changes do not require rewriting the chip. Review taps are visits, not verified reviews.</p>
       <button className="ds-btn sm primary" disabled={busy}>Save tap destination</button>
     </form>
