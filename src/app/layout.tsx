@@ -14,6 +14,7 @@ import "./experience.css";
 import "./subscriptions.css";
 import "./design-system.css";
 import "./workspace-polish.css";
+import "./growth-suite.css";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

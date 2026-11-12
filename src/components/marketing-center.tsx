@@ -90,7 +90,7 @@ export function MarketingCenter() {
   return (
     <div className="ds-root mkc">
       <PageHeader
-        title="Marketing & reviews"
+        title="Booking pages & reputation"
         description="Share your booking page everywhere, see which channels bring appointments, and collect verified reviews from real clients."
       />
       <Segmented
@@ -141,9 +141,11 @@ function Share({ workspace }: { workspace: Workspace }) {
   }, [base, campaign]);
 
   useEffect(() => {
+    let active = true; setQr("");
     QRCode.toString(qrLink, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#151b38", light: "#ffffff" } })
-      .then(setQr)
-      .catch(() => setQr(""));
+      .then(svg => { if (active) setQr(svg); })
+      .catch(() => { if (active) setQr(""); });
+    return () => { active = false; };
   }, [qrLink]);
 
   async function copy(id: string, text: string) {
