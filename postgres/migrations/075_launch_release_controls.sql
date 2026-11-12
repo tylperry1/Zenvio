@@ -10,10 +10,10 @@ CREATE TABLE private.stripe_sandbox_runs(id uuid PRIMARY KEY,actor_id uuid NOT N
 CREATE TABLE private.stripe_sandbox_events(id text PRIMARY KEY,run_id uuid NOT NULL REFERENCES private.stripe_sandbox_runs(id),kind text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE private.stripe_sandbox_runs ENABLE ROW LEVEL SECURITY;ALTER TABLE private.stripe_sandbox_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON private.stripe_sandbox_runs,private.stripe_sandbox_events FROM public,anon,authenticated;
-CREATE FUNCTION private.guard_account_session() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+CREATE FUNCTION private.guard_account_session() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE disabled timestamptz;
 BEGIN SELECT deactivated_at INTO disabled FROM public."user" WHERE id=NEW."userId" FOR SHARE;
-IF disabled IS NOT NULL THEN RAISE EXCEPTION 'invalid_deactivated_account';END IF;RETURN NEW;END;$;
+IF disabled IS NOT NULL THEN RAISE EXCEPTION 'invalid_deactivated_account';END IF;RETURN NEW;END;$$;
 CREATE TRIGGER guard_account_session BEFORE INSERT ON public.session FOR EACH ROW EXECUTE FUNCTION private.guard_account_session();
 REVOKE ALL ON FUNCTION private.guard_account_session() FROM public,anon,authenticated;
 COMMIT;
