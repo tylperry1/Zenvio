@@ -1071,7 +1071,22 @@
   color: #4285f4;
 }
 .ui-list > li.gc-account {
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.gc-account .ui-list-main { min-width: 0; }
+.gc-account .gc-email { display: block; overflow-wrap: anywhere; }
+.gc-account .pay-error { display: block; overflow-wrap: anywhere; line-height: 1.5; }
+.gc-account .gc-actions { grid-column: 2 / -1; flex-wrap: wrap; }
+.gc-setup-link { display: inline-block; margin-top: 8px; font-size: 13px; }
+@media (max-width: 600px) {
+  .ui-list > li.gc-account { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+  .gc-account > .ui-badge { grid-column: 2; justify-self: start; }
+  .gc-account .gc-prefs { flex-direction: column; align-items: flex-start; }
+  .gc-account .gc-prefs label { width: auto; }
+  .gc-account .gc-actions { grid-column: 2; }
 }
 .gc-prefs {
   display: flex;

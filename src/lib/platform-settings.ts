@@ -11,6 +11,7 @@ export const integrationFields = {
   RESEND_INBOUND_WEBHOOK_SECRET: "Resend inbound email webhook signing secret",
   RESEND_WEBHOOK_SECRET: "Resend webhook signing secret",
   AUTH_EMAIL_FROM: "Verified sender email",
+  BOOKING_EMAIL_FROM: "Booking sender on the verified email domain",
   STRIPE_SECRET_KEY: "Stripe secret key",
   STRIPE_GROWTH_WEBHOOK_SECRET: "Stripe customer-product webhook signing secret",
   STRIPE_CONNECT_WEBHOOK_SECRET:

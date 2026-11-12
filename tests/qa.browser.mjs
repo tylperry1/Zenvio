@@ -48,6 +48,32 @@ try {
       }
     }
   }
+  const calendarPage = pages[1];
+  await calendarPage.route("**/api/calendars/google", (route) => route.fulfill({ json: {
+    configured: true, isAdmin: true, redirectUri: "", maximumAccounts: 5,
+    jobs: { pending: 0, failed: 0 },
+    connections: [{ account_sub: "fixture", account_email: "a-long-google-calendar-address@example.com",
+      status: "connected", check_conflicts: true, sync_events: true, last_sync_at: null,
+      last_error: "Google Calendar API is disabled for the OAuth client’s Google Cloud project. The platform administrator must enable Google Calendar API in that same project." }],
+  } }));
+  for (const width of [375, 390, 768, 1440]) {
+    await calendarPage.setViewportSize({ width, height: 900 });
+    await calendarPage.goto(origin + "/app/connections");
+    const account = calendarPage.locator(".gc-account");
+    await account.getByText("Needs attention", { exact: true }).waitFor();
+    await account.getByRole("link", { name: /Enable Google Calendar API/ }).waitFor();
+    const layout = await account.evaluate((node) => {
+      const main = node.querySelector(".ui-list-main").getBoundingClientRect();
+      const actions = node.querySelector(".gc-actions").getBoundingClientRect();
+      return { textWidth: main.width, actionsBelow: actions.top >= main.bottom - 1,
+        pageOverflow: document.documentElement.scrollWidth > innerWidth + 1 };
+    });
+    assert.ok(layout.textWidth >= 180, JSON.stringify({ width, layout }));
+    assert.ok(layout.actionsBelow);
+    assert.equal(layout.pageOverflow, false);
+    await calendarPage.screenshot({ path: `test-results/calendar-connection-${width}.png` });
+  }
+  await calendarPage.unroute("**/api/calendars/google");
   const adminMenu = pages[2];
   await adminMenu.setViewportSize({ width: 1440, height: 900 });
   await adminMenu.goto(origin + "/admin/operations?section=health");

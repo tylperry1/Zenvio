@@ -12,7 +12,8 @@ function load(file, overrides = {}) {
   m.paths = Module._nodeModulePaths(path.dirname(filename));
   const require = m.require.bind(m);
   m.require = (id) =>
-    Object.hasOwn(overrides, id) ? overrides[id] : id === "./transactional-email" ? load("src/lib/transactional-email.ts") : require(id);
+    Object.hasOwn(overrides, id) ? overrides[id] : id === "./booking-email" ? load("src/lib/booking-email.ts")
+      : id === "./transactional-email" ? load("src/lib/transactional-email.ts") : require(id);
   m._compile(
     ts.transpileModule(fs.readFileSync(filename, "utf8"), {
       compilerOptions: {
@@ -231,4 +232,16 @@ test("the production probe cannot report verification when credentials are rejec
   });
   assert(limited.ok);
   assert(limited.message.includes("must be checked in Resend"));
+});
+
+test("booking sender stays on the verified domain and leaves account mail alone", () => {
+  const { deliverySender } = load("src/lib/booking-email.ts");
+  const from = "Zenvio <hello@gozenvio.com>";
+  assert.equal(deliverySender("booking_confirmation", from), "Zenvio Bookings <bookings@gozenvio.com>");
+  assert.equal(deliverySender("booking_reminder", from, "Zenvio Meetings <meet@gozenvio.com>"), "Zenvio Meetings <meet@gozenvio.com>");
+  assert.equal(deliverySender("booking_cancelled", from, "attacker@other.example"), "Zenvio Bookings <bookings@gozenvio.com>");
+  assert.equal(deliverySender("account_security", from), from);
+  assert.equal(deliverySender("customer_message", from), from);
+  assert.equal(deliverySender("booking_confirmation", "onboarding@resend.dev"), "onboarding@resend.dev");
+  assert.equal(deliverySender("booking_confirmation", from, "meet@gozenvio.com\r\nBcc: injected@example.com"), "Zenvio Bookings <bookings@gozenvio.com>");
 });
