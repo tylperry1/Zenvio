@@ -456,7 +456,7 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
     const claimed = claims[0];
     try {
       const { rows } = await getPool().query(
-        "SELECT b.*,e.title,e.location,e.description,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1 AND g.sync_events",
+        "SELECT b.*,e.title,coalesce(b.location,e.location) AS location,e.description,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1 AND g.sync_events",
         [claimed.booking_id],
       );
       if (!rows.length) throw Error("Disconnected");

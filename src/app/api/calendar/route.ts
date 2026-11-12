@@ -43,8 +43,8 @@ export async function GET(req: NextRequest) {
     const events = (
       await getPool().query(
         organization
-          ? "SELECT b.id,b.event_id,e.title,b.starts_at,b.ends_at,b.status,b.guest_name,b.user_id FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.organization_id=$4 AND b.user_id=ANY($1::uuid[]) AND b.starts_at<$3 AND b.ends_at>$2 ORDER BY starts_at"
-          : "SELECT b.id,b.event_id,e.title,b.starts_at,b.ends_at,b.status,b.guest_name,b.user_id FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.starts_at<$3 AND b.ends_at>$2 ORDER BY starts_at",
+          ? "SELECT b.id,b.event_id,e.title,coalesce(b.location,e.location) AS location,b.starts_at,b.ends_at,b.status,b.guest_name,b.user_id FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.organization_id=$4 AND b.user_id=ANY($1::uuid[]) AND b.starts_at<$3 AND b.ends_at>$2 ORDER BY starts_at"
+          : "SELECT b.id,b.event_id,e.title,coalesce(b.location,e.location) AS location,b.starts_at,b.ends_at,b.status,b.guest_name,b.user_id FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.starts_at<$3 AND b.ends_at>$2 ORDER BY starts_at",
         organization
           ? [members.map((m) => m.user_id), from, to, organization]
           : [token, from, to],

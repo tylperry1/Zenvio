@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (!feeds[0])
       return new Response("Calendar feed unavailable", { status: 404 });
     const { rows } = await getPool().query(
-      `SELECT b.id,b.starts_at,b.ends_at,b.status,b.guest_name,b.intake_snapshot,e.title,e.location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.ends_at>now()-interval '90 days' ORDER BY b.starts_at LIMIT 2000`,
+      `SELECT b.id,b.starts_at,b.ends_at,b.status,b.guest_name,b.intake_snapshot,e.title,coalesce(b.location,e.location) AS location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.ends_at>now()-interval '90 days' ORDER BY b.starts_at LIMIT 2000`,
       [feeds[0].user_id],
     );
     const events = rows.flatMap((b) => [

@@ -16,7 +16,7 @@ try {
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
-    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/support","/app/marketing","/app/smart-cards"]],
+    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types"]],
     [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
@@ -71,11 +71,54 @@ try {
           const clientOverflow=await page.locator(".client-table-wrap").evaluate(n=>n.scrollWidth-n.clientWidth);
           assert(clientOverflow <= 1, "mobile client records must fit without sideways scrolling");
         }
-        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing","/app/clients"].includes(route))
+        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing","/app/clients","/app/connections","/app/smart-cards","/app/growth","/app?view=availability","/app?view=event-types"].includes(route))
           await page.screenshot({path:`test-results/qa-${route.replace(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
       }
     }
   }
+
+  // Review the redesigned workspace sections without changing billing or live bookings.
+  const polishPage=pages[1];
+  for(const width of [390,1440]) {
+    await polishPage.setViewportSize({width,height:900});
+    await polishPage.goto(origin+"/app/billing");
+    await polishPage.locator(".subscription-account-card").waitFor();
+    for(const label of ["Overview","Plans","Usage & credits","Invoices"]) {
+      const tab=polishPage.getByRole("tab",{name:label,exact:true});
+      await tab.click();assert.equal(await tab.getAttribute("aria-selected"),"true");
+      assert.ok(await polishPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await polishPage.screenshot({path:`test-results/billing-${label.replaceAll(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
+    }
+    await polishPage.goto(origin+"/app?view=availability");
+    await polishPage.getByRole("tab",{name:"Weekly hours",exact:true}).waitFor();
+    await polishPage.getByLabel("Apply schedule preset").selectOption("split");
+    assert.equal(await polishPage.getByLabel("Monday start time 2",{exact:true}).inputValue(),"13:00");
+    await polishPage.screenshot({path:`test-results/availability-split-hours-${width}.png`,fullPage:true});
+    await polishPage.getByRole("tab",{name:"Date exceptions",exact:true}).click();
+    await polishPage.getByLabel("Exception date",{exact:true}).waitFor();
+    await polishPage.screenshot({path:`test-results/availability-date-exceptions-${width}.png`,fullPage:true});
+    await polishPage.getByRole("tab",{name:"Booking rules",exact:true}).click();
+    await polishPage.getByLabel("Minimum notice",{exact:true}).waitFor();
+    await polishPage.screenshot({path:`test-results/availability-booking-rules-${width}.png`,fullPage:true});
+    await polishPage.goto(origin+"/app/growth");
+    for(const label of ["Offers","Classes","Memberships","Coupons","Orders"]) {
+      const tab=polishPage.getByRole("tab",{name:label,exact:true});
+      await tab.click();assert.equal(await tab.getAttribute("aria-selected"),"true");
+      assert.ok(await polishPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await polishPage.screenshot({path:`test-results/growth-${label.toLowerCase()}-${width}.png`,fullPage:true});
+    }
+  }
+  const localContext=await browser.newContext({timezoneId:"America/Los_Angeles",storageState:await member.storageState()});
+  const localPage=await localContext.newPage();
+  await localPage.goto(origin+"/app/calendar");
+  assert.equal(await localPage.getByLabel("Timezone",{exact:true}).inputValue(),"auto");
+  await localPage.getByRole("button",{name:"+ New appointment",exact:true}).click();
+  const localDialog=localPage.getByRole("dialog",{name:"Create appointment"});
+  assert.equal(await localDialog.getByLabel("Time zone",{exact:true}).inputValue(),"auto");
+  await localDialog.getByLabel("Meeting location",{exact:true}).fill("120 Main Street");
+  await localDialog.getByRole("button",{name:"Close dialog",exact:true}).click();
+  await localContext.close();
+
   const calendarPage = pages[1];
   await calendarPage.route("**/api/calendars/google", (route) => route.fulfill({ json: {
     configured: true, isAdmin: true, redirectUri: "", maximumAccounts: 5,
@@ -199,7 +242,7 @@ try {
   const offerForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create an offer",exact:true})});
   await offerForm.locator('[name="title"]').fill("QA service package");
   await offerForm.locator('[name="description"]').fill("Three service visits. Contact the business for eligible services.");
-  await offerForm.locator('[name="priceCents"]').fill("7500");
+  await offerForm.locator('[name="priceDollars"]').fill("75.00");
   await offerForm.locator('[name="creditUnits"]').fill("3");
   await offerForm.locator('[name="unit"]').fill("VISITS");
   await offerForm.getByRole("button",{name:"Save draft offer"}).click();
@@ -213,6 +256,7 @@ try {
   assert.equal(await pages[0].getByRole("button",{name:"Review offer",exact:true}).isDisabled(),true,"unvalidated checkout stays disabled");
   await pages[0].screenshot({path:"test-results/customer-offers-mobile.png",fullPage:true});
 
+  await pages[1].getByRole("tab",{name:"Coupons",exact:true}).click();
   const couponForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create a package coupon",exact:true})});
   await couponForm.locator('[name="code"]').fill("QA-SAVE10");
   await couponForm.locator('[name="percentOff"]').fill("10");

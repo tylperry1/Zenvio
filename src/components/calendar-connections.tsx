@@ -40,7 +40,7 @@ export function CalendarConnections() {
   }
   const url = typeof window !== "undefined" && token ? `${window.location.origin}/api/calendars/feed?token=${token}` : "";
   return (
-    <div className="platform-page">
+    <div className="platform-page connections-page">
       <main className="narrow-page">
         <PageHeader
           title="Calendar connections"

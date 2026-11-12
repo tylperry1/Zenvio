@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { SuiteShell } from "./suite-shell";
+import { TimezoneSelect } from "./timezone-select";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -65,19 +66,15 @@ export function CalendarCenter() {
       .then((r) => r.json())
       .then((d) => setOrganizations(d.organizations || []))
       .catch(() => {});
-    setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const detected=Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    setZone(detected);
+    setDate(key(new Date(),detected));
     if (window.innerWidth < 640) setView("day");
     fetch("/api/workspace")
       .then((r) => r.json())
       .then((d) => {
         setWorkspace(d);
-        // Show the host's own business hours, not the browser's.
-        const home = d?.profile?.timezone;
-        if (home) {
-          setZone(home);
-          const p = inZone(new Date(), home);
-          setDate(`${p.year}-${p.month}-${p.day}`);
-        }
+
       });
   }, []);
   useEffect(() => {
@@ -189,23 +186,7 @@ export function CalendarCenter() {
         </select>
         <label className="cal-zone">
           <Icon name="globe" size={15} />
-          <input
-            className="ui-input"
-            aria-label="Timezone"
-            value={zone}
-            list="calendar-zones"
-            onChange={(e) => {
-              try {
-                new Intl.DateTimeFormat("en", { timeZone: e.target.value });
-                setZone(e.target.value);
-              } catch {}
-            }}
-          />
-          <datalist id="calendar-zones">
-            {["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"].map((z) => (
-              <option key={z}>{z}</option>
-            ))}
-          </datalist>
+          <TimezoneSelect value={zone} onChange={setZone} label="Timezone" businessZone={workspace?.profile?.timezone} />
         </label>
         <a className="cal-team-link" href="/app/team">
           Team schedules
@@ -235,6 +216,7 @@ export function CalendarCenter() {
                   timeZone: zone,
                 })}
               </dd>
+              <dt>Location</dt><dd>{selected.location || "Not specified"}</dd>
               <dt>Status</dt>
               <dd>
                 <Badge tone={selected.status === "confirmed" ? "success" : "neutral"}>{selected.status}</Badge>

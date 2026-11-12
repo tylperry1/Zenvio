@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const [host, bookings, thread, envelopes, estimates, requests, receipts, readiness] = await Promise.all([
       pool.query("SELECT name,company,slug,accent_color,timezone FROM public.profiles WHERE id=$1", [s.userId]),
       pool.query(
-        `SELECT b.id,b.cancel_token,b.starts_at,b.ends_at,b.status,e.title,e.location,e.duration
+        `SELECT b.id,b.cancel_token,b.starts_at,b.ends_at,b.status,e.title,coalesce(b.location,e.location) AS location,e.duration
            FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id
           WHERE b.user_id=$1 AND (b.contact_id=$2 OR lower(b.guest_email)=lower($3)) ORDER BY b.starts_at DESC LIMIT 100`,
         [s.userId, s.contactId, s.email],

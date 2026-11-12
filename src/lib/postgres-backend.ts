@@ -11,6 +11,7 @@ const tables = {
     "company",
     "accent_color",
     "created_at",
+    "availability_rules",
   ],
   event_types: [
     "id",
@@ -27,7 +28,7 @@ const tables = {
     "created_at",
     "intake_questions",
   ],
-  availability: ["user_id", "day", "enabled", "start_time", "end_time"],
+  availability: ["user_id", "day", "enabled", "start_time", "end_time", "periods"],
   bookings: [
     "id",
     "user_id",
@@ -155,6 +156,7 @@ export async function postgresBackend(
       const name = parts[4],
         f = functions[name];
       if (!f || (f.private && !userId)) throw new Error("permission_denied");
+      if(userId && name === "reserve_booking_intake" && typeof data.booking_location === "string") await db.query("select set_config('zenvio.booking_location',$1,true)",[data.booking_location]);
       const args = f.args.map((n) =>
         n === "answers_snapshot" ? JSON.stringify(data[n]) : data[n],
       );

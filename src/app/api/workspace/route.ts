@@ -1,3 +1,4 @@
+import { availabilityPeriods, availabilityRules } from "@/lib/availability-rules.mjs";
 import { createManualBooking } from "@/lib/manual-booking";
 import { marketplaceVisible } from "@/lib/marketplace-visibility";
 import { filterMicrosoftSlots } from "@/lib/microsoft-calendar";
@@ -35,7 +36,7 @@ export async function GET() {
           token,
         ),
         backend(
-          "/rest/v1/availability?select=day,enabled,start_time,end_time&order=day.asc",
+          "/rest/v1/availability?select=day,enabled,start_time,end_time,periods&order=day.asc",
           {},
           token,
         ),
@@ -43,7 +44,7 @@ export async function GET() {
         // paged through /api/bookings.
         getPool()
           .query(
-            "SELECT id,event_id,contact_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,intake_snapshot,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
+            "SELECT id,event_id,contact_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,intake_snapshot,location,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
             [token],
           )
           .then((r) => r.rows),
@@ -156,6 +157,7 @@ export async function POST(request: NextRequest) {
               event.intake_questions || [],
               input.answers,
             ),
+            booking_location: string(input.location ?? "", "meeting location", 500, 0),
             visitor_name: string(input.name, "name", 100, 2),
             visitor_email: email(input.email),
             visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
               0,
             ),
           }),
-        });
+        }, token);
         return Response.json(
           { ok: true, message: "Appointment created." },
           { status: 201 },
@@ -219,6 +221,11 @@ export async function POST(request: NextRequest) {
           "PATCH",
         );
         break;
+      case "availability-rules": {
+        let rules; try {rules=availabilityRules(input.rules);} catch(error) {throw new ApiError((error as Error).message);}
+        await write(`profiles?id=eq.${user.id}`, {availability_rules:JSON.stringify(rules)}, "PATCH");
+        break;
+      }
       case "availability": {
         if (!Array.isArray(input.days) || input.days.length !== 7)
           throw new ApiError("Please provide all seven days.");
@@ -240,6 +247,7 @@ export async function POST(request: NextRequest) {
             enabled: d.enabled === true,
             start_time: start,
             end_time: end,
+            periods: d.periods === undefined ? null : JSON.stringify((()=>{try{return availabilityPeriods(d.periods);}catch(error){throw new ApiError((error as Error).message);}})()),
           };
         });
         await backend(

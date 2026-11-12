@@ -3,6 +3,8 @@ import { LinkProblem } from "./ui";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./icons";
 export function Reschedule() {
+  const [displayZone,setDisplayZone]=useState("UTC");
+  useEffect(()=>setDisplayZone(Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC"),[]);
   const token = useRef(""),
     [booking, setBooking] = useState<any>(null),
     [slots, setSlots] = useState<string[]>([]),
@@ -49,10 +51,11 @@ export function Reschedule() {
             <h2>{booking.title}</h2>
             <p>
               {new Date(booking.starts_at).toLocaleString([], {
-                timeZone: booking.timezone,
+                timeZone: displayZone,
               })}{" "}
-              · {booking.timezone}
+              · {displayZone}
             </p>
+            {booking.location && <p>Location: {booking.location}</p>}
             <p>Status: {booking.status}</p>
             {booking.status === "confirmed" && (
               <>
@@ -117,7 +120,7 @@ export function Reschedule() {
                       {slots.map((s) => (
                         <option key={s} value={s}>
                           {new Date(s).toLocaleString([], {
-                            timeZone: booking.timezone,
+                            timeZone: displayZone,
                           })}
                         </option>
                       ))}

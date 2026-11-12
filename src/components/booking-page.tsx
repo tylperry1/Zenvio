@@ -291,7 +291,7 @@ export function BookingPage({
     Number(hostParts.day),
   );
   const minMonth = new Date(current.getFullYear(), current.getMonth(), 1);
-  const maxDate = new Date(+current + 90 * 86400000);
+  const maxDate = new Date(+current + (event.booking_window_days ?? 90) * 86400000);
   const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const cancelLink = confirmation
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/cancel#token=${confirmation.cancel_token}${demo ? "&demo=1" : ""}`
@@ -903,8 +903,7 @@ export function BookingPage({
                 </div>
               </div>
               <p className="booking-notice">
-                <Icon name="shield" size={14} /> Pick a time 2 hours to 90 days
-                ahead.{" "}
+                <Icon name="shield" size={14} /> Choose an available time up to {event.booking_window_days ?? 90} days ahead.{" "}
                 {event.payment?.payment_mode &&
                 event.payment.payment_mode !== "free"
                   ? "Payment required to confirm."

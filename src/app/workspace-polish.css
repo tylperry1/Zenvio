@@ -1,0 +1,154 @@
+
+/* Consistent, compact workspace surfaces. Keep selectors scoped to these pages. */
+.shell .billing-page > main,.shell .connections-page > main,.shell .growth-page > main {max-width:1160px;margin:0 auto;padding:32px 28px 64px}
+.shell .billing-page .page-header,.shell .connections-page .page-header,.shell .growth-page .page-header {margin:0 0 24px;align-items:center;gap:20px}
+.shell .billing-page .page-header h1,.shell .connections-page .page-header h1,.shell .growth-page .page-header h1 {font-size:30px;letter-spacing:-.035em;line-height:1.2;margin:0 0 8px}
+.shell .billing-page .page-header p,.shell .connections-page .page-header p,.shell .growth-page .page-header p {margin:0;max-width:680px;font-size:14px;line-height:1.6;color:#627087}
+.shell .billing-page main > section,.shell .billing-page .subscription-invoices {margin:20px 0;padding:24px;border-radius:14px}
+.shell .billing-page .subscription-account-card {margin-top:0;padding:26px}
+.shell .billing-page .subscription-account-main {margin-block:22px}
+.shell .billing-page .subscription-account-details {gap:16px;padding-block:18px}
+.shell .billing-page .subscription-account-details > div {min-width:0}
+.shell .billing-page .subscription-account-actions {gap:12px;padding-top:18px}
+.shell .billing-page .subscription-account-actions button {margin:0;min-height:40px}
+.billing-next-actions {display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
+.shell .billing-page .subscription-help {margin:24px 0 0;padding:18px}
+.shell .billing-page .subscription-help p {margin:4px 0 0;line-height:1.6}
+.shell .billing-page .subscription-usage-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.shell .billing-page .subscription-usage-grid > div {padding:16px;border:1px solid #e4e9f2;border-radius:10px}
+.shell .billing-page .subscription-usage-grid h3 {font-size:14px;margin:0 0 8px}
+.shell .billing-page .subscription-usage-grid p {font-size:12px;margin:5px 0;line-height:1.6}
+.shell .connections-page .ui-card {margin:0 0 20px;border-radius:14px;overflow:hidden}
+.shell .connections-page .ui-card-head {padding:20px 24px;gap:20px;align-items:flex-start}
+.shell .connections-page .ui-card-head h2 {font-size:18px;margin:0 0 6px}
+.shell .connections-page .ui-card-head p {margin:0;max-width:620px;line-height:1.6}
+.shell .connections-page .gc-account {padding:20px 24px;gap:14px}
+.shell .connections-page .gc-prefs {display:flex;flex-wrap:wrap;gap:14px;margin-top:12px}
+.shell .connections-page .gc-prefs label {margin:0;line-height:1.5}
+.shell .connections-page .gc-actions {gap:8px;margin-top:8px}
+.shell .connections-page .gc-steps {display:grid;gap:10px;padding-left:20px;line-height:1.6;font-size:13px}
+.shell .connections-page .gc-details {margin:0;padding:16px 24px;background:#f8faff}
+.shell .connections-page .ui-card-body p {line-height:1.6}
+.sc .sc-bar {display:grid;grid-template-columns:180px minmax(240px,360px) 1fr;align-items:end;gap:16px;margin:24px 0}
+.sc .sc-bar .ds-field {margin:0;display:grid;gap:8px;line-height:1.4}
+.sc .sc-bar .ds-select {width:100%;height:42px;margin:0}
+.sc .sc-bar > .ds-segmented {justify-self:end;margin-bottom:3px}
+.sc .ds-kpis {gap:16px}
+.sc .ds-page-header {margin-bottom:24px}
+.shell .events-grid {gap:20px;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}
+.shell .event-card {display:flex;flex-direction:column;min-height:280px;padding:22px;border:1px solid #dfe5ef;border-top:3px solid var(--event-color,#365cff);border-radius:14px;box-shadow:0 2px 6px #151b3805}
+.shell .event-card:hover {border-color:#c1ccef;box-shadow:0 8px 24px #151b380a}
+.shell .event-card-top {margin-bottom:18px;gap:10px}
+.shell .event-card h3 {font-size:19px;line-height:1.35;letter-spacing:-.02em;margin:0 0 10px}
+.shell .event-card > p {margin:0 0 18px;min-height:0;font-size:13px;line-height:1.6;color:#627087;flex:1}
+.shell .event-card .event-meta {display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.shell .event-card .event-meta > span {display:inline-flex;align-items:center;gap:6px;padding:5px 8px;background:#f4f6fb;border-radius:6px;font-size:12px;max-width:100%;overflow-wrap:anywhere}
+.shell .event-card .event-link {font-size:12px;line-height:1.5;color:#78849a;overflow-wrap:anywhere;margin:0 0 16px}
+.shell .event-card-footer {border-top:1px solid #edf0f6;margin-top:auto;padding-top:14px;gap:10px;flex-wrap:wrap}
+.shell .event-card-footer button {margin:0}
+.shell .new-event-card {min-height:280px;border-radius:14px;background:#f8faff}
+.cal-zone select {min-width:0;width:100%;border:1px solid #dce3ee;border-radius:8px;min-height:38px;padding:8px 10px;background:#fff;font:inherit}
+.availability-workspace {display:grid;gap:20px}
+.availability-toolbar {display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+.availability-toolbar .ui-tabs {margin:0}
+.availability-zone {display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:#68758d}
+.availability-zone button {background:none;border:0;padding:4px;color:#365cff;font:inherit;cursor:pointer}
+.availability-editor-card {background:#fff;border:1px solid #dfe5ef;border-radius:14px;overflow:hidden}
+.availability-editor-card > header {display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px;border-bottom:1px solid #e8ecf4}
+.availability-editor-card h2 {font-size:18px;line-height:1.4;margin:0 0 6px}
+.availability-editor-card p {margin:0;color:#68758d;font-size:13px;line-height:1.6}
+.availability-day {display:grid;grid-template-columns:150px minmax(0,1fr) 130px;align-items:start;gap:20px;padding:20px 24px;border-bottom:1px solid #eef1f6}
+.availability-day.is-off {background:#fafbfe}
+.availability-day-toggle {display:flex;align-items:center;gap:10px;margin:0;min-height:40px;font-size:13px;font-weight:600}
+.availability-day-toggle input[type=checkbox] {width:18px;height:18px;min-height:18px;margin:0;accent-color:#365cff}
+.availability-off {color:#8993a6;font-size:13px;padding-block:11px}
+.availability-ranges {display:grid;gap:10px;min-width:0}
+.availability-range {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 36px;gap:10px;align-items:center;max-width:400px}
+.availability-range input,.availability-editor-card select,.availability-exception-form input,.availability-rules-grid input {box-sizing:border-box;min-width:0;width:100%;border:1px solid #d7dfec;border-radius:8px;background:white;padding:9px 10px;min-height:40px;font:inherit;font-size:13px;margin:0}
+.availability-range button {width:36px;min-width:0;padding:8px;min-height:40px;margin:0}
+.availability-add,.availability-copy {display:inline-flex;align-items:center;gap:6px;width:fit-content;min-height:36px;padding:6px 0;color:#365cff;font:inherit;font-size:12px;font-weight:500;background:none;border:0;cursor:pointer}
+.availability-editor-card > footer {display:flex;justify-content:space-between;gap:16px;align-items:center;padding:18px 24px;background:#fafbfe}
+.availability-exceptions {padding:0 24px}
+.availability-exceptions > div {display:flex;justify-content:space-between;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid #e8ecf4;font-size:13px}
+.availability-exceptions > p {padding-block:24px}
+.availability-exception-form {display:grid;gap:16px;padding:24px;background:#fafbfe}
+.availability-exception-form > label:not(.availability-day-toggle),.availability-rules-grid label {display:grid;gap:8px;margin:0;font-size:13px;font-weight:600}
+.availability-exception-form > button {justify-self:start}
+.availability-rules-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:24px}
+.growth-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.growth-summary > div {display:flex;align-items:center;justify-content:space-between;padding:18px 20px;background:#fff;border:1px solid #e1e7f1;border-radius:12px;gap:12px}
+.growth-summary span {font-size:13px;color:#6b7890}
+.growth-summary strong {font-size:26px;letter-spacing:-.03em}
+.growth-layout {display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr);align-items:start;gap:24px}
+.shell .growth-page .growth-collection {padding:0;margin:0;border:0;box-shadow:none;background:none}
+.growth-section-heading {margin-bottom:18px}
+.shell .growth-page .growth-section-heading h2,.shell .growth-page .growth-form h2 {font-size:18px;margin:0 0 7px}
+.shell .growth-page .growth-section-heading p,.shell .growth-page .growth-form > p {font-size:13px;line-height:1.6;color:#6b7890;margin:0 0 16px}
+.growth-item,.growth-form,.growth-empty {background:#fff;border:1px solid #dfe5ef;border-radius:14px;padding:22px;margin-bottom:16px}
+.growth-item-top,.growth-item footer {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.growth-kind {font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:#7a879e}
+.growth-status {display:inline-flex;padding:5px 9px;border-radius:6px;background:#f0f3f9;color:#586983;font-size:11px;font-weight:600}
+.growth-status.is-live {background:#eaf6ef;color:#23724f}
+.shell .growth-page .growth-item h3 {font-size:18px;margin:14px 0 10px}
+.shell .growth-page .growth-item p {font-size:13px;line-height:1.6;margin:10px 0;color:#68758d;white-space:pre-wrap;overflow-wrap:anywhere}
+.growth-price {font-size:28px;font-weight:650;letter-spacing:-.035em}
+.growth-price small {font-size:13px;font-weight:400;letter-spacing:0;color:#718099}
+.growth-item footer {padding-top:16px;border-top:1px solid #edf0f6;margin-top:18px}
+.growth-item footer > span {font-size:12px;color:#7b879d}
+.growth-form {display:grid;gap:16px;margin:0}
+.shell .growth-page .growth-form label {display:grid;gap:7px;margin:0;font-size:13px;line-height:1.5;font-weight:600}
+.shell .growth-page .growth-form input,.shell .growth-page .growth-form select,.shell .growth-page .growth-form textarea {margin:0;padding:10px 12px;min-height:42px;width:100%;min-width:0;border:1px solid #d6dfed;border-radius:8px;background:white;font:inherit;font-size:14px;font-weight:400;line-height:1.4}
+.shell .growth-page .growth-form textarea {min-height:96px;resize:vertical}
+.growth-form-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.shell .growth-page .growth-form .growth-hint,.growth-form small {font-size:12px;line-height:1.6;color:#8390a5;margin:0}
+.growth-form > button {justify-self:start}
+.growth-empty {text-align:center;padding:40px 24px;color:#8b98b0}
+.shell .growth-page .growth-empty h3 {font-size:16px;color:#26344d;margin:14px 0 7px}
+.shell .growth-page .growth-empty p {font-size:13px;line-height:1.6;max-width:320px;margin:0 auto}
+.growth-capacity {display:grid;gap:8px;margin:16px 0;font-size:12px;color:#748098}
+.growth-capacity progress {width:100%;height:5px;accent-color:#365cff}
+.growth-confirm {display:flex;flex-wrap:wrap;gap:8px;width:100%;padding:12px;background:#f7f9fd;border-radius:8px}
+.growth-confirm p {width:100%}
+.growth-order {display:flex;justify-content:space-between;align-items:center;gap:16px}
+.growth-order small {font-size:11px;color:#8c98ac;overflow-wrap:anywhere}
+.subscription-team-parent td {background:#fafbff}
+.subscription-team-child td {background:#f7f9fd;font-size:12px}
+.subscription-member-indent {display:block;padding-left:22px;border-left:2px solid #ccd7f1}
+.subscription-team-count {display:block;margin-top:7px;font-size:11px;color:#365cff}
+@media(max-width:900px) {
+ .growth-layout {grid-template-columns:minmax(0,1fr)}
+ .sc .sc-bar {grid-template-columns:160px minmax(0,1fr)}
+ .sc .sc-bar > .ds-segmented {grid-column:1/-1;justify-self:start;margin:0}
+ .availability-day {grid-template-columns:120px minmax(0,1fr)}
+ .availability-copy {grid-column:2}
+}
+@media(max-width:640px) {
+ .shell .billing-page > main,.shell .connections-page > main,.shell .growth-page > main {padding:24px 16px 64px}
+ .shell .billing-page .page-header,.shell .connections-page .page-header,.shell .growth-page .page-header {align-items:flex-start}
+ .shell .billing-page main > section,.shell .billing-page .subscription-invoices,.shell .billing-page .subscription-account-card {padding:20px}
+ .shell .billing-page .subscription-usage-grid {grid-template-columns:minmax(0,1fr)}
+ .billing-next-actions > button {flex:1 0 auto}
+ .shell .connections-page .ui-card-head,.shell .connections-page .gc-account {padding:18px}
+ .shell .connections-page .gc-details {padding:14px 18px}
+ .sc .sc-bar {grid-template-columns:minmax(0,1fr);gap:14px}
+ .sc .sc-bar > .ds-segmented {grid-column:auto}
+ .sc .ds-kpis {gap:12px}
+ .availability-editor-card > header {padding:20px;flex-direction:column;align-items:stretch;gap:16px}
+ .availability-day {grid-template-columns:minmax(0,1fr);gap:10px;padding:16px 20px}
+ .availability-copy {grid-column:auto}
+ .availability-range {gap:6px;max-width:none}
+ .availability-editor-card > footer {padding:16px 20px;flex-wrap:wrap}
+ .availability-rules-grid {grid-template-columns:minmax(0,1fr);padding:20px}
+ .availability-exception-form {padding:20px}
+ .growth-summary {gap:8px}
+ .growth-summary > div {flex-direction:column;align-items:flex-start;padding:14px 12px;gap:8px}
+ .growth-summary span {font-size:11px}
+ .growth-summary strong {font-size:24px}
+ .growth-form-row {grid-template-columns:minmax(0,1fr)}
+ .growth-item,.growth-form {padding:20px}
+}
+
+.shell .availability-workspace .availability-day-toggle {display:flex;flex-direction:row;align-items:center;gap:10px;margin:0;line-height:1.4}
+.shell .availability-workspace input[type="checkbox"] {width:18px;height:18px;min-height:18px;margin:0;padding:0;flex:0 0 18px}
+.shell .availability-workspace .availability-copy,.shell .availability-workspace .availability-add {background:none;border:0;color:#365cff;box-shadow:none;margin:0}
+.ds-root.sc .sc-bar .ds-select {width:100%;height:42px;margin:0}

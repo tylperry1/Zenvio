@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Modal } from "./modal";
 import { InvoiceList } from "./invoice-list";
 import {
@@ -12,6 +12,7 @@ type Account = Subscription & {
   user_id: string;
   name: string;
   email: string;
+  team_members?: {user_id:string;name:string;email:string;team_name:string;organization_id:string}[];
   override_plan: string | null;
   override_expires: string | null;
   override_reason: string | null;
@@ -124,8 +125,7 @@ export function AdminSubscriptions() {
           <div>
             <h2>Subscriptions</h2>
             <p>
-              Every account, including Free workspaces. Changes are checked
-              against Stripe.
+              Team members are grouped under the account that covers their seat. Individual subscriptions remain separate.
             </p>
           </div>
           <button
@@ -203,12 +203,13 @@ export function AdminSubscriptions() {
                   </thead>
                   <tbody>
                     {data?.accounts.map((s) => (
-                      <tr key={s.user_id}>
+                      <Fragment key={s.user_id}><tr className={s.team_members?.length ? "subscription-team-parent" : undefined}>
                         <td>
                           <b>{s.name}</b>
                           <small className="billing-cell-detail">
                             {s.email}
                           </small>
+                          {!!s.team_members?.length && <small className="subscription-team-count">{s.team_members.length} linked team {s.team_members.length===1?"member":"members"}</small>}
                         </td>
                         <td>
                           {planName(s.override_plan || s.plan)}
@@ -263,6 +264,8 @@ export function AdminSubscriptions() {
                           </button>
                         </td>
                       </tr>
+                      {s.team_members?.map(member=><tr className="subscription-team-child" key={member.user_id}><td><span className="subscription-member-indent"><b>{member.name}</b><small className="billing-cell-detail">{member.email}</small></span></td><td>Team seat<small className="billing-cell-detail">{member.team_name}</small></td><td><span className="billing-badge" data-tone="info">Covered by team</span></td><td colSpan={2}><small className="billing-cell-detail">Billing managed by {s.name}</small></td><td><a className="billing-secondary" href={`/admin?view=accounts&search=${encodeURIComponent(member.email)}`}>View account</a></td></tr>)}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

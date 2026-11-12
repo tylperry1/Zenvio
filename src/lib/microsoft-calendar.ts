@@ -238,7 +238,7 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
   const job=claimed.rows[0];
   try{
    const records=await getPool().query(
-    `select b.*,e.title,e.location,e.description,c.account_id,c.selected_calendar_id
+    `select b.*,e.title,coalesce(b.location,e.location) AS location,e.description,c.account_id,c.selected_calendar_id
        from public.bookings b join public.event_types e on e.id=b.event_id
        join private.microsoft_calendar_connections c on c.user_id=b.user_id
       where b.id=$1 and c.sync_events and c.status='connected'`,[job.booking_id]);

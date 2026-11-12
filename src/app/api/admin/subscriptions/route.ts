@@ -21,23 +21,25 @@ export async function GET(request: NextRequest) {
     const client = await getPool().connect();
     try {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-      const where = `(u.name ILIKE $1 OR u.email ILIKE $1) AND ($2='all' OR ($2='paid' AND s.plan<>'free' AND s.status IN ('active','trialing')) OR ($2='free' AND coalesce(s.plan,'free')='free') OR ($2='ending' AND s.cancel_at_period_end) OR ($2='attention' AND s.status IN ('past_due','unpaid','incomplete')) OR ($2='override' AND o.user_id IS NOT NULL))`,
+      const parentJoin = " LEFT JOIN LATERAL (SELECT o2.owner_id,o2.id organization_id,o2.name team_name FROM private.memberships m JOIN private.organizations o2 ON o2.id=m.organization_id LEFT JOIN private.subscriptions os ON os.user_id=o2.owner_id LEFT JOIN private.entitlement_overrides og ON og.user_id=o2.owner_id AND og.expires_at>now() WHERE m.user_id=u.id AND m.active AND o2.owner_id<>u.id AND s.subscription_id IS NULL AND o.user_id IS NULL AND ((os.plan IN ('team','teams') AND os.status IN ('active','trialing','past_due')) OR og.plan IN ('team','teams')) ORDER BY o2.created_at,o2.id LIMIT 1) parent ON true ";
+      const where = `parent.owner_id IS NULL AND (u.name ILIKE $1 OR u.email ILIKE $1 OR EXISTS(SELECT 1 FROM private.organizations org JOIN private.memberships mem ON mem.organization_id=org.id JOIN public."user" child ON child.id=mem.user_id WHERE org.owner_id=u.id AND mem.active AND (child.name ILIKE $1 OR child.email ILIKE $1))) AND ($2='all' OR ($2='paid' AND s.plan<>'free' AND s.status IN ('active','trialing')) OR ($2='free' AND coalesce(s.plan,'free')='free') OR ($2='ending' AND s.cancel_at_period_end) OR ($2='attention' AND s.status IN ('past_due','unpaid','incomplete')) OR ($2='override' AND o.user_id IS NOT NULL))`,
         args = ["%" + search + "%", filter];
       const { rows } = await client.query(
-        `SELECT u.id AS user_id,u.name,u.email,coalesce(s.plan,'free') AS plan,o.plan AS override_plan,o.expires_at AS override_expires,o.reason AS override_reason,coalesce(s.status,'active') AS status,s.current_period_end,coalesce(s.cancel_at_period_end,false) AS cancel_at_period_end,(s.subscription_id IS NOT NULL) AS has_subscription,(s.customer_id IS NOT NULL) AS has_customer FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE ${where} ORDER BY u."createdAt" DESC,u.id LIMIT 25 OFFSET $3`,
+        `SELECT u.id AS user_id,u.name,u.email,coalesce(s.plan,'free') AS plan,o.plan AS override_plan,o.expires_at AS override_expires,o.reason AS override_reason,coalesce(s.status,'active') AS status,s.current_period_end,coalesce(s.cancel_at_period_end,false) AS cancel_at_period_end,(s.subscription_id IS NOT NULL) AS has_subscription,(s.customer_id IS NOT NULL) AS has_customer FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE ${where} ORDER BY u."createdAt" DESC,u.id LIMIT 25 OFFSET $3`,
         [...args, page * 25],
       );
       const count = await client.query(
-        `SELECT count(*)::int AS total FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE ${where}`,
+        `SELECT count(*)::int AS total FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE ${where}`,
         args,
       );
       const totals = await client.query(
         `SELECT count(*)::int AS accounts,count(*) FILTER(WHERE s.plan<>'free' AND s.status IN ('active','trialing'))::int AS paid,count(*) FILTER(WHERE s.cancel_at_period_end)::int AS ending,count(*) FILTER(WHERE s.status IN ('past_due','unpaid','incomplete'))::int AS attention FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id`,
       );
+      const teamMembers = rows.length ? (await client.query(`SELECT u.id AS user_id,u.name,u.email,parent.owner_id,parent.team_name,parent.organization_id FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE parent.owner_id=ANY($1::uuid[]) ORDER BY parent.owner_id,u.name,u.id`,[rows.map(r=>r.user_id)])).rows : [];
       await client.query("COMMIT");
       return Response.json(
         {
-          accounts: rows,
+          accounts: rows.map(row=>({...row,team_members:teamMembers.filter(member=>member.owner_id===row.user_id)})),
           total: count.rows[0].total,
           totals: totals.rows[0],
           page,

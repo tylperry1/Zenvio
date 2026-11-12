@@ -90,6 +90,7 @@ export function CreateAppointment({
                     : f.get("intake_" + q.id),
               ]),
             ),
+            location: f.get("location"),
             phone: f.get("phone"),
             company: f.get("company"),
             purpose: f.get("purpose"),
@@ -171,8 +172,7 @@ export function CreateAppointment({
         </>}
         {!override && date && event && !loading && !slots.length && !error && (
           <p role="status">
-            No available times. Choose another date. Booking times are 2 hours
-            to 90 days ahead.
+            No available times. Choose another date, adjust your booking rules, or enter a custom time.
           </p>
         )}
         {!!data.contacts.length && (
@@ -261,6 +261,7 @@ export function CreateAppointment({
             )}
           </label>
         ))}
+        <label>Meeting location<input key={eventId} name="location" maxLength={500} defaultValue={event?.location || ""} placeholder="Address, phone call, or meeting URL" disabled={busy} /></label>
         <label>
           Phone
           <input name="phone" type="tel" maxLength={40} disabled={busy} />

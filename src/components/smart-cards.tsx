@@ -75,7 +75,7 @@ export function SmartCards() {
     if (!r.ok) throw new Error(d.error || "Unable to load smart profiles.");
     setData(d);
     const id = selectId ?? selected ?? "";
-    const p = d.profiles.find((x: Profile) => x.id === id) || d.profiles[0];
+    const p = d.profiles.find((x: Profile) => x.id === id) || d.profiles.find((x: Profile) => !x.archived_at && x.published) || d.profiles.find((x: Profile) => !x.archived_at) || d.profiles[0];
     setSelected(p?.id || "");
     setDraft(p ? { ...p } : blank(d.bookingSlug));
   }
@@ -203,6 +203,7 @@ export function SmartCards() {
               </select>
             </label>
             {data.profiles.length > 0 && (
+              <label className="ds-field sc-profile-picker">Profile
               <select
                 className="ds-select"
                 aria-label="Profile"
@@ -219,6 +220,7 @@ export function SmartCards() {
                   </option>
                 ))}
               </select>
+              </label>
             )}
             {draft.id && <Segmented label="Smart card sections" value={tab} onChange={setTab} options={[["profile", "Profile"], ["cards", `Cards (${data.cards.length})`]] as const} />}
           </div>
