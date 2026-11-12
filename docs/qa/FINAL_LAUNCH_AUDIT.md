@@ -1,6 +1,6 @@
 # Final launch audit
 
-Production baseline observed for this execution is main 6881844228eb8b9e12a3d98fb3dbb342224b6c92, Vercel dpl_BNjWh5YszRbDiHVJ2aPXnQkqynW1, READY. Target commercial launch is November 8, 2026.
+Production baseline observed for this execution is main 6881844228eb8b9e12a3d98fb3dbb342224b6c92, Vercel dpl_BNjWh5YszRbDiHVJ2aPXnQkqynW1, READY. Target commercial launch is November 13, 2026. The baseline above is historical; see the November 12 Phase 2 follow-up below for current release evidence.
 
 **Decision pending final-revision CI. Unrestricted paid launch remains NO-GO pending real Stripe acceptance and provider activation evidence.**
 
@@ -337,3 +337,25 @@ Each route requires its own workflow evidence. Source presence is recorded separ
 - Authenticated production booking/payment/signing tests and real provider/device acceptance require authorized fixture accounts.
 - No live charges, SMS, supplier orders, credential edits or paid validation flag changes are performed by this release.
 - No ESLint configuration currently exists. Typecheck and the existing test workflow are the configured static checks. Accessibility and responsive checks are provided by browser fixtures and require visual inspection of screenshots.
+
+
+## November 12 Phase 2 follow-up
+
+### Confirmed releases
+- PR #45 merged as `af85a9f`; Vercel production `dpl_A57Crz1PbC41VX8ogX2EuxXBAtQC` reached READY with `gozenvio.com` assigned. Includes default-hidden marketplace visibility, programmable NFC destinations, authenticated availability overrides and automatic time-zone selection. Migration 071 is part of that release.
+- PR #46 merged as `9de57b0`; Vercel production `dpl_CUyh2CEbm8Euqe7ofzZKAK24Br9z` reached READY with `gozenvio.com` assigned. Gelato now lives under Suppliers & pricing → Integrations; the legacy URL redirects. Both GitHub CI jobs and the Vercel preview passed on head `6351ea8` before merge.
+- Production UI inspection confirmed the marketplace visibility switch is off, the mobile Commerce menu has three entries, supplier integrations are reachable, and the manual appointment dialog exposes automatic time zones and the custom-time override.
+
+### Follow-up implementation (PR #47; acceptance pending final CI)
+- Inbox filters wrap instead of clipping Closed behind a horizontal scrollbar.
+- Supplier integration sections wrap on narrow screens so Orders and Sync & logs remain discoverable.
+- Manual appointment forms remove inherited label/control margins that doubled the grid spacing. The change is scoped to that form.
+- Homepage feature descriptions now include Smart Cards, programmable NFC, native support and appointments outside published availability. Physical NFC encoding remains separate.
+- The broad responsive suite adds support, marketing, Smart Cards, email preview and supplier routes at six widths. New regressions check inbox filter bounds/selection, supplier section navigation, and manual appointment field spacing/custom-time controls.
+- Live visual spot checks covered workspace overview, support, Inbox, documents, marketing, Smart Cards, Calendar/manual appointment, and supplier integration/menu screens. These checks do not establish full role-by-role visual acceptance of all 67 routes.
+
+### Still open
+- Full page-by-page visual acceptance across customer, booking guest, client portal, delegated support and master-admin roles; populated, empty, error and dialog states need individual evidence.
+- Real iPhone calendar import and live transactional-email delivery acceptance.
+- Google OAuth verification, Stripe paid activation, wallet issuer/signing/device acceptance, supplier sample fulfillment and backup restore evidence remain external acceptance items. Do not infer that these are ready from adapter/source presence or a stored credential.
+- This follow-up does not enable paid checkout, supplier fulfillment, wallet flags or the hidden marketplace.
