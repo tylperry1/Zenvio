@@ -77,8 +77,8 @@ export default async function RootLayout({
   const controls=await (await import("@/lib/launch-controls")).launchControls();
   return (
     <html lang="en" className={inter.variable}>
-      <body>
-        {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner}/>}
+      <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)}>
+        {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
         {children}
         <ServiceWorkerRegister />
         <PublicChat />

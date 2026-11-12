@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         launchDiscount = true;
         await db.query("UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",[reservation.id,token]);
       }
-      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",...(launchDiscount ? {discounts:[{coupon:launchCouponId}]} : {}),client_reference_id:token,metadata:{user_id:token,plan,catalog_version:catalog.version},subscription_data:{metadata:{user_id:token,plan,catalog_version:catalogVersion}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
+      const checkout = await stripe.checkout.sessions.create({customer:local.customer_id,mode:"subscription",...(launchDiscount ? {discounts:[{coupon:launchCouponId}]} : {allow_promotion_codes:true}),client_reference_id:token,metadata:{user_id:token,plan,catalog_version:catalog.version},subscription_data:{metadata:{user_id:token,plan,catalog_version:catalogVersion}},line_items:lines,success_url:appOrigin()+"/app/billing?checkout=complete",cancel_url:appOrigin()+"/app/billing"});
       await db.query("COMMIT");
       return Response.json({url:checkout.url});
     } catch(e) {await db.query("ROLLBACK");throw e;} finally {db.release();}

@@ -59,7 +59,8 @@ export async function adminBilling(actor:string,input:Record<string,unknown>){
     const current=await stripe.subscriptions.retrieve(local.subscription_id,{expand:["discounts"]});
     const customer=typeof current.customer==="string"?current.customer:current.customer.id;
     if(customer!==local.customer_id||current.metadata.user_id!==user)throw new ApiError("Subscription ownership could not be verified.",409);
-    if(!["active","trialing"].includes(current.status)||current.pending_update||current.schedule||current.cancel_at_period_end)throw new ApiError("Resolve the subscription's current or scheduled billing state first.",409);
+    const dispatch=action==="change"?(await db.query("SELECT * FROM private.billing_change_dispatches WHERE operation_id=$1",[operation])).rows[0]:null;
+    if(!dispatch&&(!["active","trialing"].includes(current.status)||current.pending_update||current.schedule||current.cancel_at_period_end))throw new ApiError("Resolve the subscription's current or scheduled billing state first.",409);
     if(action==="preview"){
      const plan=String(input.plan);if(!["individual","team"].includes(plan))throw new ApiError("Choose Individual or Teams.");
      const seats=plan==="team"?integer(input.seats,"seats",3,1000):1;
@@ -77,6 +78,10 @@ export async function adminBilling(actor:string,input:Record<string,unknown>){
      const items=[...current.items.data.filter(i=>!lines.some(l=>l.price===i.price.id)).map(i=>({id:i.id,deleted:true as const})),...lines.map(l=>({...l,...(current.items.data.find(i=>i.price.id===l.price)?{id:current.items.data.find(i=>i.price.id===l.price)!.id}:{})}))];
      const prorationDate=Math.floor(Date.now()/1000),preview=await stripe.invoices.createPreview({customer,subscription:current.id,subscription_details:{items,proration_date:prorationDate}});
      result={ok:true,userId:user,subscription:current.id,fingerprint:fingerprint(current),items,seats,plan,prorationDate,amountDue:preview.amount_due,currency:preview.currency,expiresAt:Date.now()+300000};
+    }else if(dispatch){
+     if(dispatch.actor_id!==actor||dispatch.user_id!==user||dispatch.subscription_id!==current.id||Date.now()-new Date(dispatch.created_at).getTime()>23*3600000)throw new ApiError("This attempted change requires manual Stripe reconciliation before retry.",409);
+     const recovered=await stripe.subscriptions.update(current.id,dispatch.request,{idempotencyKey:operation});
+     await saveSubscription(db,recovered,user);result={ok:true,message:"Previously attempted Stripe change reconciled without another charge."};
     }else{
      const preview=(await db.query("SELECT result,actor_id FROM private.billing_admin_operations WHERE id=$1 AND action='preview' AND state='succeeded'",[uuid(input.previewId)])).rows[0];
      const p=preview?.result;
@@ -84,13 +89,15 @@ export async function adminBilling(actor:string,input:Record<string,unknown>){
      await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+user]);
      const occupied=(await db.query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active",[user])).rows[0]?.n||0;
      if(occupied>p.seats)throw new ApiError("Team membership changed. Preview again before reducing seats.",409);
-     const updated=await stripe.subscriptions.update(current.id,{items:p.items,payment_behavior:"pending_if_incomplete",proration_behavior:"always_invoice",proration_date:p.prorationDate},{idempotencyKey:operation});
+     const request={items:p.items,payment_behavior:"pending_if_incomplete" as const,proration_behavior:"always_invoice" as const,proration_date:p.prorationDate};
+     await pool.query("INSERT INTO private.billing_change_dispatches(operation_id,actor_id,user_id,subscription_id,request) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",[operation,actor,user,current.id,JSON.stringify(request)]);
+     const updated=await stripe.subscriptions.update(current.id,request,{idempotencyKey:operation});
      await saveSubscription(db,updated,user);result={ok:true,message:updated.pending_update?"Payment is required before the change takes effect.":"Subscription updated; Stripe webhooks will reconcile subsequent changes."};
     }
    }else throw new ApiError("Unknown billing action.");
   }
   await db.query("UPDATE private.billing_admin_operations SET state='succeeded',result=$2,error=NULL,updated_at=now() WHERE id=$1",[operation,JSON.stringify(result)]);
-  await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'admin_billing_'+$2,$3)",[actor,action,JSON.stringify({operation,reason,userId:input.userId||null,result})]);
+  await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'admin_billing_'||$2,$3)",[actor,action,JSON.stringify({operation,reason,userId:input.userId||null,result})]);
   await db.query("COMMIT");return result;
  }catch(e){
   await db.query("ROLLBACK");
