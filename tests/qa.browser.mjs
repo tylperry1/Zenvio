@@ -34,6 +34,25 @@ try {
           assert.deepEqual(await table.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["150","450"]);
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
         }
+        if(route === "/admin/operations") {
+          await page.getByRole("button", {name: "Manage", exact: true}).first().click();
+          const dialog = page.getByRole("dialog", {name: "Manage subscription"});
+          await dialog.waitFor();
+          assert.equal(await dialog.getByRole("button", {name: "Overview", exact:true}).getAttribute("aria-pressed"), "true");
+          assert.equal(await dialog.getByRole("button", {name: "Grant access", exact:true}).count(), 0);
+          for(const section of ["Overview", "Plan access", "Invoices"]) {
+            await dialog.getByRole("button", {name:section, exact:true}).click();
+            assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1), `Billing dialog overflows at ${width}px in ${section}`);
+            if(section === "Plan access") {
+              await dialog.getByLabel("Access ends", {exact:true}).waitFor();
+              await dialog.getByRole("button", {name:"3 months", exact:true}).click();
+              assert.ok(await dialog.getByLabel("Access ends", {exact:true}).inputValue());
+            }
+            await page.screenshot({path:`test-results/admin-billing-${section.replaceAll(" ","-")}-${width}.png`});
+          }
+          await dialog.getByRole("button", {name:"Done", exact:true}).click();
+          await dialog.waitFor({state:"hidden"});
+        }
         if(route === "/app/inbox") {
           const filters = page.getByRole("tablist", {name: "Filter conversations"});
           await filters.getByRole("tab", {name: "Closed", exact: true}).waitFor();
