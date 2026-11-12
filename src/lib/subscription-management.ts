@@ -35,12 +35,13 @@ export async function saveSubscription(
   }
   const end = (base || legacy)?.current_period_end;
   const version = mapping?.catalog_version || "legacy";
+  const custom=version.startsWith("release-")?(await client.query("SELECT catalog FROM private.billing_catalog_versions WHERE id=$1",[version.slice(8)])).rows[0]?.catalog:null;
   const discounts = (subscription.discounts || []).filter(d=>typeof d !== "string");
   const promoEnd = discounts.reduce((end,d)=>Math.max(end,d.end||0),0);
   const monthlyAmount = mapping?.period === "monthly" && items.every(i=>Number.isInteger(i.price.unit_amount)) ? items.reduce((n,i)=>n+i.price.unit_amount!*(i.quantity||1),0) : null;
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["entitlements:"+userId]);
   await client.query(
-    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       paid && ["pro", "business", "teams", "individual", "team"].includes(mappedPlan)
@@ -50,7 +51,7 @@ export async function saveSubscription(
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
-      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount,
+      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? null,
     ],
   );
 }

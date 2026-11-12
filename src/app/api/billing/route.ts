@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const { connected, pricesReady, checkoutEnabled } = await billingReadiness();
     return Response.json(
       {
+        catalog: await (await import("@/lib/billing-catalog")).currentCatalog(),
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
         connected, pricesReady, checkoutEnabled,

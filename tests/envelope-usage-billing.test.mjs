@@ -41,3 +41,8 @@ test('staff cannot enable spending for the billing owner; enabling requires expl
 });
 
 test('v3 Teams envelope allowance is one fixed pool and free access never inherits a paid pool',async()=>{const paid=fixture({version:'2026-11-v3',sent:29,enabled:false});assert.equal((await paid.service.envelopeBudget('staff',paid.db)).included,30);await paid.service.recordEnvelopeSend(paid.db,'staff','pdf','last');await assert.rejects(paid.service.recordEnvelopeSend(paid.db,'staff','pdf','exhausted'));const free=fixture({version:'2026-11-v3',plan:'free'});assert.equal((await free.service.envelopeBudget('staff',free.db)).included,15);});
+
+test("new published Teams allowance remains a fixed snapshot instead of multiplying by seats",async()=>{
+ const f=fixture({plan:"team",version:"release-11111111-1111-4111-8111-111111111111",allowance:42});
+ const budget=await f.service.envelopeBudget("staff",f.db);assert.equal(budget.included,42);
+});
