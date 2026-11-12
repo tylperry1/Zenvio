@@ -1,0 +1,1 @@
+import { requireAdminPage } from "@/lib/page-session";import { LaunchControlAdmin } from "@/components/launch-control-admin";export const dynamic="force-dynamic";export default async function Page(){await requireAdminPage();return <LaunchControlAdmin/>;}

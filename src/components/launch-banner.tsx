@@ -1,0 +1,1 @@
+"use client";import {usePathname} from "next/navigation";export function LaunchBanner({text}:{text:string}){const path=usePathname();if(!["/","/pricing","/early-access","/sign-up"].includes(path||""))return null;return <aside className="launch-banner" aria-label="Launch announcement">{text} <a href="/sign-in">Member sign in</a></aside>;}

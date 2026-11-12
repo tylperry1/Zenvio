@@ -68,14 +68,17 @@ export const metadata: Metadata = {
   },
 };
 export const viewport: Viewport = { themeColor: "#151B38" };
-export default function RootLayout({
+import {LaunchBanner} from "@/components/launch-banner";
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const controls=await (await import("@/lib/launch-controls")).launchControls();
   return (
     <html lang="en" className={inter.variable}>
       <body>
+        {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner}/>}
         {children}
         <ServiceWorkerRegister />
         <PublicChat />

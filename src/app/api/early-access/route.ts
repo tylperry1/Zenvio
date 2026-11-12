@@ -1,3 +1,4 @@
+import { launchControls } from "@/lib/launch-controls";
 import { queueReservationConfirmation } from "@/lib/early-access-mail";
 import { drainDeliveries } from "@/lib/lifecycle";
 import { NextRequest, after } from "next/server";
@@ -7,7 +8,7 @@ import { allowAuthAttempt } from "@/lib/auth-rate-limit";
 export async function POST(request: NextRequest) {
  try {
   sameOrigin(request);
-  if(process.env.BILLING_CHECKOUT_ENABLED === "true") throw new ApiError("Early-access reservations have closed. You can now create your workspace.",409);
+  if(!(await launchControls()).waitlistEnabled) throw new ApiError("Waitlist reservations are currently paused.",409);
   const input = await body(request);
   if (input.website) return Response.json({ok:true}); // Hidden bot trap.
   const address=email(input.email),name=string(input.name,"name",100,2);

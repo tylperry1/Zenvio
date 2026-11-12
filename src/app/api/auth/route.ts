@@ -1,3 +1,4 @@
+import { launchControls } from "@/lib/launch-controls";
 import { mailReady } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { allowAuthAttempt } from "@/lib/auth-rate-limit";
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
         else if (input.action === "sign-up" || input.action === "sign-in") {
             const address = email(input.email);
             if (input.action === "sign-up") {
+                const controls=await launchControls();if(!controls.signupEnabled||controls.invitationOnly||controls.maintenance)throw new ApiError("Public signup is paused. Existing members can still sign in; invited users should use their private invitation link.",403);
                 if (address === (process.env.MASTER_ADMIN_EMAIL || "").trim().toLowerCase())
                     throw new ApiError("Use your private owner setup link to create this account.", 403);
                 response = await auth.api.signUpEmail({ ...common, body: { email: address, password: password(input.password), name: string(input.name, "name", 100, 2) } });
