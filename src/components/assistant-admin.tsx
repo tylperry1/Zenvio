@@ -90,10 +90,10 @@ export function AssistantAdmin() {
   const savedProvider = data && provider && JSON.stringify(provider) === JSON.stringify(data.ai);
   const month = data?.usage.filter((u) => u.day.slice(0, 7) === new Date().toISOString().slice(0, 7));
   return (
-    <main className="ea-admin">
+    <main className="ea-admin premium-admin ai-operations">
       <header className="page-header">
         <div>
-          <h1>AI assistant</h1>
+          <span className="premium-eyebrow">AI operations</span><h1>AI assistant</h1>
           <p>Turn the assistant on or off, set usage limits, and review every action members approved.</p>
         </div>
         {data && <Badge tone={data.configured && data.policy.enabled ? "success" : "warning"}>{data.configured && data.policy.enabled ? "Assistant ready" : "Setup required"}</Badge>}
@@ -102,6 +102,7 @@ export function AssistantAdmin() {
       {!data && !error && <Skeleton rows={6} />}
       {data && policy && (
         <>
+          <div className="command-summary"><div><span>Provider health</span><strong>{data.probe?.passed ? "Connection verified" : "Verification needed"}</strong></div><div><span>Estimated monthly cost</span><strong>{dollars(data.spend.settled)}</strong></div><div><span>Platform spending cap</span><strong>{dollars(data.ai.monthlyCapMicros)}</strong></div></div>
           <Card title="AI provider" description={`Provider settings for ${data.environment}.`}>
             <div className="aa-stats">
               <div><span>Selected provider</span><b>{providerNames[data.ai.provider]}</b></div>
@@ -152,18 +153,13 @@ export function AssistantAdmin() {
                   </Field>
                 </div>
                 {provider.provider === "gemini" && <p><a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noreferrer">Gemini models</a> · <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noreferrer">Gemini pricing</a></p>}
-                <label className="aa-toggle">
-                  <input type="checkbox" checked={provider.privateDataApproved} disabled={providerBusy}
-                    onChange={(event) => setProvider({ ...provider, privateDataApproved: event.target.checked, enabled: false })} />
-                  This provider account is approved for private workspace data
-                </label>
-                <label className="aa-toggle">
-                  <input type="checkbox" checked={provider.enabled} disabled={providerBusy || (!provider.enabled &&
+                <div className="premium-setting-row"><div><strong>Private workspace data</strong><p>Approve this provider account for private workspace data.</p></div><Toggle label="This provider account is approved for private workspace data" checked={provider.privateDataApproved} disabled={providerBusy} onChange={checked => setProvider({ ...provider, privateDataApproved: checked, enabled: false })}/></div>
+                <div className="premium-setting-row"><div><strong>Provider access</strong><p>Enable access after a successful connection test and data approval.</p></div>
+                  <Toggle label="Enable this provider" checked={provider.enabled} disabled={providerBusy || (!provider.enabled &&
                     (provider.provider !== data.ai.provider || provider.model !== data.ai.model || provider.maxOutputTokens !== data.ai.maxOutputTokens ||
                     !data.probe?.passed || !provider.privateDataApproved))}
-                    onChange={(event) => setProvider({ ...provider, enabled: event.target.checked, toolCompatible: event.target.checked || provider.toolCompatible })} />
-                  Enable this provider
-                </label>
+                    onChange={(checked) => setProvider({ ...provider, enabled: checked, toolCompatible: checked || provider.toolCompatible })} />
+                </div>
                 <div className="ui-form-grid">
                   <button className="ui-btn ui-btn-primary" disabled={providerBusy}>Save provider settings</button>
                   <button className="ui-btn ui-btn-secondary" type="button" disabled={providerBusy || !savedProvider || !data.ai.model || !data.credentialConfigured}
@@ -180,10 +176,10 @@ export function AssistantAdmin() {
                 void post({ action: "policy", ...policy }, "Assistant limits saved.");
               }}
             >
-              <label className="aa-toggle">
+              <div className="aa-toggle">
                 <Toggle label="Assistant enabled" checked={policy.enabled} onChange={(enabled) => setPolicy({ ...policy, enabled })} />
                 Assistant available to members
-              </label>
+              </div>
               <div className="ui-form-grid">
                 <Field label="Requests per account per day">
                   <input
@@ -210,7 +206,7 @@ export function AssistantAdmin() {
             </form>
           </Card>
           <Card title="This month" description="Estimated provider charges based on configured token rates. Outstanding reservations count toward the spending cap.">
-            <p><strong>{dollars(data.spend.settled)}</strong> estimated cost · <strong>{dollars(data.spend.reserved)}</strong> outstanding reservations</p>
+            <div className="spend-meter"><label htmlFor="platform-spend">Platform budget used · includes reservations</label><progress id="platform-spend" max={Math.max(data.ai.monthlyCapMicros,1)} value={Math.min(Number(data.spend.settled)+Number(data.spend.reserved),Math.max(data.ai.monthlyCapMicros,1))}/><span>{data.ai.monthlyCapMicros === 0 ? "No spending budget configured" : Math.round((Number(data.spend.settled)+Number(data.spend.reserved))/data.ai.monthlyCapMicros*100)+"% of configured cap"}</span></div><p><strong>{dollars(data.spend.settled)}</strong> estimated cost · <strong>{dollars(data.spend.reserved)}</strong> outstanding reservations</p>
             <div className="aa-stats">
               <div>
                 <span>Requests</span>
@@ -279,10 +275,10 @@ export function AssistantAdmin() {
               <Field label="Monthly tokens">
                 <input className="ui-input" type="number" min={0} value={override.monthlyTokens} onChange={(e) => setOverride({ ...override, monthlyTokens: e.target.value })} />
               </Field>
-              <label className="aa-toggle">
+              <div className="aa-toggle">
                 <Toggle label="Enabled for this account" checked={override.enabled} onChange={(enabled) => setOverride({ ...override, enabled })} />
                 Enabled
-              </label>
+              </div>
               <button className="ui-btn ui-btn-secondary">Save override</button>
             </form>
             {data.overrides.length > 0 && (
