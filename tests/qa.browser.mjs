@@ -48,6 +48,15 @@ try {
           assert.equal(await filters.getByRole("tab", {name: "Closed", exact: true}).getAttribute("aria-selected"), "true");
           await page.screenshot({path: `test-results/inbox-filters-${width}.png`});
         }
+        if(route === "/admin/suppliers?view=integrations") {
+          const sections = page.getByRole("group", {name: "Gelato sections"});
+          const last = sections.getByRole("button", {name: "Sync & logs", exact: true});
+          await last.waitFor();
+          assert.ok(await sections.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Supplier section controls must fit without sideways scrolling");
+          await last.click();
+          assert.equal(await last.getAttribute("aria-pressed"), "true");
+          await page.screenshot({path: `test-results/supplier-sections-${width}.png`});
+        }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
