@@ -1,3 +1,4 @@
+import { bookingCalendarTitle, bookingCalendarDescription } from "@/lib/calendar-invitation.mjs";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { failure, uuid } from "@/lib/server";
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (!feeds[0])
       return new Response("Calendar feed unavailable", { status: 404 });
     const { rows } = await getPool().query(
-      `SELECT b.id,b.starts_at,b.ends_at,b.status,e.title,e.location FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.ends_at>now()-interval '90 days' ORDER BY b.starts_at LIMIT 2000`,
+      `SELECT b.id,b.starts_at,b.ends_at,b.status,b.guest_name,b.intake_snapshot,e.title,e.location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.user_id=$1 AND b.ends_at>now()-interval '90 days' ORDER BY b.starts_at LIMIT 2000`,
       [feeds[0].user_id],
     );
     const events = rows.flatMap((b) => [
@@ -44,8 +45,9 @@ export async function GET(request: NextRequest) {
       `DTSTAMP:${date(b.starts_at)}`,
       `DTSTART:${date(b.starts_at)}`,
       `DTEND:${date(b.ends_at)}`,
-      `SUMMARY:${escape(b.title)}`,
+      `SUMMARY:${escape(bookingCalendarTitle(b.title,b.guest_name))}`,
       `LOCATION:${escape(b.location || "")}`,
+      `DESCRIPTION:${escape(bookingCalendarDescription(b.description,b.intake_snapshot))}`,
       `STATUS:${b.status === "cancelled" ? "CANCELLED" : "CONFIRMED"}`,
       "END:VEVENT",
     ]);

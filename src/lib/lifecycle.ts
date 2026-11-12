@@ -1,3 +1,5 @@
+import { icsContent } from "./scheduling.mjs";
+import { bookingCalendarTitle, bookingCalendarDescription } from "./calendar-invitation.mjs";
 import { deliverySender } from "./booking-email";
 import { transactionalEmail } from "./transactional-email";
 import { resendFailure, ResendDeliveryError } from "./resend-diagnostics";
@@ -31,15 +33,29 @@ export async function queueDelivery(
     document?: string;
   },
 ) {
+  let calendar: string | null = null;
+  let text = input.text;
+  if (input.booking && ["booking_confirmation", "booking_changed", "booking_reminder"].includes(input.kind)) {
+    const b = (await db.query(
+      "SELECT b.*,e.title,e.location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.id=$1 AND b.user_id=$2",
+      [input.booking, input.user],
+    )).rows[0];
+    if (b && (input.revision === undefined || b.revision === input.revision)) {
+      const title = bookingCalendarTitle(b.title, b.guest_name);
+      const description = bookingCalendarDescription(b.description, b.intake_snapshot);
+      calendar = sealSecret(icsContent({...b, title, location: b.location || "", description}));
+      text += `\n\nAppointment: ${title}\nLocation: ${b.location || "Not specified"}${description ? "\n" + description : ""}`;
+    }
+  }
   await db.query(
-    `INSERT INTO private.delivery_jobs(user_id,kind,dedupe_key,recipient,subject,payload_ciphertext,run_at,expires_at,booking_id,booking_revision,envelope_id,recipient_id,document_id,early_access_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(dedupe_key) DO NOTHING`,
+    `INSERT INTO private.delivery_jobs(user_id,kind,dedupe_key,recipient,subject,payload_ciphertext,run_at,expires_at,booking_id,booking_revision,envelope_id,recipient_id,document_id,early_access_id,calendar_ciphertext) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(dedupe_key) DO NOTHING`,
     [
       input.user,
       input.kind,
       input.key,
       input.to,
       input.subject,
-      sealSecret(input.text),
+      sealSecret(text),
       input.at || new Date(),
       input.expires || new Date(Date.now() + 14 * 86400000),
       input.booking || null,
@@ -48,6 +64,7 @@ export async function queueDelivery(
       input.recipient || null,
       input.document || null,
       input.earlyAccess || null,
+      calendar,
     ],
   );
 }
@@ -237,7 +254,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       }
       if (!valid) {
         await db.query(
-          "UPDATE private.delivery_jobs SET status='cancelled',payload_ciphertext=NULL WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='cancelled',payload_ciphertext=NULL,calendar_ciphertext=NULL WHERE id=$1",
           [j.id],
         );
         await db.query("COMMIT");
@@ -249,7 +266,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       );
       if (suppressed.rowCount) {
         await db.query(
-          "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,last_error='Email delivery is suppressed after a provider complaint or bounce.' WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error='Email delivery is suppressed after a provider complaint or bounce.' WHERE id=$1",
           [j.id],
         );
         await db.query("COMMIT");
@@ -294,6 +311,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
             ...(j.reply_to?{reply_to:j.reply_to}:{}),
             to: j.recipient,
             subject: j.subject,
+            ...(j.calendar_ciphertext ? { attachments: [{ filename: "appointment.ics", content: Buffer.from(unsealSecret(j.calendar_ciphertext)).toString("base64"), content_type: "text/calendar; charset=utf-8" }] } : {}),
             text: unsealSecret(j.payload_ciphertext),
             ...(j.kind === "customer_message" ? {} : { html: transactionalEmail(j.subject, unsealSecret(j.payload_ciphertext)) }),
           }),
@@ -303,7 +321,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         if (!response.ok || !data.id)
           throw resendFailure(response.status, data);
         await db.query(
-          "UPDATE private.delivery_jobs SET status='sent',sent_at=now(),provider_id=$2,provider_status='accepted',payload_ciphertext=NULL,last_error=NULL WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='sent',sent_at=now(),provider_id=$2,provider_status='accepted',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error=NULL WHERE id=$1",
           [j.id, data.id],
         );
         if(process.env.PRICING_V3_VALIDATED === "true"){
@@ -348,7 +366,7 @@ export function reminderOffsets(value: unknown) {
 export async function purgeExpiredDeliverySecrets() {
   const db = getPool();
   await db.query(
-    "UPDATE private.delivery_jobs SET payload_ciphertext=NULL,status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END WHERE expires_at<now() AND payload_ciphertext IS NOT NULL",
+    "UPDATE private.delivery_jobs SET payload_ciphertext=NULL,calendar_ciphertext=NULL,status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END WHERE expires_at<now() AND payload_ciphertext IS NOT NULL",
   );
   await db.query(
     "UPDATE private.signature_recipients r SET link_ciphertext=NULL FROM private.signature_envelopes e WHERE e.id=r.envelope_id AND (e.status IN ('voided','declined') OR (e.status<>'completed' AND e.expires_at<now()) OR e.completed_at<now()-interval '30 days')",

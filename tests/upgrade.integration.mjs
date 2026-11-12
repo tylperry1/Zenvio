@@ -158,6 +158,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 50));
   } while (Date.now() < reminderDeadline);
   assert(jobs.length >= 2, "booking reminders must be durably queued within five seconds");
+  assert(jobs.filter(j => ["booking_confirmation","booking_reminder"].includes(j.kind)).every(j => j.calendar_ciphertext && !j.calendar_ciphertext.includes("BEGIN:VCALENDAR")), "calendar attachments must be encrypted at rest");
   assert(!JSON.stringify(lifecycle).includes("payload_ciphertext"));
   assert(!JSON.stringify(jobs).includes(booked.data.cancel_token));
   const foreignMove = await request(
@@ -387,6 +388,14 @@ try {
   assert(clients.length);
   const contact = clients.find((c) => c.email === "guest@example.com");
   assert(contact);
+  const edit = {action:"edit",id:contact.id,name:contact.name,email:contact.email,company:contact.company || "",notes:contact.notes || "",phone:"513-555-0123",address:"123 Test Street\nCincinnati, OH"};
+  assert.equal((await request("/api/clients",edit,bob.cookie)).status,404);
+  assert.equal((await request("/api/clients",edit,alice.cookie)).status,200);
+  const edited=(await request("/api/clients?id="+contact.id,null,alice.cookie)).data.contact;
+  assert.equal(edited.phone,edit.phone);
+  assert.equal(edited.address,edit.address);
+  assert.equal((await request("/api/clients",{...edit,phone:"1".repeat(41)},alice.cookie)).status,400);
+
   assert.equal(
     (await request("/api/clients?id=" + contact.id, null, bob.cookie)).status,
     404,

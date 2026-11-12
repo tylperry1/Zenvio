@@ -83,6 +83,7 @@ export function icsContent({
   ends_at,
   location = "",
   description = "",
+  revision = 0,
 }) {
   const escape = (s) =>
     String(s)
@@ -106,12 +107,23 @@ export function icsContent({
     `DTSTAMP:${stamp(new Date())}`,
     `DTSTART:${stamp(starts_at)}`,
     `DTEND:${stamp(ends_at)}`,
+    `SEQUENCE:${Math.max(0, Math.trunc(Number(revision) || 0))}`,
     `SUMMARY:${escape(title)}`,
     `LOCATION:${escape(location)}`,
     `DESCRIPTION:${escape(description)}`,
     "END:VEVENT",
     "END:VCALENDAR",
     "",
-  ].join("\r\n");
+  ].map(line => {
+    const lines = [];
+    let part = '';
+    const encoder = new TextEncoder();
+    for (const char of line) {
+      if (encoder.encode(part + char).length > 75) { lines.push(part); part = ' ' + char; }
+      else part += char;
+    }
+    lines.push(part);
+    return lines.join('\r\n');
+  }).join("\r\n");
 }
 

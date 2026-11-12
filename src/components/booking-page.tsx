@@ -373,6 +373,7 @@ export function BookingPage({
                 },
                 confirmation.title,
                 confirmation.location,
+                event?.description || "",
               )
             }
           >

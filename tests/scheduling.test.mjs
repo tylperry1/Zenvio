@@ -110,3 +110,16 @@ test('recurring appointments preserve local time across DST and reject gaps',asy
  assert.throws(()=>recurrenceStarts('2026-10-25T05:30:00Z','America/New_York',2,'weekly'),/ambiguous/);
  assert.throws(()=>recurrenceStarts('2026-01-31T10:00:00Z','UTC',2,'monthly'),/does not exist/);
 });
+
+
+test("calendar titles include the customer and descriptions exclude unapproved intake", async () => {
+  const {bookingCalendarTitle,bookingCalendarDescription}=await import('../src/lib/calendar-invitation.mjs');
+  assert.equal(bookingCalendarTitle('Title Transfer','Tyler Perry'),'Title Transfer with Tyler Perry');
+  assert.equal(bookingCalendarTitle('Consultation',''),'Consultation');
+  assert.equal(bookingCalendarTitle('Call','Tyler\nBEGIN:VEVENT'),'Call with Tyler BEGIN:VEVENT');
+  const description=bookingCalendarDescription('Bring your title.',[
+    {label:'Private',answer:'secret',type:'short_text',includeInCalendar:false},
+    {label:'Purpose',answer:'Transfer',type:'short_text',includeInCalendar:true},
+  ]);
+  assert.equal(description,'Bring your title.\n\nPurpose: Transfer');
+});

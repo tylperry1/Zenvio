@@ -1417,6 +1417,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   selectedBooking,
                   eventFor(selectedBooking.event_id)?.title || "Appointment",
                   eventFor(selectedBooking.event_id)?.location || "",
+                  eventFor(selectedBooking.event_id)?.description || "",
                 )
               }
             >

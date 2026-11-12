@@ -1,6 +1,6 @@
 import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
 import type {ExternalCalendarUpdate} from "./external-calendar-policy";
-import {calendarIntakeSummary} from "./calendar-invitation.mjs";
+import {bookingCalendarTitle, bookingCalendarDescription} from "./calendar-invitation.mjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { integrationValue, sealSecret, unsealSecret } from "./platform-settings";
@@ -238,7 +238,7 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
   const job=claimed.rows[0];
   try{
    const records=await getPool().query(
-    `select b.*,e.title,e.location,c.account_id,c.selected_calendar_id
+    `select b.*,e.title,e.location,e.description,c.account_id,c.selected_calendar_id
        from public.bookings b join public.event_types e on e.id=b.event_id
        join private.microsoft_calendar_connections c on c.user_id=b.user_id
       where b.id=$1 and c.sync_events and c.status='connected'`,[job.booking_id]);
@@ -252,7 +252,7 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
       if(mapped){const response=await graphRequest(booking.user_id,booking.account_id,`${calendar}/${encodeURIComponent(mapped.event_id)}`,{method:"DELETE"});
        if(!response.ok&&response.status!==404)throw Error("sync_failed");}
     }else{
-      const payload={subject:booking.title,body:{contentType:"text",content:"Zenvio appointment. Manage changes in Zenvio."+(calendarIntakeSummary(booking.intake_snapshot)?"\n\nBooking details:\n"+calendarIntakeSummary(booking.intake_snapshot):"")},
+      const payload={subject:bookingCalendarTitle(booking.title,booking.guest_name),body:{contentType:"text",content:bookingCalendarDescription(booking.description,booking.intake_snapshot)},
        start:{dateTime:new Date(booking.starts_at).toISOString(),timeZone:"UTC"},
        end:{dateTime:new Date(booking.ends_at).toISOString(),timeZone:"UTC"},location:{displayName:booking.location||""},
        extensions:[{"@odata.type":"microsoft.graph.openTypeExtension",extensionName:"com.gozenvio.booking",

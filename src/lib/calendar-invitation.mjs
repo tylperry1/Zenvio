@@ -6,3 +6,12 @@ export function calendarIntakeSummary(snapshot) {
     .map(q=>clean(q.label)+': '+clean(Array.isArray(q.answer)?q.answer.join(', '):q.answer??''))
     .slice(0,10).join('\n').slice(0,2000);
 }
+
+// Customer-facing calendar fields only; never export internal CRM or booking notes.
+export function bookingCalendarTitle(title, guestName) {
+  const clean = value => String(value || '').replace(/[\r\n\x00-\x1f\x7f]/g, ' ').trim();
+  return clean(title || 'Appointment') + (clean(guestName) ? ' with ' + clean(guestName) : '');
+}
+export function bookingCalendarDescription(description, snapshot) {
+  return [String(description || '').trim(), calendarIntakeSummary(snapshot)].filter(Boolean).join('\n\n');
+}

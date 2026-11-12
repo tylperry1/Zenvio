@@ -1,6 +1,6 @@
 import type {ExternalCalendarMetadataSnapshot} from "./launch/contracts";
 import type {ExternalCalendarUpdate} from "./external-calendar-policy";
-import {calendarIntakeSummary} from "./calendar-invitation.mjs";
+import {bookingCalendarTitle, bookingCalendarDescription} from "./calendar-invitation.mjs";
 import { requireCapacity } from "./entitlements";
 import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -456,7 +456,7 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
     const claimed = claims[0];
     try {
       const { rows } = await getPool().query(
-        "SELECT b.*,e.title,e.location,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1 AND g.sync_events",
+        "SELECT b.*,e.title,e.location,e.description,g.account_sub FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN private.google_calendar_connections g ON g.user_id=b.user_id WHERE b.id=$1 AND g.sync_events",
         [claimed.booking_id],
       );
       if (!rows.length) throw Error("Disconnected");
@@ -481,10 +481,10 @@ export async function runGoogleJobs(userId?: string, limit = 5) {
         } else {
           const payload = {
             id: eventId,
-            summary: job.title,
+            summary: bookingCalendarTitle(job.title, job.guest_name),
             visibility: "private",
             location: job.location,
-            description: `Zenvio appointment\nGuest: ${job.guest_name}\nEmail: ${job.guest_email}\nManage this appointment in Zenvio.`+(calendarIntakeSummary(job.intake_snapshot)?"\n\nBooking details:\n"+calendarIntakeSummary(job.intake_snapshot):""),
+            description: bookingCalendarDescription(job.description,job.intake_snapshot),
             start: { dateTime: new Date(job.starts_at).toISOString() },
             end: { dateTime: new Date(job.ends_at).toISOString() },
             extendedProperties: {

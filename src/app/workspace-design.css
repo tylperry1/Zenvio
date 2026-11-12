@@ -236,3 +236,15 @@
   .shell .envelope-table-row>span:nth-child(3),.shell .envelope-table-row>span:last-child {grid-column:2}
   .shell .envelope-table-row strong {overflow-wrap:anywhere}
 }
+
+/* Compact workspace navigation; scoped to the shell to avoid styling content cards. */
+.shell .shell-nav-group + .shell-nav-group {margin-top:14px}
+.shell .shell-nav-group {padding:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.shell .shell-nav-group summary {display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;color:#a8b5d3;font-size:11px;font-weight:650;letter-spacing:.08em;padding:8px 12px;margin-bottom:4px}
+.shell .shell-nav-group summary::-webkit-details-marker {display:none}
+.shell .shell-nav-group summary svg {transition:transform .15s}
+.shell .shell-nav-group[open] summary svg {transform:rotate(90deg)}
+.shell .shell-nav-group summary:focus-visible {outline:2px solid #9bb0ff;outline-offset:2px;border-radius:5px}
+.shell .shell-nav-group a {min-height:38px;padding:9px 12px;margin-bottom:2px}
+.shell .shell-nav-group summary.sr-only {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:reduce) {.shell .shell-nav-group summary svg {transition:none}}
