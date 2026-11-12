@@ -50,7 +50,8 @@
 .cal-zone select {min-width:0;width:100%;border:1px solid #dce3ee;border-radius:8px;min-height:38px;padding:8px 10px;background:#fff;font:inherit}
 .availability-workspace {display:grid;gap:20px}
 .availability-toolbar {display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
-.availability-toolbar .ui-tabs {margin:0}
+.availability-toolbar .ui-tabs {margin:0;flex-wrap:wrap;overflow:visible;gap:4px}
+.availability-toolbar .ui-tabs.ui-tabs > button {min-height:40px;margin:0}
 .availability-zone {display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:#68758d}
 .availability-zone button {background:none;border:0;padding:4px;color:#365cff;font:inherit;cursor:pointer}
 .availability-editor-card {background:#fff;border:1px solid #dfe5ef;border-radius:14px;overflow:hidden}
@@ -152,3 +153,6 @@
 .shell .availability-workspace input[type="checkbox"] {width:18px;height:18px;min-height:18px;margin:0;padding:0;flex:0 0 18px}
 .shell .availability-workspace .availability-copy,.shell .availability-workspace .availability-add {background:none;border:0;color:#365cff;box-shadow:none;margin:0}
 .ds-root.sc .sc-bar .ds-select {width:100%;height:42px;margin:0}
+
+.availability-editor-card > header > select {width:240px;flex:0 0 240px}
+@media(max-width:640px){.availability-editor-card > header > select {width:100%;flex:auto}}

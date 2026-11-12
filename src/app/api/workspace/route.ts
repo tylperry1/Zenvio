@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
             enabled: d.enabled === true,
             start_time: start,
             end_time: end,
-            periods: d.periods === undefined ? null : JSON.stringify((()=>{try{return availabilityPeriods(d.periods);}catch(error){throw new ApiError((error as Error).message);}})()),
+            periods: d.periods == null ? null : JSON.stringify((()=>{try{return availabilityPeriods(d.periods);}catch(error){throw new ApiError((error as Error).message);}})()),
           };
         });
         await backend(
