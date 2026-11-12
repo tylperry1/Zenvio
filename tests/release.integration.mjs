@@ -24,7 +24,7 @@ try{
  const actor=(await db.query('SELECT id FROM public."user" WHERE email=$1',["owner@example.com"])).rows[0].id;
  const snapshot=(await db.query("INSERT INTO private.billing_catalog_versions(state,catalog,created_by) VALUES('superseded',$1,$2) RETURNING id",[JSON.stringify(catalogSnapshot),actor])).rows[0].id;
  const storageUser=(await db.query('SELECT id FROM public."user" WHERE email=$1',["disposable-release@example.com"])).rows[0].id;
- await db.query("UPDATE private.subscriptions SET plan='individual',status='active',catalog_version=$2 WHERE user_id=$1",[storageUser,"release-"+snapshot]);
+ await db.query("INSERT INTO private.subscriptions(user_id,plan,status,catalog_version,envelope_allowance) VALUES($1,'individual','active',$2,10) ON CONFLICT(user_id) DO UPDATE SET plan='individual',status='active',catalog_version=$2",[storageUser,"release-"+snapshot]);
  await assert.rejects(db.query("INSERT INTO private.profile_photos(user_id,image) VALUES($1,$2)",[storageUser,Buffer.alloc(5)]),/workspace_storage_allowance_reached/);
  await db.query("INSERT INTO private.profile_photos(user_id,image) VALUES($1,$2)",[storageUser,Buffer.alloc(4)]);
  await db.query("UPDATE private.subscriptions SET plan='free',status='inactive',catalog_version='legacy' WHERE user_id=$1",[storageUser]);

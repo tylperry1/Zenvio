@@ -81,7 +81,7 @@ export async function adminBilling(actor:string,input:Record<string,unknown>){
     }else if(dispatch){
      if(dispatch.actor_id!==actor||dispatch.user_id!==user||dispatch.subscription_id!==current.id||Date.now()-new Date(dispatch.created_at).getTime()>23*3600000)throw new ApiError("This attempted change requires manual Stripe reconciliation before retry.",409);
      const recovered=await stripe.subscriptions.update(current.id,dispatch.request,{idempotencyKey:operation});
-     await saveSubscription(db,recovered,user);result={ok:true,message:"Previously attempted Stripe change reconciled without another charge."};
+     await saveSubscription(db,await stripe.subscriptions.retrieve(current.id,{expand:["discounts"]}),user);result={ok:true,message:"Previously attempted Stripe change reconciled without another charge."};
     }else{
      const preview=(await db.query("SELECT result,actor_id FROM private.billing_admin_operations WHERE id=$1 AND action='preview' AND state='succeeded'",[uuid(input.previewId)])).rows[0];
      const p=preview?.result;
