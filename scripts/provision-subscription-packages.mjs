@@ -13,6 +13,7 @@ if(process.env.BILLING_CHECKOUT_ENABLED!=='true'&&process.env.BILLING_CATALOG_SY
 }
 const pool=new Pool({connectionString:postgresConnectionString(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL),max:1,connectionTimeoutMillis:15000});
 const db=await pool.connect();
+if((await db.query("SELECT 1 FROM private.billing_catalog_versions WHERE state='published' UNION ALL SELECT 1 WHERE (SELECT count(*) FROM private.subscription_prices WHERE plan IN ('individual','team','team_extra') AND period='monthly' AND catalog_version='2026-11-v3')=3")).rowCount){console.log("Published versioned catalog preserved; automatic v3 provisioning skipped.");db.release();await pool.end();process.exit(0);}
 async function secret(name){const r=await db.query('SELECT ciphertext FROM private.integration_secrets WHERE key=$1',[name]);if(!r.rows[0])return process.env[name]||'';if(!process.env.INTEGRATION_ENCRYPTION_KEY)throw Error('Integration encryption is not configured');const [iv,tag,data]=r.rows[0].ciphertext.split('.');const d=createDecipheriv('aes-256-gcm',createHash('sha256').update(process.env.INTEGRATION_ENCRYPTION_KEY).digest(),Buffer.from(iv,'base64'));d.setAuthTag(Buffer.from(tag,'base64'));return Buffer.concat([d.update(Buffer.from(data,'base64')),d.final()]).toString();}
 try{
  const key=await secret('STRIPE_SECRET_KEY'),webhook=await secret('STRIPE_WEBHOOK_SECRET');

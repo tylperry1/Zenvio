@@ -1,6 +1,6 @@
 "use client";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate } from "./ds";
 import { Icon } from "./icons";
 
@@ -69,10 +69,13 @@ export function SmartCards() {
   const [qr, setQr] = useState("");
   const [origin, setOrigin] = useState("https://gozenvio.com");
 
+  const loadRevision=useRef(0);
   async function load(selectId?: string, period = days) {
+    const revision=++loadRevision.current;
     const r = await fetch(`/api/smart-profiles?days=${period}`, { cache: "no-store" });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Unable to load smart profiles.");
+    if(revision!==loadRevision.current)return;
     setData(d);
     const id = selectId ?? selected ?? "";
     const p = d.profiles.find((x: Profile) => x.id === id) || d.profiles.find((x: Profile) => !x.archived_at && x.published) || d.profiles.find((x: Profile) => !x.archived_at) || d.profiles[0];
@@ -88,7 +91,9 @@ export function SmartCards() {
   const profileUrl = draft?.id ? `${origin}/p/${draft.slug}` : "";
   useEffect(() => {
     if (!profileUrl) return setQr("");
-    QRCode.toString(`${profileUrl}?via=qr`, { type: "svg", margin: 4, color: { dark: "#151b38", light: "#ffffff" } }).then(setQr).catch(() => setQr(""));
+    let active=true;setQr("");
+    QRCode.toString(`${profileUrl}?via=qr`, { type: "svg", margin: 4, color: { dark: "#151b38", light: "#ffffff" } }).then(svg=>{if(active)setQr(svg);}).catch(() => {if(active)setQr("");});
+    return ()=>{active=false;};
   }, [profileUrl]);
 
   async function post(payload: Record<string, unknown>, success: string) {
@@ -207,6 +212,7 @@ export function SmartCards() {
               <select
                 className="ds-select"
                 aria-label="Profile"
+                disabled={busy}
                 value={selected}
                 onChange={(e) => {
                   setSelected(e.target.value);
@@ -416,7 +422,7 @@ export function SmartCards() {
             </div>
             </>
           ) : (
-            <CardsTab data={data} busy={busy} post={post} copy={copy} origin={origin} profileId={draft.id} />
+            <CardsTab key={draft.id} data={data} busy={busy} post={post} copy={copy} origin={origin} profileId={draft.id} />
           )}
         </>
       )}
@@ -471,7 +477,7 @@ function CardsTab({
         </form>
         <p className="sc-hint">Zenvio doesn’t encode or ship NFC products yet. Use any NTAG-compatible card or tag and write the link with a free NFC writer app.</p>
       </Panel>
-      <Panel flush title="Your cards" description="Deactivate a lost card instantly, or point it at a different profile.">
+      <Panel flush title="All physical cards" description="Cards across your profiles. Each card shows its own linked destination; editing a profile does not move other cards.">
         {data.cards.length ? (
           <ul className="sc-card-list">
             {data.cards.map((c) => {

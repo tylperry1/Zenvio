@@ -675,7 +675,10 @@ function CustomerSupport() {
 /** Top-bar help button with an unread badge; opens a compact chat panel. */
 export function SupportLauncher() {
   const [open, setOpen] = useState(false);
+  const [expanded,setExpanded]=useState(false);
   const [active, setActive] = useState<string | null>(null);
+  useEffect(()=>{try{const saved=sessionStorage.getItem("zenvio-support-ticket");if(saved)setActive(saved);setExpanded(sessionStorage.getItem("zenvio-support-expanded")==="1");}catch{}},[]);
+  useEffect(()=>{try{if(active)sessionStorage.setItem("zenvio-support-ticket",active);else sessionStorage.removeItem("zenvio-support-ticket");sessionStorage.setItem("zenvio-support-expanded",expanded?"1":"0");}catch{}},[active,expanded]);
   const [composing, setComposing] = useState(false);
   const [version, setVersion] = useState(0);
   const { data, load, unread } = useCustomerTickets(true, open ? 30000 : 60000);
@@ -709,7 +712,7 @@ export function SupportLauncher() {
         {unread > 0 && <span className="sp-dot">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && (
-        <div id="zenvio-support" className="ds-root sp-panel" role="dialog" aria-label="Zenvio support">
+        <div id="zenvio-support" className={`ds-root sp-panel ${expanded?"sp-panel-expanded":""}`} role="dialog" aria-label="Zenvio support">
           <header className="sp-panel-head">
             <b>
               <Icon name="message" size={16} /> Help & support
@@ -728,10 +731,11 @@ export function SupportLauncher() {
                 <Icon name="refresh" size={15} />
                 {live === "live" && <i className="sp-live-dot" aria-hidden="true" />}
               </button>
+              <button type="button" aria-label={expanded?"Minimize support":"Expand support"} onClick={()=>setExpanded(v=>!v)}>{expanded?"Minimize":"Expand"}</button>
               <Link href={active ? `/app/support?ticket=${active}` : "/app/support"} className="sp-expand" onClick={() => setOpen(false)}>
                 Open full page
               </Link>
-              <button type="button" aria-label="Close" onClick={() => setOpen(false)}>
+              <button type="button" aria-label="Minimize chat" onClick={() => setOpen(false)}>
                 <Icon name="close" size={16} />
               </button>
             </span>

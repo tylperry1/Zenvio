@@ -1,0 +1,1 @@
+import Link from "next/link";export default function Page(){return <main style={{maxWidth:640,margin:"15vh auto",padding:24}}><h1>We’ll be right back</h1><p>Zenvio is undergoing maintenance. Existing records are preserved.</p><Link href="/sign-in">Sign in</Link> · <Link href="/support">Contact support</Link></main>;}
