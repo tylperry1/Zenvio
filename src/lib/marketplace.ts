@@ -51,6 +51,7 @@ export async function marketSettings() {
     integrationValue("STRIPE_MARKETPLACE_WEBHOOK_SECRET"),
   ]);
   return {
+    visible: rows[0]?.value.visible === true,
     checkoutEnabled: rows[0]?.value.checkoutEnabled === true,
     paymentConfigured: Boolean(key && webhook),
   };
@@ -98,7 +99,7 @@ export async function createMarketCheckout(
       0,
     ),
     settings = await marketSettings();
-  if (!settings.checkoutEnabled || !settings.paymentConfigured)
+  if (!settings.visible || !settings.checkoutEnabled || !settings.paymentConfigured)
     throw new ApiError(
       "Checkout is not open yet. No payment has been taken.",
       503,

@@ -54,6 +54,7 @@ export type Contact = {
   created_at: string;
 };
 export type WorkspaceData = {
+  marketplaceVisible?: boolean;
   platformRole?: "master_admin" | "member";
   profile: Profile;
   events: EventType[];

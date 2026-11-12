@@ -5,7 +5,8 @@ import { shellSession } from "@/lib/shell-session";
 import "./shop.css";
 export const dynamic = "force-dynamic";
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const { user, admin, jobs } = await shellSession();
+  const { user, admin, jobs, marketplace } = await shellSession();
+  const visible = await (await import("@/lib/marketplace-visibility")).marketplaceVisible();
   // Signed-out shoppers get a simple storefront header, not the workspace shell.
   if (!user)
     return (
@@ -15,7 +16,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
             <Logo />
           </Link>
           <nav aria-label="Marketplace">
-            <Link href="/marketplace">Shop</Link>
+            {visible && <Link href="/marketplace">Shop</Link>}
             <Link href="/marketplace/order">Find an order</Link>
             <Link href="/sign-in" className="market-public-signin">
               Sign in <Icon name="arrow" size={14} />
@@ -26,7 +27,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
       </div>
     );
   return (
-    <AppShell user={user} admin={admin} jobs={jobs}>
+    <AppShell user={user} admin={admin} jobs={jobs} marketplace={marketplace}>
       {children}
     </AppShell>
   );

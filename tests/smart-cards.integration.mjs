@@ -82,6 +82,13 @@ try {
   assert.equal((await request("/api/smart-profiles", { ...activation, confirmEncoding: true }, owner)).status, 200);
   assert.equal((await request(`/c/${token}`)).headers.get("location"), `/p/${slug}?via=card`);
 
+  assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"https://g.page/r/test/review"},other)).status,404);
+  assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"javascript:alert(1)"},owner)).status,400);
+  assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"https://g.page/r/test/review"},owner)).status,200);
+  assert.equal((await request(`/c/${token}`)).headers.get("location"),"https://g.page/r/test/review");
+  assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"booking"},owner)).status,200);
+  assert.match((await request(`/c/${token}`)).headers.get("location"), /^\/book\/[^?]+\?src=nfc$/);
+  assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"profile"},owner)).status,200);
   await mkdir("test-results", { recursive: true });
   const browser = await chromium.launch();
   try {
@@ -94,6 +101,16 @@ try {
     assert.equal(await workspace.getByText("Setup pending", { exact: true }).count(), 2);
     assert.equal(await workspace.getByRole("link", { name: "Download your QR code" }).count(), 1);
     assert.equal(await workspace.getByRole("button", { name: "Add to Apple Wallet" }).count(), 0);
+    await workspace.goto(`${origin}/app/marketing?tab=nfc`);
+    await workspace.getByRole("heading",{name:"Programmable NFC products"}).waitFor();
+    await workspace.screenshot({path:"test-results/marketing-nfc-mobile.png",fullPage:true});
+    await workspace.getByRole("link",{name:"Manage NFC products"}).click();
+    await workspace.getByText("Program tap destination",{exact:true}).click();
+    await workspace.getByLabel("Tap opens",{exact:true}).selectOption("review");
+    await workspace.getByLabel("HTTPS destination",{exact:true}).fill("https://g.page/r/test/review");
+    await workspace.getByRole("button",{name:"Save tap destination",exact:true}).click();
+    await workspace.getByText("Tap destination saved. The encoded link stays the same.",{exact:true}).waitFor();
+    await workspace.screenshot({path:"test-results/nfc-programming-mobile.png",fullPage:true});
     await workspace.close();
 
     for (const [label, width, height] of [["desktop", 1366, 900], ["mobile", 390, 844]]) {

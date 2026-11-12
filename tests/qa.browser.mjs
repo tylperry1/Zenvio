@@ -117,6 +117,26 @@ try {
   assert.ok(await adminMenu.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await adminMenu.screenshot({ path: "test-results/admin-menu-mobile.png" });
 
+  // Master-admin-only storefront visibility is a real UI switch, separate from checkout.
+  await adminMenu.setViewportSize({width:1440,height:1000});
+  await adminMenu.goto(origin+"/admin/operations?section=marketplace");
+  await adminMenu.getByRole("button",{name:"Settings",exact:true}).click();
+  const storeSwitch=adminMenu.getByRole("switch",{name:"Marketplace visible to customers"});
+  await storeSwitch.waitFor();
+  await Promise.all([
+    adminMenu.waitForResponse(r=>r.url().endsWith("/api/admin/marketplace") && r.request().method()==="POST" && r.status()===200),
+    storeSwitch.uncheck(),
+  ]);
+  await adminMenu.getByText("Marketplace is hidden.",{exact:true}).waitFor();
+  await adminMenu.screenshot({path:"test-results/marketplace-visibility-desktop.png",fullPage:true});
+  await pages[1].goto(origin+"/app/clients");
+  assert.equal(await pages[1].locator('.shell-nav-group a[href="/marketplace"]').count(),0);
+  await Promise.all([
+    adminMenu.waitForResponse(r=>r.url().endsWith("/api/admin/marketplace") && r.request().method()==="POST" && r.status()===200),
+    storeSwitch.check(),
+  ]);
+  await adminMenu.getByText("Marketplace is visible. Checkout still requires its own readiness checks.",{exact:true}).waitFor();
+
   // Customer-product UI acceptance stays in the isolated fixture: no provider checkout.
   await pages[1].goto(origin+"/app/growth");
   const offerForm=pages[1].locator("form").filter({has:pages[1].getByRole("heading",{name:"Create an offer",exact:true})});

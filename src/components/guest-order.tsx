@@ -48,7 +48,7 @@ const statusLabel: Record<string, string> = {
 };
 
 /** A guest's private order page. The access token lives in the URL fragment. */
-export function GuestOrder() {
+export function GuestOrder({marketplaceVisible=false}:{marketplaceVisible?:boolean}) {
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
   const [checkout, setCheckout] = useState("");
@@ -75,8 +75,8 @@ export function GuestOrder() {
   return (
     <div className="ds-root go">
       <div className="go-head">
-        <Link href="/marketplace" className="go-back">
-          <Icon name="arrow" size={14} /> Marketplace
+        <Link href={marketplaceVisible ? "/marketplace" : "/"} className="go-back">
+          <Icon name="arrow" size={14} /> {marketplaceVisible ? "Marketplace" : "Zenvio home"}
         </Link>
         <h1>Your order</h1>
         {order && (

@@ -1,3 +1,4 @@
+import { requireMarketplaceVisible } from "@/lib/marketplace-visibility";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { applyMarketPayment } from "@/lib/marketplace";
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
     if (input.action !== "refresh" && input.action !== "resume")
       throw new ApiError("Invalid order action.");
+    if(input.action === "resume") await requireMarketplaceVisible();
     const id = uuid(input.orderId);
     const { rows } = await getPool().query(
       "SELECT stripe_session_id FROM private.marketplace_orders WHERE id=$1 AND user_id=$2",

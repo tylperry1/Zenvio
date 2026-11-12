@@ -105,3 +105,10 @@ Migrations 017–032 are additive upgrades; existing migrations 001–016 are un
 - Contracted supplier catalog/inventory/submission/returns adapters and real marketplace catalog expansion.
 - Further workflow actions only after explicit implementation, authorization design and tests.
 
+
+## November launch additions — in validation
+
+- Master-admin marketplace visibility toggle; defaults hidden. Orders, refunds, supplier callbacks and fulfillment history remain available.
+- Marketing & Reviews NFC products: review stands, business cards, tags, stickers and keychains reuse stable Smart Cards links. Destinations can change between a profile, review page, booking page and HTTPS website/offer. Manual encoding required; no automated physical supplier provisioning is claimed.
+- Authenticated manual appointment times outside published availability, with explicit reason/confirmation and unchanged overlap, buffer, calendar, intake and audit protections. Public scheduling remains availability-bound.
+- Browser time-zone autodetection with an explicit automatic selector and manual override; business account timezone is unchanged.

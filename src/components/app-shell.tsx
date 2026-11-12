@@ -96,7 +96,7 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
 }
 
-function paletteItems(demo: boolean, admin: boolean, jobs: boolean): PaletteItem[] {
+function paletteItems(demo: boolean, admin: boolean, jobs: boolean, marketplace: boolean): PaletteItem[] {
   const base = demo ? "/demo" : "/app";
   const actions: PaletteItem[] = [
     { id: "new-link", label: "New booking link", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create" },
@@ -112,7 +112,7 @@ function paletteItems(demo: boolean, admin: boolean, jobs: boolean): PaletteItem
   ];
   const pages = groups.flatMap((g) =>
     g.items
-      .filter((i) => visible(i, demo, jobs))
+      .filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace))
       .map((i) => ({
         id: "page-" + i.id,
         label: i.label,
@@ -135,8 +135,10 @@ function Navigation({
   demo,
   jobs,
   onNavigate,
+  marketplace,
 }: {
   demo: boolean;
+  marketplace: boolean;
   jobs: boolean;
   onNavigate: () => void;
 }) {
@@ -146,7 +148,7 @@ function Navigation({
   return (
     <>
       {groups.map((group) => {
-        const items = group.items.filter((i) => visible(i, demo, jobs));
+        const items = group.items.filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace));
         if (!items.length) return null;
         const links = items.map((item) => (
           <Link
@@ -203,12 +205,14 @@ export function AppShell({
   admin = false,
   demo = false,
   jobs = false,
+  marketplace = false,
   children,
 }: {
   user: { name: string; email: string } | null;
   admin?: boolean;
   demo?: boolean;
   jobs?: boolean;
+  marketplace?: boolean;
   children: ReactNode;
 }) {
   const routePath = usePathname();
@@ -308,7 +312,7 @@ export function AppShell({
         </div>
         <nav className="shell-nav">
           <Suspense fallback={null}>
-            <Navigation demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
+            <Navigation marketplace={marketplace} demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
           </Suspense>
         </nav>
         <div className="shell-sidebar-foot">
@@ -432,7 +436,7 @@ export function AppShell({
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}
-          items={paletteItems(demo, admin, jobs)}
+          items={paletteItems(demo, admin, jobs, marketplace)}
           searchClients={!demo && !!user}
         />
       </div>

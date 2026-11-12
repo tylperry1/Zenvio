@@ -20,7 +20,7 @@ type Data = {
     awaiting_fulfillment: number;
     collected_cents: string;
   };
-  settings: { checkoutEnabled: boolean; paymentConfigured: boolean };
+  settings: { checkoutEnabled: boolean; paymentConfigured: boolean; visible: boolean; canManageVisibility: boolean };
   page: number;
 };
 export function AdminMarketplace() {
@@ -77,6 +77,11 @@ export function AdminMarketplace() {
     } finally {
       setBusy(false);
     }
+  }
+  async function toggleVisibility(visible:boolean) {
+    const previous=data;
+    setData(current=>current ? {...current,settings:{...current.settings,visible}} : current);
+    if(!(await save({action:"visibility",visible}))) setData(previous);
   }
   async function openOrder(id: string) {
     setBusy(true);
@@ -412,6 +417,18 @@ export function AdminMarketplace() {
                     )}
                   </div>
                 </>
+              )}
+              {tab === "settings" && data.settings.canManageVisibility && (
+                <section className="panel marketplace-visibility">
+                  <h2>Marketplace visibility</h2>
+                  <p>Hide the storefront and new purchases while retaining existing orders, refunds and fulfillment tools.</p>
+                  <label className="check-label">
+                    <input type="checkbox" role="switch" aria-label="Marketplace visible to customers" checked={data.settings.visible} disabled={busy}
+                      onChange={e => void toggleVisibility(e.target.checked)} />
+                    Show marketplace to customers
+                  </label>
+                  <p role="status">{data.settings.visible ? "Marketplace is visible. Checkout still requires its own readiness checks." : "Marketplace is hidden."}</p>
+                </section>
               )}
               {tab === "settings" && (
                 <div className="market-setup-guide">

@@ -15,6 +15,7 @@ async function request(path,{method='GET',data,cookie,originHeader=origin}={}){
 }
 const auth=(data,cookie)=>request('/api/auth',{method:'POST',data,cookie});
 try {
+ await db.query("UPDATE private.platform_settings SET value=value||'{\"visible\":true}'::jsonb WHERE key='marketplace'");
  assert.equal((await request('/api/config')).data.accounts,true);
  assert.equal((await request('/api/admin')).status,401);
  assert.equal((await request('/api/workspace')).status,401);
