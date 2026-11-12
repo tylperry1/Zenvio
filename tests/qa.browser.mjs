@@ -102,6 +102,24 @@ try {
     await calendarPage.screenshot({ path: `test-results/calendar-connection-${width}.png` });
   }
   await calendarPage.unroute("**/api/calendars/google");
+  for (const width of [390, 1440]) {
+    await calendarPage.setViewportSize({width, height:900});
+    await calendarPage.goto(origin+"/app/calendar");
+    await calendarPage.getByRole("button", {name:"+ New appointment", exact:true}).click();
+    const appointmentDialog=calendarPage.getByRole("dialog", {name:"Create appointment"});
+    const spacing=await appointmentDialog.locator(".appointment-form > label").evaluateAll(labels=>labels.map(label=>{
+      const style=getComputedStyle(label);
+      return {top:style.marginTop,bottom:style.marginBottom};
+    }));
+    assert.ok(spacing.length>0 && spacing.every(s=>s.top==="0px" && s.bottom==="0px"), "Appointment labels must not double the form grid spacing");
+    await appointmentDialog.getByLabel("Enter a custom time outside availability").check();
+    await appointmentDialog.getByLabel("Custom time", {exact:true}).waitFor();
+    await appointmentDialog.getByLabel("Reason for override", {exact:true}).waitFor();
+    assert.ok(await appointmentDialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1), "Appointment dialog must fit the viewport");
+    await calendarPage.screenshot({path:`test-results/manual-appointment-spacing-${width}.png`});
+    await appointmentDialog.getByRole("button", {name:"Close dialog",exact:true}).click();
+  }
+
   const adminMenu = pages[2];
   await adminMenu.setViewportSize({ width: 1440, height: 900 });
   await adminMenu.goto(origin + "/admin/operations?section=health");
