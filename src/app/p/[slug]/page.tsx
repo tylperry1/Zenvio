@@ -1,3 +1,4 @@
+import { ProfileExperience } from "@/components/profile-experience";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -29,6 +30,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     await recordProfileView(profile.id, via === "qr" ? "qr" : "link", ip).catch(() => {});
   }
   const initials = v.displayName.split(/\s+/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+  if (profile.design) return <main className="sc-public sc-public-designed"><ProfileExperience design={profile.design} identity={{name:v.displayName,tagline:[v.jobTitle,v.company].filter(Boolean).join(' · '),company:v.company,bio:v.bio,phone:v.phone,email:v.email,address:v.address,website:v.website,links:v.links,bookingUrl:v.bookingUrl?`/p/${v.slug}/booking`:undefined,vcardUrl:`/p/${v.slug}/vcard`,qrUrl:`/p/${v.slug}/qr?format=png`}} leadCapture={profile.captureLeads?<SmartCardLeadForm slug={v.slug}/>:undefined}/><footer className="sc-public-footer"><Link href="/">Smart profile by <Logo compact/></Link></footer></main>;
   return (
     <main className="sc-public" style={{ ["--sc-accent" as string]: v.accent }}>
       <article className="sc-public-card">

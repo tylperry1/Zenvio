@@ -1,6 +1,7 @@
 "use client";
 import { SupportLauncher } from "./platform-support";
 import { InstallPrompt } from "./pwa";
+import { GrowthNavigation } from "./growth-navigation";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
@@ -151,7 +152,7 @@ function Navigation({
         const items = group.items.filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace));
         if (!items.length) return null;
         const links = items.map((item) => (
-          <Link
+          <div key={item.id}><Link
             key={item.id}
             href={hrefFor(item, demo)}
             className={current?.id === item.id ? "active" : ""}
@@ -160,11 +161,11 @@ function Navigation({
           >
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
-          </Link>
+          </Link>{item.id === "growth-suite" && <div className="shell-growth-links"><GrowthNavigation/></div>}</div>
         ));
         if (!group.label) return <div className="shell-nav-group" key="home">{links}</div>;
         return (
-          <details className="shell-nav-group" key={group.label + (group.items.some(i => i.id === current?.id) ? "-active" : "")} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
+          <details className="shell-nav-group" data-group={group.label} key={group.label + (group.items.some(i => i.id === current?.id) ? "-active" : "")} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
             <summary>{group.label}<Icon name="chevron" size={12} /></summary>
             {links}
           </details>
@@ -316,6 +317,7 @@ export function AppShell({
           </Suspense>
         </nav>
         <div className="shell-sidebar-foot">
+          {!demo && <div className="shell-help"><b><Icon name="message" size={17}/> Need a hand?</b><p>Help from the Zenvio team, right in your workspace.</p><Link href="/app/support">Open support</Link></div>}
           {admin && !demo && (
             <Link href="/admin" className="shell-admin-link">
               <Icon name="shield" size={16} />
@@ -359,7 +361,7 @@ export function AppShell({
           </Suspense>
           <button className="shell-search" onClick={() => setSearch(true)} aria-label="Search (Ctrl+K)">
             <Icon name="search" size={16} />
-            <span>Search</span>
+            <span>Search Zenvio…</span>
             <kbd>⌘K</kbd>
           </button>
           <div className="shell-topbar-actions">

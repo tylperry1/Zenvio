@@ -1,0 +1,25 @@
+import type {CSSProperties,ReactNode} from 'react';
+import {foreground,profileFonts,profileImageUrl,type ProfileDesign} from '@/lib/profile-design';
+import {Icon} from './icons';
+export type ProfileIdentity={name:string;tagline?:string;bio?:string;company?:string;phone?:string;email?:string;address?:string;website?:string;links?:{label:string;url:string}[];bookingUrl?:string;vcardUrl?:string;coverUrl?:string;avatarUrl?:string;qrUrl?:string;timezone?:string;bookingInstructions?:string};
+// The same presentation is used for the editor's draft and the published profile.
+export function ProfileExperience({design:d,identity:i,services,reviews,leadCapture,preview=false}:{design:ProfileDesign;identity:ProfileIdentity;services?:ReactNode;reviews?:ReactNode;leadCapture?:ReactNode;preview?:boolean}){
+ const bg=d.theme==='dark'?d.secondary:d.background,ink=foreground(bg);
+ const style={'--px-primary':d.primary,'--px-on-primary':foreground(d.primary),'--px-secondary':d.secondary,'--px-on-secondary':foreground(d.secondary),'--px-accent':d.accent,'--px-background':bg,'--px-ink':ink,'--px-heading-font':profileFonts[d.headingFont],'--px-body-font':profileFonts[d.bodyFont],'--px-size':d.textSize==='large'?'17px':d.textSize==='small'?'13px':'15px'} as CSSProperties;
+ const cover=profileImageUrl(d.cover)||i.coverUrl,avatar=profileImageUrl(d.avatar)||i.avatarUrl;
+ return <article className={`px-profile px-${d.theme} px-layout-${d.layout}`} style={style}>
+  <header className="px-hero">{cover&&<img className="px-cover" src={cover} alt="" loading="lazy" referrerPolicy="no-referrer"/>}<div className="px-hero-copy"><span className="px-eyebrow">{i.company||i.name}</span><h2>{d.heroTitle||i.tagline||'A good time to connect.'}</h2><p>{d.heroDescription||i.bio||'Take the next step. Find the right service and a time that works for you.'}</p>{i.bookingUrl&&<a className="px-button" href={i.bookingUrl}>{d.buttonLabel||'Book an appointment'} <Icon name="arrow" size={16}/></a>}</div></header>
+  <div className="px-identity"><span className="px-avatar">{avatar?<img src={avatar} alt={i.name} loading="lazy" referrerPolicy="no-referrer"/>:i.name.split(/\s+/).map(s=>s[0]).slice(0,2).join('')}</span><div><h1>{i.name}</h1>{i.tagline&&<p>{i.tagline}</p>}</div><div className="px-contact-actions">{i.qrUrl&&<a href={i.qrUrl}><Icon name="grid" size={17}/>Download QR</a>}{i.vcardUrl&&<a href={i.vcardUrl}><Icon name="download" size={17}/>Save contact</a>}{i.phone&&<a href={`tel:${i.phone.replace(/[^\d+]/g,'')}`}><Icon name="contact" size={17}/>Call</a>}{i.email&&<a href={`mailto:${i.email}`}><Icon name="mail" size={17}/>Email</a>}{i.address&&<a href={`https://maps.google.com/?q=${encodeURIComponent(i.address)}`} rel="noopener noreferrer" target="_blank"><Icon name="home" size={17}/>Directions</a>}</div></div>
+  {(d.layout==='tabbed'||d.layout==='sections')&&<nav className="px-section-nav" aria-label="Profile sections">{d.sections.filter(s=>s.visible).map(s=><a key={s.id} href={`#${preview?'preview-':''}profile-${s.id}`}>{s.title}</a>)}</nav>}
+  {i.bookingInstructions&&<aside className="px-notice"><b>Before you book</b><p>{i.bookingInstructions}</p></aside>}{i.timezone&&<p className="px-timezone">Host timezone · {i.timezone.replaceAll('_',' ')}</p>}
+  <div className="px-sections">{d.sections.filter(s=>s.visible).map(s=><section key={s.id} id={`${preview?'preview-':''}profile-${s.id}`} className={`px-section px-section-${s.id}`}>
+   <h2>{s.title}</h2>{s.body&&<p className="px-prose">{s.body}</p>}
+   {s.id==='about'&&!s.body&&i.bio&&<p className="px-prose">{i.bio}</p>}
+   {s.id==='services'&&services}
+   {s.id==='reviews'&&reviews}
+   {s.id==='contact'&&<div className="px-links">{i.website&&<a href={i.website} target="_blank" rel="noopener noreferrer nofollow">Website <Icon name="external" size={14}/></a>}{i.links?.map((l,index)=><a key={`${l.url}-${index}`} href={l.url} target="_blank" rel="noopener noreferrer nofollow">{l.label} <Icon name="external" size={14}/></a>)}{i.address&&<p>{i.address}</p>}</div>}
+   <div className={s.id==='gallery'?'px-gallery':'px-items'}>{s.items.map((item,index)=>s.id==='faq'?<details key={index}><summary>{item.title}<Icon name="plus" size={16}/></summary><p>{item.body}</p></details>:<div className="px-item" key={index}>{s.id==='gallery'&&item.url&&<img src={profileImageUrl(item.url)} alt={item.title||'Gallery image'} loading="lazy" referrerPolicy="no-referrer"/>}{s.id==='staff'&&item.url&&<img className="px-staff-photo" src={profileImageUrl(item.url)} alt={item.title} loading="lazy" referrerPolicy="no-referrer"/>}{item.title&&<h3>{item.title}</h3>}{item.body&&<p className="px-prose">{item.body}</p>}{item.url&&!['gallery','staff'].includes(s.id)&&<a href={item.url} target="_blank" rel="noopener noreferrer nofollow">Learn more <Icon name="external" size={14}/></a>}</div>)}</div>
+   {preview&&!s.body&&!s.items.length&&!['about','services','contact'].includes(s.id)&&<p className="px-empty">Add your {s.title.toLowerCase()} here.</p>}
+  </section>)}</div>{leadCapture&&<section className="px-section px-lead">{leadCapture}</section>}
+ </article>;
+}

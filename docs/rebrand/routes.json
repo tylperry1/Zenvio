@@ -1,0 +1,862 @@
+[
+  {
+    "route": "/admin/assistant",
+    "source": "src/app/admin/assistant/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/billing",
+    "source": "src/app/admin/billing/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/early-access",
+    "source": "src/app/admin/early-access/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/economics",
+    "source": "src/app/admin/economics/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/email-preview",
+    "source": "src/app/admin/email-preview/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/entitlements",
+    "source": "src/app/admin/entitlements/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/feedback",
+    "source": "src/app/admin/feedback/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/gelato",
+    "source": "src/app/admin/gelato/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/launch",
+    "source": "src/app/admin/launch/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/marketplace-tools",
+    "source": "src/app/admin/marketplace-tools/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin",
+    "source": "src/app/admin/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/setup",
+    "source": "src/app/admin/setup/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/suppliers",
+    "source": "src/app/admin/suppliers/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/support",
+    "source": "src/app/admin/support/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/team",
+    "source": "src/app/admin/team/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/assistant",
+    "source": "src/app/app/assistant/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/automation",
+    "source": "src/app/app/automation/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/billing",
+    "source": "src/app/app/billing/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/calendar",
+    "source": "src/app/app/calendar/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/clients",
+    "source": "src/app/app/clients/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/connections",
+    "source": "src/app/app/connections/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/documents",
+    "source": "src/app/app/documents/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/feedback",
+    "source": "src/app/app/feedback/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/growth/overview",
+    "source": "src/app/app/growth/overview/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Growth performance, actions, campaign attribution and reviews",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/growth",
+    "source": "src/app/app/growth/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/inbox",
+    "source": "src/app/app/inbox/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/jobs",
+    "source": "src/app/app/jobs/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/marketing",
+    "source": "src/app/app/marketing/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app",
+    "source": "src/app/app/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/payments",
+    "source": "src/app/app/payments/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/smart-cards",
+    "source": "src/app/app/smart-cards/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Digital profile editor, existing identity and NFC controls",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/support",
+    "source": "src/app/app/support/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/team",
+    "source": "src/app/app/team/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/templates",
+    "source": "src/app/app/templates/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/book/[host]/[event]",
+    "source": "src/app/book/[host]/[event]/page.tsx",
+    "role": "Customer / public",
+    "design": "Booking profile renderer and existing scheduling flow",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Partial: /book/demo/discovery-call at mobile/tablet inspected; mobile confirmation has no horizontal overflow",
+    "functional": "Demo day/time selection and sample details submission reached confirmation; real database, email, calendar, cancellation and rescheduling not validated",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/book/[host]",
+    "source": "src/app/book/[host]/page.tsx",
+    "role": "Customer / public",
+    "design": "Booking profile renderer and existing scheduling flow",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Partial: /book/demo mobile profile inspected; published custom profile renderer not exercised",
+    "functional": "Demo event links opened; real account booking profile remains unverified",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/c/inactive",
+    "source": "src/app/c/inactive/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/cancel",
+    "source": "src/app/cancel/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/class-cancel",
+    "source": "src/app/class-cancel/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/classes/[id]",
+    "source": "src/app/classes/[id]/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/demo",
+    "source": "src/app/demo/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Partial: desktop overview/bookings and 390px calendar/client list inspected; mobile calendar no horizontal overflow",
+    "functional": "Overview loaded; booking list/calendar toggle and mobile navigation to Clients worked; demo booking completed with sample data stored only in browser",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/early-access",
+    "source": "src/app/early-access/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/gift-card",
+    "source": "src/app/gift-card/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/help",
+    "source": "src/app/help/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "768px article grid and 390px filtered result inspected",
+    "functional": "Search for Smart Card returned only Share a Smart Card article",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/maintenance",
+    "source": "src/app/maintenance/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/marketplace/order",
+    "source": "src/app/marketplace/order/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/marketplace/orders",
+    "source": "src/app/marketplace/orders/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/marketplace/p/[id]",
+    "source": "src/app/marketplace/p/[id]/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/marketplace",
+    "source": "src/app/marketplace/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/marketplace/studio/[id]",
+    "source": "src/app/marketplace/studio/[id]/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/p/[slug]",
+    "source": "src/app/p/[slug]/page.tsx",
+    "role": "Customer / public",
+    "design": "Digital profile renderer and existing consent/contact actions",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/",
+    "source": "src/app/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Partial: desktop hero and 320px mobile hero inspected; 320px document width equals viewport",
+    "functional": "Public product preview Contacts tab switched successfully; remaining sections not fully reviewed",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/portal/[token]",
+    "source": "src/app/portal/[token]/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/pricing",
+    "source": "src/app/pricing/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/privacy",
+    "source": "src/app/privacy/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/purchase/complete",
+    "source": "src/app/purchase/complete/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/request/[host]",
+    "source": "src/app/request/[host]/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/reschedule",
+    "source": "src/app/reschedule/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/reset-password",
+    "source": "src/app/reset-password/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/review",
+    "source": "src/app/review/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/shop/[host]",
+    "source": "src/app/shop/[host]/page.tsx",
+    "role": "Customer / public",
+    "design": "Commerce design tokens and existing storefront/editor layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/sign-in",
+    "source": "src/app/sign-in/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "320px sign-in layout inspected; no horizontal overflow",
+    "functional": "/app redirects here; visible notice says account services are not connected and Sign in is disabled",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/sign-up",
+    "source": "src/app/sign-up/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/sign/envelope",
+    "source": "src/app/sign/envelope/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/sign",
+    "source": "src/app/sign/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/support",
+    "source": "src/app/support/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "390px support error state inspected",
+    "functional": "Blocked: visitor support displays Something went wrong. Please try again.; local database/account services unavailable",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/team/[organization]/[event]",
+    "source": "src/app/team/[organization]/[event]/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/team/accept",
+    "source": "src/app/team/accept/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/terms",
+    "source": "src/app/terms/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/waitlist-offer",
+    "source": "src/app/waitlist-offer/page.tsx",
+    "role": "Customer / public",
+    "design": "Public design foundation and existing page layout",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app?view=bookings",
+    "source": "src/app/app/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app?view=event-types",
+    "source": "src/app/app/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app?view=availability",
+    "source": "src/app/app/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app?view=settings",
+    "source": "src/app/app/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin?view=accounts",
+    "source": "src/app/admin/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin?view=audit",
+    "source": "src/app/admin/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=subscriptions",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=marketplace",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=users",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=integrations",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=pricing",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/admin/operations?section=health",
+    "source": "src/app/admin/operations/page.tsx",
+    "role": "Master admin / delegated staff",
+    "design": "Console chrome, operational forms, tables, dialogs",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/marketing?tab=sources",
+    "source": "src/app/app/marketing/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/marketing?tab=reviews",
+    "source": "src/app/app/marketing/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  },
+  {
+    "route": "/app/marketing?tab=nfc",
+    "source": "src/app/app/marketing/page.tsx",
+    "role": "Workspace owner / team member",
+    "design": "Workspace chrome and existing module-specific layouts",
+    "implementation": "Shared foundation applied; focused module enhancements where indicated",
+    "browser": "Pending: authenticated fixtures unavailable for account routes; other routes not yet reviewed",
+    "functional": "Static checks only; authenticated integration regression not run",
+    "release": "Not approved for production"
+  }
+]

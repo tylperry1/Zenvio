@@ -1,0 +1,165 @@
+{
+  "baseline": "470d051958b3c584c3d3eb5c62d5b221ee144b58",
+  "page_files": 71,
+  "explicit_subviews": 15,
+  "typecheck": {
+    "command": "npm run typecheck",
+    "status": "passed"
+  },
+  "automated_tests": {
+    "command": "npm test",
+    "passed": 315,
+    "failed": 0,
+    "skipped": 0
+  },
+  "production_build": {
+    "command": "npm run build",
+    "status": "passed on final source in isolated temporary copy",
+    "database_migrations": "skipped: database not configured",
+    "subscription_provisioning": "skipped outside production",
+    "warning": "Help search warning fixed; existing documents/storefront CSS compatibility warnings remain",
+    "log": "/tmp/zenvio-rebrand-final-build.log"
+  },
+  "browser_qa": {
+    "status": "partial",
+    "evidence": "docs/rebrand/browser-qa.json",
+    "server": "Local production build reachable; development eval/CSP blocker resolved by production-mode serving without changing CSP",
+    "remaining_blockers": [
+      "Local account services are not configured; no isolated database/auth fixtures for owner/member/support/admin or profile-design migration acceptance.",
+      "Visitor support error prevents chat acceptance.",
+      "Standalone evidence screenshots have not been saved."
+    ],
+    "standalone_screenshot_files": 0
+  },
+  "database_integration": "Blocked: PostgreSQL initdb shared-memory creation and existing local socket connection denied by execution sandbox; no real database integration test ran",
+  "deployment": "not performed",
+  "local_commit": "not created: .git is read-only",
+  "pull_request": "not created: release remains unverified",
+  "production_ready": false,
+  "changed_files_against_main": [
+    {
+      "path": "src/app/api/profile/route.ts",
+      "sha256": "8a494184b2d3b25f22fac328cf0dacdf236902032d16c3ad500057f67d0d1fe3"
+    },
+    {
+      "path": "src/app/api/profile-design/image/route.ts",
+      "sha256": "3789765b3823a9267043e8d92f643e233e389fe11a41628497b5980bb9d8b894"
+    },
+    {
+      "path": "src/app/api/profile-design/route.ts",
+      "sha256": "dbff9a839767ab038da39513a21b5066cae10c4767d3fd07764fd3a8d391b108"
+    },
+    {
+      "path": "src/app/app/marketing/page.tsx",
+      "sha256": "0b34e4f886528fa184de473f7a4dda78c859aa2807b64fd49faad2df88e6d96e"
+    },
+    {
+      "path": "src/app/help/page.tsx",
+      "sha256": "27f7ba5e0427664a83115081e2ef5dd6c7631f1f789650ac7b97598e9bea9969"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "sha256": "6c331c01c2edd949a641fc10217b4cfec7832760a9c2a236d29f0bda0b63d399"
+    },
+    {
+      "path": "src/app/marketing.css",
+      "sha256": "290ca0035d2820cab3faba3e3b65ba303c676de38067e05d90f3ac54e35d9e3e"
+    },
+    {
+      "path": "src/app/p/[slug]/page.tsx",
+      "sha256": "3d771fdabcd731e746ef705c6be8fe3ba92f8e12e97fff92cab78ed0a98d2eb3"
+    },
+    {
+      "path": "src/app/profile-studio.css",
+      "sha256": "4770672e884d9bf40ee548dff6c929f511fa28c9c50b925cb3d17f74098daff0"
+    },
+    {
+      "path": "src/app/rebrand.css",
+      "sha256": "891906f4a3df99984ac6e8f772df3beb34d32c5f9b63fb0372c8b56def0f57fd"
+    },
+    {
+      "path": "src/components/app-shell.tsx",
+      "sha256": "24d9955250846bcf9b609c7480b7b664f1211dda7fbcd1f5bef70548bd111038"
+    },
+    {
+      "path": "src/components/booking-design.tsx",
+      "sha256": "ebbadcad8574aef8e4044a5137cb856d04ec897ca32bec33feb4866afb45ebea"
+    },
+    {
+      "path": "src/components/booking-profile.tsx",
+      "sha256": "3882d6dfc289d0a891975cf1cae8a1e71e50677f4e43614759dddca18d02dae8"
+    },
+    {
+      "path": "src/components/commerce/commerce.module.css",
+      "sha256": "c40e063d41e31e3d99738b52034e870de4cb55cb4905857adf6dae0ac3515228"
+    },
+    {
+      "path": "src/components/growth-overview.tsx",
+      "sha256": "f308eaa171dc7784ef3c90e4c6c01955ec2431b609da578864387758631ffc73"
+    },
+    {
+      "path": "src/components/profile-experience.tsx",
+      "sha256": "da85210de3f4c2cbca8be78a5690ab370c8601c46b7a3f6b80969ac02bb55566"
+    },
+    {
+      "path": "src/components/profile-studio.tsx",
+      "sha256": "a5b8a1c829fe75532f20a1296aaf7f3c558d1d7aaeca0df094af74ecc2d58478"
+    },
+    {
+      "path": "src/components/smart-cards.tsx",
+      "sha256": "db38c1a1b5712e58510324934c4cae9fe27380bc6c2949f0a07ca00f0c8d0726"
+    },
+    {
+      "path": "src/components/workspace.tsx",
+      "sha256": "d440a5817b34a7173d8d03f5747c730b7163ae8cb892a8188336e0234072bb05"
+    },
+    {
+      "path": "src/lib/profile-design-store.ts",
+      "sha256": "161998b6fed6764c4ff7c919d4d590c31d9bfd958f558baff9f9028efd3a7b5b"
+    },
+    {
+      "path": "src/lib/profile-design.ts",
+      "sha256": "6397e7c11bb5d3fde82efbe2066d6d7121e88268345900417b0a6bae2c73a4f1"
+    },
+    {
+      "path": "src/lib/smart-cards.ts",
+      "sha256": "a48f0274fa87a83ea3beb996188b44e4644f3752334db9e47467a0f9a6af6e9a"
+    },
+    {
+      "path": "src/lib/types.ts",
+      "sha256": "0fdf7ee270bbeb5c41c310d6bcb364a88f718713426e420d8ab75301b5652ef5"
+    },
+    {
+      "path": "tests/profile-design.test.mjs",
+      "sha256": "5b977ee53efee071b801dee5240a1df6a874321e7d2e106713b893066220aacc"
+    },
+    {
+      "path": "scripts/rebrand-inventory.mjs",
+      "sha256": "a3135b92cb86cc0a0b2246a16b88269ce9cfbadeda8b335a814d394500e9a5ba"
+    },
+    {
+      "path": "docs/rebrand/RELEASE_STATUS.md",
+      "sha256": "a5560225df2056b3bacd8d5aa3ef10686053a9851a860c8b7d80385f5b6e80cc"
+    },
+    {
+      "path": "docs/rebrand/browser-qa.json",
+      "sha256": "6f6839110dfe04e70e5b6d252faf638c2d48c2b934e1ee0650f2a42e6ddead5d"
+    },
+    {
+      "path": "docs/rebrand/routes.csv",
+      "sha256": "1cd3b6ec1ee5a8cd6294d44f7b703b726b20e547c8dad317366bb0bb5ad739a9"
+    },
+    {
+      "path": "docs/rebrand/routes.json",
+      "sha256": "c93054ec19a2f4b713d91102f91dfdc8f83ce2e3ffdecc87b146135a6bcc4aee"
+    },
+    {
+      "path": "postgres/migrations/076_profile_designs.sql",
+      "sha256": "0ed05caa62b21bb7b9dbf9954fccf1cea29308e5a71c0029bf0fd7c690363eaf"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "c2024f61a2fb794588879b7a975e98b78fe17b4f8b3d89df939d66a23cba549f"
+    }
+  ]
+}

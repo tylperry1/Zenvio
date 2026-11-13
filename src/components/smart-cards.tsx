@@ -1,5 +1,6 @@
 "use client";
 import QRCode from "qrcode";
+import { ProfileStudio } from "./profile-studio";
 import { useEffect, useRef, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate } from "./ds";
 import { Icon } from "./icons";
@@ -235,6 +236,7 @@ export function SmartCards() {
             <Notice>This profile is archived. Its URL remains reserved and its public page is unavailable.</Notice>
           ) : tab === "profile" || !draft.id ? (
             <>
+            {draft.id && <ProfileStudio key={draft.id} kind="smart" profileId={draft.id} identity={{name:draft.display_name,tagline:[draft.job_title,draft.company].filter(Boolean).join(' · '),company:draft.company,bio:draft.bio,phone:draft.show_phone?draft.phone:undefined,email:draft.show_email?draft.email:undefined,address:draft.show_address?draft.address:undefined,website:draft.website,links:draft.links,bookingUrl:draft.show_booking&&data.bookingSlug?`/book/${data.bookingSlug}`:undefined,vcardUrl:`/p/${draft.slug}/vcard`}} publicUrl={`/p/${draft.slug}`} />}
             <Panel title="Wallet & sharing" description="Keep your business card on your phone and share it with a QR code.">
               <div className="sc-wallet-options">
                 {(["apple", "google"] as const).map((provider) => {

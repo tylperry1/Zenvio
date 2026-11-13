@@ -122,7 +122,8 @@ export async function loadPublicProfile(slug: string) {
     [slug],
   );
   const row = r.rows[0];
-  return row ? { id: row.id as string, captureLeads: row.capture_leads === true, view: publicView(row as SmartProfile, row.booking_slug) } : null;
+  const design = row ? await (await import("./profile-design-store")).publishedProfileDesign(row.user_id,"smart",row.id) : null;
+  return row ? { design, id: row.id as string, captureLeads: row.capture_leads === true, view: publicView(row as SmartProfile, row.booking_slug) } : null;
 }
 
 /** Aggregate daily view count; throttled per client so counts can't be trivially inflated. */

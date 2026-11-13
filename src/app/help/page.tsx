@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {Icon,Logo} from "@/components/icons";
 export const metadata = { title: "Zenvio Help Center" };
 const articles = [
   { title: "Publish a booking page", text: "Sign in, create an event type, set its duration, and review your weekly availability and time zone. Copy your booking page link from the workspace and test it before sharing." },
@@ -13,11 +14,11 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
   const input = (await searchParams).q;
   const query = typeof input === "string" ? input.slice(0, 100) : "";
   const found = articles.filter((article) => (article.title + " " + article.text).toLowerCase().includes(query.toLowerCase()));
-  return <main className="ds-root" style={{ maxWidth: 880, margin: "auto", padding: "40px 20px" }}>
-    <Link href="/">Zenvio</Link><h1>How can we help?</h1>
-    <form><label className="ds-field">Search help<input name="q" type="search" defaultValue={query} maxLength={100} /></label><button className="ds-btn primary">Search</button></form>
+  return <main className="ds-root hc-page">
+    <header className="hc-header"><Link href="/" aria-label="Zenvio home"><Logo/></Link><h1>How can we help?</h1><p>Clear answers for your next step with Zenvio.</p></header>
+    <form className="hc-search"><label className="ds-field">Search help<input name="q" type="search" defaultValue={query} maxLength={100} /></label><button className="ds-btn primary">Search</button></form>
     <p><Link href="/support">Chat with the Zenvio team</Link> · <Link href="/app/support">Support for signed-in customers</Link></p>
     {!found.length && <p>No matching articles. Try another search or send us a message.</p>}
-    {found.map((article) => <article key={article.title} className="ds-panel" style={{ padding: 20, marginTop: 14 }}><h2>{article.title}</h2><p>{article.text}</p></article>)}
+    <div className="hc-articles">{found.map((article) => <article key={article.title}><Icon name={["calendar","clock","plug","card","file","link","message"][articles.indexOf(article)]} size={23}/><h2>{article.title}</h2><p>{article.text}</p></article>)}</div>
   </main>;
 }

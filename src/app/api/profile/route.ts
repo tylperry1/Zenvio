@@ -1,3 +1,4 @@
+import { publishedProfileDesign } from "@/lib/profile-design-store";
 import { NextRequest } from "next/server";
 import { ApiError, backend, failure, slug } from "@/lib/server";
 import { getPool } from "@/lib/db";
@@ -13,15 +14,17 @@ export async function GET(request: NextRequest) {
       throw new ApiError("This booking profile is unavailable.", 404);
     const extra = (
       await getPool().query(
-        `SELECT website,location,social_links,booking_instructions,
+        `SELECT p.id,website,location,social_links,booking_instructions,
                 EXISTS(SELECT 1 FROM private.profile_images i WHERE i.user_id=p.id AND i.kind='cover') has_cover,
                 EXISTS(SELECT 1 FROM private.profile_images i WHERE i.user_id=p.id AND i.kind='logo') has_logo
            FROM public.profiles p WHERE p.slug=$1`,
         [host],
       )
     ).rows[0];
+    const design=extra?await publishedProfileDesign(extra.id,"booking",extra.id):null;
+    const {id: _privateId,...publicExtra}=extra||{};
     return Response.json(
-      { ...profile, profile: { ...profile.profile, ...extra } },
+      { ...profile, design, profile: { ...profile.profile, ...publicExtra } },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

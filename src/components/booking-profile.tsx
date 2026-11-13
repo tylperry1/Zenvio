@@ -1,4 +1,5 @@
 "use client";
+import { ProfileExperience } from "./profile-experience";
 import { captureAttribution } from "@/lib/attribution-client";
 import { PublicReviews } from "./public-reviews";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -77,6 +78,8 @@ export function BookingProfile({ host }: { host: string }) {
             Visit Zenvio
           </Link>
         </main>
+      ) : data.design ? (
+        <main className="bp-designed"><ProfileExperience design={data.design} identity={{name:data.profile.company||data.profile.name,timezone:data.profile.timezone,bookingInstructions:data.profile.booking_instructions,tagline:data.profile.headline,bio:data.profile.bio,company:data.profile.company,website:data.profile.website,address:data.profile.location,links:data.profile.social_links?.map(l=>({label:networkLabel(l.network),url:l.url})),bookingUrl:data.design.sections.some(s=>s.id==='services'&&s.visible)?'#profile-services':data.events[0]?`/book/${host}/${data.events[0].slug}`:undefined,coverUrl:data.profile.has_cover?`/api/profile/images?host=${encodeURIComponent(host)}&kind=cover`:undefined,avatarUrl:data.profile.has_logo?`/api/profile/images?host=${encodeURIComponent(host)}&kind=logo`:undefined}} services={<div className="px-booking-services">{data.events.length?data.events.map(event=><Link key={event.slug} href={`/book/${host}/${event.slug}`} className="px-booking-service"><Icon name="calendar" size={22}/><h3>{event.title}</h3><p>{event.description}</p><span>{event.duration} minutes · {event.location}</span><b>Choose a time <Icon name="arrow" size={15}/></b></Link>):<p>No appointments are available right now.</p>}</div>} reviews={<PublicReviews host={host}/>}/></main>
       ) : (
         <main
           className="bp-container"

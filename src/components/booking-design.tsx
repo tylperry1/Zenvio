@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { ProfileStudio } from "./profile-studio";
 import { Icon } from "./icons";
 import { Alert, Card, Field, Skeleton } from "./ui";
 import { industries } from "@/lib/contractor";
@@ -31,9 +32,11 @@ export const networkLabel = (n: string) => networks.find(([id]) => id === n)?.[1
 export function BookingDesign({
   profile,
   notify,
+  events = [],
 }: {
   profile: { name: string; slug: string; headline?: string; company?: string; bio: string; accent_color?: string };
   notify: (message: string, error?: boolean) => void;
+  events?: {title:string;duration:number;description:string;active:boolean;deleted_at?:string|null}[];
 }) {
   const [d, setD] = useState<Details | null>(null),
     [error, setError] = useState(""),
@@ -90,6 +93,8 @@ export function BookingDesign({
     }
   }
   return (
+    <div id="booking-design">
+    <ProfileStudio kind="booking" services={<div className="px-booking-services">{events.filter(e=>e.active&&!e.deleted_at).map((event,index)=><div className="px-booking-service" key={index}><Icon name="calendar" size={21}/><h3>{event.title}</h3><p>{event.description}</p><span>{event.duration} minutes</span></div>)}</div>} identity={{name:profile.company || profile.name,tagline:profile.headline,bio:profile.bio,company:profile.company,bookingUrl:`/book/${profile.slug}`,coverUrl:d?.has_cover?`/api/profile/images?host=${encodeURIComponent(profile.slug)}&kind=cover`:undefined,avatarUrl:d?.has_logo?`/api/profile/images?host=${encodeURIComponent(profile.slug)}&kind=logo`:undefined}} publicUrl={`/book/${profile.slug}`} />
     <Card
       title="Booking page design"
       description="Cover image, logo, links and instructions guests see on your booking pages. Your booking links don’t change."
@@ -244,6 +249,7 @@ export function BookingDesign({
         </div>
       )}
     </Card>
+    </div>
   );
 }
 

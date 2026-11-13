@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/pwa";
 import { PublicChat } from "@/components/public-chat";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import "./platform.css";
 import "./refinements.css";
@@ -15,11 +14,8 @@ import "./subscriptions.css";
 import "./design-system.css";
 import "./workspace-polish.css";
 import "./growth-suite.css";
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
+import "./rebrand.css";
+import "./profile-studio.css";
 export const metadata: Metadata = {
   title: {
     default: "Zenvio — Good things, on the calendar.",
@@ -77,7 +73,7 @@ export default async function RootLayout({
 }) {
   const controls=await (await import("@/lib/launch-controls")).launchControls();
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en">
       <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)}>
         {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
         {children}

@@ -1875,7 +1875,7 @@ function Settings({
       </aside>
       {!demo && (
         <div className="settings-design">
-          <BookingDesign profile={data.profile} notify={onShare} />
+          <BookingDesign profile={data.profile} events={data.events} notify={onShare} />
         </div>
       )}
     </div>

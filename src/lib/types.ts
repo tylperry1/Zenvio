@@ -99,6 +99,7 @@ export type ProfileExtras = {
   has_logo?: boolean;
 };
 export type PublicProfileData = {
+  design?: import("./profile-design").ProfileDesign | null;
   profile: Omit<Profile, "id"> & ProfileExtras;
   events: Pick<
     EventType,

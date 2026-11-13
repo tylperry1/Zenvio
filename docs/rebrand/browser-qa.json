@@ -1,0 +1,60 @@
+{
+  "environment": "Local Next.js production-mode server at http://127.0.0.1:3100; Chrome",
+  "date_utc": "2026-11-13",
+  "viewport_sizes_observed": [
+    [
+      1440,
+      1000
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      320,
+      844
+    ]
+  ],
+  "screenshots": "Captured and visually inspected in browser tool output; no standalone PNG files saved in this pass.",
+  "security": "CSP unchanged; no production writes, provider calls, auth bypass, or credential changes.",
+  "routes": {
+    "/": {
+      "browser": "Partial: desktop hero and 320px mobile hero inspected; 320px document width equals viewport",
+      "functional": "Public product preview Contacts tab switched successfully; remaining sections not fully reviewed"
+    },
+    "/demo": {
+      "browser": "Partial: desktop overview/bookings and 390px calendar/client list inspected; mobile calendar no horizontal overflow",
+      "functional": "Overview loaded; booking list/calendar toggle and mobile navigation to Clients worked; demo booking completed with sample data stored only in browser"
+    },
+    "/sign-in": {
+      "browser": "320px sign-in layout inspected; no horizontal overflow",
+      "functional": "/app redirects here; visible notice says account services are not connected and Sign in is disabled"
+    },
+    "/help": {
+      "browser": "768px article grid and 390px filtered result inspected",
+      "functional": "Search for Smart Card returned only Share a Smart Card article"
+    },
+    "/support": {
+      "browser": "390px support error state inspected",
+      "functional": "Blocked: visitor support displays Something went wrong. Please try again.; local database/account services unavailable"
+    },
+    "/book/[host]": {
+      "browser": "Partial: /book/demo mobile profile inspected; published custom profile renderer not exercised",
+      "functional": "Demo event links opened; real account booking profile remains unverified"
+    },
+    "/book/[host]/[event]": {
+      "browser": "Partial: /book/demo/discovery-call at mobile/tablet inspected; mobile confirmation has no horizontal overflow",
+      "functional": "Demo day/time selection and sample details submission reached confirmation; real database, email, calendar, cancellation and rescheduling not validated"
+    }
+  },
+  "blockers": [
+    "Local account services are not configured; no isolated database/auth fixtures for owner/member/support/admin or profile-design migration acceptance.",
+    "Visitor support error prevents chat acceptance.",
+    "Standalone evidence screenshots have not been saved."
+  ],
+  "production_ready": false
+}
