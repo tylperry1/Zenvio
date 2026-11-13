@@ -57,8 +57,7 @@ const groups: NavGroup[] = [
       { id: "automation", label: "Reminders & workflows", icon: "bell", href: "/app/automation" },
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & classes", icon: "bag", href: "/app/growth" },
-      { id: "marketing", label: "Marketing & reviews", icon: "spark", href: "/app/marketing" },
-      { id: "smart-cards", label: "Smart cards", icon: "card", href: "/app/smart-cards" },
+      { id: "growth-suite", label: "Growth", icon: "spark", href: "/app/growth/overview" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
     ],
@@ -89,6 +88,7 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
       all.find((i) => i.view === (view || "") || (demo && i.demoView === view)) ||
       all[0]
     );
+  if (pathname.startsWith("/app/marketing") || pathname.startsWith("/app/smart-cards") || pathname.startsWith("/app/growth/overview")) return all.find(i => i.id === "growth-suite");
   if (pathname.startsWith("/marketplace"))
     return all.find((i) => i.id === "marketplace");
   return all
