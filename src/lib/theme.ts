@@ -16,12 +16,30 @@ export function resolveTheme(
   return prefersDark ? "dark" : "light";
 }
 
-export function readStoredThemeMode(): ThemeMode {
+function readCookieThemeMode(): ThemeMode | null {
   try {
-    return parseThemeMode(localStorage.getItem(THEME_STORAGE_KEY));
+    const match = document.cookie.match(
+      new RegExp(`(?:^|; )${THEME_STORAGE_KEY}=([^;]*)`),
+    );
+    if (!match) return null;
+    const value = decodeURIComponent(match[1]);
+    return value === "light" || value === "dark" || value === "auto"
+      ? value
+      : null;
   } catch {
-    return "auto";
+    return null;
   }
+}
+
+export function readStoredThemeMode(): ThemeMode {
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    stored = null;
+  }
+  if (stored === "light" || stored === "dark" || stored === "auto") return stored;
+  return readCookieThemeMode() ?? "auto";
 }
 
 export function writeStoredThemeMode(mode: ThemeMode) {
@@ -52,4 +70,4 @@ export function clearDocumentTheme() {
 }
 
 /** Blocking snippet for authenticated shells — keeps first paint in sync with storage. */
-export const themeBootScript = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var m=localStorage.getItem(k);if(m!=="light"&&m!=="dark"&&m!=="auto"){var c=document.cookie.match(new RegExp("(?:^|; )"+k+"=([^;]*)"));m=c?decodeURIComponent(c[1]):"auto";}if(m!=="light"&&m!=="dark"&&m!=="auto")m="auto";var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.dataset.theme=d?"dark":"light";r.dataset.themeMode=m;r.style.colorScheme=d?"dark":"light";}catch(e){}})();`;
+export const themeBootScript = `(function(){var k=${JSON.stringify(THEME_STORAGE_KEY)};var m=null;try{m=localStorage.getItem(k);}catch(e){}if(m!=="light"&&m!=="dark"&&m!=="auto"){try{var c=document.cookie.match(new RegExp("(?:^|; )"+k+"=([^;]*)"));m=c?decodeURIComponent(c[1]):null;}catch(e){m=null;}}if(m!=="light"&&m!=="dark"&&m!=="auto")m="auto";var d=m==="dark"||(m!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.dataset.theme=d?"dark":"light";r.dataset.themeMode=m;r.style.colorScheme=d?"dark":"light";})();`;

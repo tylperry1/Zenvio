@@ -38,6 +38,26 @@ test("unknown stored values fall back to auto", () => {
   assert.equal(theme.parseThemeMode("dark"), "dark");
 });
 
+test("boot script and reader both fall back from storage to cookie", () => {
+  assert.match(theme.themeBootScript, /localStorage\.getItem/);
+  assert.match(theme.themeBootScript, /document\.cookie\.match/);
+  assert.match(theme.themeBootScript, /catch\(e\)\{\}/);
+  const source = fs.readFileSync("src/lib/theme.ts", "utf8");
+  assert.match(source, /readCookieThemeMode/);
+  assert.match(source, /return readCookieThemeMode\(\) \?\? "auto"/);
+});
+
+test("shell topbar backgrounds use surface tokens for dark mode contrast", () => {
+  assert.match(
+    fs.readFileSync("src/app/shell.css", "utf8"),
+    /color-mix\(in srgb, var\(--surface-card\) 92%, transparent\)/,
+  );
+  assert.match(
+    fs.readFileSync("src/app/workspace-design.css", "utf8"),
+    /\.shell \.shell-topbar \{height:72px;background:var\(--surface-card\)/,
+  );
+});
+
 test("signed-in shell mounts the theme control only for authenticated users", () => {
   const source = fs.readFileSync("src/components/app-shell.tsx", "utf8");
   assert.match(source, /themed && <ThemeControl/);

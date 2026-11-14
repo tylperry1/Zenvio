@@ -204,7 +204,7 @@ body {
   gap: 16px;
   height: var(--shell-topbar);
   padding: 0 clamp(16px, 3vw, 32px);
-  background: rgb(255 255 255 / 0.92);
+  background: color-mix(in srgb, var(--surface-card) 92%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }

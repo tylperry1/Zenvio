@@ -100,24 +100,64 @@ export function ThemeControl() {
   const { mode, resolved, setMode } = useTheme();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+
+  function closeMenu() {
+    setOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus());
+  }
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    const items = () =>
+      Array.from(
+        menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ||
+          [],
+      );
+    const selected =
+      items().find((item) => item.getAttribute("aria-checked") === "true") ||
+      items()[0];
+    selected?.focus();
+
+    const onPointer = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) closeMenu();
     };
-    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
+    const onKey = (e: KeyboardEvent) => {
+      const list = items();
+      if (!list.length) return;
+      const index = list.indexOf(document.activeElement as HTMLButtonElement);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+        e.preventDefault();
+        list[(Math.max(index, 0) + 1) % list.length]?.focus();
+      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        list[(Math.max(index, 0) - 1 + list.length) % list.length]?.focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        list[0]?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        list[list.length - 1]?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
   return (
     <div className="shell-theme" ref={root}>
       <button
+        ref={trigger}
         type="button"
         className="shell-icon-button"
         aria-label={`Theme: ${labels[mode]}${mode === "auto" ? ` (${resolved})` : ""}`}
@@ -129,7 +169,12 @@ export function ThemeControl() {
         <Icon name={icons[mode === "auto" ? resolved : mode]} size={18} />
       </button>
       {open && (
-        <div className="shell-theme-menu" role="menu" aria-label="Theme">
+        <div
+          ref={menu}
+          className="shell-theme-menu"
+          role="menu"
+          aria-label="Theme"
+        >
           {themeModes.map((option) => (
             <button
               key={option}
@@ -139,7 +184,7 @@ export function ThemeControl() {
               className={mode === option ? "active" : undefined}
               onClick={() => {
                 setMode(option);
-                setOpen(false);
+                closeMenu();
               }}
             >
               <Icon name={icons[option]} size={16} />
