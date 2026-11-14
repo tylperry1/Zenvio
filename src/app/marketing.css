@@ -246,6 +246,7 @@
   .mk-container{width:calc(100% - 36px)}
   .mk-nav{gap:12px;height:60px}
   .marketing-v3 .logo img{width:112px}
+  .marketing-v3 .logo-compact img{width:24px;height:24px}
   .mk-nav-actions{gap:0;margin-left:auto}
   .mk-nav-actions .button{font-size:12px;padding:9px 12px}
   .mk-login{display:none}
