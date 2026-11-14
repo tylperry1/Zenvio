@@ -158,11 +158,11 @@ export function ThemeControl() {
       setOpen(false);
     };
     document.addEventListener("mousedown", onPointer);
-    menuEl?.addEventListener("keydown", onKey);
+    rootEl?.addEventListener("keydown", onKey);
     rootEl?.addEventListener("focusout", onFocusOut);
     return () => {
       document.removeEventListener("mousedown", onPointer);
-      menuEl?.removeEventListener("keydown", onKey);
+      rootEl?.removeEventListener("keydown", onKey);
       rootEl?.removeEventListener("focusout", onFocusOut);
     };
   }, [open]);
