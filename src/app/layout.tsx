@@ -73,8 +73,8 @@ export default async function RootLayout({
 }) {
   const controls=await (await import("@/lib/launch-controls")).launchControls();
   return (
-    <html lang="en">
-      <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)}>
+    <html lang="en" suppressHydrationWarning>
+      <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)} suppressHydrationWarning>
         {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
         {children}
         <ServiceWorkerRegister />

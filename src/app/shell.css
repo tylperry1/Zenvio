@@ -82,7 +82,7 @@ body {
   color: var(--text-muted);
 }
 .shell-nav-group a:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 .shell-nav-group a.active {
@@ -109,7 +109,7 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  background: #f2f4f9;
+  background: var(--surface-hover);
 }
 .shell-admin-link span {
   flex: 1;
@@ -144,7 +144,7 @@ body {
   color: var(--text-secondary);
 }
 .shell-icon-button:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
 }
 .shell-close,
 .shell-menu {
@@ -185,7 +185,7 @@ body {
   border-radius: 8px;
 }
 .shell-text-link:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -204,7 +204,7 @@ body {
   gap: 16px;
   height: var(--shell-topbar);
   padding: 0 clamp(16px, 3vw, 32px);
-  background: rgb(255 255 255 / 0.92);
+  background: color-mix(in srgb, var(--surface-card) 92%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -246,7 +246,7 @@ body {
 }
 .shell-account-button:hover,
 .shell-account-button[aria-expanded="true"] {
-  background: #f2f4f9;
+  background: var(--surface-hover);
   border-color: var(--border);
 }
 .shell-avatar {
@@ -317,7 +317,55 @@ body {
 }
 .shell-account-menu a:hover,
 .shell-account-menu button:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Theme control (signed-in topbar) */
+.shell-theme {
+  position: relative;
+}
+.shell-theme-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 168px;
+  padding: 6px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 32px var(--shadow-color),
+    0 2px 6px var(--shadow-color);
+  z-index: 50;
+}
+.shell-theme-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+.shell-theme-menu button span {
+  flex: 1;
+}
+.shell-theme-menu button:hover,
+.shell-theme-menu button.active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.shell-theme-menu button.active {
+  font-weight: 600;
+}
+.shell-icon-button[aria-expanded="true"] {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
   color: var(--text-primary);
 }
 .shell-alert {
@@ -1185,7 +1233,7 @@ body {
   padding: 0 8px 0 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f7f8fb;
+  background: var(--surface-hover);
   color: var(--text-muted);
   font-size: 13px;
 }

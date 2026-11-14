@@ -52,7 +52,7 @@
 @media(prefers-reduced-motion:reduce){.workspace .sidebar-item,.workspace .event-card,.suite-workspace .sidebar-item {transition:none}}
 
 /* Keep the shared shell responsible for layout and navigation. */
-.shell {background:#f4f5f8;font-family:var(--font-family)}
+.shell {background:var(--surface-page);font-family:var(--font-family)}
 .shell .shell-sidebar {background:#151b38;border-right:0;color:#d6dcef}
 .shell .shell-sidebar-head {height:76px;padding-inline:24px}
 .shell .shell-nav {padding:14px 14px 24px}
@@ -69,7 +69,7 @@
 .shell .shell-upgrade {background:#ffffff09;color:#fff}
 .shell .shell-upgrade p {color:#b9c3de}
 .shell .shell-close {background:#ffffff0b;border-color:#ffffff20;color:#fff}
-.shell .shell-topbar {height:72px;background:#fff;backdrop-filter:none}
+.shell .shell-topbar {height:72px;background:var(--surface-card);backdrop-filter:none}
 .shell .shell-content {max-width:1480px;padding-top:38px}
 .shell .page-header h1 {font-size:32px;letter-spacing:-1px}
 .shell .workspace {background:none}
