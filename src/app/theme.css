@@ -1,4 +1,4 @@
-/* Zenvio / Clear & Connected. Approved Option 2 palette. */
+/* Zenvio / Clear & Connected. Semantic theme tokens for light + dark. */
 :root {
   color-scheme: light;
   --brand-cobalt: #365cff;
@@ -14,20 +14,35 @@
   --text-primary: var(--brand-midnight);
   --text-secondary: #4a5571;
   --text-muted: #687390;
+  --text-placeholder: #8a96ad;
   --text-inverse: var(--brand-white);
   --text-on-dark: var(--brand-pale-blue);
+  --text-on-accent: #ffffff;
+  --link: var(--brand-cobalt);
+  --link-hover: #2948d6;
+
   --surface-page: #f6f8fc;
+  --surface-navigation: var(--brand-midnight);
   --surface-card: var(--brand-white);
+  --surface-elevated: var(--brand-white);
+  --surface-inset: #f1f4fa;
   --surface-subtle: #eef2ff;
   --surface-hover: #f2f4f9;
+  --surface-selected: #e8eeff;
   --surface-dark: var(--brand-midnight);
   --accent-soft: var(--brand-pale-blue);
+
   --border: #e1e6f0;
   --border-strong: #c5cee0;
   --focus-ring: var(--brand-cobalt);
   --shadow: 0 1px 2px #151b380a, 0 1px 3px #151b380d;
   --shadow-color: #151b380d;
   --overlay: #151b3866;
+  --shell-glow: #eaf0ff66;
+  --ds-surface-muted: #f8f9fc;
+  --ds-line-soft: #eef1f7;
+  --ds-elev-1: var(--shadow);
+  --ds-elev-2: 0 18px 56px #151b3826;
   --font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --success: #21663f;
@@ -39,31 +54,50 @@
   --error: #a52c33;
   --error-surface: #fff1f2;
   --error-border: #dda0a5;
+  --info: var(--action-primary);
+  --info-surface: var(--surface-subtle);
+  --info-border: #c5d2ff;
 }
 
-/* Authenticated app theme — applied via data-theme on <html> for signed-in shells. */
+/* Authenticated app theme — applied via data-theme on <html>. */
 html[data-theme="dark"] {
   color-scheme: dark;
-  --action-primary: #6b8aff;
-  --action-hover: #8aa3ff;
-  --action-selected: #243056;
-  --text-primary: #e8ecf8;
-  --text-secondary: #a7b0c7;
-  --text-muted: #7f89a3;
-  --text-inverse: #0f1324;
-  --text-on-dark: var(--brand-pale-blue);
-  --surface-page: #0f1324;
-  --surface-card: #171c33;
-  --surface-subtle: #1f2642;
-  --surface-hover: #222948;
-  --surface-dark: #0b0e1a;
-  --accent-soft: #243056;
-  --border: #2c3554;
-  --border-strong: #3d486a;
-  --focus-ring: #6b8aff;
+  --action-primary: #5b8cff;
+  --action-hover: #7aa3ff;
+  --action-selected: #18366a;
+  --text-primary: #f3f6fd;
+  --text-secondary: #c3cee2;
+  --text-muted: #a0aec8;
+  --text-placeholder: #9aa8c0;
+  --text-inverse: #0f172a;
+  --text-on-dark: #dce5ff;
+  --text-on-accent: #ffffff;
+  --link: #8ab4ff;
+  --link-hover: #b3cbff;
+
+  --surface-page: #0b1020;
+  --surface-navigation: #0d1428;
+  --surface-card: #141d33;
+  --surface-elevated: #1b2741;
+  --surface-inset: #10182b;
+  --surface-subtle: #1b2741;
+  --surface-hover: #22314d;
+  --surface-selected: #18366a;
+  --surface-dark: #080c18;
+  --accent-soft: #18366a;
+
+  --border: #334360;
+  --border-strong: #506484;
+  --focus-ring: #93c5fd;
   --shadow: 0 1px 2px #00000066, 0 1px 3px #00000059;
   --shadow-color: #00000059;
   --overlay: #05070f99;
+  --shell-glow: transparent;
+  --ds-surface-muted: #10182b;
+  --ds-line-soft: #243152;
+  --ds-elev-1: var(--shadow);
+  --ds-elev-2: 0 18px 56px #00000066;
+
   --success: #6fdb9a;
   --success-surface: #143224;
   --success-border: #2f6b4a;
@@ -73,4 +107,7 @@ html[data-theme="dark"] {
   --error: #f0a0a6;
   --error-surface: #3a171b;
   --error-border: #7a3a40;
+  --info: #8ab4ff;
+  --info-surface: #152445;
+  --info-border: #2a4a7a;
 }

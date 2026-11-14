@@ -1,5 +1,5 @@
 
-.growth-navigation{display:grid;gap:16px;margin:0 0 28px;padding:20px 24px;border:1px solid #dde4ef;border-radius:14px;background:white}
+.growth-navigation{display:grid;gap:16px;margin:0 0 28px;padding:20px 24px;border:1px solid #dde4ef;border-radius:14px;background: var(--surface-card)}
 .growth-brand{font-size:16px;font-weight:700;letter-spacing:-.03em;color:#17213b;text-decoration:none}
 .growth-navigation-links{display:flex;flex-wrap:wrap;gap:6px}
 .growth-navigation-links>a{padding:9px 12px;border-radius:8px;color:#52617c;text-decoration:none;font-size:12px;line-height:1.5}
@@ -8,7 +8,7 @@
 .growth-upcoming{display:flex;flex-wrap:wrap;gap:20px;font-size:12px;color:#65728a;border-top:1px solid #edf0f6;padding-top:14px}
 .growth-upcoming small{background:#f2f4f8;padding:3px 7px;border-radius:5px;margin-left:6px;font-size:10px}
 .growth-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-.growth-metric{min-width:0;border:1px solid #dde4ef;border-radius:12px;padding:20px;background:#fff;display:grid;gap:12px}
+.growth-metric{min-width:0;border:1px solid #dde4ef;border-radius:12px;padding:20px;background: var(--surface-card);display:grid;gap:12px}
 .growth-metric>span{font-size:12px;color:#53617c}
 .growth-metric>strong{font-size:26px;letter-spacing:-.04em;overflow-wrap:anywhere}
 .growth-metric>small{font-size:11px;color:#65728a;line-height:1.6}
@@ -24,12 +24,12 @@
 @media(max-width:430px){.growth-metrics{grid-template-columns:minmax(0,1fr)}.growth-metric{padding:18px}.growth-activity li{flex-wrap:wrap}}
 
 /* Keep native profile controls and their stable IDs; render as keyboard-accessible switches. */
-.shell .sc-privacy{display:grid;gap:0;padding:18px 20px;border:1px solid #dde4ef;border-radius:12px;background:#f8faff}
+.shell .sc-privacy{display:grid;gap:0;padding:18px 20px;border:1px solid #dde4ef;border-radius:12px;background: var(--surface-hover)}
 .shell .sc-privacy legend{font-size:13px;font-weight:600;padding:0 6px}
 .shell .sc-privacy label{display:flex;align-items:center;gap:14px;padding:12px 0;margin:0;font-size:13px;line-height:1.6}
 .shell .sc-privacy label+label{border-top:1px solid #e5eaf2}
 .shell .sc-privacy input[type=checkbox]{appearance:none;position:relative;width:38px;min-width:38px;height:22px;min-height:22px;padding:0;margin:0;border:0;border-radius:99px;background:#aeb9ca;cursor:pointer}
-.shell .sc-privacy input[type=checkbox]::after{content:"";position:absolute;width:16px;height:16px;top:3px;left:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #17213b25}
+.shell .sc-privacy input[type=checkbox]::after{content:"";position:absolute;width:16px;height:16px;top:3px;left:3px;border-radius:50%;background: var(--surface-card);box-shadow:0 1px 3px #17213b25}
 .shell .sc-privacy input[type=checkbox]:checked{background:#365cff}
 .shell .sc-privacy input[type=checkbox]:checked::after{left:19px}
 .shell .sc-privacy input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { StaffPermission } from "@/lib/admin-sections";
 import { useAdminAccess, useCan } from "./admin-access";
 import { Icon, Logo } from "./icons";
+import { ThemeControl } from "./theme-control";
 
 type Item = {
   id: string;
@@ -299,6 +300,7 @@ export function AdminTopbar({
       </div>
       <div className="acx-topbar-actions">
         {actions}
+        {access && <ThemeControl />}
         <span className={`acx-role ${access?.role === "staff" ? "staff" : ""}`}>
           <Icon name="shield" size={13} />
           {access?.role === "staff" ? access.title || "Zenvio team" : "Master admin"}

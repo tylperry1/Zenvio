@@ -297,7 +297,8 @@ export function AppShell({
     if (r?.ok) window.location.assign("/");
     else setError("Could not sign out. Please try again.");
   }
-  const themed = !demo && !!user;
+  // Demo uses the same shell chrome so reviewers can exercise theme without accounts.
+  const themed = demo || !!user;
   const shell = (
     <div className="shell" data-nav-open={open}>
       <aside ref={sidebarRef} id="workspace-navigation" className="shell-sidebar" aria-label="Main navigation">

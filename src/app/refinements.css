@@ -5,9 +5,9 @@
 .settings-layout .panel-heading h2 { font-size:18px; font-weight:700; }
 .settings-layout .panel-heading p { font-size:13px; line-height:1.65; margin-top:6px; }
 .settings-section-label { display:block; font-size:12px; letter-spacing:1.5px; color:#6b7b99; font-weight:700; margin-bottom:9px; }
-.settings-layout .settings-calendar-card { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:26px 28px; background:linear-gradient(110deg,#f5f7ff,white); }
+.settings-layout .settings-calendar-card { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:26px 28px; background:linear-gradient(110deg,var(--surface-subtle),white); }
 .settings-calendar-copy { display:flex; align-items:center; gap:18px; min-width:0; }
-.settings-calendar-icon { display:grid; place-items:center; width:52px; height:52px; flex-shrink:0; color:#365cff; background:white; border:1px solid #dfe6ff; border-radius:14px; }
+.settings-calendar-icon { display:grid; place-items:center; width:52px; height:52px; flex-shrink:0; color:#365cff; background: var(--surface-card); border:1px solid #dfe6ff; border-radius:14px; }
 .settings-calendar-copy h2 { font-size:18px; font-weight:700; margin:0 0 7px; letter-spacing:-.3px; }
 .settings-calendar-copy p { font-size:13px; line-height:1.65; color:#65728c; max-width:560px; margin:0; }
 .settings-calendar-card .button { flex-shrink:0; white-space:normal; text-align:center; }
@@ -17,7 +17,7 @@
 .settings-photo-controls { min-width:0; }
 .settings-photo-controls h3 { font-size:14px; margin:0 0 5px; }
 .settings-photo-controls p { font-size:12px; color:#73809a; line-height:1.6; margin:0 0 12px; }
-.settings-photo-controls .settings-photo-upload { display:inline-flex; align-items:center; cursor:pointer; border:1px solid #d9e0ee; padding:9px 13px; border-radius:8px; color:#263858; font-size:12px; font-weight:600; background:white; position:relative; }
+.settings-photo-controls .settings-photo-upload { display:inline-flex; align-items:center; cursor:pointer; border:1px solid #d9e0ee; padding:9px 13px; border-radius:8px; color:#263858; font-size:12px; font-weight:600; background: var(--surface-card); position:relative; }
 .settings-photo-upload:focus-within { outline:3px solid #b7c7ff; outline-offset:3px; }
 .settings-photo-upload input { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
 .settings-photo-controls small { display:block; font-size:12px; color:#7b879e; margin-top:10px; }
@@ -31,7 +31,7 @@
 .settings-form input,.settings-form select,.settings-form textarea { width:100%; min-width:0; border:1px solid #dce3f0; border-radius:9px; background:#fcfdff; padding:12px 14px; min-height:44px; }
 .settings-form > .button { justify-self:start; margin-top:4px; }
 .settings-layout > aside { display:flex; flex-direction:column; gap:20px; }
-.settings-layout .settings-profile-share { margin:0; padding:24px; border-radius:16px; background:#f7f9ff; }
+.settings-layout .settings-profile-share { margin:0; padding:24px; border-radius:16px; background:var(--surface-subtle); }
 .settings-profile-share h3 { font-size:16px; }
 .settings-profile-share p { font-size:12px; line-height:1.8; }
 .settings-layout .settings-shortcuts { padding:24px; border-radius:16px; }
@@ -61,7 +61,7 @@
 .pricing-editor-card label > span { display:block; margin-bottom:8px; }
 .pricing-money-input { position:relative; }
 .pricing-money-input > span { position:absolute; left:13px; top:50%; transform:translateY(-50%); font-size:14px; color:#8d99ad; }
-.operations-page .pricing-money-input input { width:100%; min-width:0; padding:11px 10px 11px 30px; font-size:17px; font-weight:600; margin:0; min-height:46px; background:white; }
+.operations-page .pricing-money-input input { width:100%; min-width:0; padding:11px 10px 11px 30px; font-size:17px; font-weight:600; margin:0; min-height:46px; background: var(--surface-card); }
 .operations-page .pricing-money-input input:disabled { background:#f0f3f8; color:#8b97aa; opacity:1; }
 .pricing-card-footer { border-top:1px solid #e5eaf3; padding-top:14px; margin-top:auto; font-size:12px; color:#7a87a0; line-height:1.6; }
 .pricing-save-bar { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-top:28px; padding-top:22px; border-top:1px solid #e8ecf4; }
@@ -149,7 +149,7 @@
 .signature-record strong,.signature-preview { font:italic 32px Georgia,serif; display:block; color:#203758; overflow-wrap:anywhere; }
 .signature-record small { display:block; font-size:12px; color:#7c88a0; overflow-wrap:anywhere; line-height:1.8; }
 .signature-record p { font-size:12px!important; }
-.signature-preview { padding:20px; border:1px dashed #cad5ee; border-radius:9px; background:#f7f9ff; }
+.signature-preview { padding:20px; border:1px dashed #cad5ee; border-radius:9px; background:var(--surface-subtle); }
 .signing-form .stack-form { gap:18px; }
 .signing-form label { margin:0; line-height:1.7; }
 .signing-form input:not([type=checkbox]) { width:100%; margin-top:8px; }
@@ -164,7 +164,7 @@
  .signing-content { font-size:14px; }
 }
 @media print {
- .signing-page { background:white; }
+ .signing-page { background: var(--surface-card); }
  .signing-page main { max-width:none; padding:0; }
  .signing-page .signing-brand,.signing-page .signing-introduction,.signing-page .signing-form,.signing-page .signing-complete,.signing-page [role=alert] { display:none; }
  .signing-page .signing-sheet { box-shadow:none!important; border:0; padding:0!important; margin:0; }
@@ -172,5 +172,5 @@
  .signature-record { break-inside:avoid; }
 }
 
-.google-account-list{display:grid;gap:18px;margin-top:24px}.google-account-card{border:1px solid #dfe6f2;border-radius:12px;padding:22px;background:#fcfdff;min-width:0}.google-account-card h3{font-size:15px;overflow-wrap:anywhere;margin:0 0 6px}.google-account-card p{font-size:12px!important;margin:0}.google-account-card .billing-actions{margin-top:16px}.calendar-queue-status{font-size:12px!important;color:#8490a8!important}.google-account-card .billing-note{margin:15px 0}.market-demo-badge{display:inline-block;font-size:12px;font-weight:700;line-height:1.6;border-radius:5px;padding:4px 7px;color:#826720;background:#fff6d9;margin:8px 0}.market-demo-unavailable{font-size:12px;color:#8c97ab;border-top:1px solid #e8edf5;padding-top:16px;margin-top:18px}.demo-product-art{width:68%;height:61%;background:#fff;border-radius:7px;box-shadow:8px 12px 0 #3750a21a,0 14px 30px #2334791c;transform:rotate(-7deg);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:22px;color:#283c78;position:relative;overflow:hidden}.demo-product-art:after{content:'';position:absolute;width:65px;height:65px;border-radius:50%;background:#dce5ff;right:-18px;bottom:-20px}.demo-product-art>span{font-size:11px;font-weight:800;letter-spacing:2px}.demo-product-art>b{font-size:18px;line-height:1.15;letter-spacing:-.6px;max-width:140px;margin:12px 0}.demo-product-art>small{font-size:7px;letter-spacing:1.2px;color:#95a2c3}.demo-art-signs-banners-{height:78%;width:43%;transform:rotate(4deg);background:#263974;color:white;border-bottom:7px solid #acb8ce;border-radius:2px}.demo-art-branded-apparel{clip-path:polygon(25% 0,38% 0,42% 8%,58% 8%,62% 0,75% 0,100% 25%,82% 42%,73% 30%,73% 100%,27% 100%,27% 30%,18% 42%,0 25%);width:65%;height:82%;padding:35px 22%;border-radius:0;background:#344c91;color:white;transform:rotate(-5deg);box-shadow:none;align-items:center;text-align:center}.demo-art-branded-apparel b{font-size:13px;max-width:70px}.demo-art-branded-apparel small{display:none}.demo-art-promotional-gifts{width:48%;height:75%;border-left:8px solid #a8b8e8;background:#e8eeff}.demo-art-branding-kits{border-radius:5px;background:#d6bd96;color:#503e2b;border-top:5px solid #bfa37d;box-shadow:10px 10px 0 #aa88572b}.demo-art-print-marketing{height:78%;width:45%;background:linear-gradient(150deg,#fff 60%,#e4eaff 60%);transform:rotate(6deg)}
+.google-account-list{display:grid;gap:18px;margin-top:24px}.google-account-card{border:1px solid #dfe6f2;border-radius:12px;padding:22px;background:#fcfdff;min-width:0}.google-account-card h3{font-size:15px;overflow-wrap:anywhere;margin:0 0 6px}.google-account-card p{font-size:12px!important;margin:0}.google-account-card .billing-actions{margin-top:16px}.calendar-queue-status{font-size:12px!important;color:#8490a8!important}.google-account-card .billing-note{margin:15px 0}.market-demo-badge{display:inline-block;font-size:12px;font-weight:700;line-height:1.6;border-radius:5px;padding:4px 7px;color:#826720;background:#fff6d9;margin:8px 0}.market-demo-unavailable{font-size:12px;color:#8c97ab;border-top:1px solid #e8edf5;padding-top:16px;margin-top:18px}.demo-product-art{width:68%;height:61%;background: var(--surface-card);border-radius:7px;box-shadow:8px 12px 0 #3750a21a,0 14px 30px #2334791c;transform:rotate(-7deg);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:22px;color:#283c78;position:relative;overflow:hidden}.demo-product-art:after{content:'';position:absolute;width:65px;height:65px;border-radius:50%;background:#dce5ff;right:-18px;bottom:-20px}.demo-product-art>span{font-size:11px;font-weight:800;letter-spacing:2px}.demo-product-art>b{font-size:18px;line-height:1.15;letter-spacing:-.6px;max-width:140px;margin:12px 0}.demo-product-art>small{font-size:7px;letter-spacing:1.2px;color:#95a2c3}.demo-art-signs-banners-{height:78%;width:43%;transform:rotate(4deg);background:#263974;color:white;border-bottom:7px solid #acb8ce;border-radius:2px}.demo-art-branded-apparel{clip-path:polygon(25% 0,38% 0,42% 8%,58% 8%,62% 0,75% 0,100% 25%,82% 42%,73% 30%,73% 100%,27% 100%,27% 30%,18% 42%,0 25%);width:65%;height:82%;padding:35px 22%;border-radius:0;background:#344c91;color:white;transform:rotate(-5deg);box-shadow:none;align-items:center;text-align:center}.demo-art-branded-apparel b{font-size:13px;max-width:70px}.demo-art-branded-apparel small{display:none}.demo-art-promotional-gifts{width:48%;height:75%;border-left:8px solid #a8b8e8;background:#e8eeff}.demo-art-branding-kits{border-radius:5px;background:#d6bd96;color:#503e2b;border-top:5px solid #bfa37d;box-shadow:10px 10px 0 #aa88572b}.demo-art-print-marketing{height:78%;width:45%;background:linear-gradient(150deg,#fff 60%,#e4eaff 60%);transform:rotate(6deg)}
 @media(max-width:600px){.google-account-card{padding:18px}.google-account-card .billing-actions{flex-direction:column;align-items:stretch}.google-account-card .billing-actions button{margin-right:0}}
