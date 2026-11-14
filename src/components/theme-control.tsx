@@ -103,16 +103,18 @@ export function ThemeControl() {
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
-  function closeMenu() {
+  function closeMenu(restoreFocus = true) {
     setOpen(false);
-    requestAnimationFrame(() => trigger.current?.focus());
+    if (restoreFocus) requestAnimationFrame(() => trigger.current?.focus());
   }
 
   useEffect(() => {
     if (!open) return;
+    const menuEl = menu.current;
+    const rootEl = root.current;
     const items = () =>
       Array.from(
-        menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ||
+        menuEl?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ||
           [],
       );
     const selected =
@@ -121,7 +123,7 @@ export function ThemeControl() {
     selected?.focus();
 
     const onPointer = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) closeMenu();
+      if (!rootEl?.contains(e.target as Node)) closeMenu(false);
     };
     const onKey = (e: KeyboardEvent) => {
       const list = items();
@@ -129,7 +131,11 @@ export function ThemeControl() {
       const index = list.indexOf(document.activeElement as HTMLButtonElement);
       if (e.key === "Escape") {
         e.preventDefault();
-        closeMenu();
+        closeMenu(true);
+        return;
+      }
+      if (e.key === "Tab") {
+        // Let Tab move focus out; focusout closes without stealing focus back.
         return;
       }
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
@@ -146,11 +152,18 @@ export function ThemeControl() {
         list[list.length - 1]?.focus();
       }
     };
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && rootEl?.contains(next)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
+    menuEl?.addEventListener("keydown", onKey);
+    rootEl?.addEventListener("focusout", onFocusOut);
     return () => {
       document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
+      menuEl?.removeEventListener("keydown", onKey);
+      rootEl?.removeEventListener("focusout", onFocusOut);
     };
   }, [open]);
 
