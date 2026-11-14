@@ -9,6 +9,7 @@ import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { AssistantLauncher } from "./assistant";
+import { ThemeControl, ThemeProvider } from "./theme-control";
 
 type NavItem = {
   id: string;
@@ -296,7 +297,8 @@ export function AppShell({
     if (r?.ok) window.location.assign("/");
     else setError("Could not sign out. Please try again.");
   }
-  return (
+  const themed = !demo && !!user;
+  const shell = (
     <div className="shell" data-nav-open={open}>
       <aside ref={sidebarRef} id="workspace-navigation" className="shell-sidebar" aria-label="Main navigation">
         <div className="shell-sidebar-head">
@@ -375,6 +377,7 @@ export function AppShell({
               </Link>
             )}
             {!demo && user && <SupportLauncher />}
+            {themed && <ThemeControl />}
             <div className="shell-account" ref={menuRef}>
               <button
                 className="shell-account-button"
@@ -444,6 +447,7 @@ export function AppShell({
       </div>
     </div>
   );
+  return themed ? <ThemeProvider>{shell}</ThemeProvider> : shell;
 }
 
 export function PageHeader({

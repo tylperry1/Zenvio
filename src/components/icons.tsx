@@ -174,6 +174,19 @@ export function Icon({
     alert: <path d="M12 4 2.5 20h19L12 4Zm0 6v4m0 3h.01" />,
     truck: <path d="M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
     refresh: <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" />,
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2.5v2.5m0 14v2.5M2.5 12H5m14 0h2.5M5.6 5.6l1.8 1.8m9.2 9.2 1.8 1.8m0-12.8-1.8 1.8M7.4 16.6l-1.8 1.8" />
+      </>
+    ),
+    moon: <path d="M19.5 14.2A7.5 7.5 0 0 1 9.8 4.5 7.5 7.5 0 1 0 19.5 14.2Z" />,
+    monitor: (
+      <>
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </>
+    ),
   };
   return (
     <svg

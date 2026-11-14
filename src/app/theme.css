@@ -1,5 +1,6 @@
 /* Zenvio / Clear & Connected. Approved Option 2 palette. */
 :root {
+  color-scheme: light;
   --brand-cobalt: #365cff;
   --brand-midnight: #151b38;
   --brand-pale-blue: #dce5ff;
@@ -18,6 +19,7 @@
   --surface-page: #f6f8fc;
   --surface-card: var(--brand-white);
   --surface-subtle: #eef2ff;
+  --surface-hover: #f2f4f9;
   --surface-dark: var(--brand-midnight);
   --accent-soft: var(--brand-pale-blue);
   --border: #e1e6f0;
@@ -37,4 +39,38 @@
   --error: #a52c33;
   --error-surface: #fff1f2;
   --error-border: #dda0a5;
+}
+
+/* Authenticated app theme — applied via data-theme on <html> for signed-in shells. */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --action-primary: #6b8aff;
+  --action-hover: #8aa3ff;
+  --action-selected: #243056;
+  --text-primary: #e8ecf8;
+  --text-secondary: #a7b0c7;
+  --text-muted: #7f89a3;
+  --text-inverse: #0f1324;
+  --text-on-dark: var(--brand-pale-blue);
+  --surface-page: #0f1324;
+  --surface-card: #171c33;
+  --surface-subtle: #1f2642;
+  --surface-hover: #222948;
+  --surface-dark: #0b0e1a;
+  --accent-soft: #243056;
+  --border: #2c3554;
+  --border-strong: #3d486a;
+  --focus-ring: #6b8aff;
+  --shadow: 0 1px 2px #00000066, 0 1px 3px #00000059;
+  --shadow-color: #00000059;
+  --overlay: #05070f99;
+  --success: #6fdb9a;
+  --success-surface: #143224;
+  --success-border: #2f6b4a;
+  --warning: #f0c36a;
+  --warning-surface: #32260f;
+  --warning-border: #6f5520;
+  --error: #f0a0a6;
+  --error-surface: #3a171b;
+  --error-border: #7a3a40;
 }
