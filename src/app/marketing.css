@@ -281,8 +281,14 @@
   .mk-capability-grid{grid-template-columns:1fr;gap:10px}
   .mk-capability-grid article{padding:16px}
   .mk-booking-feature{margin-top:36px}
-  .mk-example-profile,.mk-example-times{padding:22px 16px}
+  .mk-booking-example{grid-template-columns:1fr}
+  .mk-example-profile{border-right:0;border-bottom:1px solid var(--border);padding:20px 16px}
+  .mk-example-times{padding:20px 16px}
   .mk-example-profile h3{font-size:20px}
+  .mk-mini-week{gap:2px}
+  .mk-mini-week b{width:24px;height:24px;font-size:11px;margin-top:6px}
+  .mk-time-chips{gap:6px;margin:16px 0 12px}
+  .mk-time-chips span{padding:8px 2px;font-size:11px}
   .mk-how{padding-block:44px}
   .mk-how>.mk-container{grid-template-columns:1fr;gap:32px}
   .mk-how ol{gap:20px}
