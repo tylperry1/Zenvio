@@ -370,7 +370,7 @@
 .sob-prices dd { margin: 4px 0 0; font-size: 13px; color: #dfe5ff; }
 .sob-prices b { font-size: 22px; color: #fff; font-weight: 700; }
 .sob-prices small { display: block; font-size: 12px; color: #aeb9e0; margin-top: 2px; }
-.sob-cta { grid-area: cta; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 11px; background: var(--surface-card); color: #151b38 !important; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.sob-cta { grid-area: cta; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 11px; background: #fff; color: #151b38 !important; font-weight: 600; font-size: 14px; white-space: nowrap; }
 .sob-cta:hover { background: var(--surface-subtle); }
 .subscription-offer-banner .sob-fine { grid-area: fine; margin: 0; font-size: 12px; color: #aeb9e0; }
 .subscription-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
@@ -556,7 +556,7 @@
 .support-history p { white-space: pre-wrap; }
 .support-note { background: var(--warning-surface); color: #403114; }
 .support-launcher { position: fixed; bottom: 90px; right: 20px; z-index: 45; background: var(--surface-card); box-shadow: 0 5px 20px #151b3822; }
-.support-popover { position: fixed; bottom: 140px; right: 20px; z-index: 46; width: min(340px, calc(100vw - 40px)); background: var(--surface-card); color: #151b38; padding: 20px; border-radius: 16px; box-shadow: 0 12px 40px #151b3833; display: grid; gap: 12px; }
+.support-popover { position: fixed; bottom: 140px; right: 20px; z-index: 46; width: min(340px, calc(100vw - 40px)); background: var(--surface-elevated); color: var(--text-primary); padding: 20px; border-radius: 16px; box-shadow: 0 12px 40px #151b3833; display: grid; gap: 12px; }
 @media(max-width: 700px) { .support-grid { grid-template-columns: minmax(0,1fr); } }
 .support-popover { width: min(620px, calc(100vw - 40px)); max-height: calc(100dvh - 180px); overflow-y: auto; }
 .support-compact { grid-template-columns: minmax(0,1fr); }

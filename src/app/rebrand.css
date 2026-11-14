@@ -8,6 +8,8 @@
 body { background: var(--surface-page); color: var(--text-primary); font-family: var(--font-family); }
 body :is(button, input, select, textarea) { font-family: inherit; }
 body :is(h1,h2,h3,h4) { text-wrap: balance; letter-spacing: -.028em; color: var(--text-primary); }
+/* Intentionally dark promo/hero surfaces keep light headings even when the app theme is light. */
+body :is(.portal-hero,.zg-card-promo,.overview-brief,.subscription-hero,.subscription-account-card,.subscription-plan-team,.auth-story,.bp-cover,.sc-public-cover,.sp-panel-header,.public-chat-header) :is(h1,h2,h3,h4) { color: #fff; }
 body :is(input,select,textarea):not([type=checkbox],[type=radio],[type=range],[type=color]) { border-color: var(--border-strong); background-color: var(--surface-inset); border-radius: 9px; color: var(--text-primary); }
 body :is(input,select,textarea)::placeholder { color: var(--text-placeholder); }
 body :is(input,select,textarea):disabled { background-color: var(--surface-hover); color: var(--text-muted); }
@@ -83,6 +85,7 @@ body :is(.portal-top,.envelope-sign-header) { background:linear-gradient(115deg,
 body :is(.portal-top,.envelope-sign-header) .logo img { content:url('/brand/zenvio-reversed.svg'); }
 body .portal-hero { background:linear-gradient(120deg,#151b38,#253b82); color:white; border:1px solid #536bae; border-radius:18px; }
 body .portal-hero :is(p,small) { color:#dce5ff; }
+body .zg-card-promo :is(h1,h2,h3,h4) { color:#fff; }
 /* All console surfaces, including staff and supplier sub-layouts. */
 body .admin-v3 { --av-sidebar-width:248px; background:var(--surface-page); color:var(--text-primary); }
 body .admin-v3 .av-sidebar { background:linear-gradient(165deg,var(--surface-navigation),#0c1430); border-color:#303b61; }

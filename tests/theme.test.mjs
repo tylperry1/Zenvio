@@ -93,3 +93,15 @@ test("shell tall-page gradient uses theme tokens instead of a fixed light canvas
   );
   assert.doesNotMatch(ui, /#f4f5f8/);
 });
+
+test("dark promo headings and calendar entries keep readable theme colors", () => {
+  const rebrand = fs.readFileSync("src/app/rebrand.css", "utf8");
+  assert.match(rebrand, /\.portal-hero[\s\S]{0,200}:is\(h1,h2,h3,h4\) \{ color: #fff; \}/);
+  assert.match(rebrand, /\.zg-card-promo/);
+  const suite = fs.readFileSync("src/app/suite.css", "utf8");
+  assert.match(suite, /calendar-entry\{[^}]*color:var\(--text-primary\)!important/);
+  assert.doesNotMatch(suite, /calendar-entry\{[^}]*color:#21375f!important/);
+  const admin = fs.readFileSync("src/app/admin/admin.css", "utf8");
+  assert.match(admin, /acx-topbar\{[^}]*color-mix\(in srgb, var\(--surface-card\) 86%/);
+  assert.doesNotMatch(admin, /ap-package\.featured\{[^}]*#fff 40%/);
+});

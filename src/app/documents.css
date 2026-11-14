@@ -15,7 +15,7 @@
   margin: 12px 0;
 }
 .envelope-heading p {
-  color: #63708a;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 .envelope-tabs {
@@ -47,7 +47,7 @@
   font-size: 20px;
 }
 .envelope-card p {
-  color: #63708a;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 .envelope-notice {
@@ -96,11 +96,11 @@
   border: 0 !important;
   border-bottom: 1px solid #edf0f6 !important;
   background: var(--surface-card) !important;
-  color: #1b2946 !important;
+  color: var(--text-primary) !important;
   border-radius: 0 !important;
 }
 .envelope-table-row:hover {
-  background: #f6f8ff !important;
+  background: var(--surface-hover) !important;
 }
 .envelope-table-row strong {
   display: block;
@@ -195,7 +195,7 @@
 .envelope-tools small {
   font-size: 12px;
   line-height: 1.6;
-  color: #63708a;
+  color: var(--text-secondary);
 }
 .envelope-tools label {
   display: flex;

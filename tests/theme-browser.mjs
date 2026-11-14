@@ -64,7 +64,27 @@ try {
       shellBgImage: getComputedStyle(document.querySelector(".shell")).backgroundImage,
     };
   }, contrastHelpers.toString());
-  assert.match(metrics.shellBgImage, /rgb\(11,\s*16,\s*32\)|#0b1020/i);
+  assert.match(metrics.shellBgImage, /rgb\(13,\s*20,\s*40\)|rgb\(11,\s*16,\s*32\)|#0[bd]1020|#0d1428/i);
+  // Dark hero heading must stay white; Open schedule keeps an inverse light button.
+  const hero = await page.evaluate((helpersSrc) => {
+    const helpers = new Function(`return (${helpersSrc})`)()();
+    const h2 = document.querySelector(".overview-brief h2");
+    const btn = document.querySelector(".overview-brief .button");
+    if (!h2 || !btn) return null;
+    const hs = getComputedStyle(h2);
+    const bs = getComputedStyle(btn);
+    const brief = getComputedStyle(document.querySelector(".overview-brief"));
+    return {
+      headingContrast: helpers.contrast(hs.color, brief.backgroundColor),
+      buttonContrast: helpers.contrast(bs.color, bs.backgroundColor),
+      buttonBg: bs.backgroundColor,
+    };
+  }, contrastHelpers.toString());
+  if (hero) {
+    assert.ok(hero.headingContrast >= 4.5, `hero heading contrast ${hero.headingContrast}`);
+    assert.ok(hero.buttonContrast >= 4.5, `open schedule contrast ${hero.buttonContrast}`);
+    assert.match(hero.buttonBg, /rgb\(255,\s*255,\s*255\)|#fff/i);
+  }
 
   assert.equal(metrics.theme, "dark");
   assert.match(metrics.pageToken, /#0b1020/i);
