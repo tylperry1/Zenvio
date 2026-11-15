@@ -58,22 +58,62 @@ test("shell topbar backgrounds use surface tokens for dark mode contrast", () =>
   );
 });
 
-test("signed-in shell mounts the theme control only for authenticated users", () => {
+test("shell mounts theme control for signed-in and demo chrome", () => {
   const source = fs.readFileSync("src/components/app-shell.tsx", "utf8");
   assert.match(source, /themed && <ThemeControl/);
-  assert.match(source, /const themed = !demo && !!user/);
+  assert.match(source, /const themed = demo \|\| !!user/);
   assert.match(source, /themed \? <ThemeProvider>\{shell\}<\/ThemeProvider> : shell/);
 });
 
-test("authenticated layouts include the theme boot script", () => {
-  assert.match(fs.readFileSync("src/app/app/layout.tsx", "utf8"), /ThemeBootScript/);
-  assert.match(fs.readFileSync("src/app/marketplace/layout.tsx", "utf8"), /ThemeBootScript/);
-  assert.match(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /AppShell user=\{null\} demo/);
-  assert.doesNotMatch(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /ThemeBootScript|ThemeControl/);
+test("signed-in root layout and demo mount theme boot/provider", () => {
+  const root = fs.readFileSync("src/app/layout.tsx", "utf8");
+  assert.match(root, /themeSessionActive/);
+  assert.match(root, /ThemeBootScript/);
+  assert.match(root, /ThemeProvider/);
+  assert.match(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /ThemeBootScript/);
+  const admin = fs.readFileSync("src/app/admin/layout.tsx", "utf8");
+  assert.match(admin, /ThemeBootScript/);
+  assert.match(admin, /ThemeProvider/);
+  assert.match(
+    fs.readFileSync("src/components/admin-navigation.tsx", "utf8"),
+    /<ThemeControl \/>/,
+  );
+  assert.match(
+    fs.readFileSync("src/components/theme-control.tsx", "utf8"),
+    /if \(parent\) return/,
+  );
 });
 
-test("dark theme tokens live on html\[data-theme=dark\]", () => {
+test("dark theme tokens live on html[data-theme=dark] without workspace shadowing", () => {
   const css = fs.readFileSync("src/app/theme.css", "utf8");
   assert.match(css, /html\[data-theme="dark"\]/);
-  assert.match(css, /--surface-hover:/);
+  assert.match(css, /--surface-page:\s*#0b1020/i);
+  assert.match(css, /--surface-card:\s*#141d33/i);
+  assert.match(css, /--text-primary:\s*#f3f6fd/i);
+  const workspace = fs.readFileSync("src/app/workspace-design.css", "utf8");
+  assert.doesNotMatch(workspace, /\.workspace,.suite-workspace \{[^}]*--surface-page:/);
+  const rebrand = fs.readFileSync("src/app/rebrand.css", "utf8");
+  assert.doesNotMatch(rebrand, /:root \{[^}]*--surface-page:/);
+  assert.match(rebrand, /body \.shell-topbar \{[^}]*var\(--surface-card\)/);
+});
+
+test("shell tall-page gradient uses theme tokens instead of a fixed light canvas", () => {
+  const ui = fs.readFileSync("src/app/ui.css", "utf8");
+  assert.match(
+    ui,
+    /linear-gradient\(\s*to right,\s*var\(--surface-navigation\) var\(--shell-sidebar\),\s*var\(--surface-page\) var\(--shell-sidebar\)\s*\)/,
+  );
+  assert.doesNotMatch(ui, /#f4f5f8/);
+});
+
+test("dark promo headings and calendar entries keep readable theme colors", () => {
+  const rebrand = fs.readFileSync("src/app/rebrand.css", "utf8");
+  assert.match(rebrand, /\.portal-hero[\s\S]{0,200}:is\(h1,h2,h3,h4\) \{ color: #fff; \}/);
+  assert.match(rebrand, /\.zg-card-promo/);
+  const suite = fs.readFileSync("src/app/suite.css", "utf8");
+  assert.match(suite, /calendar-entry\{[^}]*color:var\(--text-primary\)!important/);
+  assert.doesNotMatch(suite, /calendar-entry\{[^}]*color:#21375f!important/);
+  const admin = fs.readFileSync("src/app/admin/admin.css", "utf8");
+  assert.match(admin, /acx-topbar\{[^}]*color-mix\(in srgb, var\(--surface-card\) 86%/);
+  assert.doesNotMatch(admin, /ap-package\.featured\{[^}]*#fff 40%/);
 });

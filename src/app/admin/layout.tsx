@@ -4,9 +4,13 @@ import { getAuth } from "@/lib/auth";
 import { adminAccess } from "@/lib/admin";
 import { configured } from "@/lib/server";
 import { AdminAccessProvider, type ConsoleAccess } from "@/components/admin-access";
+import { ThemeBootScript } from "@/components/theme-boot";
+import { ThemeProvider } from "@/components/theme-control";
 
 // Supplies the signed-in admin's role to the console navigation. Each page and
 // API route still enforces access independently.
+// Root layout also mounts theme for signed-in users; this nest-safe provider
+// keeps ThemeControl working if that session lookup fails independently.
 async function currentAccess(): Promise<ConsoleAccess | null> {
   if (!configured()) return null;
   try {
@@ -21,5 +25,13 @@ async function currentAccess(): Promise<ConsoleAccess | null> {
   }
 }
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  return <AdminAccessProvider value={await currentAccess()}>{children}</AdminAccessProvider>;
+  const access = await currentAccess();
+  const body = <AdminAccessProvider value={access}>{children}</AdminAccessProvider>;
+  if (!access) return body;
+  return (
+    <>
+      <ThemeBootScript />
+      <ThemeProvider>{body}</ThemeProvider>
+    </>
+  );
 }

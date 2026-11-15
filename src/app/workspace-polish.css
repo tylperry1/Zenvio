@@ -27,7 +27,7 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .premium-admin .page-header h1{font-size:clamp(25px,3vw,32px);letter-spacing:-.035em;line-height:1.2;margin:6px 0 10px}
 .premium-admin .page-header p{max-width:70ch;line-height:1.6;color:#65728a;font-size:14px;margin:0}
 .premium-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#62718c}
-.command-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #dde4ef;border-radius:14px;background:#fff;overflow:hidden}
+.command-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #dde4ef;border-radius:14px;background: var(--surface-card);overflow:hidden}
 .command-summary>div{padding:22px 24px;min-width:0}
 .command-summary>div+div{border-left:1px solid #e6ebf3}
 .command-summary span{display:block;font-size:12px;color:#65728a;margin-bottom:10px}
@@ -55,7 +55,7 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .premium-button-group{display:flex;flex-wrap:wrap;gap:10px}
 .command-save .ui-card-body{padding-top:20px}
 .ai-operations .aa-stats{gap:14px;margin:16px 0}
-.ai-operations .aa-stats>div{padding:16px;border:1px solid #e5eaf2;border-radius:10px;background:#f8faff}
+.ai-operations .aa-stats>div{padding:16px;border:1px solid #e5eaf2;border-radius:10px;background: var(--surface-hover)}
 .ai-operations .aa-stats b{font-size:18px;line-height:1.5;overflow-wrap:anywhere}
 .ai-operations .aa-toggle{display:flex;align-items:center;gap:12px;padding:12px 0;font-size:13px}
 .ai-operations .ui-form>p{font-size:13px;color:#65728a;line-height:1.6;max-width:85ch}
@@ -66,7 +66,7 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .spend-meter progress::-webkit-progress-value{background:#365cff;border-radius:8px}
 .spend-meter progress::-moz-progress-bar{background:#365cff}
 .release-billing{max-width:1240px;margin-inline:auto}
-.release-billing>section{padding:24px;border:1px solid #dde4ef;border-radius:14px;background:#fff}
+.release-billing>section{padding:24px;border:1px solid #dde4ef;border-radius:14px;background: var(--surface-card)}
 .release-billing>section>h2{font-size:17px;letter-spacing:-.02em;margin:0 0 10px}
 .release-billing>section>p{font-size:13px;line-height:1.6;color:#65728a}
 .release-billing fieldset{min-width:0}
@@ -87,7 +87,7 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .release-billing.premium-admin{gap:0}
 .release-billing .release-controls{max-width:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px}
 .release-billing .release-controls>label{display:grid;gap:8px;align-content:start;min-width:0;font-weight:500;color:#34425d}
-.release-billing .release-controls fieldset{align-self:start;background:#f8faff}
+.release-billing .release-controls fieldset{align-self:start;background: var(--surface-hover)}
 .release-billing .release-controls legend{font-weight:600;font-size:13px;padding-inline:6px}
 .release-billing .release-controls button{align-self:end}
 .release-billing>.page-header{margin-bottom:8px}

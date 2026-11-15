@@ -814,7 +814,7 @@ body {
   background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
 }
 .time-grid-day.today {
-  background-color: #f8faff;
+  background-color: var(--surface-selected);
 }
 .time-grid-now {
   position: absolute;
@@ -869,13 +869,13 @@ body {
 }
 .shell .platform-page .time-grid-event.external {
   border-left-color: #8a6ad8;
-  background: #f4efff;
+  background: var(--surface-subtle);
   opacity: 1;
   cursor: default;
 }
 .shell .platform-page .time-grid-event.cancelled {
   border-left-color: var(--border-strong);
-  background: #f2f4f9;
+  background: var(--surface-hover);
   text-decoration: line-through;
 }
 .shell .platform-page .time-grid-event.compact {
@@ -943,7 +943,7 @@ body {
   color: var(--text-muted);
 }
 .setup-dismiss:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
 }
 .setup-checklist ol {
   list-style: none;
@@ -1115,7 +1115,7 @@ body {
 }
 .shell .platform-page .client-table th {
   padding: 10px 20px;
-  background: #fafbfd;
+  background: var(--ds-surface-muted);
   white-space: nowrap;
 }
 .shell .platform-page .client-table td {
@@ -1128,7 +1128,7 @@ body {
 }
 .client-table tbody tr:hover,
 .client-table tbody tr:focus-visible {
-  background: #f7f9fd;
+  background: var(--surface-hover);
   outline: none;
 }
 .client-table tbody tr:last-child td {
@@ -1500,7 +1500,7 @@ body {
 }
 .admin-v3.admin-v3 .professional-sidebar nav > a:hover,
 .admin-v3.admin-v3 .professional-sidebar nav > button:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 .admin-v3.admin-v3 .professional-sidebar nav > a.active,
@@ -1526,7 +1526,7 @@ body {
 }
 .admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > a:hover,
 .admin-v3.admin-v3 .professional-sidebar .av-sidebar-bottom > button:hover {
-  background: #f2f4f9;
+  background: var(--surface-hover);
 }
 .admin-v3.admin-v3 .av-console-caption {
   display: none;
@@ -1538,7 +1538,7 @@ body {
   min-height: 60px;
   padding: 0 clamp(16px, 3vw, 32px);
   border-color: var(--border);
-  background: rgb(255 255 255 / 0.92);
+  background: var(--surface-card);
   backdrop-filter: blur(8px);
 }
 .admin-v3.admin-v3 .av-topbar > div {
