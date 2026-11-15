@@ -47,7 +47,9 @@ async function probe(page, selector, helpersSrc) {
         if (!bgNode) break;
         bg = getComputedStyle(bgNode).backgroundColor;
       }
-      const input = el.querySelector?.("input,select,textarea");
+      const input = el.matches?.("input,select,textarea")
+        ? el
+        : el.querySelector?.("input,select,textarea");
       const inputCs = input ? getComputedStyle(input) : null;
       return {
         theme: document.documentElement.dataset.theme,
@@ -102,23 +104,22 @@ try {
         }, fieldSel);
         const field = await probe(page, fieldSel, contrastHelpers.toString());
         assert.ok(field, `${name} ${theme}: missing ${fieldSel}`);
-        if (field.inputBg) {
-          // Input surface must track theme: dark theme → dark fill, light → light fill.
-          const [r, g, b] = field.inputBg.match(/\d+/g).slice(0, 3).map(Number);
-          const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-          if (theme === "dark") {
-            assert.ok(luminance < 0.35, `${name} dark: input still light ${field.inputBg}`);
-          } else {
-            assert.ok(luminance > 0.7, `${name} light: input still dark ${field.inputBg}`);
-          }
-          if (field.inputContrast != null) {
-            assert.ok(
-              field.inputContrast >= 3,
-              `${name} ${theme}: input contrast ${field.inputContrast}`,
-            );
-          }
+        assert.ok(field.inputBg, `${name} ${theme}: expected an input fill for ${fieldSel}`);
+        // Input surface must track theme: dark theme → dark fill, light → light fill.
+        const [r, g, b] = field.inputBg.match(/\d+/g).slice(0, 3).map(Number);
+        const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        if (theme === "dark") {
+          assert.ok(luminance < 0.35, `${name} dark: input still light ${field.inputBg}`);
+        } else {
+          assert.ok(luminance > 0.7, `${name} light: input still dark ${field.inputBg}`);
         }
-        // Label text must be readable on page/card background.
+        if (field.inputContrast != null) {
+          assert.ok(
+            field.inputContrast >= 3,
+            `${name} ${theme}: input contrast ${field.inputContrast}`,
+          );
+        }
+        // Label/control text must be readable on its painted background.
         assert.ok(
           field.contrast >= 3,
           `${name} ${theme}: label contrast ${field.contrast.toFixed(2)}`,

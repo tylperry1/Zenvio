@@ -143,12 +143,17 @@ legend {
 .logo-light {
   color: var(--text-on-dark);
 }
-/* Dark theme: swap primary wordmarks/symbols so public chrome stays legible. */
+/* Dark theme: swap primary wordmarks/symbols so public chrome stays legible.
+   Exempt intentional white chips (QR quiet zones) that keep a light canvas. */
 html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
   content: url("/brand/zenvio-reversed.svg");
 }
 html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-symbol.svg"] {
   content: url("/brand/zenvio-symbol-reversed.svg");
+}
+html[data-theme="dark"] :is(.mk-qr, .mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-symbol.svg"],
+html[data-theme="dark"] :is(.mk-qr, .mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
+  content: normal;
 }
 .button {
   display: inline-flex;
