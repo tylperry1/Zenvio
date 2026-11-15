@@ -10,12 +10,14 @@ type Catalog = import("@/lib/billing-catalog").BillingCatalog;
 
 export function PublicPricing({
   promotionEnabled = false,
+  waitlistEnabled = true,
   catalog,
   variant = "full",
   joinHref = "/early-access",
   joinLabel = "Join early access",
 }: {
   promotionEnabled?: boolean;
+  waitlistEnabled?: boolean;
   catalog?: Catalog;
   variant?: "full" | "home";
   joinHref?: string;
@@ -25,14 +27,15 @@ export function PublicPricing({
   const monthlyAllowances = catalog?.allowances || defaultAllowances;
   const subscriptionTotal = (_plan: string, count: number) => teamOffer.monthly + (count - 3) * extraSeatOffer.monthly;
   const [seats, setSeats] = useState(3);
-  const individualCtaHref = promotionEnabled ? "/early-access?plan=individual" : variant === "home" ? joinHref : "/demo";
-  const teamCtaHref = promotionEnabled ? `/early-access?plan=team&seats=${seats}` : "/demo";
-  const individualCtaLabel = promotionEnabled ? "Reserve 50% off" : variant === "home" ? joinLabel : "Explore the demo";
-  const teamCtaLabel = promotionEnabled ? "Reserve your team’s offer" : "Explore demo";
+  const reservationsOpen = promotionEnabled && waitlistEnabled;
+  const individualCtaHref = reservationsOpen ? "/early-access?plan=individual" : variant === "home" ? joinHref : "/demo";
+  const teamCtaHref = reservationsOpen ? `/early-access?plan=team&seats=${seats}` : "/demo";
+  const individualCtaLabel = reservationsOpen ? "Reserve 50% off" : variant === "home" ? joinLabel : "Explore the demo";
+  const teamCtaLabel = reservationsOpen ? "Reserve your team’s offer" : "Explore demo";
 
   return (
     <div className={`subscription-offers subscription-offers-${variant}`}>
-      {promotionEnabled && (
+      {reservationsOpen && (
         <div className="subscription-offer-banner">
           <div className="sob-copy">
             <span className="sob-badge">

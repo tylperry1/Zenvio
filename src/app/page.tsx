@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
 import { AccountNotice } from "@/components/account-notice";
+import { ThemeBootScript } from "@/components/theme-boot";
+import { PublicThemeSync } from "@/components/public-theme-sync";
 import "./marketing.css";
 
 function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
@@ -61,6 +63,8 @@ export default async function Home() {
 
   return (
     <div className="marketing-v3">
+      <ThemeBootScript />
+      <PublicThemeSync />
       <a className="mk-skip" href="#main-content">
         Skip to content
       </a>
@@ -68,8 +72,9 @@ export default async function Home() {
 
       <header className="mk-header">
         <div className="mk-nav mk-container">
-          <Link href="/" aria-label="Zenvio home">
+          <Link href="/" aria-label="Zenvio home" className="mk-logo">
             <Logo />
+            <Logo light />
           </Link>
           <nav className="mk-desktop-nav" aria-label="Main navigation">
             <a href="#product">Product</a>
@@ -285,6 +290,7 @@ export default async function Home() {
           </div>
           <PublicPricing
             promotionEnabled={promotionEnabled}
+            waitlistEnabled={controls.waitlistEnabled}
             catalog={catalog}
             variant="home"
             joinHref={join.href}
@@ -338,8 +344,9 @@ export default async function Home() {
 
       <footer className="mk-footer mk-container">
         <div>
-          <Link href="/" aria-label="Zenvio home">
+          <Link href="/" aria-label="Zenvio home" className="mk-logo">
             <Logo />
+            <Logo light />
           </Link>
           <p>Good things, on the calendar.</p>
         </div>

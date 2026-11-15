@@ -1,18 +1,27 @@
-/* Zenvio marketing homepage — Version 1 */
+/* Zenvio marketing homepage — Version 1
+   Self-contained palette (literal values). Do not alias to --text-* /
+   --surface-* — those flip under html[data-theme="dark"] and collide
+   with light marketing surfaces. Dark mode is keyed only to data-theme. */
 .marketing-v3{
   --mk-bg:#ffffff;
   --mk-bg-soft:#f4f7ff;
   --mk-bg-band:#eef3ff;
-  --mk-ink:var(--brand-midnight);
-  --mk-muted:var(--text-secondary);
-  --mk-faint:var(--text-muted);
-  --mk-line:var(--border);
-  --mk-line-strong:var(--border-strong);
-  --mk-card:#fff;
-  --mk-cobalt:var(--brand-cobalt);
-  --mk-midnight:var(--brand-midnight);
+  --mk-ink:#151b38;
+  --mk-muted:#3f4863;
+  --mk-faint:#5a6480;
+  --mk-line:#e1e6f0;
+  --mk-line-strong:#c5cee0;
+  --mk-card:#ffffff;
+  --mk-cobalt:#365cff;
+  --mk-midnight:#151b38;
   --mk-shadow:0 18px 50px #151b3812;
   --mk-radius:14px;
+  --mk-hero-wash:linear-gradient(180deg,#f5f8ff 0,#ffffff 420px,#ffffff 100%);
+  --mk-panel-wash:linear-gradient(180deg,#fbfcff,#f5f8ff);
+  --mk-team-wash:linear-gradient(180deg,#f8faff,#ffffff);
+  --mk-badge-bg:#edf1ff;
+  --mk-header-bg:#fffffff2;
+  color-scheme:light;
   background:var(--mk-bg);
   color:var(--mk-ink);
   overflow:clip;
@@ -23,17 +32,19 @@
 .mk-skip{position:fixed;left:16px;top:-80px;background:var(--mk-midnight);color:#fff;padding:12px;z-index:100}
 .mk-skip:focus{top:12px}
 .mk-eyebrow{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--mk-cobalt)}
-.mk-sample-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#edf1ff;color:var(--mk-cobalt);font-size:11px;font-weight:600}
-.mk-showcase-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#edf1ff;color:var(--mk-cobalt);font-size:12px;font-weight:700;flex-shrink:0}
+.mk-sample-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:var(--mk-badge-bg);color:var(--mk-cobalt);font-size:11px;font-weight:600}
+.mk-showcase-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--mk-badge-bg);color:var(--mk-cobalt);font-size:12px;font-weight:700;flex-shrink:0}
 .mk-showcase-avatar.light{background:#ffffff22;color:#fff}
 
 /* Header */
-.mk-header{position:sticky;top:0;z-index:50;background:#fffffff2;border-bottom:1px solid var(--mk-line);backdrop-filter:blur(14px)}
+.mk-header{position:sticky;top:0;z-index:50;background:var(--mk-header-bg);border-bottom:1px solid var(--mk-line);backdrop-filter:blur(14px)}
 .mk-header:has(.mk-mobile-menu[open]){background:var(--mk-card)}
 .mk-nav{height:68px;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .mk-desktop-nav,.mk-nav-actions{display:flex;align-items:center;gap:22px}
 .mk-desktop-nav a,.mk-login{font-size:13px;font-weight:600;color:var(--mk-muted)}
 .mk-desktop-nav a:hover,.mk-login:hover{color:var(--mk-cobalt)}
+.mk-logo{display:inline-flex;align-items:center}
+.mk-logo .logo-light{display:none}
 .mk-mobile-menu{display:none}
 .mk-cta-short{display:none}
 .mk-menu-cta{color:var(--mk-cobalt)!important;font-weight:600}
@@ -41,11 +52,6 @@
 .mk-account-notice button{display:inline-grid;place-items:center;border:0;background:none;color:inherit;padding:4px;border-radius:6px}
 
 /* Hero */
-.marketing-v3{
-  --mk-hero-wash:linear-gradient(180deg,#f5f8ff 0, #ffffff 420px, #ffffff 100%);
-  --mk-panel-wash:linear-gradient(180deg,#fbfcff,#f5f8ff);
-  --mk-team-wash:linear-gradient(180deg,#f8faff,#fff);
-}
 .marketing-v3>main{background:var(--mk-hero-wash)}
 .mk-hero{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:44px;align-items:center;padding:52px 0 56px}
 .mk-hero-copy{animation:mk-rise .65s ease both}
@@ -135,7 +141,7 @@
 .mk-toggle.is-on:before{left:19px}
 
 /* Smart Cards */
-.mk-smart{background:var(--mk-cobalt);color:#fff;padding:72px 0}
+.mk-smart{background:#365cff;color:#fff;padding:72px 0}
 .mk-smart .mk-container{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:48px;align-items:center}
 .mk-smart .mk-eyebrow{color:#dce5ff}
 .mk-smart h2{margin:12px 0 14px;font-size:clamp(28px,3vw,40px);line-height:1.12;letter-spacing:-.04em}
@@ -162,18 +168,44 @@
 .mk-section-heading{display:flex;justify-content:space-between;gap:36px;align-items:flex-end;margin-bottom:28px}
 .mk-section-heading h2{margin:12px 0 0;font-size:clamp(28px,3vw,38px);line-height:1.15;letter-spacing:-.04em}
 .mk-section-heading>p{margin:0 0 4px;max-width:280px;font-size:14px;line-height:1.6;color:var(--mk-muted)}
-.marketing-v3 .subscription-offers-home .subscription-plan{background:var(--mk-card);border:1px solid var(--mk-line);color:var(--mk-ink);box-shadow:0 10px 28px #151b3808}
-.marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash);border:1.5px solid var(--mk-cobalt);box-shadow:0 12px 30px #365cff14;color:var(--mk-ink)}
+.marketing-v3 .subscription-offers-home .subscription-plan,
+.marketing-v3 .subscription-offers-home .subscription-plan-team{
+  background:var(--mk-card);
+  border:1px solid var(--mk-line);
+  color:var(--mk-ink);
+  box-shadow:0 10px 28px #151b3808;
+}
+.marketing-v3 .subscription-offers-home .subscription-plan-team{
+  background:var(--mk-team-wash);
+  border:1.5px solid var(--mk-cobalt);
+  box-shadow:0 12px 30px #365cff14;
+}
+.marketing-v3 .subscription-offers-home .subscription-plan h3,
+.marketing-v3 .subscription-offers-home .subscription-plan .subscription-price,
 .marketing-v3 .subscription-offers-home .subscription-plan-team h3,
 .marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-price{color:var(--mk-ink)}
-.marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-kicker,
+.marketing-v3 .subscription-offers-home .subscription-plan>p,
+.marketing-v3 .subscription-offers-home .subscription-plan .subscription-caption,
+.marketing-v3 .subscription-offers-home .subscription-plan .subscription-price>span,
 .marketing-v3 .subscription-offers-home .subscription-plan-team>p,
+.marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-kicker,
 .marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-price>span,
 .marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-caption{color:var(--mk-muted)}
-.marketing-v3 .subscription-offers-home .subscription-plan-badge{display:inline-flex;align-self:flex-start;padding:4px 9px;border-radius:999px;background:#edf1ff;color:var(--mk-cobalt);font-size:11px;font-weight:700;margin-bottom:10px}
-.marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:#fff;color:var(--mk-ink);border-color:var(--mk-line-strong)}
-.marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:#f5f7fc;color:var(--mk-ink)}
-.marketing-v3 .subscription-offers-home .pricing-allowances{margin-top:28px}
+.marketing-v3 .subscription-offers-home .subscription-plan-badge{display:inline-flex;align-self:flex-start;padding:4px 9px;border-radius:999px;background:var(--mk-badge-bg);color:var(--mk-cobalt);font-size:11px;font-weight:700;margin-bottom:10px}
+.marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:var(--mk-card);color:var(--mk-ink);border-color:var(--mk-line-strong)}
+.marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:var(--mk-bg-soft);color:var(--mk-ink)}
+.marketing-v3 .subscription-offers-home .pricing-allowances{
+  margin-top:28px;
+  color:var(--mk-ink);
+  --allowance-surface:var(--mk-card);
+  --allowance-ink:var(--mk-ink);
+  --allowance-muted:var(--mk-muted);
+  --allowance-line:var(--mk-line);
+  --allowance-head:#eef2f8;
+  --allowance-stripe:#f7f9fc;
+  --allowance-team:#f3f6ff;
+  --allowance-team-head:var(--mk-cobalt);
+}
 .mk-faq{display:grid;grid-template-columns:.85fr 1.25fr;gap:48px;padding:40px 0 64px;align-items:start}
 .mk-faq h2{margin:12px 0 0;font-size:clamp(28px,3vw,36px);letter-spacing:-.04em}
 .mk-faq>div>p:not(.mk-eyebrow){margin:14px 0 0;font-size:14px;line-height:1.6;color:var(--mk-muted)}
@@ -210,7 +242,6 @@
 }
 
 @media(max-width:900px){
-  .mk-desktop-nav{display:none}
   .mk-hero{grid-template-columns:1fr;gap:28px;text-align:center}
   .mk-hero-description{margin-inline:auto}
   .mk-hero-actions,.mk-fine{justify-content:center}
@@ -222,6 +253,10 @@
   .mk-workflow,.mk-smart .mk-container,.mk-faq{grid-template-columns:1fr}
   .mk-section-heading{flex-direction:column;align-items:flex-start;gap:12px}
   .mk-final{flex-direction:column;align-items:flex-start}
+}
+
+@media(max-width:850px){
+  .mk-desktop-nav{display:none}
 }
 
 @media(max-width:600px){
@@ -265,43 +300,14 @@
   .marketing-v3 *{scroll-behavior:auto!important;transition:none!important}
 }
 
-/* Dark mode for public homepage */
-@media(prefers-color-scheme:dark){
-  .marketing-v3{
-    --mk-bg:#0f1324;
-    --mk-bg-soft:#151b33;
-    --mk-bg-band:#1a2140;
-    --mk-ink:#e8ecf8;
-    --mk-muted:#a7b0c7;
-    --mk-faint:#7f89a3;
-    --mk-line:#2c3554;
-    --mk-line-strong:#3d486a;
-    --mk-card:#171c33;
-    --mk-shadow:0 18px 50px #00000055;
-    --mk-hero-wash:linear-gradient(180deg,#12182c 0,#0f1324 420px,#0f1324 100%);
-    --mk-panel-wash:linear-gradient(180deg,#1a2140,#171c33);
-    --mk-team-wash:linear-gradient(180deg,#1a2344,#171c33);
-  }
-  .mk-header{background:#0f1324f2}
-  .mk-showcase-main,.mk-booking-shell>div,.mk-showcase-agenda,.mk-showcase-client,.mk-digital-card,.mk-nfc-card{background:var(--mk-card)}
-  .mk-showcase-shell,.mk-booking-shell,.mk-profile-card,.mk-faq-list details{border-color:var(--mk-line)}
-  .mk-value-icon,.mk-sample-badge,.mk-nfc-tags span{background:#243056;border-color:var(--mk-line)}
-  .mk-digital-card{color:var(--mk-ink)}
-  .mk-qr{border-color:var(--mk-line)}
-  .marketing-v3 .subscription-offers-home .subscription-plan,
-  .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-card);color:var(--mk-ink)}
-  .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash)}
-  .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:#243056;color:#8aa3ff}
-  .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink);border-color:var(--mk-line-strong)}
-  .marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:#1f2642;color:var(--mk-ink)}
-}
+/* Dark mode — only via resolved data-theme (ThemeBoot / PublicThemeSync). */
 html[data-theme="dark"] .marketing-v3{
   --mk-bg:#0f1324;
   --mk-bg-soft:#151b33;
   --mk-bg-band:#1a2140;
   --mk-ink:#e8ecf8;
   --mk-muted:#a7b0c7;
-  --mk-faint:#7f89a3;
+  --mk-faint:#9aa3bd;
   --mk-line:#2c3554;
   --mk-line-strong:#3d486a;
   --mk-card:#171c33;
@@ -309,17 +315,53 @@ html[data-theme="dark"] .marketing-v3{
   --mk-hero-wash:linear-gradient(180deg,#12182c 0,#0f1324 420px,#0f1324 100%);
   --mk-panel-wash:linear-gradient(180deg,#1a2140,#171c33);
   --mk-team-wash:linear-gradient(180deg,#1a2344,#171c33);
+  --mk-badge-bg:#243056;
+  --mk-header-bg:#0f1324f2;
+  color-scheme:dark;
 }
-html[data-theme="dark"] .mk-header{background:#0f1324f2}
+html[data-theme="dark"] .marketing-v3 .mk-desktop-nav a:hover,
+html[data-theme="dark"] .marketing-v3 .mk-login:hover,
+html[data-theme="dark"] .marketing-v3 .mk-text-link,
+html[data-theme="dark"] .marketing-v3 .mk-eyebrow{color:#8aa3ff}
+html[data-theme="dark"] .mk-logo .logo:not(.logo-light){display:none}
+html[data-theme="dark"] .mk-logo .logo-light{display:inline-flex}
 html[data-theme="dark"] .mk-showcase-main,
 html[data-theme="dark"] .mk-booking-shell>div,
 html[data-theme="dark"] .mk-showcase-agenda,
 html[data-theme="dark"] .mk-showcase-client,
 html[data-theme="dark"] .mk-digital-card,
 html[data-theme="dark"] .mk-nfc-card{background:var(--mk-card)}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan,
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-team{color:var(--mk-ink)}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash)}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:#243056;color:#8aa3ff}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink);border-color:var(--mk-line-strong)}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:#1f2642;color:var(--mk-ink)}
+html[data-theme="dark"] .mk-value-icon,
+html[data-theme="dark"] .mk-sample-badge,
+html[data-theme="dark"] .mk-nfc-tags span{background:var(--mk-badge-bg);border-color:var(--mk-line)}
+html[data-theme="dark"] .mk-digital-card{color:var(--mk-ink)}
+html[data-theme="dark"] .mk-qr{border-color:var(--mk-line);background-color:#fff}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:var(--mk-badge-bg);color:#8aa3ff}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary,
+html[data-theme="dark"] .marketing-v3 .mk-hero-actions .button:not(.primary){
+  background:transparent;
+  color:var(--mk-ink);
+  border:1px solid var(--mk-line-strong);
+}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled),
+html[data-theme="dark"] .marketing-v3 .mk-hero-actions .button:not(.primary):hover:not(:disabled){background:#1f2642;color:var(--mk-ink)}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .pricing-allowances{
+  --allowance-surface:var(--mk-card);
+  --allowance-ink:var(--mk-ink);
+  --allowance-muted:var(--mk-muted);
+  --allowance-line:var(--mk-line);
+  --allowance-head:#1f2642;
+  --allowance-stripe:#151b33;
+  --allowance-team:#1f2642;
+  --allowance-team-head:var(--mk-cobalt);
+}
+
+/* Intentional dark panels keep local light-on-dark tokens in both themes */
+.mk-showcase-nav,
+.mk-booking-shell>aside{
+  --mk-panel-ink:#e8ecf8;
+  --mk-panel-muted:#b7c3e4;
+  color:var(--mk-panel-ink);
+}
+.mk-final{color:#fff}
+.mk-final p{color:#dce5ff}
