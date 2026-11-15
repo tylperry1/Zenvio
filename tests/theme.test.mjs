@@ -71,6 +71,9 @@ test("signed-in root layout and demo mount theme boot/provider", () => {
   assert.match(root, /ThemeBootScript/);
   assert.match(root, /ThemeProvider/);
   assert.match(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /ThemeBootScript/);
+  const admin = fs.readFileSync("src/app/admin/layout.tsx", "utf8");
+  assert.match(admin, /ThemeBootScript/);
+  assert.match(admin, /ThemeProvider/);
   assert.match(
     fs.readFileSync("src/components/admin-navigation.tsx", "utf8"),
     /<ThemeControl \/>/,
