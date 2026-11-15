@@ -41,7 +41,12 @@
 .mk-account-notice button{display:inline-grid;place-items:center;border:0;background:none;color:inherit;padding:4px;border-radius:6px}
 
 /* Hero */
-.marketing-v3>main{background:linear-gradient(180deg,#f5f8ff 0, #ffffff 420px, #ffffff 100%)}
+.marketing-v3{
+  --mk-hero-wash:linear-gradient(180deg,#f5f8ff 0, #ffffff 420px, #ffffff 100%);
+  --mk-panel-wash:linear-gradient(180deg,#fbfcff,#f5f8ff);
+  --mk-team-wash:linear-gradient(180deg,#f8faff,#fff);
+}
+.marketing-v3>main{background:var(--mk-hero-wash)}
 .mk-hero{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:44px;align-items:center;padding:52px 0 56px}
 .mk-hero-copy{animation:mk-rise .65s ease both}
 .mk-hero h1{margin:0 0 18px;font-size:clamp(40px,4.6vw,58px);line-height:1.05;letter-spacing:-.055em;font-weight:700;color:var(--mk-ink)}
@@ -64,7 +69,7 @@
 .mk-showcase-nav ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px}
 .mk-showcase-nav li{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-size:12px;color:#b7c3e4}
 .mk-showcase-nav li.is-active{background:#365cff;color:#fff;font-weight:600}
-.mk-showcase-main{padding:18px 18px 16px;background:linear-gradient(180deg,#fbfcff,#f5f8ff)}
+.mk-showcase-main{padding:18px 18px 16px;background:var(--mk-panel-wash)}
 .mk-showcase-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}
 .mk-showcase-top small{display:block;font-size:10px;letter-spacing:.1em;font-weight:700;color:var(--mk-faint)}
 .mk-showcase-top h3{margin:6px 0 0;font-size:20px;letter-spacing:-.03em}
@@ -116,7 +121,7 @@
 .mk-booking-shell>aside nav{display:grid;gap:4px;margin-top:8px}
 .mk-booking-shell>aside nav span{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-size:12px;color:#b7c3e4}
 .mk-booking-shell>aside nav .is-active{background:#365cff;color:#fff;font-weight:600}
-.mk-booking-shell>div{padding:18px;background:linear-gradient(180deg,#fbfcff,#f5f8ff)}
+.mk-booking-shell>div{padding:18px;background:var(--mk-panel-wash)}
 .mk-booking-shell>div>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}
 .mk-booking-shell>div>header small{display:block;font-size:10px;letter-spacing:.1em;font-weight:700;color:var(--mk-faint)}
 .mk-booking-shell>div>header h3{margin:6px 0 0;font-size:18px;letter-spacing:-.03em}
@@ -158,7 +163,9 @@
 .mk-section-heading h2{margin:12px 0 0;font-size:clamp(28px,3vw,38px);line-height:1.15;letter-spacing:-.04em}
 .mk-section-heading>p{margin:0 0 4px;max-width:280px;font-size:14px;line-height:1.6;color:var(--mk-muted)}
 .marketing-v3 .subscription-offers-home .subscription-plan{background:var(--mk-card);border:1px solid var(--mk-line);color:var(--mk-ink);box-shadow:0 10px 28px #151b3808}
-.marketing-v3 .subscription-offers-home .subscription-plan-team{background:linear-gradient(180deg,#f8faff,#fff);border:1.5px solid var(--mk-cobalt);box-shadow:0 12px 30px #365cff14}
+.marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash);border:1.5px solid var(--mk-cobalt);box-shadow:0 12px 30px #365cff14;color:var(--mk-ink)}
+.marketing-v3 .subscription-offers-home .subscription-plan-team h3,
+.marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-price{color:var(--mk-ink)}
 .marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-kicker,
 .marketing-v3 .subscription-offers-home .subscription-plan-team>p,
 .marketing-v3 .subscription-offers-home .subscription-plan-team .subscription-price>span,
@@ -271,6 +278,9 @@
     --mk-line-strong:#3d486a;
     --mk-card:#171c33;
     --mk-shadow:0 18px 50px #00000055;
+    --mk-hero-wash:linear-gradient(180deg,#12182c 0,#0f1324 420px,#0f1324 100%);
+    --mk-panel-wash:linear-gradient(180deg,#1a2140,#171c33);
+    --mk-team-wash:linear-gradient(180deg,#1a2344,#171c33);
   }
   .mk-header{background:#0f1324f2}
   .mk-showcase-main,.mk-booking-shell>div,.mk-showcase-agenda,.mk-showcase-client,.mk-digital-card,.mk-nfc-card{background:var(--mk-card)}
@@ -278,7 +288,12 @@
   .mk-value-icon,.mk-sample-badge,.mk-nfc-tags span{background:#243056;border-color:var(--mk-line)}
   .mk-digital-card{color:var(--mk-ink)}
   .mk-qr{border-color:var(--mk-line)}
-  .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink)}
+  .marketing-v3 .subscription-offers-home .subscription-plan,
+  .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-card);color:var(--mk-ink)}
+  .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash)}
+  .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:#243056;color:#8aa3ff}
+  .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink);border-color:var(--mk-line-strong)}
+  .marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:#1f2642;color:var(--mk-ink)}
 }
 html[data-theme="dark"] .marketing-v3{
   --mk-bg:#0f1324;
@@ -291,6 +306,9 @@ html[data-theme="dark"] .marketing-v3{
   --mk-line-strong:#3d486a;
   --mk-card:#171c33;
   --mk-shadow:0 18px 50px #00000055;
+  --mk-hero-wash:linear-gradient(180deg,#12182c 0,#0f1324 420px,#0f1324 100%);
+  --mk-panel-wash:linear-gradient(180deg,#1a2140,#171c33);
+  --mk-team-wash:linear-gradient(180deg,#1a2344,#171c33);
 }
 html[data-theme="dark"] .mk-header{background:#0f1324f2}
 html[data-theme="dark"] .mk-showcase-main,
@@ -299,4 +317,9 @@ html[data-theme="dark"] .mk-showcase-agenda,
 html[data-theme="dark"] .mk-showcase-client,
 html[data-theme="dark"] .mk-digital-card,
 html[data-theme="dark"] .mk-nfc-card{background:var(--mk-card)}
-html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink)}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan,
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-team{color:var(--mk-ink)}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-team{background:var(--mk-team-wash)}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:#243056;color:#8aa3ff}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary{background:transparent;color:var(--mk-ink);border-color:var(--mk-line-strong)}
+html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary:hover:not(:disabled){background:#1f2642;color:var(--mk-ink)}

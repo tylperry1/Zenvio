@@ -64,16 +64,31 @@
   .allowance-table td::before{content:attr(data-label);color:var(--text-muted);font-weight:500}
   .allowance-table td.allowance-team-col{padding:8px 10px;border-radius:8px;background:#f3f6ff}
 }
-html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#1f2642}
-@media(max-width:700px) and (prefers-color-scheme:dark){
-  .allowance-table td.allowance-team-col{background:#1f2642}
-}
 html[data-theme="dark"] .allowance-table thead th{background:#1f2642;color:var(--text-secondary)}
 html[data-theme="dark"] .allowance-table thead th.allowance-team-col{background:var(--action-primary);color:#fff}
 html[data-theme="dark"] .allowance-table tbody tr:nth-child(even){background:#151b33}
 html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#1f2642;color:var(--text-primary)}
+html[data-theme="dark"] .allowance-table tbody th,
+html[data-theme="dark"] .allowance-table td{color:var(--text-primary)}
 @media(prefers-color-scheme:dark){
-  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table thead th{background:#1f2642}
-  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table tbody tr:nth-child(even){background:#151b33}
-  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table td.allowance-team-col{background:#1f2642;color:var(--text-primary)}
+  /* Public pages do not set data-theme; use explicit light ink on dark cells. */
+  html:not([data-theme="light"]) .allowance-table thead th{background:#1f2642;color:#a7b0c7}
+  html:not([data-theme="light"]) .allowance-table thead th.allowance-team-col{background:var(--brand-cobalt);color:#fff}
+  html:not([data-theme="light"]) .allowance-table tbody tr:nth-child(even){background:#151b33}
+  html:not([data-theme="light"]) .allowance-table tbody th,
+  html:not([data-theme="light"]) .allowance-table td{color:#e8ecf8}
+  html:not([data-theme="light"]) .allowance-table td.allowance-team-col{background:#1f2642;color:#e8ecf8}
+  html:not([data-theme="light"]) .allowance-table-wrap,
+  html:not([data-theme="light"]) .allowance-details,
+  html:not([data-theme="light"]) .allowance-addons li{background:#171c33;border-color:#2c3554}
+}
+@media(max-width:700px) and (prefers-color-scheme:dark){
+  html:not([data-theme="light"]) .allowance-table tr{background:#171c33;border-color:#2c3554}
+  html:not([data-theme="light"]) .allowance-table tbody tr:nth-child(even){background:#171c33}
+  html:not([data-theme="light"]) .allowance-table td.allowance-team-col{background:#243056;color:#e8ecf8}
+  html:not([data-theme="light"]) .allowance-table td::before{color:#7f89a3}
+}
+html[data-theme="dark"] .allowance-table tr{background:var(--surface-card)}
+@media(max-width:700px){
+  html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#243056;color:var(--text-primary)}
 }
