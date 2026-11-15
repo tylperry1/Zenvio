@@ -65,11 +65,13 @@ test("shell mounts theme control for signed-in and demo chrome", () => {
   assert.match(source, /themed \? <ThemeProvider>\{shell\}<\/ThemeProvider> : shell/);
 });
 
-test("signed-in root layout and demo mount theme boot/provider", () => {
+test("root layout boots theme for every visitor; provider for signed-in", () => {
   const root = fs.readFileSync("src/app/layout.tsx", "utf8");
   assert.match(root, /themeSessionActive/);
   assert.match(root, /ThemeBootScript/);
+  assert.match(root, /PublicThemeSync/);
   assert.match(root, /ThemeProvider/);
+  assert.match(root, /signedIn \? \(/);
   assert.match(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /ThemeBootScript/);
   const admin = fs.readFileSync("src/app/admin/layout.tsx", "utf8");
   assert.match(admin, /ThemeBootScript/);
@@ -82,6 +84,35 @@ test("signed-in root layout and demo mount theme boot/provider", () => {
     fs.readFileSync("src/components/theme-control.tsx", "utf8"),
     /if \(parent\) return/,
   );
+});
+
+test("rebrand public canvases use semantic tokens instead of light-only hex", () => {
+  const rebrand = fs.readFileSync("src/app/rebrand.css", "utf8");
+  assert.doesNotMatch(rebrand, /body \.marketing-v3 \{[^}]*#f8faff/);
+  assert.doesNotMatch(rebrand, /body :is\(\.vc-page,\.market-public\)\{[^}]*#f8faff/);
+  assert.doesNotMatch(rebrand, /body \.vc-card\{[^}]*background:white/);
+  assert.doesNotMatch(rebrand, /body \.auth-box\{[^}]*background:#fff/);
+  assert.doesNotMatch(rebrand, /body \.hc-articles article\{[^}]*background:#fff/);
+  assert.match(rebrand, /body :is\(\.vc-page,\.market-public\)\{[^}]*var\(--surface-page\)/);
+  assert.match(rebrand, /body \.vc-card\{[^}]*var\(--surface-card\)/);
+  assert.match(rebrand, /body \.auth-box\{[^}]*var\(--surface-card\)/);
+  const pricing = fs.readFileSync("src/app/subscriptions.css", "utf8");
+  assert.match(pricing, /\.subscription-pricing-page\{[^}]*var\(--surface-page\)/);
+  assert.doesNotMatch(pricing, /\.subscription-pricing-page\{[^}]*background:#f6f7fb/);
+  assert.match(pricing, /\.subscription-faq details p\{[^}]*var\(--text-secondary\)/);
+  assert.match(pricing, /\.subscription-footnote\{[^}]*var\(--text-secondary\)/);
+  const globals = fs.readFileSync("src/app/globals.css", "utf8");
+  assert.match(
+    globals,
+    /html\[data-theme="dark"\] :is\(\.mkc-qr-img, \.sc-qr\) \.logo:not\(\.logo-light\) img\[src\$="zenvio-symbol\.svg"\]/,
+  );
+  assert.match(
+    fs.readFileSync("src/app/marketing.css", "utf8"),
+    /html\[data-theme="dark"\] \.mk-qr \.logo:not\(\.logo-light\) img\[src\$="zenvio-symbol\.svg"\]/,
+  );
+  const verify = fs.readFileSync("scripts/theme-coherence-verify.mjs", "utf8");
+  assert.match(verify, /el\.matches\?\.\("input,select,textarea"\)/);
+  assert.match(verify, /assert\.ok\(field\.inputBg/);
 });
 
 test("dark theme tokens live on html[data-theme=dark] without workspace shadowing", () => {

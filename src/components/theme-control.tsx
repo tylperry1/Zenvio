@@ -11,7 +11,6 @@ import {
 import { Icon } from "./icons";
 import {
   applyDocumentTheme,
-  clearDocumentTheme,
   parseThemeMode,
   readStoredThemeMode,
   resolveTheme,
@@ -57,8 +56,10 @@ function ThemeProviderInner({ children }: { children: ReactNode }) {
     media.addEventListener("change", sync);
     return () => {
       media.removeEventListener("change", sync);
-      // Only the outermost authenticated provider owns the document theme.
-      clearDocumentTheme();
+      // Keep the stored preference on <html> so public routes stay coherent
+      // after leaving a themed shell (demo / signed-in) via soft navigation.
+      const mode = readStoredThemeMode();
+      applyDocumentTheme(mode, resolveTheme(mode, media.matches));
     };
   }, []);
 

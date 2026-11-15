@@ -337,6 +337,9 @@ html[data-theme="dark"] .mk-sample-badge,
 html[data-theme="dark"] .mk-nfc-tags span{background:var(--mk-badge-bg);border-color:var(--mk-line)}
 html[data-theme="dark"] .mk-digital-card{color:var(--mk-ink)}
 html[data-theme="dark"] .mk-qr{border-color:var(--mk-line);background-color:#fff}
+/* Keep the compact mark dark on the intentional white QR chip (globals dark logo swap). */
+html[data-theme="dark"] .mk-qr .logo:not(.logo-light) img[src$="zenvio-symbol.svg"],
+html[data-theme="dark"] .mk-qr .logo:not(.logo-light) img[src$="zenvio-primary.svg"]{content:normal}
 html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-plan-badge{background:var(--mk-badge-bg);color:#8aa3ff}
 html[data-theme="dark"] .marketing-v3 .subscription-offers-home .subscription-cta-secondary,
 html[data-theme="dark"] .marketing-v3 .mk-hero-actions .button:not(.primary){
