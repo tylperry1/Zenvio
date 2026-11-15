@@ -12,3 +12,68 @@
 .team-member-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.team-member-actions select{max-width:170px}.team-permission-note{padding:18px;background:#f1f4fb;border-radius:8px;font-size:12px!important;line-height:1.8!important}@media(max-width:640px){.team-member-actions{width:100%}.team-member-actions>*{flex:1;min-width:0}.team-member-actions select{max-width:none}}
 
 .subscription-overage-controls{display:grid;gap:16px;margin-top:20px;max-width:640px}.subscription-overage-controls label{display:flex;align-items:center;gap:12px;line-height:1.6}.subscription-overage-controls input[type=number]{width:110px;min-height:44px;font-size:16px;border:1px solid #dbe1ee;border-radius:10px;padding:8px}.subscription-overage-controls input[type=checkbox]{width:20px;height:20px;flex-shrink:0;accent-color:#365cff}.subscription-invoices progress{width:100%;accent-color:#365cff;height:12px}@media(max-width:640px){.subscription-overage-controls label{align-items:flex-start;flex-wrap:wrap}}
+
+/* Monthly allowances comparison table */
+.pricing-allowances{margin:28px 0 8px;color:var(--text-primary)}
+.allowance-heading{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap}
+.allowance-heading h3{margin:8px 0 0;font-size:22px;letter-spacing:-.03em}
+.allowance-heading>p{margin:0;max-width:420px;font-size:13px;line-height:1.6;color:var(--text-secondary)}
+.allowance-details-link{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--action-primary);white-space:nowrap}
+.allowance-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface-card);box-shadow:0 8px 24px var(--shadow-color)}
+.allowance-table{width:100%;border-collapse:collapse;min-width:520px;font-variant-numeric:tabular-nums}
+.allowance-table caption{caption-side:bottom}
+.allowance-table th,.allowance-table td{padding:14px 16px;text-align:left;font-size:13px;line-height:1.4;border-bottom:1px solid var(--border);vertical-align:middle}
+.allowance-table thead th{background:#eef2f8;color:var(--text-secondary);font-size:12px;font-weight:700;letter-spacing:.02em}
+.allowance-table thead th.allowance-team-col{background:var(--brand-cobalt);color:#fff}
+.allowance-table thead th.allowance-team-col span{display:block;font-size:10px;font-weight:600;opacity:.9;margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
+.allowance-table tbody tr:nth-child(even){background:#f7f9fc}
+.allowance-table tbody tr:last-child th,.allowance-table tbody tr:last-child td{border-bottom:0}
+.allowance-table tbody th{font-weight:600;color:var(--text-primary);background:transparent}
+.allowance-row-label{display:inline-flex;align-items:center;gap:8px}
+.allowance-row-label svg{color:var(--action-primary);flex-shrink:0}
+.allowance-table td{color:var(--text-primary);font-weight:600}
+.allowance-table td.allowance-team-col{background:#f3f6ff;color:var(--brand-midnight)}
+.allowance-summary{margin:14px 0 0;font-size:12px;line-height:1.6;color:var(--text-secondary)}
+.allowance-details{margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:0 14px;background:var(--surface-card)}
+.allowance-details summary{cursor:pointer;padding:12px 0;font-size:13px;font-weight:600}
+.allowance-details p{margin:0 0 12px;font-size:12px;line-height:1.7;color:var(--text-secondary)}
+.allowance-addons-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin:28px 0 10px}
+.allowance-addons-heading h3{margin:0 0 4px;font-size:18px}
+.allowance-addons-heading p{margin:0;font-size:13px;color:var(--text-secondary)}
+.allowance-coming-soon{display:inline-flex;padding:4px 9px;border-radius:999px;background:var(--surface-subtle);color:var(--action-hover);font-size:11px;font-weight:700}
+.allowance-availability{margin:0 0 14px;font-size:12px;color:var(--text-muted);line-height:1.6}
+.allowance-addons{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.allowance-addons li{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-card)}
+.allowance-addons h4{margin:0 0 4px;font-size:14px}
+.allowance-addons span{font-size:12px;color:var(--text-muted)}
+.allowance-addons p{margin:0;font-size:14px;font-weight:600}
+.allowance-addons small{margin-left:4px;font-size:11px;font-weight:400;color:var(--text-muted)}
+.pricing-allowances-compact .allowance-heading h3{font-size:20px}
+@media(max-width:700px){
+  .allowance-addons{grid-template-columns:1fr}
+  .allowance-heading{align-items:flex-start}
+  .allowance-table-wrap{overflow:visible;border:0;background:transparent;box-shadow:none}
+  .allowance-table{min-width:0;width:100%}
+  .allowance-table thead{display:none}
+  .allowance-table tbody{display:grid;gap:10px}
+  .allowance-table tr{display:grid;gap:8px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-card)}
+  .allowance-table tbody tr:nth-child(even){background:var(--surface-card)}
+  .allowance-table th,.allowance-table td{border:0;padding:0;width:auto}
+  .allowance-table th{font-size:14px}
+  .allowance-table td{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:13px;padding-top:2px}
+  .allowance-table td::before{content:attr(data-label);color:var(--text-muted);font-weight:500}
+  .allowance-table td.allowance-team-col{padding:8px 10px;border-radius:8px;background:#f3f6ff}
+}
+html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#1f2642}
+@media(max-width:700px) and (prefers-color-scheme:dark){
+  .allowance-table td.allowance-team-col{background:#1f2642}
+}
+html[data-theme="dark"] .allowance-table thead th{background:#1f2642;color:var(--text-secondary)}
+html[data-theme="dark"] .allowance-table thead th.allowance-team-col{background:var(--action-primary);color:#fff}
+html[data-theme="dark"] .allowance-table tbody tr:nth-child(even){background:#151b33}
+html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#1f2642;color:var(--text-primary)}
+@media(prefers-color-scheme:dark){
+  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table thead th{background:#1f2642}
+  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table tbody tr:nth-child(even){background:#151b33}
+  .pricing-allowances:not(html[data-theme="light"] *) .allowance-table td.allowance-team-col{background:#1f2642;color:var(--text-primary)}
+}

@@ -1,88 +1,377 @@
-import {launchPromotionEnabled} from "@/lib/pricing-policy";
+import { launchPromotionEnabled } from "@/lib/pricing-policy";
+import { launchControls } from "@/lib/launch-controls";
 import { PublicPricing } from "@/components/public-pricing";
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
 import { AccountNotice } from "@/components/account-notice";
-import { CapabilityGrid } from "@/components/capability-grid";
 import "./marketing.css";
-const features = [
-    ["link", "Booking pages that ask the right questions.", "Share a branded page with your cover, logo, and instructions. Guests pick a time, answer intake questions—even attach photos—and get a private link to cancel or reschedule."],
-    ["sparkles", "An assistant that knows your day.", "Ask what’s on tomorrow, find open time, or see who hasn’t booked. Zenvio Assistant drafts messages and reschedules—nothing sends or changes until you approve."],
-    ["message", "Every conversation in one inbox.", "Email, portal replies, and internal notes live on each client, with delivery status, templates, attachments, and team assignment."],
-    ["globe", "A portal for every client.", "Send a private link for appointments, messages, documents to sign, estimates to approve, and payments due—no client account required."],
-    ["file", "Agreements and estimates, signed.", "Send PDFs and short agreements for signature, or line-item estimates customers approve online with a clear record of who agreed, and when."],
-    ["briefcase", "Built for the trades, too.", "Contractors, electricians, plumbers, HVAC, cleaning, landscaping, and handyman businesses get service requests with photos, jobs, estimates, work authorization, and deposits."],
-];
-const capabilities = [
-    ["link", "Booking", ["Personal booking page with photo, cover image, logo, links and your brand color", "Appointment types with length, location, buffer and notice rules", "Intake questions: dropdowns, phone, address, file and photo uploads, consent", "Guests reschedule or cancel from a private link, within your rules", "Times shown in each guest’s timezone, with calendar invitations"]],
-    ["calendar", "Calendar", ["Google Calendar busy times checked before slots are offered", "New bookings copied to your Google Calendar", "Private feed for Outlook and Apple Calendar", "Day, week, month, and agenda views", "Add appointments yourself, including confirmed times outside your published availability"]],
-    ["sparkles", "Zenvio Assistant", ["Answers questions about appointments, clients, documents and jobs", "Finds open time and inactive clients", "Drafts messages, booking-link emails and reschedules for your approval", "Every approved action is logged", "Optional, and switched off if your plan or administrator limits it"]],
-    ["message", "Messaging & client portal", ["One inbox for email, portal replies and internal notes", "Templates, attachments, search, unread counts and assignment", "Send your booking link in one click", "Private client portal for appointments, documents, estimates and payments", "Portal links expire and can be revoked any time"]],
-    ["users", "Clients & documents", ["A record for every client: appointments, answers, documents, notes and tasks", "Search clients and export to CSV", "PDF signing with placed fields and several signers", "Reusable PDF templates", "Short text agreements with a private signing link"]],
-    ["briefcase", "Jobs & estimates", ["Online service-request form with job-site address and photos", "Job status from request to completion", "Line-item estimates with tax and deposits", "Customer approval with typed-name work authorization", "Deposit and final payment requests through Stripe"]],
-    ["bell", "Reminders & account", ["Confirmation and reminder emails — 24 hours and 1 hour before by default", "Reminder timing you can change per appointment type", "Spam protection on booking and request forms", "Quick search across your workspace", "Download your data any time, and delete your account from Settings"]],
-    ["link", "Marketing & Smart Cards", ["Tracked booking links, QR codes and website booking buttons", "Booking-source reporting and reviews from appointment clients", "Publish a digital business profile with a QR code and downloadable contact card", "Manage programmable NFC cards, stands, stickers, tags and keychains", "Choose a profile, review page, booking page or website as the tap destination"]],
-    ["message", "Help & support", ["Start a private support conversation from your workspace", "Keep support replies and attachments together", "Get an email notification when the support team replies", "Search the Help Center for setup and product guidance", "Share product suggestions and report issues from the app"]],
-    ["shield", "Privacy & control", ["Your data stays in your workspace and is never sold", "Uploaded photos have location data removed", "Your data isn’t used to train AI models", "Clients only see what you share through their private link", "Send feedback to the Zenvio team from inside the app"]],
-] as const;
-const withPackages = ["Up to 100 booking links and 5 Google accounts per host", "10 Individual envelopes or 30 pooled Teams envelopes each month", "Automated reminder workflows", "Appointment payments, deposits and job payment requests through Stripe", "Team scheduling with round-robin and shared inbox assignment (Teams)"];
-const faqs = [
-    ["What can I do with Zenvio today?", "Zenvio is preparing for launch. Explore the demo today, or review current early-access terms on our pricing page. Existing members can still sign in."],
-    ["Do guests need an account to book?", "No. Share your booking page and guests can choose a time and enter their details without creating an account. Clients also use their private portal link without an account."],
-    ["What does Zenvio Assistant do — and what won’t it do on its own?", "It reads your workspace to answer questions and prepares actions like a message, a booking-link email or a reschedule. You review every prepared action and approve it before anything is sent or changed. It can’t take payments, issue refunds or send documents for signature. AI can make mistakes, so check the preview before you approve. Its answers aren’t legal, tax or financial advice."],
-    ["Is my data used to train AI?", "No. Zenvio sends only what a request needs to our AI provider, under terms that don’t allow training models on your data. Assistant conversations stay in your workspace, and you can delete them."],
-    ["Can I text my clients?", "Email and the client portal are available now. Text messaging is rolling out separately. It will only send to clients who have agreed to receive texts, and they can reply STOP at any time. Until it’s on for your workspace, Zenvio clearly shows that texting isn’t available."],
-    ["Does Zenvio connect to Google or Outlook calendars?", "Google Calendar connects directly: Zenvio checks your busy times before offering slots and copies new bookings to your calendar. Paid packages allow up to five Google accounts per host. Outlook and Apple Calendar can subscribe to a private, one-way feed of your appointments; a direct Outlook connection is on the way."],
-    ["Does it work for contractors and home services?", "Yes. Choose your trade during setup to turn on service requests with photos, jobs, line-item estimates, online approval with work authorization, and deposit or final payment requests. Other businesses don’t see these tools unless they choose them."],
-    ["Can I take payments or send automatic reminders?", "Confirmation and reminder emails are sent automatically. Both paid packages add reminder workflows, appointment payments and job payment requests through Stripe: connect a Stripe account to collect deposits or full payments. Stripe’s processing fees are separate, and Stripe’s terms apply to payments."],
-    ["Can guests reschedule or cancel on their own?", "Yes. Every confirmation includes a private link where guests can pick a new time or cancel. You decide how much notice they must give for each appointment type."],
-    ["Who owns my data?", "You do. Download everything in your workspace from Settings at any time, and delete your account there yourself. Accounts that hold payment or signed-document records are closed through support, so those records stay available to the people who need them."],
-    ["Does Zenvio work for teams?", "Yes. The Teams package is $49.99 a month for three seats, plus $9.99 for each additional seat. Owners and managers invite staff, share booking pages and the inbox, and assign appointments fairly with round-robin. Clients and signers never need a seat."],
-    ["Can I use NFC products for bookings and reviews?", "Yes. Manage programmable NFC products in your workspace and choose whether a tap opens your published profile, review page, booking page or another HTTPS website. Write the supplied tap link to your compatible product with an NFC-writing app. Physical products and encoding are managed separately."],
-    ["How do I get help?", "Open Zenvio support in your workspace to start a private conversation, share an attachment and follow replies. You can also search the Help Center. If the team is away, leave a message and watch for an email when they reply."],
-    ["Can I try it before creating an account?", "Yes. The interactive demo lets you explore the workspace and booking flow using sample data stored in your browser. Demo bookings are not real appointments."],
-];
-export const dynamic="force-dynamic";
-export default async function Home() {
-  const promotionEnabled=await launchPromotionEnabled();
-    return <div className="marketing-v3">
-    <a className="mk-skip" href="#main-content">Skip to content</a>
-    <AccountNotice />
-    <header className="mk-header"><div className="mk-nav mk-container">
-      <Link href="/" aria-label="Zenvio home"><Logo /></Link>
-      <nav className="mk-desktop-nav" aria-label="Main navigation"><a href="#product">Product</a><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="#questions">FAQs</a></nav>
-      <div className="mk-nav-actions"><Link href="/sign-in" className="mk-login">Log in</Link><Link href="/early-access" className="button primary small mk-header-cta"><span className="mk-cta-long">Join early access</span><span className="mk-cta-short">Join</span> <Icon name="arrow" size={15}/></Link></div>
-      <details className="mk-mobile-menu"><summary aria-label="Open navigation"><Icon name="menu"/></summary><nav aria-label="Mobile navigation"><a href="#product">Product</a><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="#questions">FAQs</a><Link href="/sign-in">Log in</Link><Link href="/early-access" className="mk-menu-cta">Join early access</Link></nav></details>
-    </div></header>
-    <main id="main-content">
-      <section className="mk-hero mk-container">
-        <div className="mk-hero-copy">
-          <p className="mk-brand-mark">Zenvio</p>
-          <h1>Good things,{" "}<br /><span>on the calendar.</span></h1>
-          <p className="mk-hero-description">Booking pages, calendar sync, messaging, signed documents, and estimates—in one calm workspace for client-facing work.</p>
-          <div className="mk-hero-actions">
-            <Link href="/early-access" className="button primary">Join early access <Icon name="arrow" size={18}/></Link>
-            <Link href="/demo" className="mk-demo-link"><span><Icon name="grid" size={16}/></span> Explore the demo</Link>
-          </div>
-          <p className="mk-fine"><Icon name="check" size={14}/> Coming soon <span>·</span> No credit card needed</p>
-        </div>
-        <div className="mk-hero-product"><div className="mk-product-halo"/><MarketingPreview /></div>
-      </section>
-      <section className="mk-usecases"><div className="mk-container"><p>BUILT FOR WORK THAT STARTS WITH A CONVERSATION</p><div>{[["users", "Consultants & coaches"], ["grid", "Independent professionals"], ["briefcase", "Home services & trades"], ["calendar", "Client-facing teams"], ["globe", "Remote-first businesses"]].map(([icon, label]) => <span key={label}><Icon name={icon} size={18}/>{label}</span>)}</div></div></section>
-      <section className="mk-product-section mk-container" id="product"><div className="mk-section-heading"><div><p className="mk-eyebrow">ONE WORKSPACE</p><h2>From the first booking{" "}<br />to the signed agreement.</h2></div><p>Scheduling, clients, conversations, documents, and jobs stay together—so the next step is always clear.</p></div><div className="mk-feature-grid">{features.map(([icon, title, copy], i) => <article key={title}><span className="mk-feature-number">{String(i + 1).padStart(2, "0")}</span><span className="mk-feature-icon"><Icon name={icon} size={22}/></span><h3>{title}</h3><p>{copy}</p></article>)}</div><div className="mk-grid-cta"><Link href="/demo" className="button secondary">Explore the interactive demo <Icon name="arrow" size={17}/></Link><span>Sample data in your browser. No account needed.</span></div>
-        <div className="mk-booking-feature"><div className="mk-booking-example" aria-label="Illustrative booking page"><div className="mk-example-profile"><span>JD</span><small>JAMIE DAVIS · SAMPLE HOST</small><h3>Discovery call</h3><p>30-minute intro</p><div><Icon name="clock" size={15}/> 30 minutes</div><div><Icon name="globe" size={15}/> Guest timezone</div></div><div className="mk-example-times"><span>SAMPLE BOOKING PAGE</span><h4>Choose a time</h4><div className="mk-mini-week">{["M", "T", "W", "T", "F"].map((d, i) => <div key={i}><small>{d}</small><b className={i === 2 ? "selected" : ""}>{12 + i}</b></div>)}</div><div className="mk-time-chips"><span>9:00 AM</span><span>10:30 AM</span><span>1:00 PM</span><span>2:30 PM</span></div><small>Illustration only · not live availability</small></div></div><div className="mk-booking-copy"><span className="mk-eyebrow">SIMPLE TO SHARE</span><h2>One link.{" "}<br />A clear next step.</h2><p>No guest account. No scheduling puzzle. Guests choose a time and move forward.</p><ul><li><Icon name="check" size={17}/> A booking link for each appointment type</li><li><Icon name="check" size={17}/> Times shown in the guest’s timezone</li><li><Icon name="check" size={17}/> Intake questions answered up front</li><li><Icon name="check" size={17}/> Private links to reschedule or cancel</li></ul><Link href="/book/demo/discovery-call" className="button secondary">Try a sample booking <Icon name="arrow" size={17}/></Link></div></div>
-      </section>
-      <section className="mk-capabilities mk-container" id="features"><div className="mk-section-heading"><div><p className="mk-eyebrow">EVERYTHING INCLUDED</p><h2>The full toolkit,{" "}<br />in one place.</h2></div><p>Every workspace includes the tools below. Individual and Teams add capacity, payments, workflows, and team scheduling. Assistant availability can vary by plan.</p></div><CapabilityGrid items={capabilities.map(([icon, title, items]) => ({ icon, title, items: [...items] }))} /><div className="mk-coming"><b>Individual and Teams add</b><ul>{withPackages.map(item => <li key={item}>{item}</li>)}</ul></div></section>
-      <section className="mk-how" id="how-it-works"><div className="mk-container"><div className="mk-how-heading"><p className="mk-eyebrow">GET STARTED</p><h2>Set up once.{" "}<br />Meet with clarity.</h2><Link href="/early-access" className="button on-dark">Join the launch list <Icon name="arrow" size={17}/></Link></div><ol>{[["Make it yours", "Choose meeting lengths, locations, and when you’re available."], ["Share your link", "Drop it in a message, signature, or anywhere a conversation starts."], ["Keep it together", "Guests book. You manage the appointment and the relationship in one place."]].map(([title, copy], i) => <li key={title}><span>0{i + 1}</span><div><h3>{title}</h3><p>{copy}</p></div></li>)}</ol></div></section>
-      <section className="mk-pricing mk-container" id="pricing"><div className="mk-section-heading"><div><p className="mk-eyebrow">SCHEDULING + SIGNING</p><h2>Two packages.{" "}<br />One clear monthly total.</h2></div><p>Everything for your client’s next step—Individual for solo work, or Teams when you’re ready to share the load.</p></div><PublicPricing promotionEnabled={promotionEnabled} catalog={await (await import("@/lib/billing-catalog")).currentCatalog()} /></section>
-      <section className="mk-faq mk-container" id="questions"><div><p className="mk-eyebrow">FAQ</p><h2>Clear answers{" "}<br />before you join.</h2><p>What to expect as we prepare for launch.</p><Link href="/demo" className="mk-text-link">Take a look around <Icon name="arrow" size={17}/></Link></div><div className="mk-faq-list">{faqs.map(([q, a]) => <details key={q}><summary>{q}<span><Icon name="plus" size={18}/></span></summary><p>{a}</p></details>)}</div></section>
-      <section className="mk-final mk-container"><div><p className="mk-eyebrow">LESS BACK-AND-FORTH</p><h2>Give the next conversation{" "}<br />a place on the calendar.</h2><p>Join early access and explore the demo today.</p></div><Link href="/early-access" className="button on-dark">Reserve your launch offer <Icon name="arrow" size={18}/></Link></section>
-    </main>
-    <footer className="mk-footer mk-container"><div><Link href="/" aria-label="Zenvio home"><Logo /></Link><p>Good things, on the calendar.</p></div><nav aria-label="Footer"><a href="#product">Product</a><Link href="/demo">Demo</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/privacy#your-rights">Do not sell or share my info</Link><a href="mailto:hello@gozenvio.com">Contact</a></nav><span>© {new Date().getFullYear()} Zenvio</span></footer>
-    <section className="mk-legal mk-container" aria-label="Disclosures"><p>Zenvio is software that helps businesses schedule, communicate and get agreements signed. It isn’t a party to the services, estimates, agreements or payments between a business and its clients, and it doesn’t provide legal, tax, licensing or financial advice. Businesses are responsible for their own licensing, pricing, contract terms and messaging consent. Payments are processed by Stripe under Stripe’s terms; processing fees are separate. Zenvio Assistant uses AI that can make mistakes; review every preview before you approve it. Product images and booking examples are illustrations using sample data. Features may be limited during early access, and launch pricing and offers are subject to the <Link href="/terms">Terms</Link>. Google Calendar is a trademark of Google LLC; Outlook is a trademark of Microsoft Corporation; Zenvio isn’t affiliated with or endorsed by them.</p></section>
-  </div>;
+
+function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
+  if (controls.signupEnabled && !controls.invitationOnly) {
+    return { href: "/sign-up", label: "Create account", short: "Sign up" };
+  }
+  if (controls.waitlistEnabled) {
+    return { href: "/early-access", label: "Join early access", short: "Join" };
+  }
+  return { href: "/demo", label: "Explore demo", short: "Demo" };
 }
 
+const valueSteps = [
+  ["calendar", "Get booked.", "Share a branded page so clients choose a time without the back-and-forth."],
+  ["briefcase", "Deliver your service.", "Keep appointments, notes, and conversations together while you work."],
+  ["refresh", "Keep clients coming back.", "Follow up with documents, reminders, and a clear next step."],
+] as const;
+
+const workflowPoints = [
+  "Branded booking pages with intake questions and guest self-serve links",
+  "Client information and conversations in one record",
+  "Documents and electronic signatures with a clear audit trail",
+  "Tools that support ongoing client relationships after the meeting",
+] as const;
+
+const faqs = [
+  [
+    "What’s included in each plan?",
+    "Individual and Teams both include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Teams adds shared scheduling, roles, and seat management. Monthly allowances keep usage predictable.",
+  ],
+  [
+    "How do monthly allowances work?",
+    "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Teams share a single pool across seats. Allowances reset monthly. See usage details on the pricing page.",
+  ],
+  [
+    "Can I change plans or add team members?",
+    "Yes. Owners can change packages and seats from billing. Additional Teams seats are billed monthly. Clients and document recipients never need a paid seat.",
+  ],
+  [
+    "Can I explore Zenvio first?",
+    "Yes. The interactive demo lets you explore the workspace with sample data in your browser. Demo bookings are not real appointments.",
+  ],
+] as const;
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const [promotionEnabled, controls, catalog] = await Promise.all([
+    launchPromotionEnabled(),
+    launchControls(),
+    (await import("@/lib/billing-catalog")).currentCatalog(),
+  ]);
+  const join = joinDestination(controls);
+
+  return (
+    <div className="marketing-v3">
+      <a className="mk-skip" href="#main-content">
+        Skip to content
+      </a>
+      <AccountNotice />
+
+      <header className="mk-header">
+        <div className="mk-nav mk-container">
+          <Link href="/" aria-label="Zenvio home">
+            <Logo />
+          </Link>
+          <nav className="mk-desktop-nav" aria-label="Main navigation">
+            <a href="#product">Product</a>
+            <a href="#solutions">Solutions</a>
+            <a href="#pricing">Pricing</a>
+            <Link href="/help">Help</Link>
+          </nav>
+          <div className="mk-nav-actions">
+            <Link href="/sign-in" className="mk-login">
+              Member sign in
+            </Link>
+            <Link href={join.href} className="button primary small mk-header-cta">
+              <span className="mk-cta-long">{join.label}</span>
+              <span className="mk-cta-short">{join.short}</span>
+            </Link>
+          </div>
+          <details className="mk-mobile-menu">
+            <summary aria-label="Open navigation">
+              <Icon name="menu" />
+            </summary>
+            <nav aria-label="Mobile navigation">
+              <a href="#product">Product</a>
+              <a href="#solutions">Solutions</a>
+              <a href="#pricing">Pricing</a>
+              <Link href="/help">Help</Link>
+              <Link href="/sign-in">Member sign in</Link>
+              <Link href={join.href} className="mk-menu-cta">
+                {join.label}
+              </Link>
+            </nav>
+          </details>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section className="mk-hero mk-container">
+          <div className="mk-hero-copy">
+            <h1>
+              Your clients.
+              <br />
+              Your calendar.
+              <br />
+              <span>One connected workspace.</span>
+            </h1>
+            <p className="mk-hero-description">
+              Scheduling, client records, conversations, documents, and business growth—in one connected workspace.
+            </p>
+            <div className="mk-hero-actions">
+              <Link href="/demo" className="button primary">
+                Explore demo <Icon name="arrow" size={18} />
+              </Link>
+              <Link href={join.href} className="button secondary">
+                {join.label}
+              </Link>
+            </div>
+            <p className="mk-fine">
+              <Icon name="check" size={14} /> Sample data in the demo <span>·</span> No credit card needed
+            </p>
+          </div>
+          <div className="mk-hero-product">
+            <MarketingPreview />
+          </div>
+        </section>
+
+        <section className="mk-value-strip" aria-label="How Zenvio helps">
+          <div className="mk-container">
+            <ol>
+              {valueSteps.map(([icon, title, copy], index) => (
+                <li key={title}>
+                  <span className="mk-value-icon">
+                    <Icon name={icon} size={20} />
+                  </span>
+                  <div>
+                    <strong>
+                      {index + 1}. {title}
+                    </strong>
+                    <p>{copy}</p>
+                  </div>
+                  {index < valueSteps.length - 1 ? <span className="mk-value-connector" aria-hidden="true" /> : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="mk-workflow mk-container" id="product">
+          <div className="mk-workflow-copy">
+            <p className="mk-eyebrow">WORKFLOW</p>
+            <h2>A simpler way to run and grow your business.</h2>
+            <p>
+              From the first booking to signed agreements and follow-up, Zenvio keeps the client journey in one calm
+              workspace.
+            </p>
+            <ul>
+              {workflowPoints.map((item) => (
+                <li key={item}>
+                  <Icon name="check" size={17} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link href="/demo" className="button secondary">
+              Explore the interactive demo <Icon name="arrow" size={17} />
+            </Link>
+          </div>
+          <div className="mk-workflow-visual" aria-label="Illustrative booking workspace">
+            <div className="mk-booking-shell">
+              <aside>
+                <Logo compact />
+                <small>Sample workspace</small>
+                <nav>
+                  <span className="is-active">
+                    <Icon name="calendar" size={14} /> Scheduling
+                  </span>
+                  <span>
+                    <Icon name="users" size={14} /> Clients
+                  </span>
+                  <span>
+                    <Icon name="file" size={14} /> Documents
+                  </span>
+                </nav>
+              </aside>
+              <div>
+                <header>
+                  <div>
+                    <small>EVENT TYPES</small>
+                    <h3>Published booking options</h3>
+                  </div>
+                  <span className="mk-sample-badge">Sample workspace</span>
+                </header>
+                {[
+                  ["Consultation", "30 min · Video", true],
+                  ["Project discussion", "45 min · Office", true],
+                  ["Follow-up", "20 min · Phone", false],
+                ].map(([title, meta, on]) => (
+                  <div className="mk-event-row" key={String(title)}>
+                    <div>
+                      <strong>{title}</strong>
+                      <span>{meta}</span>
+                    </div>
+                    <span className={`mk-toggle${on ? " is-on" : ""}`} aria-hidden="true" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mk-smart" id="solutions">
+          <div className="mk-container">
+            <div className="mk-smart-copy">
+              <p className="mk-eyebrow">SMART CARDS</p>
+              <h2>One profile. Every connection.</h2>
+              <p>
+                Publish a digital business profile with a QR code and manage programmable NFC products in your
+                workspace. Choose whether a tap opens your profile, booking page, review page, or another HTTPS site.
+                Physical products and encoding are managed separately.
+              </p>
+              <Link href="/help" className="button on-dark">
+                Learn about Smart Cards <Icon name="arrow" size={17} />
+              </Link>
+            </div>
+            <div className="mk-smart-visual" aria-label="Illustrative digital profile and NFC share options">
+              <div className="mk-digital-card">
+                <div className="mk-digital-card-top">
+                  <span className="mk-showcase-avatar light">JD</span>
+                  <div>
+                    <strong>Jamie Davis</strong>
+                    <small>Independent consultant</small>
+                  </div>
+                </div>
+                <button type="button" tabIndex={-1} className="mk-digital-cta">
+                  Book a consultation
+                </button>
+                <div className="mk-digital-links">
+                  <span>
+                    <Icon name="message" size={14} /> Message
+                  </span>
+                  <span>
+                    <Icon name="link" size={14} /> Website
+                  </span>
+                  <span>
+                    <Icon name="mail" size={14} /> Email
+                  </span>
+                </div>
+              </div>
+              <div className="mk-nfc-card">
+                <div className="mk-qr" aria-hidden="true">
+                  <Logo compact />
+                </div>
+                <strong>Share your profile</strong>
+                <div className="mk-nfc-tags">
+                  <span>QR code</span>
+                  <span>NFC tap</span>
+                </div>
+                <small>Illustrative · write tap links with a compatible NFC app</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mk-pricing mk-container" id="pricing">
+          <div className="mk-section-heading">
+            <div>
+              <p className="mk-eyebrow">PRICING</p>
+              <h2>
+                Simple plans for individuals
+                <br />
+                and teams.
+              </h2>
+            </div>
+            <p>Monthly pricing from the published catalog. Scheduling and signing included.</p>
+          </div>
+          <PublicPricing
+            promotionEnabled={promotionEnabled}
+            catalog={catalog}
+            variant="home"
+            joinHref={join.href}
+            joinLabel={join.label}
+          />
+        </section>
+
+        <section className="mk-faq mk-container" id="questions">
+          <div>
+            <p className="mk-eyebrow">FAQ</p>
+            <h2>Common questions.</h2>
+            <p>Short answers for launch. Details live on pricing and help.</p>
+            <Link href="/pricing" className="mk-text-link">
+              View pricing details <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+          <div className="mk-faq-list">
+            {faqs.map(([q, a]) => (
+              <details key={q}>
+                <summary>
+                  {q}
+                  <span>
+                    <Icon name="chevronDown" size={18} />
+                  </span>
+                </summary>
+                <p>{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="mk-final mk-container">
+          <div>
+            <h2>
+              Start building a more connected
+              <br />
+              business with Zenvio.
+            </h2>
+            <p>Explore the demo, or join when you’re ready.</p>
+          </div>
+          <div className="mk-final-actions">
+            <Link href="/demo" className="button primary">
+              Explore demo <Icon name="arrow" size={18} />
+            </Link>
+            <Link href={join.href} className="button on-dark">
+              {join.label}
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="mk-footer mk-container">
+        <div>
+          <Link href="/" aria-label="Zenvio home">
+            <Logo />
+          </Link>
+          <p>Good things, on the calendar.</p>
+        </div>
+        <nav aria-label="Footer">
+          <a href="#product">Product</a>
+          <Link href="/demo">Demo</Link>
+          <Link href="/help">Help</Link>
+          <Link href="/sign-in">Sign in</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy#your-rights">Do not sell or share my info</Link>
+          <a href="mailto:hello@gozenvio.com">Contact</a>
+        </nav>
+        <span>© {new Date().getFullYear()} Zenvio</span>
+      </footer>
+
+      <section className="mk-legal mk-container" aria-label="Disclosures">
+        <p>
+          Zenvio is software that helps businesses schedule, communicate and get agreements signed. It isn’t a party to
+          the services, estimates, agreements or payments between a business and its clients, and it doesn’t provide
+          legal, tax, licensing or financial advice. Businesses are responsible for their own licensing, pricing,
+          contract terms and messaging consent. Payments are processed by Stripe under Stripe’s terms; processing fees
+          are separate. Zenvio Assistant uses AI that can make mistakes; review every preview before you approve it.
+          Product images and booking examples are illustrations using sample data. Features may be limited during early
+          access, and launch pricing and offers are subject to the <Link href="/terms">Terms</Link>. Smart Cards support
+          programmable NFC destinations; physical products and encoding are managed separately. Google Calendar is a
+          trademark of Google LLC; Outlook is a trademark of Microsoft Corporation; Zenvio isn’t affiliated with or
+          endorsed by them.
+        </p>
+      </section>
+    </div>
+  );
+}
 
 export const metadata = { alternates: { canonical: "https://gozenvio.com" } };

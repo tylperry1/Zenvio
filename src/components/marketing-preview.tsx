@@ -1,37 +1,102 @@
 "use client";
-import { useState } from "react";
-import Link from "next/link";
 import { Icon, Logo } from "./icons";
-const tabs = ["Bookings", "Availability", "Contacts"] as const;
+
+/** Illustrative homepage product showcase — sample data only. */
 export function MarketingPreview() {
-    const [tab, setTab] = useState<(typeof tabs)[number]>("Bookings");
-    return <div className="mk-preview">
-    <div className="mk-preview-top"><Logo compact/><span>Jamie’s workspace</span><span className="mk-sample">Illustrative preview</span></div>
-    <div className="mk-preview-tabs" role="tablist" aria-label="Preview product features">
-      {tabs.map((label) => <button key={label} id={`preview-tab-${label}`} role="tab" aria-selected={tab === label} aria-controls="preview-content" tabIndex={tab === label ? 0 : -1} onClick={() => setTab(label)} onKeyDown={e => { const i = tabs.indexOf(label); if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) {
-        e.preventDefault();
-        const n = e.key === "Home" ? 0 : e.key === "End" ? 2 : (i + (e.key === "ArrowRight" ? 1 : 2)) % 3;
-        setTab(tabs[n]);
-        document.getElementById(`preview-tab-${tabs[n]}`)?.focus();
-    } }}><Icon name={label === "Bookings" ? "calendar" : label === "Availability" ? "clock" : "users"} size={15}/>{label}</button>)}
+  return (
+    <div className="mk-hero-showcase" aria-label="Sample workspace preview">
+      <div className="mk-showcase-shell">
+        <aside className="mk-showcase-nav" aria-hidden="true">
+          <Logo compact />
+          <span className="mk-showcase-nav-label">Sample workspace</span>
+          <ul>
+            <li className="is-active">
+              <Icon name="calendar" size={15} /> Calendar
+            </li>
+            <li>
+              <Icon name="users" size={15} /> Clients
+            </li>
+            <li>
+              <Icon name="message" size={15} /> Inbox
+            </li>
+            <li>
+              <Icon name="file" size={15} /> Documents
+            </li>
+          </ul>
+        </aside>
+
+        <div className="mk-showcase-main">
+          <header className="mk-showcase-top">
+            <div>
+              <small>TODAY</small>
+              <h3>Three appointments ahead</h3>
+            </div>
+            <span className="mk-sample-badge">Sample workspace</span>
+          </header>
+
+          <div className="mk-showcase-grid">
+            <div className="mk-showcase-agenda">
+              {[
+                ["10:30 AM", "Discovery call", "Alex Morgan", "30 min · Video"],
+                ["2:00 PM", "Project check-in", "Sam Rivera", "30 min · Office"],
+                ["3:30 PM", "Intro meeting", "Taylor Brooks", "30 min · Phone"],
+              ].map(([time, title, person, meta], i) => (
+                <div className="mk-showcase-row" key={time}>
+                  <time>{time}</time>
+                  <span className={`mk-showcase-bar tone-${i}`} />
+                  <div>
+                    <strong>{title}</strong>
+                    <span>
+                      {person} · {meta}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mk-showcase-client">
+              <div className="mk-showcase-client-head">
+                <span className="mk-showcase-avatar">AC</span>
+                <div>
+                  <strong>Avery Collins</strong>
+                  <small>Client record · sample</small>
+                </div>
+              </div>
+              <dl>
+                <div>
+                  <dt>Email</dt>
+                  <dd>avery@example.com</dd>
+                </div>
+                <div>
+                  <dt>Next step</dt>
+                  <dd>Service agreement</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>
+                    <span className="mk-status-pill">Consultation completed</span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside className="mk-profile-card" aria-label="Sample business profile card">
+        <div className="mk-profile-card-top">
+          <span className="mk-showcase-avatar">JD</span>
+          <div>
+            <strong>Jamie Davis</strong>
+            <small>Independent consultant</small>
+          </div>
+        </div>
+        <p>Book a consultation, review documents, or message me from one profile.</p>
+        <span className="mk-profile-card-cta">
+          Book a consultation <Icon name="arrow" size={14} />
+        </span>
+        <small className="mk-profile-card-note">Illustrative profile · not a live booking page</small>
+      </aside>
     </div>
-    <div className="mk-preview-body" id="preview-content" role="tabpanel" aria-labelledby={`preview-tab-${tab}`} tabIndex={0}>
-      {tab === "Bookings" ? <>
-        <div className="mk-preview-heading"><div><small>TODAY’S SCHEDULE</small><h3>Three appointments ahead.</h3></div><span className="mk-round-icon"><Icon name="calendar"/></span></div>
-        <div className="mk-preview-statrow"><div><span>Sample appointments</span><strong>3</strong></div><div><span>Booked time</span><strong>1.5 <small>hrs</small></strong></div></div>
-        <div className="mk-agenda-title">Coming up <span>Sample schedule</span></div>
-        {[["10:30", "Discovery call", "Alex Morgan", "30 min", "AM"], ["2:00", "Project check-in", "Sam Rivera", "30 min", "PM"], ["3:30", "Intro meeting", "Taylor Brooks", "30 min", "PM"]].map(([time, title, person, duration, period], i) => <div className="mk-agenda" key={time}><time>{time}<small>{period}</small></time><div className={`mk-agenda-line line-${i}`}/><div><strong>{title}</strong><span>{person} · {duration}</span></div><Icon name="chevron" size={16}/></div>)}
-      </> : tab === "Availability" ? <>
-        <div className="mk-preview-heading"><div><small>WEEKLY HOURS</small><h3>Published availability.</h3></div><span className="mk-round-icon"><Icon name="clock"/></span></div>
-        <p className="mk-preview-description">Example weekly hours · America/New_York</p>
-        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(day => <div className="mk-hour-row" key={day}><span className="mk-check"><Icon name="check" size={12}/></span><b>{day}</b><span>9:00 AM</span><span>–</span><span>5:00 PM</span></div>)}
-        <p className="mk-preview-note"><Icon name="shield" size={16}/> Sample setting: 15 minutes between appointments.</p>
-      </> : <>
-        <div className="mk-preview-heading"><div><small>CLIENT RECORDS</small><h3>Recent conversations.</h3></div><span className="mk-round-icon"><Icon name="users"/></span></div>
-        <p className="mk-preview-description">Sample contacts and notes</p>
-        {[["AM", "Alex Morgan", "Discovery call", "Exploring project scope and timeline."], ["SR", "Sam Rivera", "Project check-in", "Reviewing next steps before kickoff."], ["TB", "Taylor Brooks", "Intro meeting", "Introduction to their business needs."]].map(([initials, name, title, note]) => <div className="mk-contact" key={name}><span className="mk-contact-avatar">{initials}</span><div><strong>{name}</strong><small>{title}</small><p>{note}</p></div></div>)}
-      </>}
-    </div>
-    <Link className="mk-preview-footer" href="/demo">Try the interactive workspace <Icon name="arrow" size={16}/></Link>
-  </div>;
+  );
 }
