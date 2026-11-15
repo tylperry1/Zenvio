@@ -29,7 +29,7 @@ try {
         console.log(`QA page ${route} at ${width}px`);
         await page.locator("h1").first().waitFor();
         if(route==="/pricing") {
-          const table=page.getByRole("table",{name:"New monthly subscription allowances"});
+          const table=page.getByRole("table",{name:"Monthly subscription allowances for Individual and Teams"});
           assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
           assert.deepEqual(await table.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["150","450"]);
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
