@@ -300,7 +300,7 @@ export function AdminTopbar({
       </div>
       <div className="acx-topbar-actions">
         {actions}
-        {access && <ThemeControl />}
+        <ThemeControl />
         <span className={`acx-role ${access?.role === "staff" ? "staff" : ""}`}>
           <Icon name="shield" size={13} />
           {access?.role === "staff" ? access.title || "Zenvio team" : "Master admin"}

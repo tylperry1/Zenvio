@@ -66,19 +66,31 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: "#151B38" };
 import {LaunchBanner} from "@/components/launch-banner";
+import { ThemeBootScript } from "@/components/theme-boot";
+import { ThemeProvider } from "@/components/theme-control";
+import { themeSessionActive } from "@/lib/theme-session";
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const controls=await (await import("@/lib/launch-controls")).launchControls();
+  const [controls, signedIn] = await Promise.all([
+    (await import("@/lib/launch-controls")).launchControls(),
+    themeSessionActive(),
+  ]);
+  const body = (
+    <>
+      {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
+      {children}
+      <ServiceWorkerRegister />
+      <PublicChat />
+    </>
+  );
   return (
     <html lang="en" suppressHydrationWarning>
       <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)} suppressHydrationWarning>
-        {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
-        {children}
-        <ServiceWorkerRegister />
-        <PublicChat />
+        {signedIn && <ThemeBootScript />}
+        {signedIn ? <ThemeProvider>{body}</ThemeProvider> : body}
       </body>
     </html>
   );

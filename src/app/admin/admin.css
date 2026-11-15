@@ -363,6 +363,11 @@
 .admin-v3.acx .acx-crumbs a:hover{color:var(--action-primary)}
 .admin-v3.acx .acx-crumbs b{font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .admin-v3.acx .acx-topbar-actions{display:flex;align-items:center;gap:14px}
+.admin-v3.acx .acx-topbar-actions .shell-theme{flex-shrink:0}
+.admin-v3.acx .acx-topbar-actions .shell-icon-button{background:var(--surface-elevated);color:var(--text-secondary);border-color:var(--border)}
+.admin-v3.acx .acx-topbar-actions .shell-icon-button:hover,
+.admin-v3.acx .acx-topbar-actions .shell-icon-button[aria-expanded=true]{background:var(--surface-hover);color:var(--text-primary);border-color:var(--border-strong)}
+.admin-v3.acx .acx-topbar-actions .shell-theme-menu{z-index:60}
 .admin-v3.acx .acx-role{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--action-hover);background:var(--surface-subtle);border:1px solid #dbe3ff;padding:5px 10px;border-radius:999px;white-space:nowrap}
 .admin-v3.acx .acx-role.staff{color:#5b3fc4;background:var(--surface-subtle);border-color:#e2d9ff}
 .admin-v3.acx .acx-workspace{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap}

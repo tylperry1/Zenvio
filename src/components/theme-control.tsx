@@ -33,7 +33,7 @@ function systemPrefersDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+function ThemeProviderInner({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("auto");
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
   const modeRef = useRef(mode);
@@ -57,6 +57,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     media.addEventListener("change", sync);
     return () => {
       media.removeEventListener("change", sync);
+      // Only the outermost authenticated provider owns the document theme.
       clearDocumentTheme();
     };
   }, []);
@@ -76,6 +77,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       {children}
     </ThemeContext.Provider>
   );
+}
+
+/** Nest-safe: nested shells reuse the authenticated root provider. */
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const parent = useContext(ThemeContext);
+  if (parent) return <>{children}</>;
+  return <ThemeProviderInner>{children}</ThemeProviderInner>;
 }
 
 function useTheme() {

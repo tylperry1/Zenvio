@@ -65,11 +65,20 @@ test("shell mounts theme control for signed-in and demo chrome", () => {
   assert.match(source, /themed \? <ThemeProvider>\{shell\}<\/ThemeProvider> : shell/);
 });
 
-test("authenticated and demo layouts include the theme boot script", () => {
-  assert.match(fs.readFileSync("src/app/app/layout.tsx", "utf8"), /ThemeBootScript/);
-  assert.match(fs.readFileSync("src/app/marketplace/layout.tsx", "utf8"), /ThemeBootScript/);
+test("signed-in root layout and demo mount theme boot/provider", () => {
+  const root = fs.readFileSync("src/app/layout.tsx", "utf8");
+  assert.match(root, /themeSessionActive/);
+  assert.match(root, /ThemeBootScript/);
+  assert.match(root, /ThemeProvider/);
   assert.match(fs.readFileSync("src/app/demo/layout.tsx", "utf8"), /ThemeBootScript/);
-  assert.match(fs.readFileSync("src/app/admin/layout.tsx", "utf8"), /ThemeProvider/);
+  assert.match(
+    fs.readFileSync("src/components/admin-navigation.tsx", "utf8"),
+    /<ThemeControl \/>/,
+  );
+  assert.match(
+    fs.readFileSync("src/components/theme-control.tsx", "utf8"),
+    /if \(parent\) return/,
+  );
 });
 
 test("dark theme tokens live on html[data-theme=dark] without workspace shadowing", () => {
