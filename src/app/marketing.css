@@ -205,6 +205,7 @@
   --allowance-stripe:#f7f9fc;
   --allowance-team:#f3f6ff;
   --allowance-team-head:var(--mk-cobalt);
+  --allowance-accent:var(--mk-cobalt);
 }
 .mk-faq{display:grid;grid-template-columns:.85fr 1.25fr;gap:48px;padding:40px 0 64px;align-items:start}
 .mk-faq h2{margin:12px 0 0;font-size:clamp(28px,3vw,36px);letter-spacing:-.04em}
@@ -353,7 +354,8 @@ html[data-theme="dark"] .marketing-v3 .subscription-offers-home .pricing-allowan
   --allowance-head:#1f2642;
   --allowance-stripe:#151b33;
   --allowance-team:#1f2642;
-  --allowance-team-head:var(--mk-cobalt);
+  --allowance-team-head:#2948d6;
+  --allowance-accent:#8aa3ff;
 }
 
 /* Intentional dark panels keep local light-on-dark tokens in both themes */
