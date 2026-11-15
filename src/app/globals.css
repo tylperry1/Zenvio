@@ -151,8 +151,9 @@ html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
 html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-symbol.svg"] {
   content: url("/brand/zenvio-symbol-reversed.svg");
 }
-html[data-theme="dark"] :is(.mk-qr, .mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-symbol.svg"],
-html[data-theme="dark"] :is(.mk-qr, .mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
+/* QR quiet zones (.mkc-qr-img / .sc-qr) stay white — keep the dark symbol. Landing QR chip is handled in marketing.css. */
+html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-symbol.svg"],
+html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
   content: normal;
 }
 .button {

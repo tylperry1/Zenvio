@@ -104,7 +104,11 @@ test("rebrand public canvases use semantic tokens instead of light-only hex", ()
   const globals = fs.readFileSync("src/app/globals.css", "utf8");
   assert.match(
     globals,
-    /html\[data-theme="dark"\] :is\(\.mk-qr, \.mkc-qr-img, \.sc-qr\) \.logo:not\(\.logo-light\) img\[src\$="zenvio-symbol\.svg"\]/,
+    /html\[data-theme="dark"\] :is\(\.mkc-qr-img, \.sc-qr\) \.logo:not\(\.logo-light\) img\[src\$="zenvio-symbol\.svg"\]/,
+  );
+  assert.match(
+    fs.readFileSync("src/app/marketing.css", "utf8"),
+    /html\[data-theme="dark"\] \.mk-qr \.logo:not\(\.logo-light\) img\[src\$="zenvio-symbol\.svg"\]/,
   );
   const verify = fs.readFileSync("scripts/theme-coherence-verify.mjs", "utf8");
   assert.match(verify, /el\.matches\?\.\("input,select,textarea"\)/);
