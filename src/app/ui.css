@@ -453,7 +453,7 @@
 .ui-alert-neutral {
   border-color: #cdd8ff;
   background: var(--surface-hover);
-  color: #273a8a;
+  color: var(--info);
 }
 .ui-alert-success {
   border-color: var(--success-border);

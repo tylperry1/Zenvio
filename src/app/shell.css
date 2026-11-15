@@ -1538,7 +1538,7 @@ body {
   min-height: 60px;
   padding: 0 clamp(16px, 3vw, 32px);
   border-color: var(--border);
-  background: rgb(255 255 255 / 0.92);
+  background: var(--surface-card);
   backdrop-filter: blur(8px);
 }
 .admin-v3.admin-v3 .av-topbar > div {

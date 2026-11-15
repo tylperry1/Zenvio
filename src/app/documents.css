@@ -257,7 +257,7 @@
 }
 .pdf-page {
   position: relative;
-  background: var(--surface-card);
+  background: #ffffff;
   width: 100%;
   margin-bottom: 28px;
   box-shadow: 0 3px 14px #14284314;

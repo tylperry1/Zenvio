@@ -121,10 +121,19 @@ try {
     await page.getByRole("heading", { name: heading }).waitFor();
     const theme = await page.evaluate(() => document.documentElement.dataset.theme);
     assert.equal(theme, "dark", `${name} lost dark theme`);
-    const pageToken = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue("--surface-page").trim(),
-    );
-    assert.match(pageToken, /#0b1020/i, `${name} page token`);
+    const surface = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      const bodyBg = getComputedStyle(document.body).backgroundColor;
+      const shellBg = getComputedStyle(document.querySelector(".shell")).backgroundImage;
+      return {
+        pageToken: root.getPropertyValue("--surface-page").trim(),
+        bodyBg,
+        shellBg,
+      };
+    });
+    assert.match(surface.pageToken, /#0b1020/i, `${name} page token`);
+    assert.match(surface.bodyBg, /rgb\(11,\s*16,\s*32\)/, `${name} body ${surface.bodyBg}`);
+    assert.match(surface.shellBg, /rgb\(11,\s*16,\s*32\)/, `${name} shell ${surface.shellBg}`);
     await page.screenshot({ path: `test-results/theme/demo-${name}-dark-1440.png`, fullPage: false });
   }
 

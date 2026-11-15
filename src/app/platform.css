@@ -1,7 +1,7 @@
 .platform-page {
   min-height: 100vh;
-  background: linear-gradient(145deg, var(--surface-subtle), #fff);
-  color: #151b38;
+  background: linear-gradient(145deg, var(--surface-subtle), var(--surface-page));
+  color: var(--text-primary);
   font-family: var(--font-family);
 }
 .platform-page main {
@@ -206,8 +206,8 @@
 }
 .platform-page button.billing-secondary {
   background: var(--surface-card);
-  color: #35476e;
-  border-color: #dce3f1;
+  color: var(--text-primary);
+  border-color: var(--border);
 }
 .billing-table-wrap {
   overflow-x: auto;

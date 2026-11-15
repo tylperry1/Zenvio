@@ -62,8 +62,8 @@
 /* Authenticated app theme — applied via data-theme on <html>. */
 html[data-theme="dark"] {
   color-scheme: dark;
-  --action-primary: #5b8cff;
-  --action-hover: #7aa3ff;
+  --action-primary: #3b82f6;
+  --action-hover: #2563eb;
   --action-selected: #18366a;
   --text-primary: #f3f6fd;
   --text-secondary: #c3cee2;
