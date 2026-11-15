@@ -358,7 +358,7 @@ export default async function Home() {
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy#your-rights">Do not sell or share my info</Link>
-          <a href="mailto:hello@gozenvio.com">Contact</a>
+          <Link href="/contact">Contact</Link>
         </nav>
         <span>© {new Date().getFullYear()} Zenvio</span>
       </footer>
