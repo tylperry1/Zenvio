@@ -5,8 +5,6 @@ import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
 import { AccountNotice } from "@/components/account-notice";
-import { ThemeBootScript } from "@/components/theme-boot";
-import { PublicThemeSync } from "@/components/public-theme-sync";
 import "./marketing.css";
 
 function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
@@ -63,8 +61,6 @@ export default async function Home() {
 
   return (
     <div className="marketing-v3">
-      <ThemeBootScript />
-      <PublicThemeSync />
       <a className="mk-skip" href="#main-content">
         Skip to content
       </a>

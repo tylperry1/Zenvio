@@ -66,6 +66,7 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: "#151B38" };
 import {LaunchBanner} from "@/components/launch-banner";
+import { PublicThemeSync } from "@/components/public-theme-sync";
 import { ThemeBootScript } from "@/components/theme-boot";
 import { ThemeProvider } from "@/components/theme-control";
 import { themeSessionActive } from "@/lib/theme-session";
@@ -89,8 +90,16 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)} suppressHydrationWarning>
-        {signedIn && <ThemeBootScript />}
-        {signedIn ? <ThemeProvider>{body}</ThemeProvider> : body}
+        {/* Boot on every route so public pages honor stored/system theme on first paint. */}
+        <ThemeBootScript />
+        {signedIn ? (
+          <ThemeProvider>{body}</ThemeProvider>
+        ) : (
+          <>
+            <PublicThemeSync />
+            {body}
+          </>
+        )}
       </body>
     </html>
   );

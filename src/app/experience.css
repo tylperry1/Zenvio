@@ -215,7 +215,7 @@
   gap: 5px;
   padding: 3px 9px;
   border-radius: 999px;
-  background: #f1f3f8;
+  background: var(--surface-inset);
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
@@ -298,7 +298,7 @@
 .as-action-rejected,
 .as-action-expired {
   border-left-color: var(--border-strong);
-  background: #f8f9fb;
+  background: var(--surface-inset);
 }
 .as-action-head {
   display: flex;
@@ -696,7 +696,7 @@
   cursor: pointer;
 }
 .inbox-threads .inbox-thread.inbox-thread:hover {
-  background: #f6f7fb;
+  background: var(--surface-hover);
 }
 .inbox-threads .inbox-thread.inbox-thread.active {
   background: var(--surface-subtle);
@@ -907,7 +907,7 @@
   background: var(--surface-card);
 }
 .inbox-composer.note {
-  background: #fffcf3;
+  background: var(--warning-surface);
 }
 .inbox-composer-channels {
   display: flex;
@@ -1383,7 +1383,7 @@
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #f6f7fb;
+  background: var(--surface-inset);
   font-size: 13px;
 }
 .portal-terms summary {
@@ -1818,7 +1818,7 @@
   margin-top: 6px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: #f6f7fb;
+  background: var(--surface-inset);
   font-size: 11px;
   white-space: pre-wrap;
 }
@@ -1907,7 +1907,7 @@
   padding: 12px 14px;
   border-left: 3px solid var(--profile-accent, var(--action-primary));
   border-radius: 8px;
-  background: #f6f7fb;
+  background: var(--surface-inset);
   font-size: 13px;
 }
 .booking-instructions b {

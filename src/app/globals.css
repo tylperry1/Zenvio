@@ -136,12 +136,19 @@ legend {
   font-size: 29px;
   letter-spacing: -1.4px;
   font-weight: 700;
-  color: var(--surface-dark);
+  color: var(--text-primary);
   white-space: nowrap;
   gap: 7px;
 }
 .logo-light {
-  color: var(--text-inverse);
+  color: var(--text-on-dark);
+}
+/* Dark theme: swap primary wordmarks/symbols so public chrome stays legible. */
+html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-primary.svg"] {
+  content: url("/brand/zenvio-reversed.svg");
+}
+html[data-theme="dark"] .logo:not(.logo-light) img[src$="zenvio-symbol.svg"] {
+  content: url("/brand/zenvio-symbol-reversed.svg");
 }
 .button {
   display: inline-flex;
