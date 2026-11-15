@@ -41,7 +41,7 @@
 .early-consent{display:flex;gap:10px;font-size:12px;line-height:1.7;color:var(--ea-muted)}
 .early-consent input{width:20px;height:20px;flex-shrink:0;accent-color:var(--action-primary)}
 .early-form>small{text-align:center;color:var(--ea-muted);font-size:12px}
-.early-form .subscription-cta{min-height:50px;border:0;border-radius:10px;background:var(--action-primary);color:var(--text-on-accent);cursor:pointer;font-size:14px;font-weight:700}
+.early-form .subscription-cta{min-height:50px;border:0;border-radius:10px;background:var(--brand-cobalt);color:var(--text-on-accent);cursor:pointer;font-size:14px;font-weight:700}
 .early-form button:disabled{opacity:.65;cursor:wait}
 .early-trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .early-page footer{max-width:1120px;margin:auto;padding:30px 0;display:flex;gap:24px;font-size:12px;border-top:1px solid var(--ea-line);color:var(--ea-muted)}
