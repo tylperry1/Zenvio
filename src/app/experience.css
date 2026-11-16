@@ -2388,12 +2388,34 @@
 
 /* Availability compact rhythm */
 .availability-workspace { display:grid; gap:14px; min-width:0; max-width:100%; }
-.availability-toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; min-width:0; }
-.availability-toolbar .ui-tabs { margin:0; min-width:0; max-width:100%; flex:1 1 100%; }
-.availability-zone { display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0; max-width:100%; font-size:13px; color:var(--text-secondary); }
+.availability-toolbar {
+  display:flex;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  gap:10px;
+  align-items:stretch;
+  min-width:0;
+  max-width:100%;
+}
+.availability-toolbar .ui-tabs {
+  margin:0;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+.availability-zone {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  min-width:0;
+  max-width:100%;
+  font-size:13px;
+  color:var(--text-secondary);
+}
 .availability-zone button { color:var(--link); background:none; border:0; padding:0; cursor:pointer; font:inherit; }
-.availability-editor-card { border:1px solid var(--border); border-radius:16px; background:var(--surface-card); padding:18px; box-shadow:var(--shadow); min-width:0; overflow:hidden; }
-.availability-editor-card > header { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between; margin-bottom:8px; }
+.availability-editor-card { border:1px solid var(--border); border-radius:16px; background:var(--surface-card); padding:18px; box-shadow:var(--shadow); min-width:0; max-width:100%; }
+.availability-editor-card > header { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between; margin-bottom:8px; min-width:0; }
 .availability-editor-card > header select { max-width:100%; }
 .availability-day { display:grid; grid-template-columns:160px minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); min-width:0; }
 .availability-day.is-off { opacity:.72; }
@@ -2407,12 +2429,9 @@
 @media (max-width:760px){
   .availability-day { grid-template-columns:1fr; }
   .availability-editor-card { padding:14px; }
-  .availability-toolbar { flex-direction:column; align-items:stretch; }
   .availability-toolbar .ui-tabs {
-    width:100%;
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:0;
   }
   .availability-toolbar .ui-tabs > button {
     padding:10px 6px;
