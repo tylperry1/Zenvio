@@ -111,7 +111,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const routes = [
     ["bookings", "/demo?view=bookings", /Bookings/],
-    ["event-types", "/demo?view=event-types", /Booking links/],
+    ["event-types", "/demo?view=event-types", /Services/],
     ["availability", "/demo?view=availability", /Availability/],
     ["contacts", "/demo?view=contacts", /Clients/],
     ["settings", "/demo?view=settings", /Settings/],
