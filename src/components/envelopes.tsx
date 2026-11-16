@@ -106,6 +106,17 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   }, []);
   useWorkspaceLive(() => {
     load().catch((e) => setError(e.message));
+    const openId = detail?.envelope.id;
+    if (!openId) return;
+    const keepDraftFields = detail.envelope.status === "draft";
+    fetch("/api/envelopes?id=" + openId, { cache: "no-store" })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw Error(d.error);
+        setDetail(d);
+        if (!keepDraftFields) setFields(d.envelope.fields);
+      })
+      .catch((e) => setError(e.message));
   });
   async function action(action: string) {
     if (!detail || busy) return;

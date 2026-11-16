@@ -13,6 +13,8 @@ test("workspace live stream is session-scoped and uses the cheap change fingerpr
   assert.match(lib, /threadAccess/);
   assert.match(lib, /FROM public\.bookings WHERE user_id=\$1/);
   assert.match(lib, /private\.message_threads/);
+  assert.match(lib, /t\.id::text\|\|t\.status\|\|coalesce\(t\.assigned_to::text/);
+  assert.match(lib, /md5\(string_agg\(id::text\|\|status/);
   assert.doesNotMatch(lib, /SELECT \*/);
 });
 
@@ -26,6 +28,14 @@ test("portal live stream peeks the token without bumping last_used_at", () => {
   assert.doesNotMatch(portal.slice(portal.indexOf("export async function peekPortal"), portal.indexOf("export async function resolvePortal")), /last_used_at/);
   assert.match(portal, /b\.user_id=\$1 AND \(b\.contact_id=\$2 OR lower\(b\.guest_email\)=lower\(\$3\)\)/);
   assert.match(portal, /t\.user_id=\$1 AND t\.contact_id=\$2/);
+  assert.match(portal, /count\(DISTINCT e\.id\)/);
+  assert.match(portal, /max\(r\.created_at\)/);
+});
+
+test("open envelope refreshes on live change without wiping draft fields", () => {
+  const source = read("src/components/envelopes.tsx");
+  assert.match(source, /keepDraftFields = detail\.envelope\.status === "draft"/);
+  assert.match(source, /if \(!keepDraftFields\) setFields/);
 });
 
 test("workspace shell and portal subscribe to live updates", () => {

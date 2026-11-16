@@ -61,13 +61,15 @@ export async function portalSignature(s: PortalScope) {
        (SELECT coalesce(max(m.created_at)::text,'')
           FROM private.message_threads t JOIN private.thread_messages m ON m.thread_id=t.id
          WHERE t.user_id=$1 AND t.contact_id=$2 AND m.direction<>'internal' AND m.channel<>'sms') messages,
-       (SELECT coalesce(max(e.completed_at)::text,'') || ':' || coalesce(max(r.status),'')
+       (SELECT coalesce(count(DISTINCT e.id)::text,'0') || ':' || coalesce(max(e.created_at)::text,'') || ':' || coalesce(max(e.completed_at)::text,'') || ':' ||
+               coalesce(md5(string_agg(e.id::text||e.status||r.status, ',' ORDER BY e.id, r.id)), '')
           FROM private.signature_envelopes e JOIN private.signature_recipients r ON r.envelope_id=e.id
          WHERE e.user_id=$1 AND lower(r.email)=lower($3) AND e.status<>'draft') documents,
-       (SELECT coalesce(max(e.updated_at)::text,'') || ':' || coalesce(max(e.status),'')
+       (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(e.updated_at)::text,'') || ':' || coalesce(max(e.status),'')
           FROM private.estimates e JOIN private.jobs j ON j.id=e.job_id
          WHERE e.user_id=$1 AND j.contact_id=$2 AND e.status IN ('sent','approved','declined')) estimates,
-       (SELECT coalesce(max(r.paid_at)::text,'') || ':' || coalesce(max(r.status),'')
+       (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(r.created_at)::text,'') || ':' || coalesce(max(r.paid_at)::text,'') || ':' ||
+               coalesce(md5(string_agg(r.id::text||r.status, ',' ORDER BY r.id)), '')
           FROM private.payment_requests r JOIN private.jobs j ON j.id=r.job_id
          WHERE r.user_id=$1 AND j.contact_id=$2 AND r.status IN ('requested','paid')) payments`,
     [s.userId, s.contactId, s.email],
