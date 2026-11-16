@@ -519,9 +519,6 @@ function CardsTab({
                       label={`${c.label || "Card"} link`}
                       title={c.label || "Smart Card"}
                       copiedMessage="Card link copied."
-                      onResult={(result) => {
-                        if (result === "copied") void copy(url, "Card link");
-                      }}
                     />
                     {data.profiles.some((p) => !p.archived_at && p.id !== c.profile_id) && (
                       <select

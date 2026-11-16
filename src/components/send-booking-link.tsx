@@ -154,6 +154,9 @@ export function SendBookingLinkDialog({
             label="Booking link to share"
             title={title || "Booking page"}
             text={title ? `Book a time for ${title}` : "Book a time"}
+            onResult={(result, message) => {
+              if (result === "unavailable") setError(message);
+            }}
           />
         )}
         <fieldset className="sbl-channel">

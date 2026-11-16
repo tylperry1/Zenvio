@@ -44,6 +44,7 @@ export function ShareLinkActions({
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState("");
   const [href, setHref] = useState("");
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   useEffect(() => {
@@ -73,6 +74,7 @@ export function ShareLinkActions({
   useLayoutEffect(() => {
     if (!open) return;
     placeMenu();
+    (menuRef.current?.querySelector("button, a") as HTMLElement | null)?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -83,7 +85,9 @@ export function ShareLinkActions({
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      trigger.current?.focus();
     };
     const onMove = () => placeMenu();
     document.addEventListener("mousedown", close);
@@ -104,20 +108,30 @@ export function ShareLinkActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     }
-    if (message) onResult?.(result, message);
+    if (!message) return;
+    if (onResult) onResult(result, message);
+    else setStatus(message);
   }
 
   async function share() {
     if (canNativeShare(payload)) {
-      report(await shareOrCopy(payload));
+      const result = await shareOrCopy(payload);
+      if (result === "cancelled") return;
+      if (result === "unavailable") {
+        report(result);
+        setOpen(true);
+        return;
+      }
+      report(result);
       return;
     }
     setOpen((v) => !v);
   }
 
   async function copy() {
-    report((await copyText(href || url)) ? "copied" : "unavailable");
-    setOpen(false);
+    const ok = await copyText(href || url);
+    report(ok ? "copied" : "unavailable");
+    if (ok) setOpen(false);
   }
 
   const shareClass =
@@ -137,7 +151,6 @@ export function ShareLinkActions({
       ref={trigger}
       type="button"
       className={shareClass}
-      aria-haspopup="menu"
       aria-expanded={open}
       aria-controls={menuId}
       disabled={!href}
@@ -155,14 +168,14 @@ export function ShareLinkActions({
   const menu =
     open && typeof document !== "undefined"
       ? createPortal(
-          <div ref={menuRef} id={menuId} role="menu" className="share-menu" style={menuStyle}>
-            <button type="button" role="menuitem" onClick={() => void copy()}>
+          <div ref={menuRef} id={menuId} className="share-menu" style={menuStyle}>
+            <button type="button" onClick={() => void copy()}>
               <Icon name="link" size={15} /> Copy link
             </button>
-            <a role="menuitem" href={emailShareHref(payload)} onClick={() => setOpen(false)}>
+            <a href={emailShareHref(payload)} onClick={() => setOpen(false)}>
               <Icon name="mail" size={15} /> Email
             </a>
-            <a role="menuitem" href={smsShareHref(payload)} onClick={() => setOpen(false)}>
+            <a href={smsShareHref(payload)} onClick={() => setOpen(false)}>
               <Icon name="message" size={15} /> Text message
             </a>
           </div>,
@@ -176,6 +189,7 @@ export function ShareLinkActions({
         {shareButton}
         {copyButton}
         {menu}
+        {status ? <p className="share-status">{status}</p> : null}
       </div>
     );
   }
@@ -194,6 +208,7 @@ export function ShareLinkActions({
         {copyButton}
         {menu}
       </div>
+      {status ? <p className="share-status">{status}</p> : null}
     </div>
   );
 }
