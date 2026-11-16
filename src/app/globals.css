@@ -1446,6 +1446,12 @@ html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.event-link-pending {
+  white-space: normal;
+}
+.event-link-pending .inline-link {
+  font-size: inherit;
+}
 .event-card-footer {
   display: flex;
   justify-content: space-between;
