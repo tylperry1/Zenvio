@@ -10,9 +10,13 @@ export async function GET() {
   try {
     const { token } = await session();
     const owner = await usageOwner(getPool(), token);
-    return Response.json(await listReferrals(owner), {
-      headers: { "Cache-Control": "no-store" },
-    });
+    const canManage = token === owner;
+    return Response.json(
+      { ...(await listReferrals(owner)), canManage },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (e) {
     return failure(e);
   }
@@ -39,9 +43,12 @@ export async function POST(request: NextRequest) {
         [owner, JSON.stringify({ code: code.code })],
       );
     }
-    return Response.json(await listReferrals(owner), {
-      headers: { "Cache-Control": "no-store" },
-    });
+    return Response.json(
+      { ...(await listReferrals(owner)), canManage: true },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (e) {
     return failure(e);
   }

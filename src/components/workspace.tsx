@@ -1818,6 +1818,16 @@ function Settings({
               </span>
               <Icon name="arrow" size={15} />
             </Link>
+            <Link href="/app/referrals">
+              <span>
+                <Icon name="users" size={18} />
+                <span>
+                  <b>Referrals</b>
+                  <small>Invite businesses and earn credits</small>
+                </span>
+              </span>
+              <Icon name="arrow" size={15} />
+            </Link>
             <Link href="/app/connections">
               <span>
                 <Icon name="calendar" size={18} />

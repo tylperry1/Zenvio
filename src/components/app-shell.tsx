@@ -55,13 +55,13 @@ const groups: NavGroup[] = [
     label: "Business",
     items: [
       { id: "growth-suite", label: "Growth", icon: "spark", href: "/app/growth/overview" },
+      { id: "referrals", label: "Referrals", icon: "users", href: "/app/referrals" },
       { id: "business-profile", label: "Business Profile", icon: "grid", href: "/app/business-profile" },
       { id: "bookings", label: "Appointments", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & Classes", icon: "bag", href: "/app/growth" },
       { id: "automation", label: "Automations", icon: "bell", href: "/app/automation" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
-      { id: "referrals", label: "Referrals", icon: "spark", href: "/app/referrals" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
       { id: "business-settings", label: "Business Settings", icon: "settings", href: "/app/business-profile?section=settings" },
     ],
@@ -130,7 +130,10 @@ function paletteItems(demo: boolean, admin: boolean, jobs: boolean, marketplace:
         icon: i.icon,
         href: hrefFor(i, demo),
         group: "Pages",
-        keywords: g.label,
+        keywords:
+          i.id === "referrals"
+            ? `${g.label} affiliate invite earn credits referral share link`
+            : g.label,
       })),
   );
   if (admin && !demo)
