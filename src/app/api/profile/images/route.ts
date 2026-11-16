@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
 import { getPool } from "@/lib/db";
-import { ApiError, failure, sameOrigin, session, slug } from "@/lib/server";
+import { ApiError, failure, sameOrigin, session, publicHostSlug } from "@/lib/server";
 import { readUpload } from "@/lib/uploads";
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ function kind(value: string | null) {
 
 export async function GET(request: NextRequest) {
   try {
-    const host = slug(request.nextUrl.searchParams.get("host"));
+    const host = publicHostSlug(request.nextUrl.searchParams.get("host"));
     const { rows } = await getPool().query(
       "SELECT i.image FROM private.profile_images i JOIN public.profiles p ON p.id=i.user_id WHERE p.slug=$1 AND i.kind=$2",
       [host, kind(request.nextUrl.searchParams.get("kind"))],

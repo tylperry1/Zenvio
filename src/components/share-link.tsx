@@ -8,6 +8,7 @@ import {
   canNativeShare,
   copyText,
   emailShareHref,
+  publicShareUrl,
   shareOrCopy,
   shareResultMessage,
   smsShareHref,
@@ -48,11 +49,7 @@ export function ShareLinkActions({
   const [href, setHref] = useState("");
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   useEffect(() => {
-    try {
-      setHref(new URL(url, window.location.origin).href);
-    } catch {
-      setHref(url);
-    }
+    setHref(publicShareUrl(url, window.location.origin));
   }, [url]);
   const payload: SharePayload = { url: href || url, title, text };
 

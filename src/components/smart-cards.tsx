@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate } from "./ds";
 import { Icon } from "./icons";
 import { ShareLinkActions } from "./share-link";
+import { publicShareOrigin } from "@/lib/share";
 
 type Link = { label: string; url: string };
 type Profile = {
@@ -85,7 +86,7 @@ export function SmartCards() {
     setDraft(p ? { ...p } : blank(d.bookingSlug));
   }
   useEffect(() => {
-    setOrigin(window.location.origin);
+    setOrigin(publicShareOrigin(window.location.origin));
     if(new URLSearchParams(window.location.search).get("tab") === "cards") setTab("cards");
     load().catch((e) => setError(e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,11 +1,11 @@
 import { publishedProfileDesign } from "@/lib/profile-design-store";
 import { NextRequest } from "next/server";
-import { ApiError, backend, failure, slug } from "@/lib/server";
+import { ApiError, backend, failure, publicHostSlug } from "@/lib/server";
 import { getPool } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
-    const host = slug(request.nextUrl.searchParams.get("host"));
+    const host = publicHostSlug(request.nextUrl.searchParams.get("host"));
     const profile = await backend("/rest/v1/rpc/public_profile", {
       method: "POST",
       body: JSON.stringify({ host_slug: host }),
