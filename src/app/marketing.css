@@ -303,27 +303,35 @@
 
 /* Dark mode — only via resolved data-theme (ThemeBoot / PublicThemeSync). */
 html[data-theme="dark"] .marketing-v3{
-  --mk-bg:#0f1324;
-  --mk-bg-soft:#151b33;
-  --mk-bg-band:#1a2140;
-  --mk-ink:#e8ecf8;
-  --mk-muted:#a7b0c7;
-  --mk-faint:#9aa3bd;
-  --mk-line:#2c3554;
-  --mk-line-strong:#3d486a;
-  --mk-card:#171c33;
-  --mk-shadow:0 18px 50px #00000055;
-  --mk-hero-wash:linear-gradient(180deg,#12182c 0,#0f1324 420px,#0f1324 100%);
-  --mk-panel-wash:linear-gradient(180deg,#1a2140,#171c33);
-  --mk-team-wash:linear-gradient(180deg,#1a2344,#171c33);
-  --mk-badge-bg:#243056;
-  --mk-header-bg:#0f1324f2;
+  --mk-bg:#1a2340;
+  --mk-bg-soft:#1f2948;
+  --mk-bg-band:#253154;
+  --mk-ink:#f0f3fa;
+  --mk-muted:#c9d2e6;
+  --mk-faint:#b6c1d8;
+  --mk-line:#455574;
+  --mk-line-strong:#62748f;
+  --mk-card:#24304c;
+  --mk-shadow:0 18px 50px #00000040;
+  --mk-hero-wash:linear-gradient(180deg,#1f2948 0,#1a2340 420px,#1a2340 100%);
+  --mk-panel-wash:linear-gradient(180deg,#283654,#24304c);
+  --mk-team-wash:linear-gradient(180deg,#283a5c,#24304c);
+  --mk-badge-bg:#314268;
+  --mk-header-bg:#1a2340f2;
   color-scheme:dark;
 }
+html[data-theme="dark"] .marketing-v3 .mk-hero h1,
+html[data-theme="dark"] .marketing-v3 .mk-section-heading h2{letter-spacing:-.03em;font-weight:700}
+html[data-theme="dark"] .marketing-v3 .mk-hero-description,
+html[data-theme="dark"] .marketing-v3 .mk-fine,
+html[data-theme="dark"] .marketing-v3 .mk-value-strip p,
+html[data-theme="dark"] .marketing-v3 .mk-workflow-copy>p,
+html[data-theme="dark"] .marketing-v3 .mk-section-heading>p,
+html[data-theme="dark"] .marketing-v3 .mk-faq details p{color:var(--mk-muted);font-weight:500}
 html[data-theme="dark"] .marketing-v3 .mk-desktop-nav a:hover,
 html[data-theme="dark"] .marketing-v3 .mk-login:hover,
 html[data-theme="dark"] .marketing-v3 .mk-text-link,
-html[data-theme="dark"] .marketing-v3 .mk-eyebrow{color:#8aa3ff}
+html[data-theme="dark"] .marketing-v3 .mk-eyebrow{color:#9ec0ff}
 html[data-theme="dark"] .mk-logo .logo:not(.logo-light){display:none}
 html[data-theme="dark"] .mk-logo .logo-light{display:inline-flex}
 html[data-theme="dark"] .mk-showcase-main,
@@ -354,19 +362,19 @@ html[data-theme="dark"] .marketing-v3 .subscription-offers-home .pricing-allowan
   --allowance-ink:var(--mk-ink);
   --allowance-muted:var(--mk-muted);
   --allowance-line:var(--mk-line);
-  --allowance-head:#1f2642;
-  --allowance-stripe:#151b33;
-  --allowance-team:#1f2642;
+  --allowance-head:#283654;
+  --allowance-stripe:#1c2742;
+  --allowance-team:#283654;
   --allowance-team-head:#2948d6;
-  --allowance-accent:#8aa3ff;
+  --allowance-accent:#9ec0ff;
 }
 
 /* Intentional dark panels keep local light-on-dark tokens in both themes */
 .mk-showcase-nav,
 .mk-booking-shell>aside{
-  --mk-panel-ink:#e8ecf8;
-  --mk-panel-muted:#b7c3e4;
+  --mk-panel-ink:#f0f3fa;
+  --mk-panel-muted:#c5cee3;
   color:var(--mk-panel-ink);
 }
 .mk-final{color:#fff}
-.mk-final p{color:#dce5ff}
+.mk-final p{color:#e4eaff}

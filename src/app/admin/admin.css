@@ -312,7 +312,7 @@
    Admin console v4 (.acx): navigation, top bar, Connections, Team.
    Prefixed with .admin-v3.acx so it settles above legacy console rules.
    =================================================================== */
-.admin-v3.admin-v3.admin-v3.acx{--av-sidebar-width:252px;--acx-nav:#0e1330;--acx-nav-2:#121a3d;--acx-line:#ffffff14;--acx-ink:#c4cce6;--acx-dim:#8390b8;background:linear-gradient(to right,var(--acx-nav) var(--av-sidebar-width),var(--surface-page) var(--av-sidebar-width))}
+.admin-v3.admin-v3.admin-v3.acx{--av-sidebar-width:252px;--acx-nav:#151d38;--acx-nav-2:#1a2340;--acx-line:#ffffff1a;--acx-ink:#d8e0f0;--acx-dim:#b0bbd4;background:linear-gradient(to right,var(--acx-nav) var(--av-sidebar-width),var(--surface-page) var(--av-sidebar-width))}
 .admin-v3.acx .acx-sidebar{width:var(--av-sidebar-width);padding:0;gap:0;display:flex;flex-direction:column;background:linear-gradient(180deg,var(--acx-nav-2) 0%,var(--acx-nav) 55%);border-right:1px solid #ffffff0a;color:var(--acx-ink);overflow:hidden}
 .admin-v3.acx .acx-brand-row{display:flex;align-items:center;gap:10px;height:64px;padding:0 18px;flex-shrink:0}
 .admin-v3.acx .acx-brand{display:flex;align-items:center}
@@ -327,7 +327,7 @@
 .admin-v3.acx .acx-search kbd{font:600 11px var(--font-family);color:var(--acx-dim);border:1px solid var(--acx-line);border-radius:5px;padding:1px 6px}
 .admin-v3.acx .acx-groups{flex:1;min-height:0;overflow-y:auto;padding:4px 12px 14px;scrollbar-width:thin;scrollbar-color:#ffffff26 transparent}
 .admin-v3.acx .acx-group + .acx-group{margin-top:5px}
-.admin-v3.acx .acx-group-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:34px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#a3b0d6;font:700 11px/1.25 var(--font-family);letter-spacing:.06em;text-transform:uppercase;text-align:left}
+.admin-v3.acx .acx-group-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:34px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#b8c4dc;font:700 11px/1.25 var(--font-family);letter-spacing:.06em;text-transform:uppercase;text-align:left}
 .admin-v3.acx .acx-group-toggle:not(:disabled):hover{background:#ffffff0b;color:#fff}
 .admin-v3.acx .acx-group-toggle:disabled{opacity:1;cursor:default}
 .admin-v3.acx .acx-group-toggle svg{flex:none;transform:rotate(-90deg)}

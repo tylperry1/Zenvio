@@ -40,7 +40,7 @@ body .shell-sidebar-head { padding: 0 22px; border-bottom: 1px solid #ffffff0d; 
 body .shell-logo img { height: 31px; }
 body .shell-nav { padding: 16px 12px; scrollbar-color: #3c496a transparent; scrollbar-width: thin; }
 body .shell-nav-group + .shell-nav-group { margin-top: 13px; }
-body .shell-nav-group > p { color: #8897bb; font-size: 10px; letter-spacing: .11em; }
+body .shell-nav-group > p { color: #a8b6d4; font-size: 10px; letter-spacing: .11em; }
 body .shell-nav-group a { color: #dce4fa; min-height: 39px; border: 1px solid transparent; font-size: 13px; gap: 11px; padding: 9px 12px; }
 body .shell-nav-group a svg { color: #b6c3e1; }
 body .shell-nav-group a:hover { color: #fff; background: #ffffff0b; }

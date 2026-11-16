@@ -64,7 +64,7 @@ try {
       shellBgImage: getComputedStyle(document.querySelector(".shell")).backgroundImage,
     };
   }, contrastHelpers.toString());
-  assert.match(metrics.shellBgImage, /rgb\(13,\s*20,\s*40\)|rgb\(11,\s*16,\s*32\)|#0[bd]1020|#0d1428/i);
+  assert.match(metrics.shellBgImage, /rgb\(21,\s*29,\s*56\)|rgb\(26,\s*35,\s*64\)|#151d38|#1a2340/i);
   // Dark hero heading must stay white; Open schedule keeps an inverse light button.
   const hero = await page.evaluate((helpersSrc) => {
     const helpers = new Function(`return (${helpersSrc})`)()();
@@ -87,7 +87,7 @@ try {
   }
 
   assert.equal(metrics.theme, "dark");
-  assert.match(metrics.pageToken, /#0b1020/i);
+  assert.match(metrics.pageToken, /#1a2340/i);
   assert.ok(metrics.headingContrast >= 4.5, `heading contrast ${metrics.headingContrast}`);
   assert.ok(metrics.cardContrast >= 3, `card label contrast ${metrics.cardContrast}`);
 
@@ -98,7 +98,7 @@ try {
     const { data, info } = await sharp(canvasShot).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
     const i = (220 * info.width + 500) * 4;
     const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
-    assert.ok(r < 40 && g < 40 && b < 60, `canvas pixel stayed light: rgb(${r},${g},${b})`);
+    assert.ok(r < 50 && g < 55 && b < 90, `canvas pixel stayed light: rgb(${r},${g},${b})`);
   }
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.screenshot({ path: "test-results/theme/demo-dark-768.png", fullPage: false });
@@ -131,9 +131,9 @@ try {
         shellBg,
       };
     });
-    assert.match(surface.pageToken, /#0b1020/i, `${name} page token`);
-    assert.match(surface.bodyBg, /rgb\(11,\s*16,\s*32\)/, `${name} body ${surface.bodyBg}`);
-    assert.match(surface.shellBg, /rgb\(11,\s*16,\s*32\)/, `${name} shell ${surface.shellBg}`);
+    assert.match(surface.pageToken, /#1a2340/i, `${name} page token`);
+    assert.match(surface.bodyBg, /rgb\(26,\s*35,\s*64\)/, `${name} body ${surface.bodyBg}`);
+    assert.match(surface.shellBg, /rgb\(26,\s*35,\s*64\)/, `${name} shell ${surface.shellBg}`);
     await page.screenshot({ path: `test-results/theme/demo-${name}-dark-1440.png`, fullPage: false });
   }
 
