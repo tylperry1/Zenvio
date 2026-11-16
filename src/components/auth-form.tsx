@@ -106,6 +106,7 @@ export function AuthForm({
     [recover, setRecover] = useState(false),
     [token, setToken] = useState(""),
     [referralCode, setReferralCode] = useState(initialReferral.trim()),
+    [referralLocked, setReferralLocked] = useState(Boolean(initialReferral.trim())),
     [accounts, setAccounts] = useState<boolean | null>(null),
     [signupOpen, setSignupOpen] = useState(false);
   const registerLayout = mode === "sign-up";
@@ -120,14 +121,20 @@ export function AuthForm({
     if (mode !== "sign-up") return;
     const params = new URLSearchParams(window.location.search);
     const fromQuery = (params.get("ref") || params.get("referral") || "").trim();
-    if (fromQuery) setReferralCode(fromQuery);
+    if (fromQuery) {
+      setReferralCode(fromQuery);
+      setReferralLocked(true);
+    }
     try {
       if (fromQuery) {
         sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromQuery);
         return;
       }
       const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "";
-      if (stored) setReferralCode(stored);
+      if (stored) {
+        setReferralCode(stored);
+        setReferralLocked(true);
+      }
     } catch {
       /* persistence is optional; query attribution still applies above */
     }
@@ -194,7 +201,7 @@ export function AuthForm({
       })
       .catch(() => setAccounts(false));
   }, []);
-  const invited = registerLayout && Boolean(referralCode);
+  const invited = registerLayout && referralLocked;
   const title = recover
     ? "A fresh start."
     : invited
@@ -276,7 +283,7 @@ export function AuthForm({
           )}
           <p className="eyebrow">
             {mode === "sign-up"
-              ? referralCode
+              ? invited
                 ? "PARTNER INVITE"
                 : "CREATE YOUR WORKSPACE"
               : "YOUR TIME, TOGETHER"}
@@ -290,7 +297,7 @@ export function AuthForm({
               explore the complete interactive demo below.
             </p>
           )}
-          {mode === "sign-up" && referralCode && (
+          {mode === "sign-up" && invited && (
             <div id="referral-detected" className="auth-invite-banner" role="status">
               <span className="auth-invite-mark" aria-hidden="true">
                 <Icon name="sparkles" size={18} />
@@ -299,7 +306,16 @@ export function AuthForm({
                 <strong>Partner invite applied</strong>
                 <p>We’ll credit the business that invited you when this account is created.</p>
               </div>
-              <code>{referralCode}</code>
+              <div className="auth-invite-code">
+                <code>{referralCode}</code>
+                <button
+                  type="button"
+                  className="inline-link"
+                  onClick={() => setReferralLocked(false)}
+                >
+                  Change code
+                </button>
+              </div>
             </div>
           )}
           <form onSubmit={submit}>
@@ -348,7 +364,7 @@ export function AuthForm({
               />
             )}
             {mode === "sign-up" &&
-              (referralCode ? (
+              (invited ? (
                 <input type="hidden" name="referralCode" value={referralCode} />
               ) : (
                 <label>
@@ -360,6 +376,7 @@ export function AuthForm({
                     autoComplete="off"
                     placeholder="Friend’s or partner’s code"
                     maxLength={40}
+                    aria-describedby={referralCode ? "referral-detected" : undefined}
                   />
                 </label>
               ))}

@@ -28,6 +28,8 @@ try {
         assert.equal(response.status(),200,route);
         console.log(`QA page ${route} at ${width}px`);
         await page.locator("h1").first().waitFor();
+        if (route === "/app/referrals") await page.locator(".referrals-hero").waitFor();
+        if (route.startsWith("/sign-up?ref=")) await page.locator(".auth-invite-banner").waitFor();
         if(route==="/pricing") {
           const table=page.getByRole("table",{name:"Monthly subscription allowances for Individual and Teams"});
           assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
