@@ -192,8 +192,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               </label>
             )}
             {mode === "sign-up" && referralCode && (
-              <p id="referral-applied" className="notice success" role="status">
-                Referral invite applied. You’ll be connected when you create your account.
+              <p id="referral-detected" className="notice" role="status">
+                Referral code from your invite will be checked when you create your account.
               </p>
             )}
             {mode === "sign-up" && (
@@ -206,7 +206,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
                   autoComplete="off"
                   placeholder="Friend’s code"
                   maxLength={40}
-                  aria-describedby={referralCode ? "referral-applied" : undefined}
+                  aria-describedby={referralCode ? "referral-detected" : undefined}
                 />
               </label>
             )}
