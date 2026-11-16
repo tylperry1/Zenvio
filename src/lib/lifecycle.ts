@@ -12,8 +12,9 @@ import {
 } from "./platform-settings";
 import { ApiError } from "./server";
 import { createHash } from "node:crypto";
-export const appOrigin = () =>
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { platformOrigin } from "./transactional-email";
+/** Canonical public origin for email/portal links. Prefer HTTPS production host. */
+export const appOrigin = () => platformOrigin();
 export async function queueDelivery(
   db: PoolClient,
   input: {

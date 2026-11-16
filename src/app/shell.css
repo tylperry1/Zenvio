@@ -922,7 +922,7 @@ body {
   height: 6px;
   margin-left: auto;
   border-radius: 99px;
-  background: #eceff6;
+  background: var(--surface-inset);
   overflow: hidden;
 }
 .setup-progress span {
