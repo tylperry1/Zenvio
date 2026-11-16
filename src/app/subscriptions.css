@@ -79,19 +79,19 @@
   .allowance-table td.allowance-team-col{padding:8px 10px;border-radius:8px;background:var(--allowance-team)}
 }
 html[data-theme="dark"] .pricing-allowances{
-  --allowance-surface:#171c33;
-  --allowance-ink:#e8ecf8;
-  --allowance-muted:#a7b0c7;
-  --allowance-line:#2c3554;
-  --allowance-head:#1f2642;
-  --allowance-stripe:#151b33;
-  --allowance-team:#1f2642;
+  --allowance-surface:#24304c;
+  --allowance-ink:#f0f3fa;
+  --allowance-muted:#c9d2e6;
+  --allowance-line:#455574;
+  --allowance-head:#283654;
+  --allowance-stripe:#1c2742;
+  --allowance-team:#283654;
   /* Darker than accent so white 12px header text clears 4.5:1 */
   --allowance-team-head:#2948d6;
-  --allowance-accent:#8aa3ff;
-  --allowance-icon:#8aa3ff;
+  --allowance-accent:#9ec0ff;
+  --allowance-icon:#9ec0ff;
 }
 @media(max-width:700px){
-  html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#243056}
-  html[data-theme="dark"] .allowance-table td::before{color:#a7b0c7}
+  html[data-theme="dark"] .allowance-table td.allowance-team-col{background:#314268}
+  html[data-theme="dark"] .allowance-table td::before{color:#c9d2e6}
 }

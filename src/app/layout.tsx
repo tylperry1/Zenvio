@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/pwa";
 import { PublicChat } from "@/components/public-chat";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 import "./platform.css";
 import "./refinements.css";
 import "./documents.css";
@@ -88,7 +95,7 @@ export default async function RootLayout({
     </>
   );
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body data-smart-cards={String(controls.features.smartCards)} data-growth={String(controls.features.growth)} data-assistant={String(controls.features.assistant)} suppressHydrationWarning>
         {/* Boot on every route so public pages honor stored/system theme on first paint. */}
         <ThemeBootScript />

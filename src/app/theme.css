@@ -43,7 +43,8 @@
   --ds-line-soft: #eef1f7;
   --ds-elev-1: var(--shadow);
   --ds-elev-2: 0 18px 56px #151b3826;
-  --font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Fallback arg required: an unset --font-inter invalidates the whole stack (browser → Times). */
+  --font-family: var(--font-inter, -apple-system), BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --success: #21663f;
   --success-surface: #eef8f1;
@@ -59,55 +60,67 @@
   --info-border: #c5d2ff;
 }
 
-/* Authenticated app theme — applied via data-theme on <html>. */
+/* Authenticated app theme — applied via data-theme on <html>.
+   Softened slate-navy (not near-black) so secondary/muted text stays readable. */
 html[data-theme="dark"] {
   color-scheme: dark;
-  --action-primary: #3b82f6;
-  --action-hover: #2563eb;
-  --action-selected: #18366a;
-  --text-primary: #f3f6fd;
-  --text-secondary: #c3cee2;
-  --text-muted: #a0aec8;
-  --text-placeholder: #9aa8c0;
-  --text-inverse: #0f172a;
-  --text-on-dark: #dce5ff;
+  --action-primary: #4d8dff;
+  --action-hover: #3b7af0;
+  --action-selected: #23457a;
+  --text-primary: #f7f9fc;
+  --text-secondary: #d8e0f0;
+  --text-muted: #c2cce0;
+  --text-placeholder: #b0bbd4;
+  --text-inverse: #12182c;
+  --text-on-dark: #e4eaff;
   --text-on-accent: #ffffff;
-  --link: #8ab4ff;
-  --link-hover: #b3cbff;
+  --link: #9ec0ff;
+  --link-hover: #c2d6ff;
 
-  --surface-page: #0b1020;
-  --surface-navigation: #0d1428;
-  --surface-card: #141d33;
-  --surface-elevated: #1b2741;
-  --surface-inset: #10182b;
-  --surface-subtle: #1b2741;
-  --surface-hover: #22314d;
-  --surface-selected: #18366a;
-  --surface-dark: #080c18;
-  --accent-soft: #18366a;
+  --surface-page: #1a2340;
+  --surface-navigation: #151d38;
+  --surface-card: #24304c;
+  --surface-elevated: #2c3a58;
+  --surface-inset: #1c2742;
+  --surface-subtle: #283654;
+  --surface-hover: #334463;
+  --surface-selected: #23457a;
+  --surface-dark: #121933;
+  --accent-soft: #23457a;
 
-  --border: #334360;
-  --border-strong: #506484;
+  --border: #455574;
+  --border-strong: #62748f;
   --focus-ring: #93c5fd;
-  --shadow: 0 1px 2px #00000066, 0 1px 3px #00000059;
-  --shadow-color: #00000059;
-  --overlay: #05070f99;
-  --shell-glow: transparent;
-  --ds-surface-muted: #10182b;
-  --ds-line-soft: #243152;
+  --shadow: 0 1px 2px #00000055, 0 1px 3px #0000004d;
+  --shadow-color: #0000004d;
+  --overlay: #0a102099;
+  --shell-glow: #365cff1f;
+  --ds-surface-muted: #18223a;
+  --ds-line-soft: #2c3a58;
   --ds-elev-1: var(--shadow);
-  --ds-elev-2: 0 18px 56px #00000066;
+  --ds-elev-2: 0 18px 56px #00000055;
 
-  --success: #6fdb9a;
-  --success-surface: #143224;
-  --success-border: #2f6b4a;
-  --warning: #f0c36a;
-  --warning-surface: #32260f;
-  --warning-border: #6f5520;
-  --error: #f0a0a6;
-  --error-surface: #3a171b;
-  --error-border: #7a3a40;
-  --info: #8ab4ff;
-  --info-surface: #152445;
-  --info-border: #2a4a7a;
+  --success: #7ee2a6;
+  --success-surface: #163828;
+  --success-border: #347a52;
+  --warning: #f3cb78;
+  --warning-surface: #3a2c12;
+  --warning-border: #7a5e24;
+  --error: #f2aeb3;
+  --error-surface: #421c21;
+  --error-border: #844850;
+  --info: #9ec0ff;
+  --info-surface: #1a2d4f;
+  --info-border: #35598a;
+}
+
+/* Dark typography: slightly heavier strokes + less negative tracking so
+   thin headings and muted copy stay legible on slate-navy surfaces. */
+html[data-theme="dark"] body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+html[data-theme="dark"] :is(h1, h2, h3, h4) {
+  letter-spacing: -0.02em;
+  font-weight: 600;
 }

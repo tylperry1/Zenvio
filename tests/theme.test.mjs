@@ -115,12 +115,22 @@ test("rebrand public canvases use semantic tokens instead of light-only hex", ()
   assert.match(verify, /assert\.ok\(field\.inputBg/);
 });
 
+test("root layout loads Inter and exposes --font-inter so body is not Times", () => {
+  const layout = fs.readFileSync("src/app/layout.tsx", "utf8");
+  assert.match(layout, /from "next\/font\/google"/);
+  assert.match(layout, /Inter\(/);
+  assert.match(layout, /variable:\s*"--font-inter"/);
+  assert.match(layout, /className=\{inter\.variable\}/);
+});
+
 test("dark theme tokens live on html[data-theme=dark] without workspace shadowing", () => {
   const css = fs.readFileSync("src/app/theme.css", "utf8");
   assert.match(css, /html\[data-theme="dark"\]/);
-  assert.match(css, /--surface-page:\s*#0b1020/i);
-  assert.match(css, /--surface-card:\s*#141d33/i);
-  assert.match(css, /--text-primary:\s*#f3f6fd/i);
+  assert.match(css, /--surface-page:\s*#1a2340/i);
+  assert.match(css, /--surface-card:\s*#24304c/i);
+  assert.match(css, /--text-primary:\s*#f7f9fc/i);
+  assert.match(css, /--text-muted:\s*#c2cce0/i);
+  assert.match(css, /--font-family:\s*var\(--font-inter,\s*-apple-system\)/);
   const workspace = fs.readFileSync("src/app/workspace-design.css", "utf8");
   assert.doesNotMatch(workspace, /\.workspace,.suite-workspace \{[^}]*--surface-page:/);
   const rebrand = fs.readFileSync("src/app/rebrand.css", "utf8");
