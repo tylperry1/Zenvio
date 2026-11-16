@@ -9,6 +9,7 @@ import { SendBookingLinkDialog } from "./send-booking-link";
 import { ShareLinkActions } from "./share-link";
 import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
 import { AccountData } from "./account-data";
@@ -140,6 +141,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     window.addEventListener("storage", storage);
     return () => window.removeEventListener("storage", storage);
   }, [demo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useWorkspaceLive(() => {
+    if (!demo) void load();
+  });
   useEffect(() => {
     if (!notice) return;
     const timeout = setTimeout(() => setNotice(""), 5000);

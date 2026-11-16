@@ -1192,6 +1192,15 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.portal-top .sp-live-controls {
+  width: auto;
+  order: 0;
+}
+.portal-top-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
 .portal-main {
   max-width: min(1180px, 100%);
   margin: 0 auto;

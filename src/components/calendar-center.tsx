@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { TimezoneSelect } from "./timezone-select";
 import { CreateAppointment } from "./create-appointment";
@@ -80,6 +81,9 @@ export function CalendarCenter() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [date, view, zone, account, organization]);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+  });
   const events = (data?.events || []).filter(
     (e: any) =>
       (staff === "all" || e.user_id === staff) &&

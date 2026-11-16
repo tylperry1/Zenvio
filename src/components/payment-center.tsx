@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -51,6 +52,9 @@ export function PaymentCenter() {
   useEffect(() => {
     load().catch((e) => setLoadError(e.message));
   }, []);
+  useWorkspaceLive(() => {
+    load().catch((e) => setLoadError(e.message));
+  });
   async function action(v: Record<string, unknown>, success: string) {
     setBusy(true);
     try {

@@ -1,6 +1,7 @@
 "use client";
 import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import { Icon } from "./icons";
 type SigningDocument = {
   id: string;
@@ -44,6 +45,9 @@ export function Documents({ tabs }: { tabs: React.ReactNode }) {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, []);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+  });
   const status = (d: SigningDocument) =>
     d.status === "awaiting_signature" &&
     new Date(d.expires_at).getTime() <= Date.now()

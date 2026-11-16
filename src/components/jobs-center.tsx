@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { AskZenvio } from "./assistant";
+import { useWorkspaceLive } from "./platform-support";
 import { Alert, Badge, Card, CopyField, EmptyState, Field, Skeleton, Tabs, formatDateTime, useConfirm, useToast } from "./ui";
 import { estimateTotals, jobStatuses, money } from "@/lib/contractor";
 
@@ -70,20 +71,21 @@ export function JobsCenter() {
     [creating, setCreating] = useState(false),
     [sharing, setSharing] = useState(false);
   const toast = useToast();
-  const load = useCallback(async () => {
+  const load = useCallback(async (retarget = false) => {
     try {
       const r = await fetch("/api/work-orders", { cache: "no-store" });
       const d = await r.json();
       if (!r.ok) throw Error(d.error);
       setData(d);
-      if (!params.get("job") && !d.jobs.some((j: JobRow) => j.status === "requested")) setFilter("active");
+      if (retarget && !params.get("job") && !d.jobs.some((j: JobRow) => j.status === "requested")) setFilter("active");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Jobs couldn’t be loaded.");
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    void load();
+    void load(true);
   }, [load]);
+  useWorkspaceLive(() => void load());
   useEffect(() => {
     window.history.replaceState(null, "", selected ? `/app/jobs?job=${selected}` : "/app/jobs");
   }, [selected]);
@@ -352,6 +354,7 @@ function JobDetail({ id, onBack, notify }: { id: string; onBack: () => void; not
   useEffect(() => {
     void load();
   }, [load]);
+  useWorkspaceLive(() => void load());
   const run = async (payload: Record<string, unknown>, success: string) => {
     try {
       await api(payload);

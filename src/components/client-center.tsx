@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SuiteShell } from "./suite-shell";
@@ -83,6 +84,11 @@ export function ClientCenter() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [query, page]);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+    const id = detail?.contact?.id;
+    if (id) open(id).catch((e) => setError(e.message));
+  });
   const params = useSearchParams();
   useEffect(() => {
     const id = params.get("client");

@@ -1,6 +1,7 @@
 "use client";
 import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
+import { useWorkspaceLive } from "./platform-support";
 import { PdfPages } from "./pdf-pages";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -103,6 +104,9 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
     const id = new URLSearchParams(location.search).get("envelope");
     if (id) void open(id);
   }, []);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+  });
   async function action(action: string) {
     if (!detail || busy) return;
     if (

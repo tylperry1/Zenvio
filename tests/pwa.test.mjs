@@ -24,9 +24,17 @@ function worker() {
   vm.runInNewContext(source, { self, caches, fetch, URL, Promise });
   return { handlers, cached };
 }
-async function dispatch(w, url, mode = "cors", method = "GET") {
+async function dispatch(w, url, mode = "cors", method = "GET", headers = {}) {
   let responded = null;
-  w.handlers.fetch({ request: { url, mode, method }, respondWith: (p) => (responded = p) });
+  w.handlers.fetch({
+    request: {
+      url,
+      mode,
+      method,
+      headers: { get: (name) => headers[name.toLowerCase()] },
+    },
+    respondWith: (p) => (responded = p),
+  });
   if (responded) await responded;
   await new Promise((r) => setTimeout(r, 0));
   return responded !== null;
@@ -53,4 +61,16 @@ test("only hashed build assets and brand images are cached", async () => {
 test("non-GET requests are ignored", async () => {
   const w = worker();
   assert.equal(await dispatch(w, "https://gozenvio.com/_next/static/a.js", "cors", "POST"), false);
+});
+
+test("event-stream requests are never intercepted", async () => {
+  const w = worker();
+  assert.equal(
+    await dispatch(w, "https://gozenvio.com/api/app/stream", "cors", "GET", { accept: "text/event-stream" }),
+    false,
+  );
+  assert.equal(
+    await dispatch(w, "https://gozenvio.com/api/portal/tok/stream", "cors", "GET", { accept: "text/event-stream" }),
+    false,
+  );
 });

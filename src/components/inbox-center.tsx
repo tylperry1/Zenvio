@@ -6,6 +6,7 @@ import { Icon } from "./icons";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { Alert, Badge, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
+import { useWorkspaceLive } from "./platform-support";
 import { Modal } from "./modal";
 
 type Thread = {
@@ -112,15 +113,10 @@ export function InboxCenter() {
     void loadThread(selected).then(() => loadList());
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    // New client messages arrive through the portal; refresh quietly while the page is open.
-    const timer = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void loadList();
-      if (selected) void loadThread(selected);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [loadList, loadThread, selected]);
+  useWorkspaceLive(() => {
+    void loadList();
+    if (selected) void loadThread(selected);
+  });
 
   async function post(payload: Record<string, unknown>) {
     const r = await fetch("/api/inbox", {

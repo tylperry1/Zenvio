@@ -1,5 +1,5 @@
 "use client";
-import { SupportLauncher } from "./platform-support";
+import { LiveControls, SupportLauncher, WORKSPACE_LIVE_EVENT, useLive } from "./platform-support";
 import { InstallPrompt } from "./pwa";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -231,6 +231,19 @@ export function AppShell({
   children: ReactNode;
 }) {
   const routePath = usePathname();
+  const live = useLive(demo ? null : "/api/app/stream", () => {
+    window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
+  });
+  useEffect(() => {
+    if (demo) return;
+    const announce = () => document.visibilityState === "visible" && window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
+    const timer = window.setInterval(announce, live === "live" ? 60000 : 8000);
+    document.addEventListener("visibilitychange", announce);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", announce);
+    };
+  }, [demo, live]);
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
@@ -381,6 +394,7 @@ export function AppShell({
             <kbd>⌘K</kbd>
           </button>
           <div className="shell-topbar-actions">
+            {!demo && <LiveControls state={live} onRefresh={() => { window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT)); }} />}
             {demo ? (
               <Link href="/sign-up" className="shell-button primary small">
                 Create free account
