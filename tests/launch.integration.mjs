@@ -187,8 +187,10 @@ try{
  const repeated=await emailReserve('booking_confirmation','essential-'+suffix);assert.equal(repeated.reference,protectedMail.reference);
  assert.equal((await db.query("select count(*)::int n from private.email_usage_events where reference=$1",[protectedMail.reference])).rows[0].n,1);
  const securityMail=await emailReserve('account_security','security-'+suffix);assert.equal(securityMail.protected,true);
+ const allowanceFilename=path.resolve('src/lib/allowance-display.ts'),allowanceModule=new Module(allowanceFilename);
+ allowanceModule._compile(ts.transpileModule(fs.readFileSync(allowanceFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,allowanceFilename);
  const envelopeFilename=path.resolve('src/lib/envelope-usage.ts'),envelopeModule=new Module(envelopeFilename);
- envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}}}:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
+ envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}}}:id==='./allowance-display'?allowanceModule.exports:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
  envelopeModule._compile(ts.transpileModule(fs.readFileSync(envelopeFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,envelopeFilename);
  await db.query("insert into private.envelope_usage(source_id,source_kind,user_id,billing_owner) select gen_random_uuid(),'pdf',$1,$1 from generate_series(1,30)",[owner]);
  await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason) values($1,'envelopes',1,$2,'Disposable prepaid envelope concurrency fixture')",[owner,'fixture-envelope-credit-'+suffix]);
