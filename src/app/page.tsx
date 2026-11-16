@@ -246,7 +246,7 @@ export default async function Home() {
               ))}
             </ul>
             <Link href="/demo" className="button secondary">
-              See documents in the demo <Icon name="arrow" size={17} />
+              Explore the workspace demo <Icon name="arrow" size={17} />
             </Link>
           </div>
           <div className="mk-signing-visual" aria-label="Illustrative document signing envelope">
