@@ -38,7 +38,7 @@ const groups: NavGroup[] = [
     label: "Scheduling",
     items: [
       { id: "calendar", label: "Calendar", icon: "calendar", href: "/app/calendar" },
-      { id: "event-types", label: "Booking links", icon: "link", href: "/app?view=event-types", view: "event-types", demo: true },
+      { id: "event-types", label: "Services", icon: "link", href: "/app?view=event-types", view: "event-types", demo: true },
       { id: "availability", label: "Availability", icon: "spark", href: "/app?view=availability", view: "availability", demo: true },
     ],
   },
@@ -62,13 +62,14 @@ const groups: NavGroup[] = [
       { id: "automation", label: "Automations", icon: "bell", href: "/app/automation" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
-      { id: "notifications", label: "Notifications", icon: "bell", href: "/app/notifications" },
+      { id: "business-settings", label: "Business Settings", icon: "settings", href: "/app/business-profile?section=settings" },
     ],
   },
   {
     label: "Account",
     items: [
-      { id: "settings", label: "Settings", icon: "settings", href: "/app?view=settings", view: "settings", demo: true },
+      { id: "notifications", label: "Notifications", icon: "bell", href: "/app/notifications" },
+      { id: "settings", label: "Account settings", icon: "settings", href: "/app?view=settings", view: "settings", demo: true },
       { id: "connections", label: "Calendar connections", icon: "plug", href: "/app/connections" },
       { id: "billing", label: "Plan & billing", icon: "shield", href: "/app/billing" },
       { id: "support", label: "Zenvio support", icon: "message", href: "/app/support" },
@@ -84,7 +85,7 @@ function hrefFor(item: NavItem, demo: boolean) {
   return view ? `/demo?view=${view}` : "/demo";
 }
 
-function activeItem(pathname: string, view: string | null, demo: boolean) {
+function activeItem(pathname: string, view: string | null, demo: boolean, section: string | null = null) {
   const all = groups.flatMap((g) => g.items);
   if (pathname === "/app" || (demo && pathname === "/demo"))
     return (
@@ -92,19 +93,22 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
       all[0]
     );
   if (pathname.startsWith("/app/marketing") || pathname.startsWith("/app/smart-cards") || pathname.startsWith("/app/growth/overview")) return all.find(i => i.id === "growth-suite");
-  if (pathname.startsWith("/app/business-profile")) return all.find((i) => i.id === "business-profile");
+  if (pathname.startsWith("/app/business-profile")) {
+    if (section === "settings") return all.find((i) => i.id === "business-settings");
+    return all.find((i) => i.id === "business-profile");
+  }
   if (pathname.startsWith("/app/notifications")) return all.find((i) => i.id === "notifications");
   if (pathname.startsWith("/marketplace"))
     return all.find((i) => i.id === "marketplace");
   return all
-    .filter((i) => !i.view && i.href !== "/app")
+    .filter((i) => !i.view && i.href !== "/app" && !i.href.includes("?"))
     .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
 }
 
 function paletteItems(demo: boolean, admin: boolean, jobs: boolean, marketplace: boolean): PaletteItem[] {
   const base = demo ? "/demo" : "/app";
   const actions: PaletteItem[] = [
-    { id: "new-link", label: "New booking link", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create" },
+    { id: "new-link", label: "New service", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create booking link service" },
     ...(demo
       ? []
       : [
@@ -149,7 +153,7 @@ function Navigation({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const current = activeItem(pathname, params.get("view"), demo);
+  const current = activeItem(pathname, params.get("view"), demo, params.get("section"));
   return (
     <>
       {groups.map((group) => {
@@ -183,7 +187,7 @@ function Navigation({
 function Breadcrumb({ demo }: { demo: boolean }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const current = activeItem(pathname, params.get("view"), demo);
+  const current = activeItem(pathname, params.get("view"), demo, params.get("section"));
   const group = groupOf(current);
   const label =
     pathname === "/marketplace/orders"

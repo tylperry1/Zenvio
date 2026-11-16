@@ -2,21 +2,43 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "./app-shell";
+import { BookingDesign } from "./booking-design";
 import { Icon } from "./icons";
+import { ProfilePhoto } from "./profile-photo";
+import { ShareLinkActions } from "./share-link";
+import { SmartCards } from "./smart-cards";
+import { TimezoneSelect } from "./timezone-select";
 import { Notice, Panel, Skeleton } from "./ds";
 
 const sections = [
-  { id: "overview", label: "Overview", href: "/app/business-profile" },
-  { id: "branding", label: "Branding", href: "/app/business-profile?section=branding" },
-  { id: "details", label: "Business Details", href: "/app/business-profile?section=details" },
-  { id: "digital-card", label: "Digital Card", href: "/app/business-profile?section=digital-card" },
-  { id: "booking", label: "Booking Page", href: "/app/business-profile?section=booking" },
-  { id: "links", label: "Links & QR", href: "/app/business-profile?section=links" },
-  { id: "analytics", label: "Analytics", href: "/app/business-profile?section=analytics" },
-  { id: "settings", label: "Settings", href: "/app/business-profile?section=settings" },
+  { id: "overview", label: "Overview" },
+  { id: "details", label: "Business Information" },
+  { id: "branding", label: "Public Profile & Branding" },
+  { id: "booking", label: "Booking Configuration" },
+  { id: "digital-card", label: "Digital Card" },
+  { id: "experience", label: "Customer Experience" },
+  { id: "links", label: "Sharing & Publishing" },
+  { id: "analytics", label: "Analytics" },
+  { id: "settings", label: "Business Settings" },
 ] as const;
+
+type SectionId = (typeof sections)[number]["id"];
+
+type WorkspaceProfile = {
+  name: string;
+  slug: string;
+  timezone: string;
+  bio: string;
+  headline?: string;
+  company?: string;
+  accent_color?: string;
+  email?: string;
+  phone?: string;
+  photo_url?: string;
+  image?: string;
+};
 
 type Profile = {
   business_name?: string;
@@ -26,17 +48,31 @@ type Profile = {
   phone?: string;
   website?: string;
   headline?: string;
+  bio?: string;
   accent?: string;
   photo_url?: string;
   logo_url?: string;
   has_logo?: boolean;
+  timezone?: string;
+  company?: string;
 };
 
-function SectionNav({ current }: { current: string }) {
+type WorkspacePayload = {
+  profile: WorkspaceProfile;
+  events: { title: string; duration: number; description: string; active: boolean; deleted_at?: string | null }[];
+  email?: string;
+  website?: string;
+};
+
+function SectionNav({ current }: { current: SectionId }) {
   return (
     <nav className="bp-hub-nav" aria-label="Business Profile sections">
       {sections.map((s) => (
-        <Link key={s.id} href={s.href} aria-current={current === s.id ? "page" : undefined}>
+        <Link
+          key={s.id}
+          href={s.id === "overview" ? "/app/business-profile" : `/app/business-profile?section=${s.id}`}
+          aria-current={current === s.id ? "page" : undefined}
+        >
           {s.label}
         </Link>
       ))}
@@ -44,15 +80,166 @@ function SectionNav({ current }: { current: string }) {
   );
 }
 
-function BusinessProfileInner() {
-  const params = useSearchParams();
-  const section = params.get("section") || "overview";
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+function BusinessIdentityEditor({
+  profile,
+  onSaved,
+  notify,
+}: {
+  profile: WorkspaceProfile;
+  onSaved: (next: WorkspaceProfile) => void;
+  notify: (message: string, error?: boolean) => void;
+}) {
+  const [slug, setSlug] = useState(profile.slug);
+  const [zone, setZone] = useState(profile.timezone);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setSlug(profile.slug);
+    setZone(profile.timezone);
+  }, [profile.slug, profile.timezone]);
+
+  return (
+    <div className="bp-hub-editor settings-layout">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Business information</h2>
+            <p>Shared identity for your public profile, booking page, and digital card.</p>
+          </div>
+        </div>
+        <ProfilePhoto host={profile.slug} />
+        <form
+          className="stack-form settings-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const values = {
+              name: String(f.get("name") || "").trim(),
+              slug,
+              timezone: zone,
+              bio: String(f.get("bio") || ""),
+              headline: String(f.get("headline") || ""),
+              company: String(f.get("company") || ""),
+              accent_color: String(f.get("accent_color") || "#365CFF"),
+            };
+            setBusy(true);
+            try {
+              const r = await fetch("/api/workspace", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "profile", ...values }),
+              });
+              const d = await r.json();
+              if (!r.ok) throw Error(d.error || "Unable to save profile.");
+              onSaved({ ...profile, ...values });
+              notify("Business information saved.");
+            } catch (err) {
+              notify(err instanceof Error ? err.message : "Unable to save profile.", true);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label>
+            Your name
+            <input name="name" required minLength={2} maxLength={100} defaultValue={profile.name} />
+          </label>
+          <label>
+            Headline
+            <input
+              name="headline"
+              maxLength={120}
+              defaultValue={profile.headline || ""}
+              placeholder="Consultant, coach, or your own kind of expert"
+            />
+          </label>
+          <label>
+            Business or organization
+            <input
+              name="company"
+              maxLength={80}
+              defaultValue={profile.company || ""}
+              placeholder="Your business name (optional)"
+            />
+          </label>
+          <label className="profile-form-colors">
+            Accent color
+            <input name="accent_color" type="color" defaultValue={profile.accent_color || "#365CFF"} />
+          </label>
+          <label>
+            Public booking address
+            <input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              required
+              minLength={3}
+              maxLength={60}
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            />
+            <small>/book/{slug} · Changing this address makes old links unavailable.</small>
+          </label>
+          <label>
+            Introduction
+            <textarea
+              name="bio"
+              rows={3}
+              maxLength={500}
+              defaultValue={profile.bio || ""}
+              placeholder="A short introduction for your booking page"
+            />
+          </label>
+          <label>
+            Timezone
+            <TimezoneSelect name="timezone" value={zone} onChange={setZone} businessZone={profile.timezone} initialAutomatic={false} />
+          </label>
+          <button className="button primary" disabled={busy}>
+            {busy ? "Saving…" : "Save business information"}
+            <Icon name="check" size={16} />
+          </button>
+        </form>
+      </section>
+      <aside>
+        <div className="settings-profile-share">
+          <h3>Public booking profile</h3>
+          <p>Save before previewing. Contact, social links, and hours live under Booking Configuration.</p>
+          <ShareLinkActions
+            url={`/book/${profile.slug}`}
+            label="Public booking page link"
+            title={profile.company || profile.name}
+            text={`Book a time with ${profile.company || profile.name}`}
+            copiedMessage="Booking page link copied successfully."
+            onResult={(_, message) => notify(message, message.startsWith("Couldn’t") || message.startsWith("Could not"))}
+          />
+          <div className="public-profile-actions">
+            <Link className="button secondary small" href={`/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+              Preview profile <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function BusinessProfileInner() {
+  const params = useSearchParams();
+  const raw = params.get("section") || "overview";
+  const section = (sections.some((s) => s.id === raw) ? raw : "overview") as SectionId;
+  const [workspace, setWorkspace] = useState<WorkspacePayload | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [noticeError, setNoticeError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const notify = useCallback((message: string, isError = false) => {
+    setNotice(message);
+    setNoticeError(isError);
+  }, []);
+
+  const load = useCallback(() => {
     let alive = true;
+    setLoading(true);
     Promise.all([
       fetch("/api/workspace", { cache: "no-store" }).then(async (r) => {
         const d = await r.json();
@@ -65,24 +252,45 @@ function BusinessProfileInner() {
         return d;
       }),
     ])
-      .then(([workspace, details]) => {
+      .then(([ws, details]) => {
         if (!alive) return;
-        const p = workspace.profile || workspace.user || {};
-        const slug = p.slug || workspace.slug;
+        const p = ws.profile || ws.user || {};
+        const slug = p.slug || ws.slug;
         const hasLogo = Boolean(details.has_logo || p.has_logo);
+        setWorkspace({
+          profile: {
+            name: p.name || ws.name || "",
+            slug: slug || "",
+            timezone: p.timezone || "UTC",
+            bio: p.bio || "",
+            headline: p.headline || "",
+            company: p.company || p.business_name || "",
+            accent_color: p.accent_color || p.accent || "#365CFF",
+            email: p.email || ws.email,
+            phone: p.phone || details.phone,
+            photo_url: p.photo_url || p.image,
+          },
+          events: Array.isArray(ws.events) ? ws.events : [],
+          email: ws.email || p.email,
+          website: details.website || p.website,
+        });
         setProfile({
-          business_name: p.company || p.business_name || p.name || workspace.business_name,
-          name: p.name || workspace.name,
+          business_name: p.company || p.business_name || p.name || ws.business_name,
+          name: p.name || ws.name,
           slug,
-          email: p.email || workspace.email,
+          email: p.email || ws.email,
           phone: p.phone || details.phone,
           website: details.website || p.website,
           headline: p.headline || details.headline,
+          bio: p.bio || "",
           accent: p.accent_color || p.accent || details.accent_color || details.accent,
           photo_url: p.photo_url || p.image,
           has_logo: hasLogo,
           logo_url: hasLogo && slug ? `/api/profile/images?host=${encodeURIComponent(slug)}&kind=logo` : details.logo_url || p.logo_url,
+          timezone: p.timezone,
+          company: p.company || "",
         });
+        setError("");
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : "Unable to load profile.");
@@ -95,29 +303,47 @@ function BusinessProfileInner() {
     };
   }, []);
 
+  useEffect(() => load(), [load]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(""), 4200);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
   const name = profile?.business_name || profile?.name || "Your business";
   const completion = useMemo(() => {
     if (!profile) return 0;
-    const checks = [profile.business_name || profile.name, profile.slug, profile.email || profile.phone, profile.logo_url || profile.photo_url, profile.headline, profile.website];
+    const checks = [
+      profile.business_name || profile.name,
+      profile.slug,
+      profile.email || profile.phone,
+      profile.logo_url || profile.photo_url,
+      profile.headline,
+      profile.website || profile.bio,
+    ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [profile]);
+
+  const bookingProfile = workspace?.profile;
 
   return (
     <main className="bp-hub platform-page">
       <PageHeader
         title="Business Profile"
-        description="One place for branding, digital cards, booking pages, and public links — without rewriting the same details."
+        description="Manage business information, branding, booking pages, and digital cards from one place."
       />
       <SectionNav current={section} />
       {error && <Notice tone="danger">{error}</Notice>}
+      {notice && <Notice tone={noticeError ? "danger" : "success"}>{notice}</Notice>}
       {loading && <Skeleton height={220} />}
-      {!loading && (
+      {!loading && workspace && profile && (
         <>
-          {(section === "overview" || section === "details" || section === "branding") && (
+          {(section === "overview" || section === "details") && (
             <section className="bp-hub-summary">
-              <div className="bp-hub-identity" style={{ ["--profile-accent" as string]: profile?.accent || "#365CFF" }}>
+              <div className="bp-hub-identity" style={{ ["--profile-accent" as string]: profile.accent || "#365CFF" }}>
                 <div className="bp-hub-avatar" aria-hidden="true">
-                  {(profile?.logo_url || profile?.photo_url) ? (
+                  {profile.logo_url || profile.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.logo_url || profile.photo_url} alt="" />
                   ) : (
@@ -127,12 +353,12 @@ function BusinessProfileInner() {
                 <div>
                   <p className="premium-eyebrow">Business identity</p>
                   <h2>{name}</h2>
-                  <p>{profile?.headline || "Add a short description so clients know what to expect."}</p>
+                  <p>{profile.headline || "Add a short description so clients know what to expect."}</p>
                   <div className="bp-hub-meta">
-                    {profile?.slug && <span>/{profile.slug}</span>}
-                    {profile?.email && <span>{profile.email}</span>}
-                    {profile?.phone && <span>{profile.phone}</span>}
-                    {profile?.website && <span>{profile.website}</span>}
+                    {profile.slug && <span>/{profile.slug}</span>}
+                    {profile.email && <span>{profile.email}</span>}
+                    {profile.phone && <span>{profile.phone}</span>}
+                    {profile.website && <span>{profile.website}</span>}
                   </div>
                 </div>
                 <div className="bp-hub-completion">
@@ -146,94 +372,141 @@ function BusinessProfileInner() {
 
           {section === "overview" && (
             <div className="bp-hub-grid">
-              <Panel title="Digital Card" description="NFC, QR, and contact-saving experiences">
-                <p>Manage Smart Cards and public digital profiles without leaving Business Profile.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/smart-cards">
-                  Open Digital Cards <Icon name="arrow" size={15} />
+              <Panel title="Business Information" description="Name, introduction, timezone, and accent">
+                <p>Keep one authoritative record that booking pages and cards inherit.</p>
+                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=details">
+                  Edit business information <Icon name="arrow" size={15} />
                 </Link>
               </Panel>
-              <Panel title="Booking Page" description="Public booking experience and booking design">
-                <p>Edit booking page branding, instructions, and appointment types.</p>
+              <Panel title="Public Profile & Branding" description="Logo, cover, social links, and live preview">
+                <p>Design the public booking header without leaving this hub.</p>
+                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=branding">
+                  Open branding editor
+                </Link>
+              </Panel>
+              <Panel title="Booking Configuration" description="Instructions, services, and availability">
+                <p>Tune booking page copy and jump to services or hours.</p>
                 <div className="bp-hub-actions">
-                  <Link className="ui-btn ui-btn-primary" href="/app?view=settings#booking-design">
-                    Edit booking design
+                  <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=booking">
+                    Booking setup
                   </Link>
                   <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
-                    Booking links
+                    Services
                   </Link>
                 </div>
               </Panel>
-              <Panel title="Public Business Profile" description="Introduction, contact, and CTAs">
-                <p>Shared business details feed your public profile, cards, and booking page.</p>
-                <Link className="ui-btn ui-btn-secondary" href="/app?view=settings">
-                  Edit business details
-                </Link>
-              </Panel>
-              <Panel title="Links & QR" description="Share and track destinations">
-                <p>Create tracked marketing links and review QR destinations.</p>
-                <Link className="ui-btn ui-btn-secondary" href="/app/marketing">
-                  Open Growth campaigns
+              <Panel title="Digital Card" description="NFC, QR, and contact-saving experiences">
+                <p>Publish Smart Cards with the same business identity.</p>
+                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=digital-card">
+                  Manage Digital Cards
                 </Link>
               </Panel>
             </div>
           )}
 
-          {section === "branding" && (
-            <Panel title="Branding" description="Logo, accent color, and visual identity">
-              <p>Brand settings are saved with your workspace profile and inherited by cards, booking pages, and client portals.</p>
-              <Link className="ui-btn ui-btn-primary" href="/app?view=settings#booking-design">
-                Open branding editor
-              </Link>
-            </Panel>
+          {section === "details" && bookingProfile && (
+            <BusinessIdentityEditor
+              profile={bookingProfile}
+              notify={notify}
+              onSaved={(next) => {
+                setWorkspace((w) => (w ? { ...w, profile: next } : w));
+                setProfile((p) =>
+                  p
+                    ? {
+                        ...p,
+                        name: next.name,
+                        business_name: next.company || next.name,
+                        company: next.company,
+                        slug: next.slug,
+                        headline: next.headline,
+                        bio: next.bio,
+                        accent: next.accent_color,
+                        timezone: next.timezone,
+                      }
+                    : p,
+                );
+              }}
+            />
           )}
 
-          {section === "details" && (
-            <Panel title="Business Details" description="Name, contact, hours, and location">
-              <p>Keep one authoritative record. Individual card or booking customizations remain available in their editors.</p>
-              <Link className="ui-btn ui-btn-primary" href="/app?view=settings">
-                Edit business details
-              </Link>
-            </Panel>
+          {(section === "branding" || section === "booking") && bookingProfile && (
+            <div className="bp-hub-embed">
+              {section === "booking" && (
+                <Panel title="Booking shortcuts" description="Services, hours, and appointment tools">
+                  <div className="bp-hub-actions">
+                    <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
+                      Services & booking links
+                    </Link>
+                    <Link className="ui-btn ui-btn-secondary" href="/app?view=availability">
+                      Business hours
+                    </Link>
+                    <Link className="ui-btn ui-btn-secondary" href="/app?view=bookings">
+                      Appointments
+                    </Link>
+                  </div>
+                </Panel>
+              )}
+              <BookingDesign profile={bookingProfile} events={workspace.events} notify={notify} />
+            </div>
           )}
 
           {section === "digital-card" && (
-            <Panel title="Digital Card" description="Smart Cards, NFC destinations, and QR">
-              <p>Existing Smart Card customizations are preserved. Open the full editor to publish or update cards.</p>
-              <Link className="ui-btn ui-btn-primary" href="/app/smart-cards">
-                Manage Digital Cards
-              </Link>
-            </Panel>
+            <div className="bp-hub-embed">
+              <SmartCards />
+            </div>
           )}
 
-          {section === "booking" && (
-            <Panel title="Booking Page" description="Independent booking experience">
-              <p>Booking pages keep their own design overrides while inheriting shared business identity.</p>
-              <div className="bp-hub-actions">
-                <Link className="ui-btn ui-btn-primary" href="/app?view=settings#booking-design">
-                  Booking design
+          {section === "experience" && (
+            <div className="bp-hub-grid">
+              <Panel title="Notifications & reminders" description="Confirmations, reminders, and follow-ups">
+                <p>Control how customers hear about appointments and updates.</p>
+                <Link className="ui-btn ui-btn-primary" href="/app/notifications">
+                  Notification preferences
                 </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
-                  Appointment types
+              </Panel>
+              <Panel title="Automations" description="Reminder workflows and customer journeys">
+                <p>Keep lifecycle messages consistent with your booking experience.</p>
+                <Link className="ui-btn ui-btn-secondary" href="/app/automation">
+                  Open automations
                 </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/app?view=availability">
-                  Availability
+              </Panel>
+              <Panel title="Reviews" description="Collect and showcase customer feedback">
+                <Link className="ui-btn ui-btn-secondary" href="/app/marketing?tab=reviews">
+                  Review settings
                 </Link>
-              </div>
-            </Panel>
+              </Panel>
+            </div>
           )}
 
-          {section === "links" && (
-            <Panel title="Links & QR" description="Shareable destinations">
-              <p>Tracked campaign links and QR destinations stay in Growth marketing tools.</p>
-              <Link className="ui-btn ui-btn-primary" href="/app/marketing">
-                Open Links & campaigns
-              </Link>
-            </Panel>
+          {section === "links" && bookingProfile && (
+            <div className="bp-hub-grid">
+              <Panel title="Share booking page" description="Copy, share, or preview your public booking URL">
+                <ShareLinkActions
+                  url={`/book/${bookingProfile.slug}`}
+                  label="Public booking page link"
+                  title={bookingProfile.company || bookingProfile.name}
+                  text={`Book a time with ${bookingProfile.company || bookingProfile.name}`}
+                  copiedMessage="Booking page link copied successfully."
+                  onResult={(_, message) => notify(message, message.startsWith("Couldn’t") || message.startsWith("Could not"))}
+                />
+                <div className="bp-hub-actions">
+                  <Link className="ui-btn ui-btn-secondary" href={`/book/${bookingProfile.slug}`} target="_blank" rel="noopener noreferrer">
+                    Open public page
+                  </Link>
+                </div>
+              </Panel>
+              <Panel title="Campaign links & QR" description="Tracked destinations for Growth">
+                <p>Create tracked marketing links without duplicating profile data.</p>
+                <Link className="ui-btn ui-btn-primary" href="/app/marketing">
+                  Open campaigns
+                </Link>
+              </Panel>
+            </div>
           )}
 
           {section === "analytics" && (
             <Panel title="Analytics" description="Profile, card, and campaign performance">
-              <p>Card and QR visits, campaign attribution, and review activity live in Growth analytics.</p>
+              <p>Card visits, campaign attribution, and review activity live in Growth analytics.</p>
               <div className="bp-hub-actions">
                 <Link className="ui-btn ui-btn-primary" href="/app/marketing?tab=sources">
                   Campaign analytics
@@ -246,19 +519,26 @@ function BusinessProfileInner() {
           )}
 
           {section === "settings" && (
-            <Panel title="Settings" description="Publishing, notifications, and account preferences">
-              <div className="bp-hub-actions">
-                <Link className="ui-btn ui-btn-primary" href="/app?view=settings">
-                  Workspace settings
+            <div className="bp-hub-grid">
+              <Panel title="Workspace settings" description="Account preferences and connected tools">
+                <div className="bp-hub-actions">
+                  <Link className="ui-btn ui-btn-primary" href="/app?view=settings">
+                    Open workspace settings
+                  </Link>
+                  <Link className="ui-btn ui-btn-secondary" href="/app/connections">
+                    Calendar connections
+                  </Link>
+                  <Link className="ui-btn ui-btn-secondary" href="/app/billing">
+                    Plan & billing
+                  </Link>
+                </div>
+              </Panel>
+              <Panel title="Team & access" description="Invite staff and manage permissions">
+                <Link className="ui-btn ui-btn-secondary" href="/app/team">
+                  Manage team
                 </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/app/notifications">
-                  Notifications
-                </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/app/connections">
-                  Calendar connections
-                </Link>
-              </div>
-            </Panel>
+              </Panel>
+            </div>
           )}
         </>
       )}
@@ -268,7 +548,13 @@ function BusinessProfileInner() {
 
 export function BusinessProfile() {
   return (
-    <Suspense fallback={<main className="bp-hub platform-page"><Skeleton height={220} /></main>}>
+    <Suspense
+      fallback={
+        <main className="bp-hub platform-page">
+          <Skeleton height={220} />
+        </main>
+      }
+    >
       <BusinessProfileInner />
     </Suspense>
   );

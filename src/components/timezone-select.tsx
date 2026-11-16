@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { timezones } from "@/lib/client";
-export function TimezoneSelect({ value, onChange, businessZone, label = "Time zone", disabled = false, name }: {
-  value: string; onChange: (zone:string)=>void; businessZone?:string; label?:string; disabled?:boolean; name?:string;
+export function TimezoneSelect({ value, onChange, businessZone, label = "Time zone", disabled = false, name, initialAutomatic = true }: {
+  value: string; onChange: (zone:string)=>void; businessZone?:string; label?:string; disabled?:boolean; name?:string; initialAutomatic?:boolean;
 }) {
-  const [automatic,setAutomatic]=useState(true);
+  const [automatic,setAutomatic]=useState(initialAutomatic);
   const [detected,setDetected]=useState("");
   useEffect(()=>{
     const zone=Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";

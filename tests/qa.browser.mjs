@@ -17,7 +17,7 @@ try {
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
-    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types"]],
+    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/growth/overview","/app/business-profile","/app/business-profile?section=details","/app/business-profile?section=branding","/app/business-profile?section=digital-card","/app/notifications","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types","/app?view=bookings"]],
     [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
@@ -84,6 +84,25 @@ try {
           await last.click();
           assert.equal(await last.getAttribute("aria-pressed"), "true");
           await page.screenshot({path: `test-results/supplier-sections-${width}.png`});
+        }
+        // Wait for client-loaded Business Profile editors before checking overflow.
+        if (route === "/app/business-profile?section=details") {
+          const editor = page.locator(".bp-hub-editor form");
+          await editor.waitFor({ state: "visible" });
+          const savedZone = (await (await member.request.get(origin + "/api/workspace")).json()).profile.timezone || "UTC";
+          const selector = editor.getByLabel("Time zone", { exact: true });
+          assert.equal(await selector.inputValue(), savedZone, "Business Profile must display the saved timezone, not auto-detect");
+          assert.equal(await editor.locator('input[type="hidden"][name="timezone"]').inputValue(), savedZone, "Submitted timezone must match the visible selection");
+        }
+        if (route === "/app/business-profile?section=branding") {
+          // BookingDesign mounts immediately; wait for a control that appears after details load.
+          await page.getByRole("button", { name: "Save design", exact: true }).waitFor({ state: "visible" });
+        }
+        if (route === "/app/business-profile?section=digital-card") {
+          // SmartCards mounts immediately; wait for the engagement select after profiles load.
+          // Prefer role+accessible name: label textContent includes option text, so exact
+          // getByText/getByLabel can miss even when the select is present.
+          await page.getByRole("combobox", { name: "Engagement period" }).waitFor({ state: "visible" });
         }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);

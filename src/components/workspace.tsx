@@ -508,7 +508,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               view === "Overview"
                 ? `${greeting(now, displayZone)}, ${data.profile.name.split(" ")[0]}`
                 : view === "Event types"
-                  ? "Booking links"
+                  ? "Services"
                   : view === "Contacts"
                     ? "Clients"
                     : view
@@ -613,7 +613,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   ],
                   [
                     "link",
-                    "Active booking links",
+                    "Active services",
                     String(visibleEvents.filter((e) => e.active).length),
                     "Available for clients to book",
                   ],
@@ -646,7 +646,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <section className="workspace-section">
                 <div className="section-bar">
                   <div>
-                    <h2>Your booking links</h2>
+                    <h2>Your services</h2>
                     <p>Client-ready pages for every appointment type.</p>
                   </div>
                   <button

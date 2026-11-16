@@ -79,12 +79,16 @@ export function BookingLinkPrompt({
         onSubmit={async (e) => {
           e.preventDefault();
           if (!valid) return;
-          if (industry !== "general")
-            await fetch("/api/profile/details", {
+          if (industry !== "general") {
+            const industryRes = await fetch("/api/profile/details", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: "industry", industry }),
-            }).catch(() => {});
+            }).catch(() => null);
+            if (!industryRes?.ok) {
+              // Keep going with slug save; industry can be set later in Business Profile.
+            }
+          }
           if ((await onSave(value)) && industry !== "general") window.location.reload();
         }}
       >

@@ -19,6 +19,7 @@ import {
 } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { formatAllowance } from "@/lib/allowance-display";
 
 type UserRow = {
   id: string;
@@ -385,7 +386,7 @@ export function AdminUsersActivity() {
                 {subscriptionBadge(detail.user.subscription_status)}
               </div>
               <dl className="ds-dl">
-                <div><dt>Plan</dt><dd>{planName(detail.user.plan)}{detail.user.seats && detail.user.seats > 1 ? ` · ${detail.user.seats} seats` : ""}</dd></div>
+                <div><dt>Plan</dt><dd>{planName(detail.user.plan)}{detail.user.seats && detail.user.seats > 1 ? ` · ${formatAllowance(detail.user.seats)} seats` : ""}</dd></div>
                 <div><dt>Renews</dt><dd>{detail.user.current_period_end ? `${formatDate(detail.user.current_period_end)}${detail.user.cancel_at_period_end ? " (cancels)" : ""}` : "—"}</dd></div>
                 <div><dt>Signed up</dt><dd>{formatDate(detail.user.created_at)}</dd></div>
                 <div><dt>Last active</dt><dd>{relativeTime(detail.user.last_active)}</dd></div>

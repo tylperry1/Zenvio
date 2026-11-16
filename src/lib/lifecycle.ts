@@ -12,8 +12,9 @@ import {
 } from "./platform-settings";
 import { ApiError } from "./server";
 import { createHash } from "node:crypto";
-export const appOrigin = () =>
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { resolveAppOrigin } from "./transactional-email";
+/** Canonical public origin for portal/Stripe/lifecycle links. Preserves local CI loopback. */
+export const appOrigin = () => resolveAppOrigin();
 export async function queueDelivery(
   db: PoolClient,
   input: {
