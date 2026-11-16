@@ -1,4 +1,6 @@
--- Include platform role on account detail so master-admin accounts stay protected in the console.
+-- Include platform role + protect flag on account detail.
+-- Display role follows enabled platform_roles; protect matches /api/admin/users
+-- (any platform_roles row, regardless of enabled).
 CREATE OR REPLACE FUNCTION public.admin_account_detail(account_id uuid) RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
@@ -21,6 +23,7 @@ BEGIN
     'email_confirmed_at', CASE WHEN u."emailVerified" THEN u."createdAt" END,
     'last_sign_in_at', (SELECT max(s."createdAt") FROM public.session s WHERE s."userId" = u.id),
     'role', CASE WHEN r.enabled THEN r.role ELSE 'member' END,
+    'protected', (r.user_id IS NOT NULL),
     'industry', p.industry,
     'events', coalesce(
       (
