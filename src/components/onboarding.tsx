@@ -9,7 +9,7 @@ import type { WorkspaceData } from "@/lib/types";
 const DISMISSED_KEY = "zenvio-setup-dismissed";
 const LINK_SKIPPED_KEY = "zenvio-link-prompt-skipped";
 
-// New accounts start with a generated "host-<id>" address.
+// Legacy accounts may still use a generated "host-<id>" address.
 export const hasGeneratedLink = (slug: string) => /^host-[0-9a-f]{32}$/.test(slug);
 
 export function suggestSlug(name: string) {
@@ -21,6 +21,13 @@ export function suggestSlug(name: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
   return base.length >= 3 ? base : "";
+}
+
+/** Compact label for service cards; hide host-uuid noise until a short address is chosen. */
+export function bookingLinkLabel(hostSlug: string, eventSlug?: string) {
+  if (!hostSlug || hasGeneratedLink(hostSlug)) return "Choose a short booking address";
+  const path = eventSlug ? `${hostSlug}/${eventSlug}` : hostSlug;
+  return `gozenvio.com/book/${path}`;
 }
 
 function stored(key: string) {

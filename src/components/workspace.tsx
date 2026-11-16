@@ -13,7 +13,7 @@ import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
 import { AccountData } from "./account-data";
-import { BookingLinkPrompt, SetupChecklist, useLinkPrompt } from "./onboarding";
+import { BookingLinkPrompt, SetupChecklist, bookingLinkLabel, hasGeneratedLink, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
 import Link from "next/link";
 import { Icon } from "./icons";
@@ -339,8 +339,14 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             {event.location || "Location arranged with guest"}
           </span>
         </div>
-        <div className="event-link">
-          gozenvio.com/book/{profile?.slug}/{event.slug}
+        <div className={`event-link${profile?.slug && hasGeneratedLink(profile.slug) ? " event-link-pending" : ""}`}>
+          {profile?.slug && hasGeneratedLink(profile.slug) ? (
+            <button type="button" className="inline-link" onClick={linkPrompt.show}>
+              Choose a short booking address
+            </button>
+          ) : (
+            bookingLinkLabel(profile?.slug || "", event.slug)
+          )}
         </div>
         <div className="event-card-footer">
           <div className="event-share-actions">
@@ -711,17 +717,27 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <div className="workspace-tip">
                 <span>✳</span>
                 <div>
-                  <b>Make your booking page easy to find.</b>
+                  <b>
+                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                      ? "Choose a short booking address."
+                      : "Make your booking page easy to find."}
+                  </b>
                   <p>
-                    Share your booking link in your email signature. Your next
-                    client can book a time without the back-and-forth.
+                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                      ? "Replace the temporary host link with something clients can remember, then share it in your email signature."
+                      : "Share your booking link in your email signature. Your next client can book a time without the back-and-forth."}
                   </p>
                 </div>
                 <button
                   className="subtle-button"
-                  onClick={() => navigate("Event types")}
+                  onClick={() =>
+                    data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                      ? linkPrompt.show()
+                      : navigate("Event types")
+                  }
                 >
-                  Get your link <Icon name="arrow" size={15} />
+                  {data?.profile.slug && hasGeneratedLink(data.profile.slug) ? "Choose link" : "Get your link"}{" "}
+                  <Icon name="arrow" size={15} />
                 </button>
               </div>
             </>
