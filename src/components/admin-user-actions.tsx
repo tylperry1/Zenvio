@@ -2,14 +2,15 @@
 import { Modal } from "./modal";
 import {useEffect,useState} from "react";
 export function AdminUserActions({ account, onUpdated, onDeleted }: {
-  account: { id: string; name: string; email: string; timezone: string; role: string };
+  account: { id: string; name: string; email: string; timezone: string; role: string; protected?: boolean };
   onUpdated: () => void; onDeleted: () => void;
 }) {
   const [mode, setMode] = useState<"edit" | "delete" | "deactivate" | "reactivate" | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
   const [deactivated,setDeactivated]=useState(false);
   useEffect(()=>{fetch("/api/admin/users?id="+account.id).then(r=>r.ok?r.json():null).then(d=>setDeactivated(Boolean(d?.deactivated_at))).catch(()=>{});},[account.id]);
-  if (account.role === "master_admin") return <p>Master admin accounts are protected. Update your profile in user Settings.</p>;
+  // Match /api/admin/users: hide actions when any platform_roles row exists (enabled or not).
+  if (account.protected || account.role === "master_admin") return <p>Master admin accounts are protected. Update your profile in user Settings.</p>;
   return <section aria-label="Manage user">
     <h3>Manage user</h3>
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

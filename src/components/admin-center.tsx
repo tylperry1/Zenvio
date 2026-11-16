@@ -37,6 +37,8 @@ type Overview = {
 type AccountDetail = Account & {
   contact_count: number;
   industry?: string | null;
+  /** Matches /api/admin/users: any platform_roles row, even when disabled. */
+  protected?: boolean;
   events: {
     id: string;
     title: string;
@@ -954,7 +956,13 @@ export function AdminCenter({
               </div>
               <div>
                 <dt>Platform role</dt>
-                <dd>{detail.role === "master_admin" ? "Master admin" : "Member"}</dd>
+                <dd>
+                  {detail.role === "master_admin"
+                    ? "Master admin"
+                    : detail.protected
+                      ? "Member (protected)"
+                      : "Member"}
+                </dd>
               </div>
               <div>
                 <dt>Joined</dt>
