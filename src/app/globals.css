@@ -465,6 +465,92 @@ html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$
   border-radius: 20px;
   box-shadow: 0 18px 60px var(--shadow-color);
 }
+.auth-layout-invite {
+  grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.05fr);
+  background: var(--surface-page);
+}
+.auth-layout-invite .auth-main {
+  background: transparent;
+  min-height: 100svh;
+  padding: 48px 32px;
+}
+.auth-layout-invite .auth-back {
+  color: var(--text-secondary);
+}
+.auth-invite-story p {
+  max-width: 32ch;
+  color: #c9d6f5;
+}
+.auth-invite-points {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  max-width: 320px;
+}
+.auth-invite-points li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #d7e2f8;
+}
+.auth-invite-points li:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: #90b6ff;
+}
+.auth-invite-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+}
+.auth-invite-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--action-primary);
+}
+.auth-invite-banner strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+}
+.auth-invite-banner p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.auth-invite-code {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.auth-invite-banner code {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-card);
+  font-size: 12px;
+  color: var(--text-primary);
+}
 .auth-brand {
   display: flex;
   justify-content: center;
@@ -2615,6 +2701,23 @@ html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$
   .auth-layout-register .auth-main {
     padding: 64px 16px 40px;
   }
+  .auth-layout-invite {
+    display: block;
+  }
+  .auth-layout-invite .auth-invite-story {
+    min-height: auto;
+    padding: 28px 24px 32px;
+  }
+  .auth-layout-invite .auth-invite-story h2 {
+    font-size: 32px;
+  }
+  .auth-invite-banner {
+    grid-template-columns: auto 1fr;
+  }
+  .auth-invite-code {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
   .booking-header {
     padding: 25px;
   }
@@ -3490,6 +3593,13 @@ h4 {
 .auth-main,
 .auth-divider span {
   background: var(--surface-card);
+}
+.auth-layout-invite .auth-main {
+  background: transparent;
+}
+.auth-invite-story p,
+.auth-invite-points li {
+  color: var(--text-on-dark, #d7e2f8);
 }
 .auth-box h1 {
   font-weight: 700;

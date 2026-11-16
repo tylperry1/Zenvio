@@ -7,12 +7,14 @@ const read = (f) => fs.readFileSync(f, "utf8");
 test("public registration uses the same launch-control flags on page and API", () => {
   const controls = read("src/lib/launch-controls.ts");
   const page = read("src/app/sign-up/page.tsx");
+  assert.match(page, /initialReferral/);
   const auth = read("src/app/api/auth/route.ts");
   const home = read("src/app/page.tsx");
   assert.match(controls, /export function publicRegistrationOpen/);
   assert.match(controls, /signupEnabled && !controls.invitationOnly && !controls.maintenance/);
   assert.match(page, /publicRegistrationOpen\(controls\)/);
   assert.match(page, /SignupUnavailable/);
+  assert.match(page, /initialReferral/);
   assert.match(auth, /publicRegistrationOpen\(controls\)/);
   assert.match(home, /publicRegistrationOpen\(controls\)/);
   assert.doesNotMatch(page, /Signup is by invitation/);
@@ -28,6 +30,12 @@ test("signup form is the Better Auth workspace flow with confirmation and partne
   assert.match(form, /\/api\/auth/);
   assert.match(form, /referralCode/);
   assert.match(form, /params.get\("ref"\)/);
+  assert.match(form, /You’ve been invited to Zenvio/);
+  assert.match(form, /auth-layout-invite/);
+  assert.match(form, /auth-invite-banner/);
+  assert.match(form, /referralLocked/);
+  assert.match(form, /Change code/);
+  assert.match(form, /invited \? \(/);
   assert.match(form, /Show password/);
   assert.match(form, /\/terms/);
   assert.match(form, /\/privacy/);

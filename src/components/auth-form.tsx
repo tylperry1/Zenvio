@@ -93,13 +93,20 @@ export function SignupUnavailable({
   );
 }
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
+export function AuthForm({
+  mode,
+  initialReferral = "",
+}: {
+  mode: "sign-in" | "sign-up" | "reset";
+  initialReferral?: string;
+}) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [recover, setRecover] = useState(false),
     [token, setToken] = useState(""),
-    [referralCode, setReferralCode] = useState(""),
+    [referralCode, setReferralCode] = useState(initialReferral.trim()),
+    [referralLocked, setReferralLocked] = useState(Boolean(initialReferral.trim())),
     [accounts, setAccounts] = useState<boolean | null>(null),
     [signupOpen, setSignupOpen] = useState(false);
   const registerLayout = mode === "sign-up";
@@ -114,14 +121,20 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     if (mode !== "sign-up") return;
     const params = new URLSearchParams(window.location.search);
     const fromQuery = (params.get("ref") || params.get("referral") || "").trim();
-    if (fromQuery) setReferralCode(fromQuery);
+    if (fromQuery) {
+      setReferralCode(fromQuery);
+      setReferralLocked(true);
+    }
     try {
       if (fromQuery) {
         sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromQuery);
         return;
       }
       const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "";
-      if (stored) setReferralCode(stored);
+      if (stored) {
+        setReferralCode(stored);
+        setReferralLocked(true);
+      }
     } catch {
       /* persistence is optional; query attribution still applies above */
     }
@@ -188,22 +201,33 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
       })
       .catch(() => setAccounts(false));
   }, []);
+  const invited = registerLayout && referralLocked;
   const title = recover
     ? "A fresh start."
-    : mode === "sign-up"
-      ? "Start building a better business with Zenvio."
-      : mode === "reset"
-        ? "Your new password."
-        : "Good to see you again.";
+    : invited
+      ? "You’ve been invited to Zenvio."
+      : mode === "sign-up"
+        ? "Start building a better business with Zenvio."
+        : mode === "reset"
+          ? "Your new password."
+          : "Good to see you again.";
   const description = recover
     ? "Enter your email and we’ll send a reset link."
-    : mode === "sign-up"
-      ? "Everything you need to manage appointments, connect with customers, and grow your business—all in one place."
-      : mode === "reset"
-        ? "Choose a password with at least 12 characters."
-        : "Sign in to your workspace and pick up where you left off.";
+    : invited
+      ? "A business you know shared Zenvio with you. Create your workspace here—appointments, clients, and growth in one place."
+      : mode === "sign-up"
+        ? "Everything you need to manage appointments, connect with customers, and grow your business—all in one place."
+        : mode === "reset"
+          ? "Choose a password with at least 12 characters."
+          : "Sign in to your workspace and pick up where you left off.";
   return (
-    <main className={registerLayout ? "auth-layout auth-layout-register" : "auth-layout"}>
+    <main
+      className={
+        registerLayout
+          ? `auth-layout auth-layout-register${invited ? " auth-layout-invite" : ""}`
+          : "auth-layout"
+      }
+    >
       {!registerLayout && (
         <aside className="auth-story">
           <Link href="/">
@@ -221,12 +245,36 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
           <small>CLEAR & CONNECTED</small>
         </aside>
       )}
+      {invited && (
+        <aside className="auth-story auth-invite-story">
+          <Link href="/">
+            <Logo light />
+          </Link>
+          <div>
+            <span className="auth-flower">✳</span>
+            <h2>
+              A workspace,
+              <br />
+              from someone
+              <br />
+              who uses it.
+            </h2>
+            <p>Scheduling, clients, and the tools to grow—introduced by a business you already trust.</p>
+            <ul className="auth-invite-points">
+              <li>Create your own workspace. This isn’t a team seat.</li>
+              <li>Your partner is credited when you start a paid plan.</li>
+              <li>Same Zenvio. Same privacy. No extra lock-in.</li>
+            </ul>
+          </div>
+          <small>PARTNER INVITE</small>
+        </aside>
+      )}
       <section className="auth-main">
         <Link className="auth-back" href="/">
           ← Back to Zenvio
         </Link>
         <div className="auth-box">
-          {registerLayout && (
+          {registerLayout && !invited && (
             <div className="auth-brand">
               <Link href="/" aria-label="Zenvio home">
                 <Logo />
@@ -235,7 +283,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
           )}
           <p className="eyebrow">
             {mode === "sign-up"
-              ? referralCode
+              ? invited
                 ? "PARTNER INVITE"
                 : "CREATE YOUR WORKSPACE"
               : "YOUR TIME, TOGETHER"}
@@ -249,10 +297,26 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               explore the complete interactive demo below.
             </p>
           )}
-          {mode === "sign-up" && referralCode && (
-            <p id="referral-detected" className="notice" role="status">
-              You’re joining with a partner referral. We’ll credit the business that invited you when this account is created.
-            </p>
+          {mode === "sign-up" && invited && (
+            <div id="referral-detected" className="auth-invite-banner" role="status">
+              <span className="auth-invite-mark" aria-hidden="true">
+                <Icon name="sparkles" size={18} />
+              </span>
+              <div>
+                <strong>Partner invite applied</strong>
+                <p>We’ll credit the business that invited you when this account is created.</p>
+              </div>
+              <div className="auth-invite-code">
+                <code>{referralCode}</code>
+                <button
+                  type="button"
+                  className="inline-link"
+                  onClick={() => setReferralLocked(false)}
+                >
+                  Change code
+                </button>
+              </div>
+            </div>
           )}
           <form onSubmit={submit}>
             {mode === "sign-up" && (
@@ -299,20 +363,23 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
                 minLength={12}
               />
             )}
-            {mode === "sign-up" && (
-              <label>
-                Referral code <span className="muted">(optional)</span>
-                <input
-                  name="referralCode"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value)}
-                  autoComplete="off"
-                  placeholder="Friend’s or partner’s code"
-                  maxLength={40}
-                  aria-describedby={referralCode ? "referral-detected" : undefined}
-                />
-              </label>
-            )}
+            {mode === "sign-up" &&
+              (invited ? (
+                <input type="hidden" name="referralCode" value={referralCode} />
+              ) : (
+                <label>
+                  Referral code <span className="muted">(optional)</span>
+                  <input
+                    name="referralCode"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                    autoComplete="off"
+                    placeholder="Friend’s or partner’s code"
+                    maxLength={40}
+                    aria-describedby={referralCode ? "referral-detected" : undefined}
+                  />
+                </label>
+              ))}
             {mode === "sign-in" && !recover && (
               <button
                 type="button"

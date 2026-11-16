@@ -16,8 +16,8 @@ try {
   const pages=[await guest.newPage(),await member.newPage(),await admin.newPage()];
   for(const page of pages)page.on("pageerror",e=>errors.push(e.message));
   const groups=[
-    [pages[0],["/","/pricing","/early-access","/sign-in","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
-    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/growth/overview","/app/business-profile","/app/business-profile?section=details","/app/business-profile?section=branding","/app/business-profile?section=digital-card","/app/notifications","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types","/app?view=bookings"]],
+    [pages[0],["/","/pricing","/early-access","/sign-in","/sign-up","/sign-up?ref=qa-partner","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
+    [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/referrals","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/growth/overview","/app/business-profile","/app/business-profile?section=details","/app/business-profile?section=branding","/app/business-profile?section=digital-card","/app/notifications","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types","/app?view=bookings"]],
     [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
@@ -28,6 +28,8 @@ try {
         assert.equal(response.status(),200,route);
         console.log(`QA page ${route} at ${width}px`);
         await page.locator("h1").first().waitFor();
+        if (route === "/app/referrals") await page.locator(".referrals-hero").waitFor();
+        if (route.startsWith("/sign-up?ref=")) await page.locator(".auth-invite-banner").waitFor();
         if(route==="/pricing") {
           const table=page.getByRole("table",{name:"Monthly subscription allowances for Individual and Teams"});
           assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
