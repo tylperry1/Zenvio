@@ -60,6 +60,14 @@ test("defaultReferralCode strips host- prefix from profile slugs", () => {
   assert.ok(!code.startsWith("host-"));
 });
 
+test("defaultReferralCode keeps collision suffix after max-length truncation", () => {
+  const longSeed = "a".repeat(48);
+  const code = defaultReferralCode(longSeed, "2");
+  assert.ok(code.endsWith("-2"));
+  assert.equal(normalizeReferralCode(code), code);
+  assert.ok(code.length <= 40);
+});
+
 test("referral share path encodes the code", () => {
   assert.equal(referralSharePath("jamie-studio"), "/sign-up?ref=jamie-studio");
 });

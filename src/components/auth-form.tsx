@@ -22,18 +22,18 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
   }, [mode]);
   useEffect(() => {
     if (mode !== "sign-up") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = (params.get("ref") || params.get("referral") || "").trim();
+    if (fromQuery) setReferralCode(fromQuery);
     try {
-      const params = new URLSearchParams(window.location.search);
-      const fromQuery = (params.get("ref") || params.get("referral") || "").trim();
       if (fromQuery) {
         sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromQuery);
-        setReferralCode(fromQuery);
         return;
       }
       const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "";
       if (stored) setReferralCode(stored);
     } catch {
-      /* ignore storage failures */
+      /* persistence is optional; query attribution still applies above */
     }
   }, [mode]);
   async function submit(e: React.FormEvent<HTMLFormElement>) {

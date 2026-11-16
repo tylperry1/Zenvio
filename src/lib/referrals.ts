@@ -42,7 +42,11 @@ export function defaultReferralCode(seed: string, suffix = ""): string {
     normalizeReferralCode(seed.replace(/^host-/, "")) ||
     normalizeReferralCode(`ref-${seed.replace(/[^a-z0-9]/gi, "").slice(0, 12)}`) ||
     "refer";
-  const withSuffix = normalizeReferralCode(suffix ? `${base}-${suffix}` : base);
+  if (!suffix) return base;
+  // Reserve room for `-${suffix}` so normalize does not truncate away the collision marker.
+  const marker = `-${suffix}`;
+  const truncatedBase = base.slice(0, Math.max(1, 40 - marker.length));
+  const withSuffix = normalizeReferralCode(`${truncatedBase}${marker}`);
   return withSuffix || `refer-${Math.random().toString(36).slice(2, 8)}`;
 }
 

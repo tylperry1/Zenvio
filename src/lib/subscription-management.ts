@@ -56,7 +56,7 @@ export async function saveSubscription(
       seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? null,
     ],
   );
-  if (paid && plan !== "free") {
+  if (paid && ["individual", "team"].includes(plan)) {
     const { rewardReferralOnPaidSubscription } = await import("./referrals");
     await rewardReferralOnPaidSubscription(client, userId);
   }
