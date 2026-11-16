@@ -100,7 +100,8 @@ try {
         }
         if (route === "/app/business-profile?section=digital-card") {
           // SmartCards mounts immediately; wait for a control rendered after profiles load.
-          await page.getByText("Engagement period", { exact: true }).waitFor({ state: "visible" });
+          // Label wraps a <select>, so use getByLabel (exact getByText cannot match).
+          await page.getByLabel("Engagement period", { exact: true }).waitFor({ state: "visible" });
         }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);
