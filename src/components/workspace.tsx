@@ -156,7 +156,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   });
   useEffect(() => {
     if (!selectedBooking) return;
-    const next = [...(remote?.bookings || []), ...(data?.bookings || [])].find((b) => b.id === selectedBooking.id);
+    const next = (data?.bookings || []).find((b) => b.id === selectedBooking.id) || (remote?.bookings || []).find((b) => b.id === selectedBooking.id);
     if (next) setSelectedBooking(next);
   }, [data, remote]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

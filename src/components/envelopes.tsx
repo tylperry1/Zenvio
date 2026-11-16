@@ -74,6 +74,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   }
   const freshList = useFreshRequest();
   const freshDetail = useFreshRequest();
+  const freshLiveDetail = useFreshRequest();
   const openId = useRef<string | null>(null);
   async function load() {
     const still = freshList();
@@ -119,16 +120,17 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
     const id = detail?.envelope.id;
     if (!id || openId.current !== id) return;
     const keepDraftFields = detail.envelope.status === "draft";
+    const stillLive = freshLiveDetail();
     fetch("/api/envelopes?id=" + id, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
-        if (openId.current !== id) return;
+        if (!stillLive() || openId.current !== id) return;
         if (!r.ok) throw Error(d.error);
         setDetail(d);
         if (!keepDraftFields) setFields(d.envelope.fields);
       })
       .catch((e) => {
-        if (openId.current === id) setError(e.message);
+        if (stillLive() && openId.current === id) setError(e.message);
       });
   });
   async function action(action: string) {
