@@ -85,6 +85,18 @@ try {
           assert.equal(await last.getAttribute("aria-pressed"), "true");
           await page.screenshot({path: `test-results/supplier-sections-${width}.png`});
         }
+        // Wait for client-loaded Business Profile editors before checking overflow.
+        if (route === "/app/business-profile?section=details") {
+          const editor = page.locator(".bp-hub-editor form");
+          await editor.waitFor({ state: "visible" });
+          const savedZone = (await (await member.request.get(origin + "/api/workspace")).json()).profile.timezone || "UTC";
+          const selector = editor.getByLabel("Time zone", { exact: true });
+          assert.equal(await selector.inputValue(), savedZone, "Business Profile must display the saved timezone, not auto-detect");
+          assert.equal(await editor.locator('input[type="hidden"][name="timezone"]').inputValue(), savedZone, "Submitted timezone must match the visible selection");
+        }
+        if (route === "/app/business-profile?section=branding" || route === "/app/business-profile?section=digital-card") {
+          await page.locator(".bp-hub-embed").waitFor({ state: "visible" });
+        }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
