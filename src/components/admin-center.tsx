@@ -36,6 +36,7 @@ type Overview = {
 };
 type AccountDetail = Account & {
   contact_count: number;
+  industry?: string | null;
   events: {
     id: string;
     title: string;
@@ -952,9 +953,23 @@ export function AdminCenter({
                 <dd>/{detail.slug}</dd>
               </div>
               <div>
+                <dt>Platform role</dt>
+                <dd>{detail.role === "master_admin" ? "Master admin" : "Member"}</dd>
+              </div>
+              <div>
+                <dt>Joined</dt>
+                <dd>{date(detail.created_at)}</dd>
+              </div>
+              <div>
                 <dt>Timezone</dt>
                 <dd>{detail.timezone}</dd>
               </div>
+              {detail.industry && detail.industry !== "general" ? (
+                <div>
+                  <dt>Industry</dt>
+                  <dd>{detail.industry.replaceAll("_", " ")}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Email confirmed</dt>
                 <dd>{date(detail.email_confirmed_at)}</dd>
