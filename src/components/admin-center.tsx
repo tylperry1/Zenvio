@@ -941,178 +941,231 @@ export function AdminCenter({
           }}
         >
           <section className="admin-account-detail">
-            <p>{detail.email}</p>
-            <AdminUserActions key={`${detail.id}:${detail.email}:${detail.name}:${detail.timezone}`} account={detail}
-              onUpdated={() => {
-                setDetail(null); setMessage("User updated successfully."); setRevision(r => r + 1);
-              }}
-              onDeleted={() => {
-                setDetail(null); setMessage("User deleted successfully."); setRevision(r => r + 1);
-              }} />
-            <dl>
-              <div>
-                <dt>Booking address</dt>
-                <dd>/{detail.slug}</dd>
-              </div>
-              <div>
-                <dt>Platform role</dt>
-                <dd>
-                  {detail.role === "master_admin"
-                    ? "Master admin"
-                    : detail.protected
-                      ? "Member (protected)"
-                      : "Member"}
-                </dd>
-              </div>
-              <div>
-                <dt>Joined</dt>
-                <dd>{date(detail.created_at)}</dd>
-              </div>
-              <div>
-                <dt>Timezone</dt>
-                <dd>{detail.timezone}</dd>
-              </div>
-              {detail.industry && detail.industry !== "general" ? (
-                <div>
-                  <dt>Industry</dt>
-                  <dd>{detail.industry.replaceAll("_", " ")}</dd>
+            <div className="aad-section">
+              <div className="aad-section-head">
+                <h3>Account overview</h3>
+                <div className="aad-badges">
+                  <span className={`status ${detail.email_confirmed_at ? "" : "neutral"}`}>
+                    {detail.email_confirmed_at ? "Email verified" : "Unverified"}
+                  </span>
+                  <span className={`status ${detail.role === "master_admin" || detail.protected ? "" : "neutral"}`}>
+                    {detail.role === "master_admin"
+                      ? "Master admin"
+                      : detail.protected
+                        ? "Protected member"
+                        : "Member"}
+                  </span>
                 </div>
-              ) : null}
-              <div>
-                <dt>Email confirmed</dt>
-                <dd>{date(detail.email_confirmed_at)}</dd>
               </div>
-              <div>
-                <dt>Last sign-in</dt>
-                <dd>{date(detail.last_sign_in_at)}</dd>
-              </div>
-              <div>
-                <dt>Appointments / contacts</dt>
-                <dd>
-                  {detail.booking_count} / {detail.contact_count}
-                </dd>
-              </div>
-            </dl>
-            <h3>Booking links</h3>
-            {detail.events.map((e) => (
-              <div className="admin-event-row" key={e.id}>
+              <p className="aad-email">{detail.email}</p>
+              <dl>
                 <div>
-                  <b>{e.title}</b>
-                  <small>
-                    {e.duration} minutes · /{e.slug}
-                  </small>
+                  <dt>Joined</dt>
+                  <dd>{date(detail.created_at)}</dd>
                 </div>
-                {e.active && (
-                  <Link
-                    className="inline-link"
-                    href={`/book/${detail.slug}/${e.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open ${e.title} booking page`}
-                  >
-                    Open <Icon name="arrow" size={14} />
-                  </Link>
-                )}
-                <span className={`status ${e.active ? "" : "neutral"}`}>
-                  {e.active ? "Active" : "Paused"}
-                </span>
-                <button
-                  className="subtle-button"
-                  disabled={saving}
-                  onClick={() =>
-                    setChange({ id: e.id, title: e.title, active: !e.active })
-                  }
-                >
-                  {e.active ? "Pause" : "Resume"}
-                </button>
-              </div>
-            ))}
-            {!detail.events.length && (
-              <p className="muted">No booking links created yet.</p>
-            )}
-            {change && (
-              <form
-                className="stack-form admin-change-form"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setSaving(true);
-                  setDetailError("");
-                  const form = new FormData(e.currentTarget);
-                  try {
-                    const r = await fetch("/api/admin", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        action: "event-status",
-                        eventId: change.id,
-                        active: change.active,
-                        reason: form.get("reason"),
-                      }),
-                    });
-                    const d = await r.json();
-                    if (!r.ok) throw new Error(d.error);
-                    setDetail({
-                      ...detail,
-                      events: detail.events.map((ev) =>
-                        ev.id === change.id
-                          ? { ...ev, active: change.active }
-                          : ev,
-                      ),
-                    });
-                    setChange(null);
-                    setRevision((r) => r + 1);
-                    setMessage(
-                      "Booking link updated. The action has been logged.",
-                    );
-                  } catch (e) {
-                    setDetailError(
-                      e instanceof Error
-                        ? e.message
-                        : "Unable to update the booking link.",
-                    );
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-              >
-                <h3>
-                  {change.active ? "Resume" : "Pause"} {change.title}?
-                </h3>
-                <label>
-                  Reason for this change
-                  <textarea
-                    name="reason"
-                    required
-                    minLength={5}
-                    maxLength={500}
-                    rows={3}
-                    placeholder="Record the reason for the audit log."
-                  />
-                </label>
-                {detailError && (
-                  <p className="notice error" role="alert">
-                    {detailError}
-                  </p>
-                )}
-                <div className="admin-actions">
+                <div>
+                  <dt>Email confirmed</dt>
+                  <dd>{date(detail.email_confirmed_at)}</dd>
+                </div>
+                <div>
+                  <dt>Last sign-in</dt>
+                  <dd>{date(detail.last_sign_in_at)}</dd>
+                </div>
+                <div>
+                  <dt>Timezone</dt>
+                  <dd>{detail.timezone}</dd>
+                </div>
+                {detail.industry && detail.industry !== "general" ? (
+                  <div>
+                    <dt>Industry</dt>
+                    <dd>{detail.industry.replaceAll("_", " ")}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+
+            <div className="aad-section">
+              <h3>Booking configuration</h3>
+              <dl>
+                <div>
+                  <dt>Public booking URL</dt>
+                  <dd>
+                    <code title={`gozenvio.com/book/${detail.slug}`}>
+                      gozenvio.com/book/{detail.slug}
+                    </code>
+                    <div className="aad-inline-actions">
+                      <Link
+                        className="button secondary small"
+                        href={`/book/${detail.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open page <Icon name="arrow" size={14} />
+                      </Link>
+                    </div>
+                  </dd>
+                </div>
+              </dl>
+              <h4 className="aad-subhead">Services</h4>
+              {detail.events.map((e) => (
+                <div className="admin-event-row" key={e.id}>
+                  <div>
+                    <b>{e.title}</b>
+                    <small>
+                      {e.duration} minutes · gozenvio.com/book/{detail.slug}/{e.slug}
+                    </small>
+                  </div>
+                  {e.active && (
+                    <Link
+                      className="button secondary small"
+                      href={`/book/${detail.slug}/${e.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${e.title} booking page`}
+                    >
+                      Open <Icon name="arrow" size={14} />
+                    </Link>
+                  )}
+                  <span className={`status ${e.active ? "" : "neutral"}`}>
+                    {e.active ? "Active" : "Paused"}
+                  </span>
                   <button
-                    type="button"
                     className="button secondary small"
                     disabled={saving}
-                    onClick={() => setChange(null)}
+                    onClick={() =>
+                      setChange({ id: e.id, title: e.title, active: !e.active })
+                    }
                   >
-                    Keep current status
-                  </button>
-                  <button className="button primary small" disabled={saving}>
-                    {saving
-                      ? "Saving…"
-                      : change.active
-                        ? "Resume booking link"
-                        : "Pause booking link"}
+                    {e.active ? "Pause" : "Resume"}
                   </button>
                 </div>
-              </form>
-            )}
+              ))}
+              {!detail.events.length && (
+                <p className="muted">No services created yet.</p>
+              )}
+              {change && (
+                <form
+                  className="stack-form admin-change-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSaving(true);
+                    setDetailError("");
+                    const form = new FormData(e.currentTarget);
+                    try {
+                      const r = await fetch("/api/admin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          action: "event-status",
+                          eventId: change.id,
+                          active: change.active,
+                          reason: form.get("reason"),
+                        }),
+                      });
+                      const d = await r.json();
+                      if (!r.ok) throw new Error(d.error);
+                      setDetail({
+                        ...detail,
+                        events: detail.events.map((ev) =>
+                          ev.id === change.id
+                            ? { ...ev, active: change.active }
+                            : ev,
+                        ),
+                      });
+                      setChange(null);
+                      setRevision((r) => r + 1);
+                      setMessage(
+                        "Service status updated. The action has been logged.",
+                      );
+                    } catch (err) {
+                      setDetailError(
+                        err instanceof Error
+                          ? err.message
+                          : "Unable to update the service.",
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  <h3>
+                    {change.active ? "Resume" : "Pause"} {change.title}?
+                  </h3>
+                  <label>
+                    Reason for this change
+                    <textarea
+                      name="reason"
+                      required
+                      minLength={5}
+                      maxLength={500}
+                      rows={3}
+                      placeholder="Record the reason for the audit log."
+                    />
+                  </label>
+                  {detailError && (
+                    <p className="notice error" role="alert">
+                      {detailError}
+                    </p>
+                  )}
+                  <div className="admin-actions">
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      disabled={saving}
+                      onClick={() => setChange(null)}
+                    >
+                      Keep current status
+                    </button>
+                    <button className="button primary small" disabled={saving}>
+                      {saving
+                        ? "Saving…"
+                        : change.active
+                          ? "Resume service"
+                          : "Pause service"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            <div className="aad-section">
+              <h3>Activity</h3>
+              <dl>
+                <div>
+                  <dt>Appointments</dt>
+                  <dd>{detail.booking_count}</dd>
+                </div>
+                <div>
+                  <dt>Contacts</dt>
+                  <dd>{detail.contact_count}</dd>
+                </div>
+                <div>
+                  <dt>Services</dt>
+                  <dd>
+                    {detail.events.length} total ·{" "}
+                    {detail.events.filter((e) => e.active).length} active
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="aad-section">
+              <h3>Account administration</h3>
+              <AdminUserActions
+                key={`${detail.id}:${detail.email}:${detail.name}:${detail.timezone}`}
+                account={detail}
+                onUpdated={() => {
+                  setDetail(null);
+                  setMessage("User updated successfully.");
+                  setRevision((r) => r + 1);
+                }}
+                onDeleted={() => {
+                  setDetail(null);
+                  setMessage("User deleted successfully.");
+                  setRevision((r) => r + 1);
+                }}
+              />
+            </div>
           </section>
         </Modal>
       )}

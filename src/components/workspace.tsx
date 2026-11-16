@@ -304,12 +304,17 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
         style={{ "--event-color": event.color } as React.CSSProperties}
       >
         <div className="event-card-top">
-          <span className="event-kind">One-on-one</span>
+          <div className="event-card-badges">
+            <span className="event-kind">One-on-one</span>
+            <span className={`event-status ${event.active ? "live" : "paused"}`}>
+              {event.active ? "Active" : "Paused"}
+            </span>
+          </div>
           <button
             className={`toggle ${event.active ? "on" : ""}`}
             role="switch"
             aria-checked={event.active}
-            aria-label={`Enable ${event.title}`}
+            aria-label={`${event.active ? "Pause" : "Activate"} ${event.title}`}
             disabled={busy}
             onClick={() =>
               void mutate(
@@ -320,7 +325,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     e.id === event.id ? { ...e, active: !e.active } : e,
                   ),
                 }),
-                event.active ? "Booking link paused." : "Booking link enabled.",
+                event.active ? "Service paused." : "Service activated.",
               )
             }
           >
@@ -328,7 +333,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </button>
         </div>
         <h3>{event.title}</h3>
-        <p>{event.description || "A dedicated time to connect. Share this link so clients can choose a time that works."}</p>
+        <p>{event.description || "A dedicated time to connect. Share this booking link so clients can choose a time that works."}</p>
         <div className="event-meta">
           <span>
             <Icon name="clock" size={15} />
@@ -345,7 +350,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               Choose a short booking address
             </button>
           ) : (
-            bookingLinkLabel(profile?.slug || "", event.slug)
+            <code title={bookingLinkLabel(profile?.slug || "", event.slug)}>
+              {bookingLinkLabel(profile?.slug || "", event.slug)}
+            </code>
           )}
         </div>
         <div className="event-card-footer">
@@ -591,7 +598,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     className={view === "Overview" ? "button secondary small" : "button primary small"}
                     onClick={() => setEditing(true)}
                   >
-                    <Icon name="plus" size={17} /> New booking link
+                    <Icon name="plus" size={17} /> New service
                   </button>
                 ) : view === "Bookings" && !demo ? (
                   <button
@@ -691,7 +698,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <div className="section-bar">
                   <div>
                     <h2>Your services</h2>
-                    <p>Client-ready pages for every appointment type.</p>
+                    <p>Appointment types clients can book with you.</p>
                   </div>
                   <button
                     className="inline-link"
@@ -709,7 +716,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <span>
                       <Icon name="plus" size={25} />
                     </span>
-                    <b>Add a booking link</b>
+                    <b>Add a service</b>
                     <p>Create a new appointment type</p>
                   </button>
                 </div>
@@ -746,7 +753,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             <>
               <div className="toolbar">
                 <span>
-                  {visibleEvents.length} event types{" "}
+                  {visibleEvents.length} services{" "}
                   <span className="muted">
                     · {visibleEvents.filter((e) => e.active).length} active
                   </span>
@@ -754,8 +761,8 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 <label className="search-field">
                   <Icon name="search" size={17} />
                   <input
-                    aria-label="Search event types"
-                    placeholder="Find an event type…"
+                    aria-label="Search services"
+                    placeholder="Find a service…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -774,14 +781,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   <span>
                     <Icon name="plus" size={25} />
                   </span>
-                  <b>Add a booking link</b>
+                  <b>Add a service</b>
                   <p>Create a new appointment type</p>
                 </button>
               </div>
               <p className="helper-text">
-                <Icon name="shield" size={15} /> Paused booking links can’t
-                accept new appointments. Existing bookings stay on your
-                calendar.
+                <Icon name="shield" size={15} /> Paused services can’t accept
+                new appointments. Existing bookings stay on your calendar.
               </p>
             </>
           )}
@@ -1585,7 +1591,7 @@ function EventEditor({
         />
       </label>
       <label>
-        Booking link
+        Service path
         <input
           value={slug}
           onChange={(e) => {
@@ -1599,8 +1605,8 @@ function EventEditor({
           required
         />
         <small>
-          Lowercase letters, numbers, and hyphens. Changing a link makes the old
-          one unavailable.
+          Appears after your booking address as /book/your-name/{slug || "service"}.
+          Use lowercase letters, numbers, and hyphens.
         </small>
       </label>
       <label>
@@ -1665,7 +1671,7 @@ function EventEditor({
         ))}
       </fieldset>
       <button className="button primary full" disabled={busy}>
-        {busy ? "Saving…" : event ? "Save changes" : "Create event type"}
+        {busy ? "Saving…" : event ? "Save changes" : "Create service"}
         <Icon name="arrow" size={17} />
       </button>
     </form>
@@ -1796,19 +1802,29 @@ function Settings({
             />
           </label>
           <label>
-            Your personal booking address
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              required
-              minLength={3}
-              maxLength={60}
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              readOnly={demo}
-            />
-            <small>
-              /book/{slug} · Changing this address makes your old links
-              unavailable.
+            Your public booking address
+            <span className="link-prompt-field settings-slug-field">
+              <span>gozenvio.com/book/</span>
+              <input
+                value={slug}
+                onChange={(e) =>
+                  setSlug(
+                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+                  )
+                }
+                required
+                minLength={3}
+                maxLength={60}
+                pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                readOnly={demo}
+                aria-describedby="settings-slug-help"
+              />
+            </span>
+            <small id="settings-slug-help">
+              Preview: gozenvio.com/book/{slug || "…"}
+              {hasGeneratedLink(data.profile.slug)
+                ? " · Choose a short address clients can remember."
+                : " · Previous addresses keep working as redirects after you save."}
             </small>
           </label>
           <label>

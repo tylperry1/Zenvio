@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { BookingProfile } from "@/components/booking-profile";
+import { resolveBookingSlug } from "@/lib/booking-slug";
 import "./profile.css";
 export const metadata = {
   title: "Choose an appointment",
@@ -9,6 +11,11 @@ export default async function Page({
 }: {
   params: Promise<{ host: string }>;
 }) {
-  const { host } = await params;
-  return <BookingProfile host={host.trim().toLowerCase()} />;
+  const { host: raw } = await params;
+  const host = raw.trim().toLowerCase();
+  if (host !== "demo") {
+    const live = await resolveBookingSlug(host);
+    if (live && live !== host) redirect(`/book/${live}`);
+  }
+  return <BookingProfile host={host} />;
 }

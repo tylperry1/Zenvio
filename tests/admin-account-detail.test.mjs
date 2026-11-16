@@ -148,16 +148,27 @@ test("GET /api/admin?account= calls admin_account_detail and returns roles", asy
   assert.ok(calls.every((p) => p === "/rest/v1/rpc/admin_account_detail"));
 });
 
-test("admin account modal shows role and joined date", () => {
+test("admin account modal uses overview, booking, activity, and admin sections", () => {
   const ui = fs.readFileSync("src/components/admin-center.tsx", "utf8");
-  assert.match(ui, /Platform role/);
+  assert.match(ui, /Account overview/);
+  assert.match(ui, /Booking configuration/);
+  assert.match(ui, /Activity/);
+  assert.match(ui, /Account administration/);
   assert.match(ui, /detail\.protected/);
-  assert.match(ui, /Joined/);
   assert.match(ui, /detail\.created_at/);
+  assert.match(ui, /gozenvio\.com\/book\/\$\{detail\.slug\}/);
 });
 
 test("admin user actions hide controls using protect flag, not only enabled role", () => {
   const actions = fs.readFileSync("src/components/admin-user-actions.tsx", "utf8");
   assert.match(actions, /account\.protected \|\| account\.role === "master_admin"/);
+  assert.match(actions, /aad-admin-buttons/);
   assert.match(actions, /notice error/);
+});
+
+test("services UI prefers Services terminology over Add a booking link", () => {
+  const workspace = fs.readFileSync("src/components/workspace.tsx", "utf8");
+  assert.match(workspace, /Add a service/);
+  assert.match(workspace, /Service activated/);
+  assert.doesNotMatch(workspace, /Add a booking link/);
 });

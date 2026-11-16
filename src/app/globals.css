@@ -1373,12 +1373,29 @@ html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 18px;
 }
-.event-kind {
+.event-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.event-kind,
+.event-status {
   font-size: 11px;
   padding: 5px 7px;
   border-radius: 4px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+.event-status.live {
+  background: color-mix(in srgb, var(--action-primary) 14%, transparent);
+  color: var(--action-primary);
+}
+.event-status.paused {
   background: var(--surface-subtle);
   color: var(--text-secondary);
 }
@@ -1442,6 +1459,14 @@ html[data-theme="dark"] :is(.mkc-qr-img, .sc-qr) .logo:not(.logo-light) img[src$
   color: var(--text-secondary);
   font-size: 11px;
   margin-bottom: 19px;
+  min-width: 0;
+}
+.event-link code {
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4014,12 +4039,50 @@ h4 {
   align-items: center;
   gap: 10px;
 }
-.admin-account-detail > p {
+.admin-account-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-height: min(72vh, 720px);
+  overflow: auto;
+  padding-right: 4px;
+}
+.admin-account-detail .aad-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-card);
+  padding: 16px 18px;
+}
+.admin-account-detail .aad-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.admin-account-detail .aad-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-account-detail .aad-email {
   color: var(--text-secondary);
   font-size: 13px;
+  margin: 0 0 8px;
+}
+.admin-account-detail .aad-subhead {
+  font-size: 13px;
+  margin: 14px 0 8px;
+}
+.admin-account-detail .aad-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 .admin-account-detail dl {
-  margin: 24px 0;
+  margin: 0;
 }
 .admin-account-detail dl > div {
   display: grid;
@@ -4029,6 +4092,9 @@ h4 {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
 }
+.admin-account-detail dl > div:last-child {
+  border-bottom: 0;
+}
 .admin-account-detail dt {
   color: var(--text-secondary);
 }
@@ -4036,9 +4102,34 @@ h4 {
   margin: 0;
   overflow-wrap: anywhere;
 }
+.admin-account-detail dd code {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+}
 .admin-account-detail h3 {
   font-size: 15px;
-  margin: 24px 0 16px;
+  margin: 0 0 12px;
+}
+.aad-admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.aad-admin-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.aad-danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 35%, var(--border));
+}
+.aad-protect {
+  margin: 0;
+}
+.settings-slug-field {
+  margin-top: 8px;
 }
 .admin-event-row {
   display: flex;
