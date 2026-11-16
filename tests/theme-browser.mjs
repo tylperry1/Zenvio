@@ -64,7 +64,7 @@ try {
       shellBgImage: getComputedStyle(document.querySelector(".shell")).backgroundImage,
     };
   }, contrastHelpers.toString());
-  assert.match(metrics.shellBgImage, /rgb\(13,\s*20,\s*40\)|rgb\(11,\s*16,\s*32\)|#0[bd]1020|#0d1428/i);
+  assert.match(metrics.shellBgImage, /rgb\(21,\s*29,\s*56\)|rgb\(26,\s*35,\s*64\)|#151d38|#1a2340/i);
   // Dark hero heading must stay white; Open schedule keeps an inverse light button.
   const hero = await page.evaluate((helpersSrc) => {
     const helpers = new Function(`return (${helpersSrc})`)()();
