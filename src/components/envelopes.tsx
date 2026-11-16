@@ -90,6 +90,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
     setError("");
     setBusy(true);
     setBytes(null);
+    freshLiveDetail();
     const still = freshDetail();
     try {
       const r = await fetch("/api/envelopes?id=" + id, { cache: "no-store" }),

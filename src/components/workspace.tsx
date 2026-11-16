@@ -114,6 +114,10 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   const freshLoad = useFreshRequest();
   const dataRef = useRef(data);
   dataRef.current = data;
+  const dataStamp = useRef(0);
+  const remoteStamp = useRef(0);
+  const prevData = useRef(data);
+  const prevRemote = useRef(remote);
   async function load() {
     const still = freshLoad();
     try {
@@ -155,8 +159,23 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     if (!demo) void load();
   });
   useEffect(() => {
+    if (data !== prevData.current) {
+      dataStamp.current = Date.now();
+      prevData.current = data;
+    }
+    if (remote !== prevRemote.current) {
+      remoteStamp.current = Date.now();
+      prevRemote.current = remote;
+    }
     if (!selectedBooking) return;
-    const next = (data?.bookings || []).find((b) => b.id === selectedBooking.id) || (remote?.bookings || []).find((b) => b.id === selectedBooking.id);
+    const fromWorkspace = (data?.bookings || []).find((b) => b.id === selectedBooking.id);
+    const fromRemote = (remote?.bookings || []).find((b) => b.id === selectedBooking.id);
+    const next =
+      fromWorkspace && fromRemote
+        ? dataStamp.current >= remoteStamp.current
+          ? fromWorkspace
+          : fromRemote
+        : fromWorkspace || fromRemote;
     if (next) setSelectedBooking(next);
   }, [data, remote]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
