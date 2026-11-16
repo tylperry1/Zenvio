@@ -6,6 +6,7 @@ import { BookingDesign } from "./booking-design";
 import { IntakeAnswers } from "./intake-answers";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
+import { ShareLinkActions } from "./share-link";
 import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -198,15 +199,20 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   function linkFor(event: EventType) {
     return `/book/${data!.profile.slug}/${event.slug}`;
   }
-  async function copyProfileLink() {
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/book/${data!.profile.slug}`,
-      );
-      toast("Booking page link copied. Share it anywhere.");
-    } catch {
-      toast("Couldn’t copy automatically. Open your booking page to share it.", true);
-    }
+  function sharePageControl(shareLabel: string, buttonClass: string) {
+    return (
+      <ShareLinkActions
+        variant="trigger"
+        shareLabel={shareLabel}
+        buttonClass={buttonClass}
+        url={`/book/${data!.profile.slug}`}
+        label="Public booking page link"
+        title={data!.profile.name}
+        text={`Book a time with ${data!.profile.name}`}
+        copiedMessage="Booking page link copied. Share it anywhere."
+        onResult={(_, message) => toast(message, message.startsWith("Couldn’t"))}
+      />
+    );
   }
   async function saveSlug(slug: string) {
     const p = data!.profile;
@@ -224,23 +230,6 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
       (d) => ({ ...d, profile: { ...d.profile, slug } }),
       "Your booking link is ready to share.",
     );
-  }
-  async function copy(event: EventType) {
-    try {
-      await navigator.clipboard.writeText(
-        window.location.origin + linkFor(event),
-      );
-      toast(
-        demo
-          ? "Demo link copied. Demo bookings work in this browser only."
-          : "Booking link copied. Share it with someone!",
-      );
-    } catch {
-      toast(
-        "Clipboard access is unavailable. Open the booking page and copy its address.",
-        true,
-      );
-    }
   }
   const profile = data?.profile;
   const visibleEvents = data?.events.filter((e) => !e.deleted_at) || [];
@@ -316,16 +305,26 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           gozenvio.com/book/{profile?.slug}/{event.slug}
         </div>
         <div className="event-card-footer">
-          <span className="event-share-actions">
-            <button className="inline-link" onClick={() => void copy(event)}>
-              <Icon name="link" size={15} /> Copy link
-            </button>
+          <div className="event-share-actions">
+            <ShareLinkActions
+              variant="compact"
+              url={linkFor(event)}
+              label={`${event.title} booking link`}
+              title={event.title}
+              text={`Book a time for ${event.title}${profile?.name ? ` with ${profile.name}` : ""}`}
+              copiedMessage={
+                demo
+                  ? "Demo link copied. Demo bookings work in this browser only."
+                  : "Booking link copied. Share it with someone!"
+              }
+              onResult={(_, message) => toast(message, message.startsWith("Couldn’t"))}
+            />
             {!demo && event.active && (
               <button className="inline-link" onClick={() => setSendingLink(event.slug)}>
                 <Icon name="send" size={15} /> Send
               </button>
             )}
-          </span>
+          </div>
           <div>
             <button
               className="subtle-button"
@@ -530,18 +529,22 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             actions={
               <>
                 {view === "Overview" && (
-                  <Link
-                    className="button secondary small"
-                    href={`/book/${data.profile.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Icon name="external" size={16} /> View booking page
-                  </Link>
+                  <>
+                    {sharePageControl("Share booking page", "button primary small")}
+                    <Link
+                      className="button secondary small"
+                      href={`/book/${data.profile.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon name="external" size={16} /> View booking page
+                    </Link>
+                  </>
                 )}
+                {view === "Event types" && sharePageControl("Share page", "button secondary small")}
                 {["Overview", "Event types"].includes(view) ? (
                   <button
-                    className="button primary small"
+                    className={view === "Overview" ? "button secondary small" : "button primary small"}
                     onClick={() => setEditing(true)}
                   >
                     <Icon name="plus" size={17} /> New booking link
@@ -584,7 +587,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 demo={demo}
                 base={demo ? "/demo" : "/app"}
                 onChooseLink={linkPrompt.show}
-                onCopyLink={() => void copyProfileLink()}
+                onCopyLink={sharePageControl("Share link", "button secondary small")}
               />
               <div className="stats-grid">
                 {[
@@ -1781,9 +1784,14 @@ function Settings({
             A single page with your introduction and available appointment
             types. Save your profile before previewing changes.
           </p>
-          <p>
-            <code>/book/{data.profile.slug}</code>
-          </p>
+          <ShareLinkActions
+            url={`/book/${data.profile.slug}`}
+            label="Public booking page link"
+            title={data.profile.name}
+            text={`Book a time with ${data.profile.name}`}
+            copiedMessage="Booking page link copied successfully."
+            onResult={(_, message) => onShare(message, message.startsWith("Couldn’t") || message.startsWith("Could not"))}
+          />
           <div className="public-profile-actions">
             <Link
               className="button secondary small"
@@ -1793,24 +1801,6 @@ function Settings({
             >
               Preview profile <Icon name="arrow" size={14} />
             </Link>
-            <button
-              className="button secondary small"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(
-                    `${window.location.origin}/book/${data.profile.slug}`,
-                  );
-                  onShare("Booking page link copied successfully.");
-                } catch {
-                  onShare(
-                    "Could not copy the link. Open the preview and copy its address.",
-                    true,
-                  );
-                }
-              }}
-            >
-              Copy booking page
-            </button>
           </div>
         </div>
         {!demo && (

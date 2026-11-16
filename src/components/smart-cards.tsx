@@ -4,6 +4,7 @@ import { ProfileStudio } from "./profile-studio";
 import { useEffect, useRef, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate } from "./ds";
 import { Icon } from "./icons";
+import { ShareLinkActions } from "./share-link";
 
 type Link = { label: string; url: string };
 type Profile = {
@@ -408,9 +409,18 @@ export function SmartCards() {
                       <div className="sc-qr" role="img" aria-label="QR code for your profile" dangerouslySetInnerHTML={{ __html: qr }} />
                       <code>{profileUrl}</code>
                       <div className="sc-share-actions">
-                        <button className="ds-btn sm" type="button" onClick={() => void copy(profileUrl, "Profile link")}>
-                          Copy link
-                        </button>
+                        <ShareLinkActions
+                          variant="buttons"
+                          url={profileUrl}
+                          label="Smart Card profile link"
+                          title={draft.display_name || "Smart Card"}
+                          text={`Here’s my card`}
+                          copiedMessage="Profile link copied."
+                          onResult={(result, message) => {
+                            if (result === "copied") setNotice("Profile link copied.");
+                            if (result === "unavailable") setError(message);
+                          }}
+                        />
                         <a className="ds-btn sm" href={`/p/${draft.slug}`} target="_blank" rel="noopener">
                           Open profile
                         </a>
@@ -503,9 +513,13 @@ function CardsTab({
                     <CardDestination key={c.id+":"+c.destination_kind+":"+c.destination_url} card={c} busy={busy} post={post} />
                   </div>
                   <div className="sc-card-actions">
-                    <button className="ds-btn sm" onClick={() => void copy(url, "Card link")}>
-                      Copy link
-                    </button>
+                    <ShareLinkActions
+                      variant="buttons"
+                      url={url}
+                      label={`${c.label || "Card"} link`}
+                      title={c.label || "Smart Card"}
+                      copiedMessage="Card link copied."
+                    />
                     {data.profiles.some((p) => !p.archived_at && p.id !== c.profile_id) && (
                       <select
                         className="ds-select"

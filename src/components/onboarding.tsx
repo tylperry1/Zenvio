@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { industries } from "@/lib/contractor";
@@ -141,7 +141,7 @@ type Step = {
   title: string;
   detail: string;
   done: boolean;
-  action: { label: string; href?: string; onClick?: () => void };
+  action: { label: string; href?: string; onClick?: () => void; node?: ReactNode };
 };
 
 export function SetupChecklist({
@@ -155,7 +155,7 @@ export function SetupChecklist({
   demo: boolean;
   base: string;
   onChooseLink: () => void;
-  onCopyLink: () => void;
+  onCopyLink: ReactNode;
 }) {
   const [dismissed, setDismissed] = useState(true);
   const [calendar, setCalendar] = useState<{ configured: boolean; connected: boolean } | null>(null);
@@ -205,9 +205,9 @@ export function SetupChecklist({
     {
       id: "share",
       title: "Share your page and get a first booking",
-      detail: "Paste your link in your email signature or a message.",
+      detail: "Share from this device, or copy the link for email and messages.",
       done: (data.bookingCount ?? data.bookings.length) > 0,
-      action: { label: "Copy link", onClick: onCopyLink },
+      action: { label: "Share link", node: onCopyLink },
     },
   ];
   const complete = steps.filter((s) => s.done).length;
@@ -247,6 +247,8 @@ export function SetupChecklist({
             </div>
             {step.done ? (
               <span className="setup-done-label">Done</span>
+            ) : step.action.node ? (
+              step.action.node
             ) : step.action.href ? (
               <Link className="button secondary small" href={step.action.href}>
                 {step.action.label}

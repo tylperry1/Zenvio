@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { Alert, Field, Skeleton } from "./ui";
 import { Modal } from "./modal";
+import { ShareLinkActions } from "./share-link";
 
 type Client = { id: string; name: string; email: string };
 type Links = { profile: string | null; links: { title: string; slug: string; url: string }[] };
@@ -146,6 +147,17 @@ export function SendBookingLinkDialog({
               ))}
             </select>
           </Field>
+        )}
+        {url && (
+          <ShareLinkActions
+            url={url}
+            label="Booking link to share"
+            title={title || "Booking page"}
+            text={title ? `Book a time for ${title}` : "Book a time"}
+            onResult={(result, message) => {
+              if (result === "unavailable") setError(message);
+            }}
+          />
         )}
         <fieldset className="sbl-channel">
           <legend className="ui-label">Send by</legend>
