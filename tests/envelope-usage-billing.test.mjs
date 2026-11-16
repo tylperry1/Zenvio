@@ -20,7 +20,7 @@ function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active
  const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
  return {db,service,inserts,locks};
 }
-test('unlimited seat sentinel does not multiply legacy envelope allowances',async()=>{
+test('unlimited seat sentinel keeps an unlimited included pool without multiplying per-seat',async()=>{
  const f=fixture({sent:0,allowance:20,enabled:false});
  const query=f.db.query;
  f.db.query=async(sql,args)=>sql.startsWith('SELECT * FROM private.team_entitlement_roots')
@@ -28,7 +28,11 @@ test('unlimited seat sentinel does not multiply legacy envelope allowances',asyn
   :query(sql,args);
  const budget=await f.service.envelopeBudget('staff',f.db);
  assert.equal(budget.unlimitedSeats,true);
- assert.equal(budget.included,20);
+ assert.equal(budget.included,2147483647);
+ assert.equal(budget.seats,2147483647);
+ assert.notEqual(budget.included,20*2147483647);
+ await f.service.recordEnvelopeSend(f.db,'staff','pdf','unlimited-a');
+ assert.equal(f.inserts[0][4],0);
 });
 test('legacy subscriptions preserve their per-seat pool while the current policy declares fixed v3 allowances',async()=>{assert.equal(limits.team.envelopes,30);assert.equal(limits.individual.envelopes,10);const f=fixture({sent:59,enabled:false});await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],0);assert.equal(f.inserts[0][3],'owner');assert.deepEqual(f.locks,['entitlements:owner','entitlements:staff']);});
 test('overages are exactly $1, counted once per envelope, and stop at the cap',async()=>{const f=fixture({cap:100});await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],100);await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts.length,1);await assert.rejects(f.service.recordEnvelopeSend(f.db,'staff','text','b'),e=>e.status===409);});

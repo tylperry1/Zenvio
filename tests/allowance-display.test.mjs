@@ -21,3 +21,11 @@ test("progress meters avoid sentinel max values", () => {
   assert.equal(progressMax(30), 30);
   assert.equal(progressValue(12, 30), 12);
 });
+
+test("storage byte allowances never render as Unlimited", () => {
+  assert.equal(isUnlimitedQuantity(2_000_000_000, { meter: "storageBytes" }), false);
+  assert.equal(isUnlimitedQuantity(10_000_000_000, { meter: "storageBytes" }), false);
+  assert.equal(formatAllowance(2_000_000_000, { meter: "storageBytes" }), "2 GB");
+  assert.equal(formatAllowance(10_000_000_000, { meter: "storageBytes" }), "10 GB");
+  assert.equal(progressMax(2_000_000_000, { meter: "storageBytes" }), 2_000_000_000);
+});

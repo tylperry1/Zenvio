@@ -29,6 +29,7 @@ type Profile = {
   accent?: string;
   photo_url?: string;
   logo_url?: string;
+  has_logo?: boolean;
 };
 
 function SectionNav({ current }: { current: string }) {
@@ -67,17 +68,20 @@ function BusinessProfileInner() {
       .then(([workspace, details]) => {
         if (!alive) return;
         const p = workspace.profile || workspace.user || {};
+        const slug = p.slug || workspace.slug;
+        const hasLogo = Boolean(details.has_logo || p.has_logo);
         setProfile({
-          business_name: p.business_name || p.name || workspace.business_name,
+          business_name: p.company || p.business_name || p.name || workspace.business_name,
           name: p.name || workspace.name,
-          slug: p.slug || workspace.slug,
+          slug,
           email: p.email || workspace.email,
           phone: p.phone || details.phone,
           website: details.website || p.website,
           headline: p.headline || details.headline,
-          accent: p.accent || details.accent,
+          accent: p.accent_color || p.accent || details.accent_color || details.accent,
           photo_url: p.photo_url || p.image,
-          logo_url: details.logo_url || p.logo_url,
+          has_logo: hasLogo,
+          logo_url: hasLogo && slug ? `/api/profile/images?host=${encodeURIComponent(slug)}&kind=logo` : details.logo_url || p.logo_url,
         });
       })
       .catch((e) => {

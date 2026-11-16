@@ -38,7 +38,6 @@ const groups: NavGroup[] = [
     label: "Scheduling",
     items: [
       { id: "calendar", label: "Calendar", icon: "calendar", href: "/app/calendar" },
-      { id: "bookings", label: "Bookings", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
       { id: "event-types", label: "Booking links", icon: "link", href: "/app?view=event-types", view: "event-types", demo: true },
       { id: "availability", label: "Availability", icon: "spark", href: "/app?view=availability", view: "availability", demo: true },
     ],
@@ -57,7 +56,7 @@ const groups: NavGroup[] = [
     items: [
       { id: "growth-suite", label: "Growth", icon: "spark", href: "/app/growth/overview" },
       { id: "business-profile", label: "Business Profile", icon: "grid", href: "/app/business-profile" },
-      { id: "appointments", label: "Appointments", icon: "calendar", href: "/app?view=bookings", view: "bookings", demo: true },
+      { id: "bookings", label: "Appointments", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
       { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
       { id: "growth", label: "Offers & Classes", icon: "bag", href: "/app/growth" },
       { id: "automation", label: "Automations", icon: "bell", href: "/app/automation" },

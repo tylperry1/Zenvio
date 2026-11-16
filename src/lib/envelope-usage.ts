@@ -22,15 +22,17 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const eligible = ["individual", "team"].includes(row?.subscription_plan) && row?.status === "active" && Boolean(row?.customer_id && row?.subscription_id);
   const purchased = Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining", [owner])).rows[0]?.remaining || 0);
   const pooledCatalog = row?.catalog_version === "2026-11-v3" || Boolean(row?.catalog_version?.startsWith("release-"));
+  // Platform/unlimited seats keep an unlimited included pool for enforcement.
+  // Display layers format the sentinel as "Unlimited"; never multiply per-seat by int4 max.
   const included =
-    pooledCatalog && ["individual", "team"].includes(plan)
-      ? row?.catalog_version === "2026-11-v3"
-        ? plan === "team"
-          ? 30
-          : 10
-        : (row?.envelope_allowance ?? (plan === "team" ? 30 : 10))
-      : unlimitedSeats
-        ? perSeat
+    unlimitedSeats
+      ? UNLIMITED_SEATS_SENTINEL
+      : pooledCatalog && ["individual", "team"].includes(plan)
+        ? row?.catalog_version === "2026-11-v3"
+          ? plan === "team"
+            ? 30
+            : 10
+          : (row?.envelope_allowance ?? (plan === "team" ? 30 : 10))
         : perSeat * seats;
   return {
     purchasedRemaining: Math.max(0, purchased),
@@ -53,7 +55,8 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
     subscription: row?.subscription_id,
   };
 }
-export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number }) {
+export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number; unlimitedSeats?: boolean }) {
+  if (budget.unlimitedSeats || isUnlimitedQuantity(budget.included)) return 0;
   if (budget.sent < budget.included) return 0;
   if (!budget.enabled || !budget.eligible) throw new ApiError("Included signing allowance reached. The billing owner can enable $1 envelope overages in Plan & billing.", 409);
   if (budget.spent + 100 > budget.cap) throw new ApiError("Monthly envelope spending limit reached. Ask the billing owner to review Plan & billing.", 409);
@@ -69,7 +72,7 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
   budget = current;
   if ((await db.query("SELECT 1 FROM private.envelope_usage WHERE source_kind=$1 AND source_id=$2", [kind, id])).rowCount) return;
   let purchased = false;
-  if ((budget.catalogVersion === "2026-11-v3" || budget.catalogVersion.startsWith("release-")) && budget.sent >= budget.included && ["individual", "team"].includes(budget.plan)) {
+  if (!budget.unlimitedSeats && (budget.catalogVersion === "2026-11-v3" || budget.catalogVersion.startsWith("release-")) && budget.sent >= budget.included && ["individual", "team"].includes(budget.plan)) {
     await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["subscription-usage:" + budget.owner]);
     const latest = await envelopeBudget(user, db);
     if (latest.creditDebt) throw new ApiError("Refunded signing credits require billing review before additional sends.", 409);

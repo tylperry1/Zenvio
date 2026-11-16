@@ -1,72 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "./app-shell";
 import { Notice } from "./ds";
 
-type Prefs = {
-  emailReminders: boolean;
-  emailMessages: boolean;
-  emailDocuments: boolean;
-  emailPayments: boolean;
-  emailMarketing: boolean;
-  pushBookings: boolean;
-  pushMessages: boolean;
-  pushSupport: boolean;
-  autoConfirmations: boolean;
-  autoReminders: boolean;
-  autoFollowups: boolean;
-};
-
-const defaults: Prefs = {
-  emailReminders: true,
-  emailMessages: true,
-  emailDocuments: true,
-  emailPayments: true,
-  emailMarketing: false,
-  pushBookings: true,
-  pushMessages: true,
-  pushSupport: true,
-  autoConfirmations: true,
-  autoReminders: true,
-  autoFollowups: false,
-};
-
-const STORAGE_KEY = "zenvio-notification-prefs";
-
-function readPrefs(): Prefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaults;
-    return { ...defaults, ...JSON.parse(raw) };
-  } catch {
-    return defaults;
-  }
-}
-
 export function NotificationsCenter() {
-  const [prefs, setPrefs] = useState<Prefs>(defaults);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setPrefs(readPrefs());
     setPermission(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
   }, []);
-
-  function update<K extends keyof Prefs>(key: K, value: Prefs[K]) {
-    setPrefs((prev) => {
-      const next = { ...prev, [key]: value };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* private mode */
-      }
-      return next;
-    });
-  }
 
   async function enablePush() {
     setBusy(true);
@@ -80,9 +27,9 @@ export function NotificationsCenter() {
       if ("serviceWorker" in navigator) {
         await navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null);
       }
-      setMessage("Browser notifications are enabled for this device.");
+      setMessage("Browser notifications are enabled on this device while this browser is open.");
       new Notification("Zenvio notifications ready", {
-        body: "You’ll get alerts for bookings, messages, and support when this browser is open.",
+        body: "You’ll get a test alert on this device. Booking and support alerts use this browser permission when the app shows them.",
         icon: "/brand/favicon-32.png",
       });
     } catch (e) {
@@ -96,15 +43,18 @@ export function NotificationsCenter() {
     <main className="platform-page notifications-page">
       <PageHeader
         title="Notifications"
-        description="Choose email, browser push, and automatic customer notifications. Security and billing emails always send."
+        description="Browser alerts for this device, plus links to the systems that already send automatic customer email."
       />
       {error && <Notice tone="danger">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
 
       <section className="notif-card">
         <header>
-          <h2>Browser push</h2>
-          <p>Get alerts on this device while you’re signed in. Uses the existing Zenvio service worker.</p>
+          <h2>Browser notifications</h2>
+          <p>
+            Asks this browser for permission and registers the existing Zenvio service worker. This is device-local —
+            it does not subscribe a remote push endpoint or change email delivery.
+          </p>
         </header>
         <p className="notif-status">
           Status:{" "}
@@ -112,85 +62,51 @@ export function NotificationsCenter() {
             {permission === "unsupported"
               ? "Not supported"
               : permission === "granted"
-                ? "Enabled"
+                ? "Permission granted on this device"
                 : permission === "denied"
                   ? "Blocked in browser settings"
                   : "Not enabled yet"}
           </strong>
         </p>
-        <div className="notif-toggles">
-          <label>
-            <input type="checkbox" checked={prefs.pushBookings} onChange={(e) => update("pushBookings", e.target.checked)} />
-            Booking and reminder alerts
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.pushMessages} onChange={(e) => update("pushMessages", e.target.checked)} />
-            Client message alerts
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.pushSupport} onChange={(e) => update("pushSupport", e.target.checked)} />
-            Support inbox alerts
-          </label>
-        </div>
         <button className="ui-btn ui-btn-primary" disabled={busy || permission === "unsupported" || permission === "granted"} onClick={() => void enablePush()}>
-          {permission === "granted" ? "Push enabled" : busy ? "Enabling…" : "Enable browser notifications"}
+          {permission === "granted" ? "Permission granted" : busy ? "Enabling…" : "Enable browser notifications"}
         </button>
       </section>
 
       <section className="notif-card">
         <header>
-          <h2>Email notifications</h2>
-          <p>Transactional emails use the platform email system. Marketing mail stays opt-in.</p>
+          <h2>Automatic customer email</h2>
+          <p>
+            Booking confirmations, reminders, and follow-ups are sent by the existing Resend lifecycle queue and Automations.
+            Timing and enablement live on those screens — not as local toggles on this page.
+          </p>
         </header>
-        <div className="notif-toggles">
-          <label>
-            <input type="checkbox" checked={prefs.emailReminders} onChange={(e) => update("emailReminders", e.target.checked)} />
-            Appointment reminders
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.emailMessages} onChange={(e) => update("emailMessages", e.target.checked)} />
-            Client messages
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.emailDocuments} onChange={(e) => update("emailDocuments", e.target.checked)} />
-            Documents and signatures
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.emailPayments} onChange={(e) => update("emailPayments", e.target.checked)} />
-            Payments and invoices
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.emailMarketing} onChange={(e) => update("emailMarketing", e.target.checked)} />
-            Growth and marketing updates
-          </label>
+        <p className="notif-note">
+          Security, billing, and account emails always send. Marketing mail stays opt-in through Growth tools.
+        </p>
+        <div className="notif-actions">
+          <Link className="ui-btn ui-btn-primary" href="/app/automation">
+            Open Automations
+          </Link>
+          <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
+            Booking links & reminders
+          </Link>
         </div>
       </section>
 
       <section className="notif-card">
         <header>
-          <h2>Automatic customer notifications</h2>
-          <p>These control the automatic emails your clients receive through existing booking and workflow systems.</p>
+          <h2>In-app alerts</h2>
+          <p>Support and inbox activity continue to surface in the workspace. Use Support and Inbox for live conversations.</p>
         </header>
-        <div className="notif-toggles">
-          <label>
-            <input type="checkbox" checked={prefs.autoConfirmations} onChange={(e) => update("autoConfirmations", e.target.checked)} />
-            Send booking confirmations automatically
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.autoReminders} onChange={(e) => update("autoReminders", e.target.checked)} />
-            Send appointment reminders automatically
-          </label>
-          <label>
-            <input type="checkbox" checked={prefs.autoFollowups} onChange={(e) => update("autoFollowups", e.target.checked)} />
-            Send follow-up / review requests from automations
-          </label>
+        <div className="notif-actions">
+          <Link className="ui-btn ui-btn-secondary" href="/app/inbox">
+            Open Inbox
+          </Link>
+          <Link className="ui-btn ui-btn-secondary" href="/app/support">
+            Open Support
+          </Link>
         </div>
-        <p className="notif-note">
-          Reminder timing still lives on each booking link under Automations. Changes here are remembered on this device and guide the workspace controls; delivery continues through the existing Resend lifecycle queue.
-        </p>
-        <a className="ui-btn ui-btn-secondary" href="/app/automation">
-          Open Automations
-        </a>
       </section>
     </main>
   );
