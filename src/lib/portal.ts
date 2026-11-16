@@ -71,7 +71,11 @@ export async function portalSignature(s: PortalScope) {
        (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(r.created_at)::text,'') || ':' || coalesce(max(r.paid_at)::text,'') || ':' ||
                coalesce(md5(string_agg(r.id::text||r.status, ',' ORDER BY r.id)), '')
           FROM private.payment_requests r JOIN private.jobs j ON j.id=r.job_id
-         WHERE r.user_id=$1 AND j.contact_id=$2 AND r.status IN ('requested','paid')) payments`,
+         WHERE r.user_id=$1 AND j.contact_id=$2 AND r.status IN ('requested','paid')) payments,
+       (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(sum(p.refunded_cents)::text,'0') || ':' ||
+               coalesce(md5(string_agg(p.id::text||p.status||p.refunded_cents::text, ',' ORDER BY p.id)), '')
+          FROM private.appointment_payments p JOIN public.bookings b ON b.id=p.booking_id
+         WHERE p.user_id=$1 AND (b.contact_id=$2 OR lower(b.guest_email)=lower($3)) AND p.status IN ('paid','refunded','partially_refunded')) receipts`,
     [s.userId, s.contactId, s.email],
   );
   return rows[0];

@@ -248,13 +248,9 @@ export function InboxCenter() {
             <EmptyState icon="message" title="Select a conversation">
               Choose a conversation to read and reply.
             </EmptyState>
-          ) : detailError ? (
-            <div className="inbox-pad">
-              <Alert tone="danger">{detailError}</Alert>
-            </div>
           ) : !detail ? (
             <div className="inbox-pad">
-              <Skeleton rows={5} />
+              {detailError ? <Alert tone="danger">{detailError}</Alert> : <Skeleton rows={5} />}
             </div>
           ) : (
             <ThreadView

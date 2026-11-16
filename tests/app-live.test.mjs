@@ -30,6 +30,7 @@ test("portal live stream peeks the token without bumping last_used_at", () => {
   assert.match(portal, /t\.user_id=\$1 AND t\.contact_id=\$2/);
   assert.match(portal, /count\(DISTINCT e\.id\)/);
   assert.match(portal, /max\(r\.created_at\)/);
+  assert.match(portal, /private\.appointment_payments p JOIN public\.bookings b/);
 });
 
 test("open envelope refreshes on live change without wiping draft fields", () => {

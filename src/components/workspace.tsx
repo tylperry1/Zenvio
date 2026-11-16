@@ -155,6 +155,11 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     if (!demo) void load();
   });
   useEffect(() => {
+    if (!selectedBooking) return;
+    const next = [...(remote?.bookings || []), ...(data?.bookings || [])].find((b) => b.id === selectedBooking.id);
+    if (next) setSelectedBooking(next);
+  }, [data, remote]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
     if (!notice) return;
     const timeout = setTimeout(() => setNotice(""), 5000);
     return () => clearTimeout(timeout);

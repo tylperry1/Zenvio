@@ -58,6 +58,7 @@ export function ClientCenter() {
     setClients(d.contacts);
     setTotal(d.total);
     setLoaded(true);
+    setError("");
   }
   async function add(form: HTMLFormElement) {
     setBusy(true);
@@ -88,6 +89,7 @@ export function ClientCenter() {
     if (!still() || wanted.current !== id) return;
     if (!r.ok) throw Error(d.error);
     setDetail(d);
+    setError("");
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));

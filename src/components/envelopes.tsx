@@ -106,7 +106,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
     } catch (e) {
       if (still() && openId.current === id) setError((e as Error).message);
     } finally {
-      if (still() && openId.current === id) setBusy(false);
+      if (openId.current === id) setBusy(false);
     }
   }
   useEffect(() => {
@@ -117,19 +117,18 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   useWorkspaceLive(() => {
     load().catch((e) => setError(e.message));
     const id = detail?.envelope.id;
-    if (!id) return;
+    if (!id || openId.current !== id) return;
     const keepDraftFields = detail.envelope.status === "draft";
-    const still = freshDetail();
     fetch("/api/envelopes?id=" + id, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
-        if (!still() || openId.current !== id) return;
+        if (openId.current !== id) return;
         if (!r.ok) throw Error(d.error);
         setDetail(d);
         if (!keepDraftFields) setFields(d.envelope.fields);
       })
       .catch((e) => {
-        if (still() && openId.current === id) setError(e.message);
+        if (openId.current === id) setError(e.message);
       });
   });
   async function action(action: string) {
@@ -402,6 +401,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
               <div className="envelope-actions">
                 <button
                   className="ui-btn ui-btn-ghost"
+                  disabled={busy}
                   onClick={() => {
                     openId.current = null;
                     setDetail(null);
