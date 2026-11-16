@@ -40,6 +40,7 @@ test("shared booking links use the public site, not a preview host", () => {
   assert.equal(publicShareUrl("https://zenvio-two.vercel.app/p/ada", "https://zenvio-two.vercel.app"), "https://gozenvio.com/p/ada");
   assert.equal(publicShareUrl("/book/ada", "https://gozenvio.com"), "https://gozenvio.com/book/ada");
   assert.equal(publicShareUrl("/book/ada", "http://localhost:3000"), "http://localhost:3000/book/ada");
+  assert.equal(publicShareUrl("/book/ada?src=smart-card", "http://localhost:3000"), "http://localhost:3000/book/ada?src=smart-card");
 });
 
 test("booking share payload names the host and optional event", () => {
