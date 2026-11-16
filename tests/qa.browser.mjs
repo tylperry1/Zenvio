@@ -94,8 +94,13 @@ try {
           assert.equal(await selector.inputValue(), savedZone, "Business Profile must display the saved timezone, not auto-detect");
           assert.equal(await editor.locator('input[type="hidden"][name="timezone"]').inputValue(), savedZone, "Submitted timezone must match the visible selection");
         }
-        if (route === "/app/business-profile?section=branding" || route === "/app/business-profile?section=digital-card") {
-          await page.locator(".bp-hub-embed").waitFor({ state: "visible" });
+        if (route === "/app/business-profile?section=branding") {
+          // BookingDesign mounts immediately; wait for a control that appears after details load.
+          await page.getByRole("button", { name: "Save design", exact: true }).waitFor({ state: "visible" });
+        }
+        if (route === "/app/business-profile?section=digital-card") {
+          // SmartCards mounts immediately; wait for a control rendered after profiles load.
+          await page.getByText("Engagement period", { exact: true }).waitFor({ state: "visible" });
         }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);

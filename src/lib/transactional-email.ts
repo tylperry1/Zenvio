@@ -26,7 +26,8 @@ const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial
 const URL_PATTERN = /https:\/\/[^\s<>"']+/g;
 
 function isLoopbackHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  // URL.hostname keeps brackets for IPv6 literals (e.g. http://[::1]:3000 → "[::1]").
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
 }
 
 /**

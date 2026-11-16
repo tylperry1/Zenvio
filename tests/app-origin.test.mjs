@@ -45,6 +45,8 @@ test("resolveAppOrigin preserves configured loopback HTTP for CI and local retur
     assert.equal(email.resolveAppOrigin(), "http://localhost:3100");
     process.env.NEXT_PUBLIC_APP_URL = "http://127.0.0.1:3100";
     assert.equal(email.resolveAppOrigin(), "http://127.0.0.1:3100");
+    process.env.NEXT_PUBLIC_APP_URL = "http://[::1]:3000";
+    assert.equal(email.resolveAppOrigin(), "http://[::1]:3000");
     process.env.NEXT_PUBLIC_APP_URL = "http://example.com";
     assert.equal(email.resolveAppOrigin(), "https://gozenvio.com");
     process.env.NEXT_PUBLIC_APP_URL = "https://staging.example.com";
