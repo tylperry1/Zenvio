@@ -360,6 +360,7 @@ export default async function Home() {
           <PublicPricing
             promotionEnabled={promotionEnabled}
             waitlistEnabled={controls.waitlistEnabled}
+            signupOpen={publicRegistrationOpen(controls)}
             catalog={catalog}
             variant="home"
             joinHref={join.href}

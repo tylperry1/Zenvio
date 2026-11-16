@@ -11,6 +11,7 @@ type Catalog = import("@/lib/billing-catalog").BillingCatalog;
 export function PublicPricing({
   promotionEnabled = false,
   waitlistEnabled = true,
+  signupOpen = false,
   catalog,
   variant = "full",
   joinHref = "/early-access",
@@ -18,6 +19,7 @@ export function PublicPricing({
 }: {
   promotionEnabled?: boolean;
   waitlistEnabled?: boolean;
+  signupOpen?: boolean;
   catalog?: Catalog;
   variant?: "full" | "home";
   joinHref?: string;
@@ -27,22 +29,43 @@ export function PublicPricing({
   const monthlyAllowances = catalog?.allowances || defaultAllowances;
   const subscriptionTotal = (_plan: string, count: number) => teamOffer.monthly + (count - 3) * extraSeatOffer.monthly;
   const [seats, setSeats] = useState(3);
-  const reservationsOpen = promotionEnabled && waitlistEnabled;
-  const individualCtaHref = reservationsOpen ? "/early-access?plan=individual" : variant === "home" ? joinHref : "/demo";
-  const teamCtaHref = reservationsOpen ? `/early-access?plan=team&seats=${seats}` : "/demo";
-  const individualCtaLabel = reservationsOpen ? "Reserve 50% off" : variant === "home" ? joinLabel : "Explore the demo";
-  const teamCtaLabel = reservationsOpen ? "Reserve your team’s offer" : "Explore demo";
+  const reservationsOpen = promotionEnabled && waitlistEnabled && !signupOpen;
+  const offerOpen = promotionEnabled && (signupOpen || waitlistEnabled);
+  const individualCtaHref = signupOpen
+    ? "/sign-up?plan=individual"
+    : reservationsOpen
+      ? "/early-access?plan=individual"
+      : variant === "home"
+        ? joinHref
+        : "/demo";
+  const teamCtaHref = signupOpen
+    ? `/sign-up?plan=team&seats=${seats}`
+    : reservationsOpen
+      ? `/early-access?plan=team&seats=${seats}`
+      : "/demo";
+  const individualCtaLabel = signupOpen
+    ? "Create account"
+    : reservationsOpen
+      ? "Reserve 50% off"
+      : variant === "home"
+        ? joinLabel
+        : "Explore the demo";
+  const teamCtaLabel = signupOpen ? "Create a Teams account" : reservationsOpen ? "Reserve your team’s offer" : "Explore demo";
 
   return (
     <div className={`subscription-offers subscription-offers-${variant}`}>
-      {reservationsOpen && (
+      {offerOpen && (
         <div className="subscription-offer-banner">
           <div className="sob-copy">
             <span className="sob-badge">
               <Icon name="sparkles" size={14} /> Early-adopter offer
             </span>
             <h2>50% off your first 3 months.</h2>
-            <p>Reserve before launch with your email. No account or payment needed today.</p>
+            <p>
+              {signupOpen
+                ? "Create a workspace to start. The offer is applied when you enroll—no payment needed to register."
+                : "Reserve with your email. No account or payment needed today."}
+            </p>
           </div>
           <dl className="sob-prices">
             <div>
@@ -60,8 +83,8 @@ export function PublicPricing({
               </dd>
             </div>
           </dl>
-          <Link className="sob-cta" href="/early-access">
-            Reserve my offer <Icon name="arrow" size={16} />
+          <Link className="sob-cta" href={signupOpen ? "/sign-up" : "/early-access"}>
+            {signupOpen ? "Create account" : "Reserve my offer"} <Icon name="arrow" size={16} />
           </Link>
           <p className="sob-fine">50% applies to the base subscription for three monthly billing cycles. Additional seats, add-ons, overages and taxes are excluded.</p>
         </div>
@@ -204,7 +227,11 @@ export function PublicPricing({
               Can I explore Zenvio first?
               <Icon name="plus" size={16} />
             </summary>
-            <p>Yes. Explore the demo without an account and join the early-access list. Zenvio is preparing for launch; no account, subscription, or payment is created by joining the list.</p>
+            <p>
+              {signupOpen
+                ? "Yes. Explore the demo without an account, or create a workspace when you’re ready. No subscription or payment is created just by signing up."
+                : "Yes. Explore the demo without an account and join the interest list. No account, subscription, or payment is created by joining the list."}
+            </p>
           </details>
         </div>
       )}

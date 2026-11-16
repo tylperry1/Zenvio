@@ -1,5 +1,5 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
-import { launchControls } from "@/lib/launch-controls";
+import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
 import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
 import { Logo, Icon } from "@/components/icons";
@@ -16,6 +16,7 @@ export default async function PricingPage() {
     launchPromotionEnabled(),
     launchControls(),
   ]);
+  const signupOpen = publicRegistrationOpen(controls);
   return (
     <div className="subscription-pricing-page">
       <nav aria-label="Main navigation">
@@ -24,6 +25,7 @@ export default async function PricingPage() {
         </Link>
         <div>
           <Link href="/demo">Explore the demo</Link>
+          {signupOpen && <Link href="/sign-up">Create account</Link>}
           <Link href="/sign-in">
             Sign in <Icon name="arrow" size={16} />
           </Link>
@@ -45,12 +47,13 @@ export default async function PricingPage() {
         <PublicPricing
           promotionEnabled={promotionEnabled}
           waitlistEnabled={controls.waitlistEnabled}
+          signupOpen={signupOpen}
           catalog={await (await import("@/lib/billing-catalog")).currentCatalog()}
         />
         <div className="subscription-free-note">
           <h2>Want a closer look first?</h2>
           <p>
-            Explore the demo while we prepare for launch. See the current launch offer above when reservations are open.
+            Explore the demo with sample data. See the current launch offer above when it is available.
             No credit card required.
           </p>
           <Link href="/demo">

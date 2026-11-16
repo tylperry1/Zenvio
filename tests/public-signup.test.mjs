@@ -33,6 +33,19 @@ test("signup form is the Better Auth workspace flow with confirmation and partne
   assert.match(form, /\/privacy/);
 });
 
+test("pricing CTAs follow public registration instead of the waitlist", () => {
+  const pricing = read("src/components/public-pricing.tsx");
+  const home = read("src/app/page.tsx");
+  const page = read("src/app/pricing/page.tsx");
+  const waitlist = read("src/components/early-access-form.tsx");
+  assert.match(pricing, /signupOpen/);
+  assert.match(pricing, /\/sign-up\?plan=individual/);
+  assert.doesNotMatch(pricing, /Reserve before launch/);
+  assert.match(home, /signupOpen=\{publicRegistrationOpen\(controls\)\}/);
+  assert.match(page, /signupOpen=\{signupOpen\}/);
+  assert.match(waitlist, /signupOpen\?"\/sign-up":"\/demo"/);
+});
+
 test("launch migration opens public signup without touching checkout or waitlist rows", () => {
   const sql = read("postgres/migrations/079_public_signup_launch.sql");
   assert.match(sql, /signupEnabled', true/);
