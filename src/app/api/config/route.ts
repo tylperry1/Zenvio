@@ -1,6 +1,7 @@
 import { accountReadiness } from "@/lib/account-readiness";
 import { captchaSiteKey } from "@/lib/booking-protection";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
+import { platformSocialLinks } from "@/lib/platform-social";
 import { configured } from "@/lib/server";
 export async function GET() {
   const controls = configured() ? await launchControls().catch(() => null) : null;
@@ -10,6 +11,7 @@ export async function GET() {
       captchaSiteKey: configured() ? await captchaSiteKey().catch(() => "") : "",
       signupOpen: controls ? publicRegistrationOpen(controls) : false,
       waitlistEnabled: controls?.waitlistEnabled === true,
+      socialLinks: configured() ? await platformSocialLinks() : [],
     },
     { headers: { "Cache-Control": "no-store" } },
   );

@@ -744,6 +744,10 @@
 .vc-page-main h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 34px); letter-spacing: -0.02em; color: var(--text-primary); }
 .vc-lead { margin: 0 0 20px; color: var(--text-secondary); font-size: 16px; line-height: 1.55; }
 .vc-card { padding: 20px; background: var(--surface-card); border: 1px solid var(--ds-line); border-radius: 16px; box-shadow: var(--ds-elev-1); }
+.vc-social { margin: 0 0 20px; }
+.platform-social-links { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.platform-social-links a { font-size: 14px; font-weight: 600; color: var(--action-primary); text-decoration: none; }
+.platform-social-links a:hover { text-decoration: underline; }
 @media (max-width: 640px) {
   .vc-grid { grid-template-columns: 1fr; }
   .vc-launcher { right: 14px; bottom: 14px; height: 46px; padding: 0 16px; }
