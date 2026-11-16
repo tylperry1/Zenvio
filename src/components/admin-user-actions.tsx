@@ -42,8 +42,8 @@ export function AdminUserActions({ account, onUpdated, onDeleted }: {
         <button className="button primary small" disabled={busy}>{busy ? "Saving…" : mode === "edit" ? "Save user" : mode==="delete"?"Permanently delete user":mode==="deactivate"?"Deactivate account":"Reactivate account"}</button>
         <button type="button" className="button small" disabled={busy} onClick={() => setMode(null)}>Cancel</button>
       </div>
-    {error&&<p role="alert">{error}</p>}</form></Modal>}
-    {error && <p role="alert">{error}</p>}
-    {message && <p role="status">{message}</p>}
+    {error&&<p className="notice error" role="alert">{error}</p>}</form></Modal>}
+    {error && <p className="notice error" role="alert">{error}</p>}
+    {message && <p className="notice" role="status">{message}</p>}
   </section>;
 }
