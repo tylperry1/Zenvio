@@ -22,7 +22,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new Response(null, { status: 302, headers: { ...headers, Location: "/c/inactive" } });
   await recordProfileView(card.profile_id, "card", clientIp(request)).catch(() => {});
   let destination = `/p/${card.slug}?via=card`;
-  if(card.destination_kind === "booking") destination = `/book/${card.booking_slug}?src=nfc`;
+  if(card.destination_kind === "booking") {
+    if (!card.booking_slug) return new Response(null, { status: 302, headers: { ...headers, Location: "/c/inactive" } });
+    destination = `/book/${card.booking_slug}?src=nfc`;
+  }
   else if(card.destination_kind === "review" || card.destination_kind === "website") {
     try {destination=cleanCardDestination(card.destination_kind,card.destination_url).url;}
     catch {return new Response(null,{status:302,headers:{...headers,Location:"/c/inactive"}});}

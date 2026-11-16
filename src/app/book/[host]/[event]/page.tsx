@@ -9,5 +9,5 @@ export default async function Page({
   params: Promise<{ host: string; event: string }>;
 }) {
   const { host, event } = await params;
-  return <BookingPage host={host} eventSlug={event} />;
+  return <BookingPage host={host.trim().toLowerCase()} eventSlug={event.trim().toLowerCase()} />;
 }

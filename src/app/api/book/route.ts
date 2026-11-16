@@ -17,6 +17,7 @@ import {
   email,
   failure,
   sameOrigin,
+  publicHostSlug,
   slug,
   string,
   ApiError,
@@ -24,8 +25,8 @@ import {
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
-    const host = slug(request.nextUrl.searchParams.get("host"));
-    const event = slug(request.nextUrl.searchParams.get("event"));
+    const host = publicHostSlug(request.nextUrl.searchParams.get("host"), "This booking page is unavailable.");
+    const event = publicHostSlug(request.nextUrl.searchParams.get("event"), "This booking page is unavailable.");
     const info = await backend("/rest/v1/rpc/public_event", {
       method: "POST",
       body: JSON.stringify({ host_slug: host, event_slug: event }),

@@ -27,7 +27,20 @@ const {
   emailShareHref,
   smsShareHref,
   shareResultMessage,
+  publicShareOrigin,
+  publicShareUrl,
 } = load("src/lib/share.ts");
+
+test("shared booking links use the public site, not a preview host", () => {
+  assert.equal(publicShareOrigin("https://zenvio-git-share.vercel.app"), "https://gozenvio.com");
+  assert.equal(publicShareOrigin("https://www.gozenvio.com"), "https://gozenvio.com");
+  assert.equal(publicShareOrigin("https://zenvio-two.vercel.app"), "https://gozenvio.com");
+  assert.equal(publicShareOrigin("http://localhost:3000"), "http://localhost:3000");
+  assert.equal(publicShareUrl("/book/ada", "https://zenvio-git-share.vercel.app"), "https://gozenvio.com/book/ada");
+  assert.equal(publicShareUrl("https://zenvio-two.vercel.app/p/ada", "https://zenvio-two.vercel.app"), "https://gozenvio.com/p/ada");
+  assert.equal(publicShareUrl("/book/ada", "https://gozenvio.com"), "https://gozenvio.com/book/ada");
+  assert.equal(publicShareUrl("/book/ada", "http://localhost:3000"), "http://localhost:3000/book/ada");
+});
 
 test("booking share payload names the host and optional event", () => {
   const profile = bookingSharePayload("https://gozenvio.com/book/ada", "Ada Cole");
@@ -60,6 +73,22 @@ test("native share is used when the browser supports it", async () => {
   assert.equal(canNativeShare({ url: "https://gozenvio.com/book/ada" }, nav), true);
   assert.equal(await shareOrCopy({ url: "https://gozenvio.com/book/ada", title: "Ada" }, nav), "shared");
   assert.equal(calls[0].url, "https://gozenvio.com/book/ada");
+});
+
+test("native share still includes the URL when the browser rejects a custom url field", async () => {
+  const calls = [];
+  const nav = {
+    share: async (data) => {
+      calls.push(data);
+    },
+    canShare: (data) => !data.url,
+  };
+  assert.equal(
+    await shareOrCopy({ url: "https://gozenvio.com/book/ada", title: "Ada", text: "Book a time with Ada" }, nav),
+    "shared",
+  );
+  assert.equal(calls[0].url, undefined);
+  assert.match(calls[0].text, /gozenvio.com\/book\/ada/);
 });
 
 test("cancelling the system share sheet is silent", async () => {
@@ -145,6 +174,8 @@ test("workspace and marketing booking surfaces expose Share", () => {
   assert.match(shareUi, /share-menu-url/);
   const shareLib = fs.readFileSync("src/lib/share.ts", "utf8");
   assert.match(shareLib, /dialog\[open\]/);
+  assert.match(shareLib, /publicShareUrl/);
+  assert.match(shareUi, /publicShareUrl/);
   const icons = fs.readFileSync("src/components/icons.tsx", "utf8");
   assert.match(icons, /share:/);
 });

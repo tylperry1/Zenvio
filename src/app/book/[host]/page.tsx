@@ -10,5 +10,5 @@ export default async function Page({
   params: Promise<{ host: string }>;
 }) {
   const { host } = await params;
-  return <BookingProfile host={host} />;
+  return <BookingProfile host={host.trim().toLowerCase()} />;
 }

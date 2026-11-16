@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, BarChart, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate, relativeTime } from "./ds";
 import { Icon } from "./icons";
 import { ShareLinkActions } from "./share-link";
+import { publicShareOrigin } from "@/lib/share";
 
 type Workspace = { profile: { slug: string; name: string }; events: { slug: string; title: string; active: boolean; deleted_at?: string | null }[] };
 type Sources = {
@@ -118,7 +119,7 @@ export function MarketingCenter() {
 }
 
 function Share({ workspace }: { workspace: Workspace }) {
-  const origin = typeof window === "undefined" ? "https://gozenvio.com" : window.location.origin;
+  const origin = typeof window === "undefined" ? "https://gozenvio.com" : publicShareOrigin(window.location.origin);
   const events = workspace.events.filter((e) => e.active && !e.deleted_at);
   const [event, setEvent] = useState("");
   const [source, setSource] = useState("instagram");

@@ -113,6 +113,13 @@ export function slug(value: unknown) {
         throw new ApiError("Use lowercase letters, numbers, and hyphens for your link.");
     return result;
 }
+/** Read-side host from a public URL. Lowercase and 404 instead of a compose-time validation error. */
+export function publicHostSlug(value: unknown, missing = "This booking profile is unavailable.") {
+    const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+    if (!raw || raw.length > 60 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(raw))
+        throw new ApiError(missing, 404);
+    return raw;
+}
 export function integer(value: unknown, name: string, min: number, max: number) {
     if (typeof value !== "number" ||
         !Number.isInteger(value) ||
