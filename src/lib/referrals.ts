@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
+import { usageOwner } from "./subscription-usage";
 import { platformOrigin } from "./transactional-email";
 
 type DB = Pick<Pool | PoolClient, "query">;
@@ -12,6 +13,14 @@ export const REFERRAL_REWARD_METERS = [
 ] as const;
 
 const CODE_PATTERN = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+
+function isUniqueViolation(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505");
+}
+
+function canConnect(db: DB): db is Pool {
+  return "connect" in db && typeof (db as Pool).connect === "function";
+}
 
 /** Normalize a referral code for storage and lookup. */
 export function normalizeReferralCode(value: unknown): string | null {
@@ -49,34 +58,73 @@ export function rewardReference(redemptionId: string, meter: string) {
   return `referral-reward:${redemptionId}:${meter}`;
 }
 
-async function uniqueCode(db: DB, seed: string) {
+async function insertUniqueCode(tx: DB, userId: string, seed: string) {
   for (let attempt = 0; attempt < 8; attempt++) {
-    const code = defaultReferralCode(seed, attempt ? String(attempt + 1) : "");
-    const taken = await db.query("SELECT 1 FROM private.referral_codes WHERE code=$1", [code]);
-    if (!taken.rowCount) return code;
+    const code =
+      attempt < 7
+        ? defaultReferralCode(seed, attempt ? String(attempt + 1) : "")
+        : `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    try {
+      const inserted = await tx.query(
+        "INSERT INTO private.referral_codes(owner_user_id,code) VALUES($1,$2) RETURNING id,code,active,max_redemptions,created_at",
+        [userId, code],
+      );
+      return inserted.rows[0] as {
+        id: string;
+        code: string;
+        active: boolean;
+        max_redemptions: number | null;
+        created_at: string;
+      };
+    } catch (error) {
+      if (isUniqueViolation(error) && attempt < 7) continue;
+      throw error;
+    }
   }
-  return `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  throw new ApiError("Unable to allocate a referral code. Please retry.", 409);
 }
 
-/** Ensure the user has an active referral code, creating one from their profile slug when needed. */
+/**
+ * Ensure the billing owner has an active referral code.
+ * Create/rotate under an owner lock so deactivation and replacement stay atomic.
+ */
 export async function ensureReferralCode(userId: string, db: DB = getPool(), regenerate = false) {
-  if (regenerate) {
-    await db.query("UPDATE private.referral_codes SET active=false WHERE owner_user_id=$1 AND active", [userId]);
-  } else {
-    const existing = await db.query(
-      "SELECT id,code,active,max_redemptions,created_at FROM private.referral_codes WHERE owner_user_id=$1 AND active ORDER BY created_at DESC LIMIT 1",
-      [userId],
-    );
-    if (existing.rows[0]) return existing.rows[0] as { id: string; code: string; active: boolean; max_redemptions: number | null; created_at: string };
+  const client = canConnect(db) ? await db.connect() : null;
+  const tx: PoolClient | DB = client || db;
+  try {
+    if (client) await client.query("BEGIN");
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`referral-code:${userId}`]);
+
+    if (!regenerate) {
+      const existing = await tx.query(
+        "SELECT id,code,active,max_redemptions,created_at FROM private.referral_codes WHERE owner_user_id=$1 AND active ORDER BY created_at DESC LIMIT 1",
+        [userId],
+      );
+      if (existing.rows[0]) {
+        if (client) await client.query("COMMIT");
+        return existing.rows[0] as {
+          id: string;
+          code: string;
+          active: boolean;
+          max_redemptions: number | null;
+          created_at: string;
+        };
+      }
+    } else {
+      await tx.query("UPDATE private.referral_codes SET active=false WHERE owner_user_id=$1 AND active", [userId]);
+    }
+
+    const profile = await tx.query("SELECT slug FROM public.profiles WHERE id=$1", [userId]);
+    const seed = profile.rows[0]?.slug || userId.replace(/-/g, "").slice(0, 12);
+    const inserted = await insertUniqueCode(tx, userId, seed);
+    if (client) await client.query("COMMIT");
+    return inserted;
+  } catch (error) {
+    if (client) await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client?.release();
   }
-  const profile = await db.query("SELECT slug FROM public.profiles WHERE id=$1", [userId]);
-  const seed = profile.rows[0]?.slug || userId.replace(/-/g, "").slice(0, 12);
-  const code = await uniqueCode(db, seed);
-  const inserted = await db.query(
-    "INSERT INTO private.referral_codes(owner_user_id,code) VALUES($1,$2) RETURNING id,code,active,max_redemptions,created_at",
-    [userId, code],
-  );
-  return inserted.rows[0] as { id: string; code: string; active: boolean; max_redemptions: number | null; created_at: string };
 }
 
 /**
@@ -87,7 +135,7 @@ export async function redeemReferralOnSignup(refereeUserId: string, rawCode: unk
   const code = normalizeReferralCode(rawCode);
   if (!code) throw new ApiError("That referral code is not valid.", 400);
 
-  const client = "connect" in db && typeof (db as Pool).connect === "function" ? await (db as Pool).connect() : null;
+  const client = canConnect(db) ? await db.connect() : null;
   const tx: PoolClient | DB = client || db;
   try {
     if (client) await client.query("BEGIN");
@@ -150,6 +198,7 @@ export async function tryRedeemReferralOnSignup(refereeUserId: string, rawCode: 
 /**
  * When a referred account reaches an active/trialing paid subscription, grant referrer credits.
  * Idempotent via unique credit references and status transitions pending→qualified→rewarded.
+ * Credits always land on the workspace billing owner so team staff links remain usable.
  */
 export async function rewardReferralOnPaidSubscription(db: PoolClient, refereeUserId: string) {
   await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`referral-reward:${refereeUserId}`]);
@@ -169,14 +218,15 @@ export async function rewardReferralOnPaidSubscription(db: PoolClient, refereeUs
     );
   }
 
+  const creditOwner = await usageOwner(db, redemption.referrer_user_id);
   const ledgerRef = redemption.reward_reference || `referral-reward:${redemption.id}`;
-  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`subscription-usage:${redemption.referrer_user_id}`]);
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`subscription-usage:${creditOwner}`]);
 
   for (const reward of REFERRAL_REWARD_METERS) {
     await db.query(
       `INSERT INTO private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason)
        VALUES($1,$2,$3,$4,'Referral reward') ON CONFLICT(reference) DO NOTHING`,
-      [redemption.referrer_user_id, reward.meter, reward.quantity, rewardReference(redemption.id, reward.meter)],
+      [creditOwner, reward.meter, reward.quantity, rewardReference(redemption.id, reward.meter)],
     );
   }
 
@@ -187,15 +237,17 @@ export async function rewardReferralOnPaidSubscription(db: PoolClient, refereeUs
   await db.query(
     "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'referral_reward',$2)",
     [
-      redemption.referrer_user_id,
+      creditOwner,
       JSON.stringify({
         redemptionId: redemption.id,
         refereeUserId,
+        referrerUserId: redemption.referrer_user_id,
+        creditOwner,
         rewards: REFERRAL_REWARD_METERS,
       }),
     ],
   );
-  return { rewarded: true as const, redemptionId: redemption.id, referrerUserId: redemption.referrer_user_id };
+  return { rewarded: true as const, redemptionId: redemption.id, referrerUserId: creditOwner };
 }
 
 export async function listReferrals(userId: string, db: DB = getPool()) {
@@ -219,10 +271,20 @@ export async function listReferrals(userId: string, db: DB = getPool()) {
     refereeName: row.name as string,
     refereeEmail: maskEmail(row.email as string),
   }));
+  const counts = (
+    await db.query(
+      `SELECT status, count(*)::int AS n
+       FROM private.referral_redemptions
+       WHERE referrer_user_id=$1
+       GROUP BY status`,
+      [userId],
+    )
+  ).rows as { status: string; n: number }[];
+  const countFor = (status: string) => counts.find((row) => row.status === status)?.n || 0;
   const stats = {
-    pending: redemptions.filter((r) => r.status === "pending").length,
-    qualified: redemptions.filter((r) => r.status === "qualified").length,
-    rewarded: redemptions.filter((r) => r.status === "rewarded").length,
+    pending: countFor("pending"),
+    qualified: countFor("qualified"),
+    rewarded: countFor("rewarded"),
   };
   return {
     code: code.code as string,

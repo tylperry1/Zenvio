@@ -90,6 +90,7 @@ export function ReferralsCenter() {
         ) : null
       }
     >
+      {toast.node}
       {error && <Alert tone="danger">{error}</Alert>}
       {!data && !error && <Skeleton rows={4} />}
       {data && (

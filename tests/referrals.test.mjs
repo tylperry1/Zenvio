@@ -31,6 +31,7 @@ class ApiError extends Error {
 const referrals = load("src/lib/referrals.ts", {
   "./db": { getPool: () => ({ query: async () => ({ rows: [], rowCount: 0 }) }) },
   "./server": { ApiError },
+  "./subscription-usage": { usageOwner: async (_db, user) => user },
   "./transactional-email": { platformOrigin: () => "https://gozenvio.com" },
 });
 
