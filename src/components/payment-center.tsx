@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -42,15 +43,22 @@ export function PaymentCenter() {
     [editing, setEditing] = useState<EventPrice | null>(null),
     [refunding, setRefunding] = useState<Payment | null>(null);
   const toast = useToast();
+  const freshLoad = useFreshRequest();
   async function load() {
+    const still = freshLoad();
     const r = await fetch("/api/appointment-payments", { cache: "no-store" }),
       d = await r.json();
+    if (!still()) return;
     if (!r.ok) throw Error(d.error);
     setData(d);
+    setLoadError("");
   }
   useEffect(() => {
     load().catch((e) => setLoadError(e.message));
   }, []);
+  useWorkspaceLive(() => {
+    load().catch((e) => setLoadError(e.message));
+  });
   async function action(v: Record<string, unknown>, success: string) {
     setBusy(true);
     try {

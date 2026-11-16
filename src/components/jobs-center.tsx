@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { AskZenvio } from "./assistant";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Alert, Badge, Card, CopyField, EmptyState, Field, Skeleton, Tabs, formatDateTime, useConfirm, useToast } from "./ui";
 import { estimateTotals, jobStatuses, money } from "@/lib/contractor";
 
@@ -70,20 +71,26 @@ export function JobsCenter() {
     [creating, setCreating] = useState(false),
     [sharing, setSharing] = useState(false);
   const toast = useToast();
-  const load = useCallback(async () => {
+  const freshLoad = useFreshRequest();
+  const load = useCallback(async (retarget = false) => {
+    const still = freshLoad();
     try {
       const r = await fetch("/api/work-orders", { cache: "no-store" });
       const d = await r.json();
+      if (!still()) return;
       if (!r.ok) throw Error(d.error);
       setData(d);
-      if (!params.get("job") && !d.jobs.some((j: JobRow) => j.status === "requested")) setFilter("active");
+      setError("");
+      if (retarget && !params.get("job") && !d.jobs.some((j: JobRow) => j.status === "requested")) setFilter("active");
     } catch (e) {
+      if (!still()) return;
       setError(e instanceof Error ? e.message : "Jobs couldn’t be loaded.");
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [freshLoad]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    void load();
+    void load(true);
   }, [load]);
+  useWorkspaceLive(() => void load());
   useEffect(() => {
     window.history.replaceState(null, "", selected ? `/app/jobs?job=${selected}` : "/app/jobs");
   }, [selected]);
@@ -339,19 +346,29 @@ function JobDetail({ id, onBack, notify }: { id: string; onBack: () => void; not
     [requesting, setRequesting] = useState(false);
   const { confirm, node: confirmNode } = useConfirm();
   const photoInput = useRef<HTMLInputElement>(null);
+  const freshLoad = useFreshRequest();
+  const hasDetail = useRef(false);
   const load = useCallback(async () => {
+    const still = freshLoad();
     try {
       const r = await fetch(`/api/work-orders?job=${id}`, { cache: "no-store" });
       const x = await r.json();
+      if (!still()) return;
       if (!r.ok) throw Error(x.error);
+      hasDetail.current = true;
       setD(x);
+      setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The job couldn’t be loaded.");
+      if (!still()) return;
+      const message = e instanceof Error ? e.message : "The job couldn’t be loaded.";
+      if (hasDetail.current) notify(message, true);
+      else setError(message);
     }
-  }, [id]);
+  }, [id, freshLoad, notify]);
   useEffect(() => {
     void load();
   }, [load]);
+  useWorkspaceLive(() => void load());
   const run = async (payload: Record<string, unknown>, success: string) => {
     try {
       await api(payload);

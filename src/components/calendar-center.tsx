@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { TimezoneSelect } from "./timezone-select";
 import { CreateAppointment } from "./create-appointment";
@@ -44,7 +45,9 @@ export function CalendarCenter() {
         : view === "day"
           ? 1
           : 7;
+  const freshLoad = useFreshRequest();
   async function load() {
+    const still = freshLoad();
     const from = zonedDate(start, "00:00", zone),
       to = zonedDate(shift(start, days), "00:00", zone);
     if (!from || !to) return;
@@ -58,8 +61,10 @@ export function CalendarCenter() {
           }),
       ),
       d = await r.json();
+    if (!still()) return;
     if (!r.ok) throw Error(d.error);
     setData(d);
+    setError("");
   }
   useEffect(() => {
     fetch("/api/teams")
@@ -80,6 +85,9 @@ export function CalendarCenter() {
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [date, view, zone, account, organization]);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+  });
   const events = (data?.events || []).filter(
     (e: any) =>
       (staff === "all" || e.user_id === staff) &&

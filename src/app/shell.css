@@ -229,6 +229,14 @@ body {
   align-items: center;
   gap: 8px;
 }
+.shell-topbar .sp-live-controls {
+  width: auto;
+  order: 0;
+  flex: 0 0 auto;
+}
+@media (max-width: 1200px) {
+  .shell-topbar .sp-live-controls { display: none; }
+}
 .shell-account {
   position: relative;
 }

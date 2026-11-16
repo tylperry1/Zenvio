@@ -2,7 +2,7 @@
    Privacy rule: only public, immutable assets are cached. Pages, API responses,
    client records, payments and signing documents always go to the network and
    are never written to a cache. Offline navigations get a static offline page. */
-const VERSION = "zenvio-static-v2";
+const VERSION = "zenvio-static-v3";
 // Self-contained HTML (inline styles, no app bundles) so it renders with no network.
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/brand/icon-192.png"];
@@ -27,6 +27,8 @@ function cacheable(url) {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  // Live streams must reach the network; never intercept EventSource.
+  if (request.headers.get("accept")?.includes("text/event-stream")) return;
   const url = new URL(request.url);
 
   // Page navigations: always network. Offline fallback is a static public page.

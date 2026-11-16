@@ -89,6 +89,31 @@ function usePoll(fn: () => void, ms: number, active = true) {
 
 export type LiveState = "connecting" | "live" | "offline";
 
+/** Workspace pages listen for this after the shell's /api/app/stream reports a change. */
+export const WORKSPACE_LIVE_EVENT = "zenvio:change";
+
+/** Refetch when the workspace live stream (or its fallback poll) reports new activity. */
+export function useWorkspaceLive(onChange: () => void) {
+  const ref = useRef(onChange);
+  ref.current = onChange;
+  useEffect(() => {
+    const go = () => {
+      if (document.visibilityState === "visible") ref.current();
+    };
+    window.addEventListener(WORKSPACE_LIVE_EVENT, go);
+    return () => window.removeEventListener(WORKSPACE_LIVE_EVENT, go);
+  }, []);
+}
+
+/** Ignore responses from a load that a newer request has already replaced. */
+export function useFreshRequest() {
+  const seq = useRef(0);
+  return useCallback(() => {
+    const id = ++seq.current;
+    return () => seq.current === id;
+  }, []);
+}
+
 /**
  * Subscribes to a support event stream and calls `onChange` when the server
  * reports new activity. The server closes each stream after ~25 s and the

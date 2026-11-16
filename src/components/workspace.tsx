@@ -8,7 +8,8 @@ import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { ShareLinkActions } from "./share-link";
 import { CreateAppointment } from "./create-appointment";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
 import { AccountData } from "./account-data";
@@ -110,26 +111,40 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
       controller.abort();
     };
   }, [demo, view, filter, search, bookingPage, calendar, month, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const freshLoad = useFreshRequest();
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const dataStamp = useRef(0);
+  const remoteStamp = useRef(0);
+  const prevData = useRef(data);
+  const prevRemote = useRef(remote);
   async function load() {
-    setFatal("");
+    const still = freshLoad();
     try {
-      if (demo) setData(readDemo());
-      else {
+      if (demo) {
+        if (!still()) return;
+        setData(readDemo());
+      } else {
         const r = await fetch("/api/workspace", { cache: "no-store" });
         const d = await r.json();
+        if (!still()) return;
         if (r.status === 401) {
           window.location.assign("/sign-in");
           return;
         }
         if (!r.ok) throw new Error(d.error);
         setData(d);
+        setFatal("");
       }
     } catch (e) {
-      setFatal(
-        e instanceof Error ? e.message : "Unable to load your workspace.",
-      );
+      if (!still()) return;
+      const message = e instanceof Error ? e.message : "Unable to load your workspace.";
+      if (dataRef.current) {
+        setNotice(message);
+        setNoticeError(true);
+      } else setFatal(message);
     } finally {
-      setLoading(false);
+      if (still()) setLoading(false);
     }
   }
   useEffect(() => {
@@ -140,6 +155,29 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     window.addEventListener("storage", storage);
     return () => window.removeEventListener("storage", storage);
   }, [demo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useWorkspaceLive(() => {
+    if (!demo) void load();
+  });
+  useEffect(() => {
+    if (data !== prevData.current) {
+      dataStamp.current = Date.now();
+      prevData.current = data;
+    }
+    if (remote !== prevRemote.current) {
+      remoteStamp.current = Date.now();
+      prevRemote.current = remote;
+    }
+    if (!selectedBooking) return;
+    const fromWorkspace = (data?.bookings || []).find((b) => b.id === selectedBooking.id);
+    const fromRemote = (remote?.bookings || []).find((b) => b.id === selectedBooking.id);
+    const next =
+      fromWorkspace && fromRemote
+        ? dataStamp.current >= remoteStamp.current
+          ? fromWorkspace
+          : fromRemote
+        : fromWorkspace || fromRemote;
+    if (next) setSelectedBooking(next);
+  }, [data, remote]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!notice) return;
     const timeout = setTimeout(() => setNotice(""), 5000);

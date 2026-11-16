@@ -6,6 +6,7 @@ import { Icon } from "./icons";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { Alert, Badge, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Modal } from "./modal";
 
 type Thread = {
@@ -79,28 +80,36 @@ export function InboxCenter() {
     [shareLink, setShareLink] = useState(false);
   const toast = useToast();
 
+  const freshList = useFreshRequest();
+  const freshThread = useFreshRequest();
   const loadList = useCallback(async () => {
+    const still = freshList();
     try {
       const r = await fetch(`/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}`, { cache: "no-store" });
       const d = await r.json();
+      if (!still()) return;
       if (!r.ok) throw Error(d.error);
       setList(d);
       setListError("");
     } catch (e) {
+      if (!still()) return;
       setListError(e instanceof Error ? e.message : "The inbox couldn’t be loaded.");
     }
-  }, [filter, query]);
+  }, [filter, query, freshList]);
   const loadThread = useCallback(async (id: string) => {
+    const still = freshThread();
     try {
       const r = await fetch(`/api/inbox?thread=${id}`, { cache: "no-store" });
       const d = await r.json();
+      if (!still() || selected !== id) return;
       if (!r.ok) throw Error(d.error);
       setDetail(d);
       setDetailError("");
     } catch (e) {
+      if (!still() || selected !== id) return;
       setDetailError(e instanceof Error ? e.message : "The conversation couldn’t be loaded.");
     }
-  }, []);
+  }, [freshThread, selected]);
 
   useEffect(() => {
     const t = setTimeout(() => void loadList(), query ? 250 : 0);
@@ -112,15 +121,10 @@ export function InboxCenter() {
     void loadThread(selected).then(() => loadList());
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    // New client messages arrive through the portal; refresh quietly while the page is open.
-    const timer = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void loadList();
-      if (selected) void loadThread(selected);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [loadList, loadThread, selected]);
+  useWorkspaceLive(() => {
+    void loadList();
+    if (selected) void loadThread(selected);
+  });
 
   async function post(payload: Record<string, unknown>) {
     const r = await fetch("/api/inbox", {
@@ -244,13 +248,9 @@ export function InboxCenter() {
             <EmptyState icon="message" title="Select a conversation">
               Choose a conversation to read and reply.
             </EmptyState>
-          ) : detailError ? (
-            <div className="inbox-pad">
-              <Alert tone="danger">{detailError}</Alert>
-            </div>
           ) : !detail ? (
             <div className="inbox-pad">
-              <Skeleton rows={5} />
+              {detailError ? <Alert tone="danger">{detailError}</Alert> : <Skeleton rows={5} />}
             </div>
           ) : (
             <ThreadView

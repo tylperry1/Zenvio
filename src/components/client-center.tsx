@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SuiteShell } from "./suite-shell";
@@ -43,15 +44,21 @@ export function ClientCenter() {
       setBusy(false);
     }
   }
+  const freshList = useFreshRequest();
+  const freshDetail = useFreshRequest();
+  const wanted = useRef<string | null>(null);
   async function load() {
+    const still = freshList();
     const r = await fetch(
         "/api/clients?" + new URLSearchParams({ q: query, page: String(page) }),
       ),
       d = await r.json();
+    if (!still()) return;
     if (!r.ok) throw Error(d.error);
     setClients(d.contacts);
     setTotal(d.total);
     setLoaded(true);
+    setError("");
   }
   async function add(form: HTMLFormElement) {
     setBusy(true);
@@ -75,14 +82,23 @@ export function ClientCenter() {
     }
   }
   async function open(id: string) {
+    wanted.current = id;
+    const still = freshDetail();
     const r = await fetch("/api/clients?id=" + id),
       d = await r.json();
+    if (!still() || wanted.current !== id) return;
     if (!r.ok) throw Error(d.error);
     setDetail(d);
+    setError("");
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [query, page]);
+  useWorkspaceLive(() => {
+    load().catch((e) => setError(e.message));
+    const id = detail?.contact?.id;
+    if (id) open(id).catch((e) => setError(e.message));
+  });
   const params = useSearchParams();
   useEffect(() => {
     const id = params.get("client");
@@ -151,7 +167,7 @@ export function ClientCenter() {
       actions={
         detail ? (
           <>
-            <button className="ui-btn ui-btn-ghost" onClick={() => setDetail(null)}>
+            <button className="ui-btn ui-btn-ghost" onClick={() => { wanted.current = null; setDetail(null); }}>
               <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
             </button>
             <AskZenvio
