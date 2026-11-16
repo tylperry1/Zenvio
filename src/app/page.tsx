@@ -19,15 +19,22 @@ function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
 
 const valueSteps = [
   ["calendar", "Get booked.", "Share a branded page so clients choose a time without the back-and-forth."],
-  ["briefcase", "Deliver your service.", "Keep appointments, notes, and conversations together while you work."],
-  ["refresh", "Keep clients coming back.", "Follow up with documents, reminders, and a clear next step."],
+  ["file", "Get agreements signed.", "Send PDFs, collect electronic signatures, and keep a clear audit trail."],
+  ["refresh", "Keep clients coming back.", "Follow up with reminders, reviews, and a clear next step."],
 ] as const;
 
 const workflowPoints = [
   "Branded booking pages with intake questions and guest self-serve links",
   "Client information and conversations in one record",
-  "Documents and electronic signatures with a clear audit trail",
+  "PDF templates and electronic signatures with a clear audit trail",
   "Tools that support ongoing client relationships after the meeting",
+] as const;
+
+const signingPoints = [
+  "Reusable PDF templates for proposals, contracts, and intake forms",
+  "Signing envelopes with sequential or parallel recipients",
+  "Secure links for clients—no paid seat required to sign",
+  "Status tracking and an audit trail that stays with the document",
 ] as const;
 
 const faqs = [
@@ -74,7 +81,8 @@ export default async function Home() {
           </Link>
           <nav className="mk-desktop-nav" aria-label="Main navigation">
             <a href="#product">Product</a>
-            <a href="#solutions">Solutions</a>
+            <a href="#signing">Signing</a>
+            <a href="#solutions">Smart Cards</a>
             <a href="#pricing">Pricing</a>
             <Link href="/help">Help</Link>
           </nav>
@@ -93,7 +101,8 @@ export default async function Home() {
             </summary>
             <nav aria-label="Mobile navigation">
               <a href="#product">Product</a>
-              <a href="#solutions">Solutions</a>
+              <a href="#signing">Signing</a>
+              <a href="#solutions">Smart Cards</a>
               <a href="#pricing">Pricing</a>
               <Link href="/help">Help</Link>
               <Link href="/sign-in">Member sign in</Link>
@@ -116,7 +125,8 @@ export default async function Home() {
               <span>One connected workspace.</span>
             </h1>
             <p className="mk-hero-description">
-              Scheduling, client records, conversations, documents, and business growth—in one connected workspace.
+              Scheduling, client records, conversations, document signing, and business growth—in one connected
+              workspace.
             </p>
             <div className="mk-hero-actions">
               <Link href="/demo" className="button primary">
@@ -215,6 +225,69 @@ export default async function Home() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mk-signing mk-container" id="signing">
+          <div className="mk-signing-copy">
+            <p className="mk-eyebrow">DOCUMENT SIGNING</p>
+            <h2>Agreements signed without leaving the workspace.</h2>
+            <p>
+              Turn finished conversations into signed paperwork. Build from PDF templates, send signing envelopes, and
+              track every recipient—while the document stays next to the client record that started it.
+            </p>
+            <ul>
+              {signingPoints.map((item) => (
+                <li key={item}>
+                  <Icon name="check" size={17} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link href="/demo" className="button secondary">
+              Explore the workspace demo <Icon name="arrow" size={17} />
+            </Link>
+          </div>
+          <div className="mk-signing-visual" aria-label="Illustrative document signing envelope">
+            <div className="mk-envelope-shell">
+              <header>
+                <div>
+                  <small>SIGNING ENVELOPE</small>
+                  <h3>Project agreement.pdf</h3>
+                </div>
+                <span className="mk-sample-badge">Sample workspace</span>
+              </header>
+              <div className="mk-envelope-meta">
+                <span>
+                  <Icon name="users" size={14} /> 2 recipients
+                </span>
+                <span>
+                  <Icon name="clock" size={14} /> Sequential
+                </span>
+              </div>
+              <ol className="mk-envelope-recipients">
+                {[
+                  ["Alex Morgan", "Client · Signed", true],
+                  ["Jamie Davis", "Your business · Waiting", false],
+                ].map(([name, role, done]) => (
+                  <li key={String(name)} className={done ? "is-done" : ""}>
+                    <span className="mk-envelope-status" aria-hidden="true">
+                      {done ? <Icon name="check" size={14} /> : <Icon name="clock" size={14} />}
+                    </span>
+                    <div>
+                      <strong>{name}</strong>
+                      <small>{role}</small>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <footer>
+                <span>Audit trail attached</span>
+                <span className="mk-envelope-cta" aria-hidden="true">
+                  Open envelope
+                </span>
+              </footer>
             </div>
           </div>
         </section>

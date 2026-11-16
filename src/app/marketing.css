@@ -140,6 +140,29 @@
 .mk-toggle.is-on{background:var(--mk-cobalt)}
 .mk-toggle.is-on:before{left:19px}
 
+/* Document signing */
+.mk-signing{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:center;padding:72px 0;border-top:1px solid var(--mk-line)}
+.mk-signing-copy h2{margin:12px 0 14px;font-size:clamp(28px,3vw,38px);line-height:1.15;letter-spacing:-.04em}
+.mk-signing-copy>p{margin:0;font-size:15px;line-height:1.65;color:var(--mk-muted);max-width:440px}
+.mk-signing-copy ul{list-style:none;margin:22px 0 26px;padding:0;display:grid;gap:12px}
+.mk-signing-copy li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5}
+.mk-signing-copy li svg{color:var(--mk-cobalt);margin-top:2px;flex-shrink:0}
+.mk-envelope-shell{border:1px solid #d7e0f5;border-radius:18px;overflow:hidden;background:var(--mk-card);box-shadow:var(--mk-shadow)}
+.mk-envelope-shell>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:18px 18px 14px;background:var(--mk-panel-wash);border-bottom:1px solid var(--mk-line)}
+.mk-envelope-shell>header small{display:block;font-size:10px;letter-spacing:.1em;font-weight:700;color:var(--mk-faint)}
+.mk-envelope-shell>header h3{margin:6px 0 0;font-size:16px;letter-spacing:-.02em}
+.mk-envelope-meta{display:flex;flex-wrap:wrap;gap:14px;padding:12px 18px;border-bottom:1px solid var(--mk-line);font-size:12px;color:var(--mk-muted)}
+.mk-envelope-meta span{display:inline-flex;align-items:center;gap:6px}
+.mk-envelope-recipients{list-style:none;margin:0;padding:8px 0;display:grid}
+.mk-envelope-recipients li{display:flex;gap:12px;align-items:center;padding:12px 18px}
+.mk-envelope-recipients li+li{border-top:1px solid var(--mk-line)}
+.mk-envelope-status{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--mk-bg-soft);color:var(--mk-cobalt);flex-shrink:0}
+.mk-envelope-recipients li.is-done .mk-envelope-status{background:#e8f7ef;color:#1f7a4d}
+.mk-envelope-recipients strong{display:block;font-size:13px}
+.mk-envelope-recipients small{display:block;margin-top:2px;font-size:11px;color:var(--mk-faint)}
+.mk-envelope-shell>footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-top:1px solid var(--mk-line);background:var(--mk-bg-soft);font-size:12px;color:var(--mk-muted)}
+.mk-envelope-cta{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:8px;background:var(--mk-cobalt);color:#fff;font-weight:600;font-size:12px}
+
 /* Smart Cards */
 .mk-smart{background:#365cff;color:#fff;padding:72px 0}
 .mk-smart .mk-container{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:48px;align-items:center}
@@ -239,7 +262,7 @@
   .mk-showcase-shell{grid-template-columns:128px minmax(0,1fr)}
   .mk-showcase-grid{grid-template-columns:1fr}
   .mk-profile-card{width:min(220px,54%)}
-  .mk-workflow,.mk-smart .mk-container{gap:32px}
+  .mk-workflow,.mk-signing,.mk-smart .mk-container{gap:32px}
 }
 
 @media(max-width:900px){
@@ -251,7 +274,7 @@
   .mk-hero-showcase{padding:0}
   .mk-value-strip ol{grid-template-columns:1fr;gap:16px}
   .mk-value-connector{display:none}
-  .mk-workflow,.mk-smart .mk-container,.mk-faq{grid-template-columns:1fr}
+  .mk-workflow,.mk-signing,.mk-smart .mk-container,.mk-faq{grid-template-columns:1fr}
   .mk-section-heading{flex-direction:column;align-items:flex-start;gap:12px}
   .mk-final{flex-direction:column;align-items:flex-start}
 }
@@ -278,7 +301,7 @@
   .mk-hero-actions .button{width:100%;justify-content:center}
   .mk-showcase-shell,.mk-booking-shell{grid-template-columns:1fr}
   .mk-showcase-nav,.mk-booking-shell>aside{display:none}
-  .mk-workflow,.mk-pricing{padding-block:48px}
+  .mk-workflow,.mk-signing,.mk-pricing{padding-block:48px}
   .mk-smart{padding:48px 0}
   .mk-smart-visual{min-height:0;display:grid;gap:14px}
   .mk-digital-card,.mk-nfc-card{position:relative;right:auto;bottom:auto;width:100%;transform:none}
@@ -326,6 +349,7 @@ html[data-theme="dark"] .marketing-v3 .mk-hero-description,
 html[data-theme="dark"] .marketing-v3 .mk-fine,
 html[data-theme="dark"] .marketing-v3 .mk-value-strip p,
 html[data-theme="dark"] .marketing-v3 .mk-workflow-copy>p,
+html[data-theme="dark"] .marketing-v3 .mk-signing-copy>p,
 html[data-theme="dark"] .marketing-v3 .mk-section-heading>p,
 html[data-theme="dark"] .marketing-v3 .mk-faq details p{color:var(--mk-muted);font-weight:500}
 html[data-theme="dark"] .marketing-v3 .mk-desktop-nav a:hover,
@@ -338,10 +362,14 @@ html[data-theme="dark"] .mk-showcase-main,
 html[data-theme="dark"] .mk-booking-shell>div,
 html[data-theme="dark"] .mk-showcase-agenda,
 html[data-theme="dark"] .mk-showcase-client,
+html[data-theme="dark"] .mk-envelope-shell,
 html[data-theme="dark"] .mk-digital-card,
 html[data-theme="dark"] .mk-nfc-card{background:var(--mk-card)}
+html[data-theme="dark"] .mk-envelope-shell>header,
+html[data-theme="dark"] .mk-envelope-shell>footer{background:var(--mk-panel-wash)}
 html[data-theme="dark"] .mk-value-icon,
 html[data-theme="dark"] .mk-sample-badge,
+html[data-theme="dark"] .mk-envelope-status,
 html[data-theme="dark"] .mk-nfc-tags span{background:var(--mk-badge-bg);border-color:var(--mk-line)}
 html[data-theme="dark"] .mk-digital-card{color:var(--mk-ink)}
 html[data-theme="dark"] .mk-qr{border-color:var(--mk-line);background-color:#fff}
