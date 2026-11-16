@@ -61,6 +61,7 @@ m.require = (id) =>
                     ? {
                         ApiError,
                         slug: (v) => v,
+                        publicHostSlug: (v) => v,
                         string: (v) => v,
                         email: (v) => v,
                         body: (r) => r.json(),
