@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, BarChart, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Skeleton, formatDate, relativeTime } from "./ds";
 import { Icon } from "./icons";
+import { ShareLinkActions } from "./share-link";
 
 type Workspace = { profile: { slug: string; name: string }; events: { slug: string; title: string; active: boolean; deleted_at?: string | null }[] };
 type Sources = {
@@ -214,9 +215,20 @@ function Share({ workspace }: { workspace: Workspace }) {
           </label>
           <div className="mkc-link">
             <code>{link}</code>
-            <button className="ds-btn sm primary" type="button" onClick={() => void copy("link", link)}>
-              {copied === "link" ? "Copied" : "Copy link"}
-            </button>
+            <ShareLinkActions
+              variant="buttons"
+              url={link}
+              label="Tracked booking link"
+              title={workspace.profile.name}
+              text={event ? `Book a time for ${events.find((e) => e.slug === event)?.title || "this appointment"} with ${workspace.profile.name}` : `Book a time with ${workspace.profile.name}`}
+              copiedMessage="Tracked booking link copied."
+              onResult={(result) => {
+                if (result === "copied") {
+                  setCopied("link");
+                  setTimeout(() => setCopied(""), 1600);
+                }
+              }}
+            />
           </div>
         </div>
       </Panel>

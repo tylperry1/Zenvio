@@ -2,6 +2,7 @@
 // Shared building blocks for workspace and admin pages. Styles live in ui.css.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
+import { ShareLinkActions } from "./share-link";
 
 type Tone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -271,26 +272,8 @@ function ConfirmDialog({
   );
 }
 
-export function CopyField({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="ui-copy">
-      <input readOnly value={value} aria-label={label} className="ui-input" onFocus={(e) => e.currentTarget.select()} />
-      <button
-        type="button"
-        className="ui-btn ui-btn-secondary"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          } catch {}
-        }}
-      >
-        <Icon name={copied ? "check" : "link"} size={14} /> {copied ? "Copied" : "Copy"}
-      </button>
-    </div>
-  );
+export function CopyField({ value, label, title }: { value: string; label: string; title?: string }) {
+  return <ShareLinkActions url={value} label={label} title={title || label} />;
 }
 
 export function Meter({ value, max, label }: { value: number; max: number; label: string }) {

@@ -1947,6 +1947,12 @@
 }
 .event-share-actions {
   display: inline-flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  position: relative;
+}
+.event-share-actions .share-actions-compact {
   gap: 12px;
 }
 .booking-detail-actions {

@@ -205,9 +205,9 @@ export function SetupChecklist({
     {
       id: "share",
       title: "Share your page and get a first booking",
-      detail: "Paste your link in your email signature or a message.",
+      detail: "Share from this device, or copy the link for email and messages.",
       done: (data.bookingCount ?? data.bookings.length) > 0,
-      action: { label: "Copy link", onClick: onCopyLink },
+      action: { label: "Share link", onClick: onCopyLink },
     },
   ];
   const complete = steps.filter((s) => s.done).length;
