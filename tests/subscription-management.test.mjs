@@ -91,6 +91,8 @@ mod.require = (id) =>
       ? { stripeClient: async () => stripe }
       : id === "./server"
         ? { ApiError }
+        : id === "./referrals"
+          ? { rewardReferralOnPaidSubscription: async () => ({ rewarded: false }) }
         : standard(id);
 mod._compile(
   ts.transpileModule(fs.readFileSync(filename, "utf8"), {

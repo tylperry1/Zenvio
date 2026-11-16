@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
 import { usageOwner } from "./subscription-usage";
@@ -14,12 +14,9 @@ export const REFERRAL_REWARD_METERS = [
 
 const CODE_PATTERN = /^[a-z0-9][a-z0-9_-]{1,39}$/;
 
-function isUniqueViolation(error: unknown) {
-  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505");
-}
-
-function canConnect(db: DB): db is Pool {
-  return "connect" in db && typeof (db as Pool).connect === "function";
+/** True only for a real pg Pool so PoolClient inputs stay caller-owned. */
+function isPool(db: DB): db is Pool {
+  return db instanceof Pool;
 }
 
 /** Normalize a referral code for storage and lookup. */
@@ -68,11 +65,14 @@ async function insertUniqueCode(tx: DB, userId: string, seed: string) {
       attempt < 7
         ? defaultReferralCode(seed, attempt ? String(attempt + 1) : "")
         : `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    try {
-      const inserted = await tx.query(
-        "INSERT INTO private.referral_codes(owner_user_id,code) VALUES($1,$2) RETURNING id,code,active,max_redemptions,created_at",
-        [userId, code],
-      );
+    // ON CONFLICT keeps the surrounding transaction usable after a code collision.
+    const inserted = await tx.query(
+      `INSERT INTO private.referral_codes(owner_user_id,code) VALUES($1,$2)
+       ON CONFLICT(code) DO NOTHING
+       RETURNING id,code,active,max_redemptions,created_at`,
+      [userId, code],
+    );
+    if (inserted.rows[0]) {
       return inserted.rows[0] as {
         id: string;
         code: string;
@@ -80,9 +80,6 @@ async function insertUniqueCode(tx: DB, userId: string, seed: string) {
         max_redemptions: number | null;
         created_at: string;
       };
-    } catch (error) {
-      if (isUniqueViolation(error) && attempt < 7) continue;
-      throw error;
     }
   }
   throw new ApiError("Unable to allocate a referral code. Please retry.", 409);
@@ -93,7 +90,7 @@ async function insertUniqueCode(tx: DB, userId: string, seed: string) {
  * Create/rotate under an owner lock so deactivation and replacement stay atomic.
  */
 export async function ensureReferralCode(userId: string, db: DB = getPool(), regenerate = false) {
-  const client = canConnect(db) ? await db.connect() : null;
+  const client = isPool(db) ? await db.connect() : null;
   const tx: PoolClient | DB = client || db;
   try {
     if (client) await client.query("BEGIN");
@@ -139,7 +136,7 @@ export async function redeemReferralOnSignup(refereeUserId: string, rawCode: unk
   const code = normalizeReferralCode(rawCode);
   if (!code) throw new ApiError("That referral code is not valid.", 400);
 
-  const client = canConnect(db) ? await db.connect() : null;
+  const client = isPool(db) ? await db.connect() : null;
   const tx: PoolClient | DB = client || db;
   try {
     if (client) await client.query("BEGIN");
