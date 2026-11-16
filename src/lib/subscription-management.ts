@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { stripeClient } from "./billing";
+import { rewardReferralOnPaidSubscription } from "./referrals";
 import { ApiError } from "./server";
 export async function saveSubscription(
   client: PoolClient,
@@ -57,7 +58,6 @@ export async function saveSubscription(
     ],
   );
   if (paid && ["individual", "team"].includes(plan)) {
-    const { rewardReferralOnPaidSubscription } = await import("./referrals");
     await rewardReferralOnPaidSubscription(client, userId);
   }
 }

@@ -14,11 +14,20 @@ const policy=load('src/lib/team-member-policy.ts',{'./server':{ApiError}});
 test('managers manage staff but cannot change roles or manage peers',()=>{assert.doesNotThrow(()=>policy.assertMemberControl('administrator','staff',false,'reactivate'));assert.throws(()=>policy.assertMemberControl('administrator','administrator',false,'reactivate'));assert.throws(()=>policy.assertMemberControl('administrator','staff',false,'role'));assert.throws(()=>policy.assertMemberControl('staff','staff',false,'reactivate'));});
 test('owner and self-membership are protected even from an owner',()=>{assert.throws(()=>policy.assertMemberControl('owner','owner',false,'role'));assert.throws(()=>policy.assertMemberControl('owner','staff',true,'role'));assert.doesNotThrow(()=>policy.assertMemberControl('owner','administrator',false,'role'));});
 const mappings=[{plan:'team',period:'monthly',stripe_price_id:'price_team'},{plan:'team_extra',period:'monthly',stripe_price_id:'price_extra'},{plan:'individual',period:'monthly',stripe_price_id:'price_individual'}];
-const service=load('src/lib/subscription-management.ts',{'./launch/revenue':load('src/lib/launch/revenue.ts'),'./db':{getPool(){}},'./billing':{},'./server':{ApiError}});
+let referralRewards=0;
+const service=load('src/lib/subscription-management.ts',{
+  './launch/revenue':load('src/lib/launch/revenue.ts'),
+  './db':{getPool(){}},
+  './billing':{},
+  './server':{ApiError},
+  // saveSubscription dynamically imports rewards; unit tests stay free of the TS referrals module graph.
+  './referrals':{rewardReferralOnPaidSubscription:async()=>{referralRewards+=1;return {rewarded:true};}},
+});
 async function save(items,status='active',metadata={plan:'team'}){let saved;await service.saveSubscription({query:async(sql,args)=>{if(sql.startsWith('UPDATE'))saved=args;return {rows:mappings};}}, {id:'sub_1',status,metadata,cancel_at_period_end:false,items:{data:items}},'owner');return saved;}
 const item=(id,quantity=1)=>({price:{id},quantity,current_period_end:1900000000});
-test('webhook grants total team seats independent of Stripe item ordering',async()=>{const saved=await save([item('price_extra',2),item('price_team')]);assert.equal(saved[1],'team');assert.equal(saved[6],5);});
+test('webhook grants total team seats independent of Stripe item ordering',async()=>{referralRewards=0;const saved=await save([item('price_extra',2),item('price_team')]);assert.equal(saved[1],'team');assert.equal(saved[6],5);assert.equal(referralRewards,1);});
 test('three-seat Teams needs no extra-seat item',async()=>{assert.equal((await save([item('price_team')]))[6],3);});
+test('incomplete subscriptions do not grant referral rewards',async()=>{referralRewards=0;await save([item('price_team')],'incomplete');assert.equal(referralRewards,0);});
 test('base quantities, unrelated items, and add-ons on Individual are rejected',async()=>{await assert.rejects(save([item('price_team',3)]));await assert.rejects(save([item('price_individual'),item('price_extra')]));await assert.rejects(save([item('price_team'),item('unknown')]));await assert.rejects(save([item('price_team'),item('price_extra',0)]));});
 test('metadata cannot forge a new paid package without a mapped Stripe base price',async()=>{await assert.rejects(save([item('unknown')],'active',{plan:'team'}));});
 test('non-paying subscription statuses never grant paid capacity',async()=>{const saved=await save([item('price_team')],'incomplete');assert.equal(saved[1],'free');});
