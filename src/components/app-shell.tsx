@@ -179,7 +179,7 @@ function Navigation({
         ));
         if (!group.label) return <div className="shell-nav-group" key="home">{links}</div>;
         return (
-          <details className="shell-nav-group" data-group={group.label} key={group.label + (group.items.some(i => i.id === current?.id) ? "-active" : "")} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
+          <details className="shell-nav-group" data-group={group.label} key={group.label} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
             <summary>{group.label}<Icon name="chevron" size={12} /></summary>
             {links}
           </details>
@@ -215,6 +215,24 @@ function Breadcrumb({ demo }: { demo: boolean }) {
   );
 }
 
+function WorkspaceLive({ demo }: { demo: boolean }) {
+  const live = useLive(demo ? null : "/api/app/stream", () => {
+    window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
+  });
+  useEffect(() => {
+    if (demo) return;
+    const announce = () => document.visibilityState === "visible" && window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
+    const timer = window.setInterval(announce, live === "live" ? 60000 : 8000);
+    document.addEventListener("visibilitychange", announce);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", announce);
+    };
+  }, [demo, live]);
+  if (demo) return null;
+  return <LiveControls state={live} onRefresh={() => { window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT)); }} />;
+}
+
 export function AppShell({
   user,
   admin = false,
@@ -231,19 +249,6 @@ export function AppShell({
   children: ReactNode;
 }) {
   const routePath = usePathname();
-  const live = useLive(demo ? null : "/api/app/stream", () => {
-    window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
-  });
-  useEffect(() => {
-    if (demo) return;
-    const announce = () => document.visibilityState === "visible" && window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT));
-    const timer = window.setInterval(announce, live === "live" ? 60000 : 8000);
-    document.addEventListener("visibilitychange", announce);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", announce);
-    };
-  }, [demo, live]);
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
@@ -394,7 +399,7 @@ export function AppShell({
             <kbd>⌘K</kbd>
           </button>
           <div className="shell-topbar-actions">
-            {!demo && <LiveControls state={live} onRefresh={() => { window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT)); }} />}
+            <WorkspaceLive demo={demo} />
             {demo ? (
               <Link href="/sign-up" className="shell-button primary small">
                 Create free account

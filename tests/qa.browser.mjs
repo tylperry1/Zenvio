@@ -216,7 +216,8 @@ try {
   const workspaceMenu = pages[1];
   await workspaceMenu.setViewportSize({width:1440,height:1000});
   await workspaceMenu.goto(origin+"/app/clients");
-  const businessGroup = workspaceMenu.locator(".shell-nav-group").filter({has:workspaceMenu.locator("summary",{hasText:"Business"})});
+  const businessGroup = workspaceMenu.locator("#workspace-navigation [data-group='Business']");
+  assert.equal(await businessGroup.count(), 1);
   assert.equal(await businessGroup.getAttribute("open"),null);
   await businessGroup.locator("summary").click();
   await businessGroup.getByRole("link",{name:"Team",exact:true}).waitFor();
