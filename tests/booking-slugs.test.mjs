@@ -53,7 +53,9 @@ test("new accounts prefer readable slugs from the user name", () => {
   assert.match(sql, /handle_new_user/);
   assert.match(sql, /regexp_replace/);
   assert.match(sql, /host-' \|\| replace\(new\.id::text/);
-  assert.match(sql, /EXISTS \(SELECT 1 FROM public\.profiles WHERE slug = candidate\)/);
+  assert.match(sql, /rtrim\(left\(base_slug/);
+  assert.match(sql, /unique_violation/);
+  assert.match(sql, /FOR attempt IN 0\.\.100/);
 });
 
 test("workspace surfaces open the short-link chooser for generated hosts", () => {
