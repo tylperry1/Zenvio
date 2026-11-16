@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { SuiteShell } from "./suite-shell";
 import { ShareLinkActions } from "./share-link";
 import { Alert, Badge, Card, EmptyState, Skeleton, useConfirm, useToast } from "./ui";
+import { Icon } from "./icons";
 
 type Redemption = {
   id: string;
@@ -41,6 +42,12 @@ const meterLabel = (meter: string) =>
 
 const SHARE_TITLE = "Try Zenvio with me";
 const SHARE_TEXT = "I’m using Zenvio for booking and client work. Sign up with my link:";
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => part[0] || "").join("");
+  return letters.toUpperCase() || "?";
+}
 
 export function ReferralsCenter() {
   const [data, setData] = useState<ReferralData | null>(null);
@@ -94,70 +101,92 @@ export function ReferralsCenter() {
   return (
     <SuiteShell
       title="Referrals"
-      description="Invite another business to Zenvio. Copy your link, send it, and earn workspace credits when they start a paid plan."
+      description="Invite another business to Zenvio. Share your link, they get a workspace, and you earn credits when they start a paid plan."
     >
       {toast.node}
       {confirmNode}
       {error && <Alert tone="danger">{error}</Alert>}
       {!data && !error && <Skeleton rows={4} />}
       {data && (
-        <>
-          <Card
-            className="referrals-share-card"
-            title="Share your link"
-            description={`One tap to copy or share. You earn ${rewardCopy || "credits"} when they start a paid plan.`}
-          >
-            <ShareLinkActions
-              url={data.link}
-              label="Referral link"
-              title={SHARE_TITLE}
-              text={SHARE_TEXT}
-              shareLabel="Share"
-              copiedMessage="Link copied. Paste it anywhere."
-              onResult={(result, message) => {
-                if (message) toast.show(message, result === "unavailable");
-              }}
-            />
-            <ol className="referrals-steps">
-              <li>
-                <strong>Copy or share</strong> the link above.
-              </li>
-              <li>
-                <strong>Send it</strong> to another business owner.
-              </li>
-              <li>
-                <strong>Earn credits</strong> when they start a paid Individual or Teams plan.
-              </li>
-            </ol>
-            <p className="muted referrals-code-line">
-              Code <code>{data.code}</code>
-              {data.canManage ? (
-                <>
-                  {" · "}
+        <div className="referrals-page">
+          <section className="referrals-hero" aria-labelledby="referrals-hero-title">
+            <div className="referrals-hero-copy">
+              <p className="referrals-kicker">Share &amp; earn</p>
+              <h2 id="referrals-hero-title">Send one link. Grow together.</h2>
+              <p>
+                You earn {rewardCopy || "workspace credits"} when the business you invite starts a paid Individual or
+                Teams plan. Credits land on the billing owner’s account.
+              </p>
+            </div>
+            <div className="referrals-hero-share">
+              <span className="referrals-kicker">Your invite link</span>
+              <ShareLinkActions
+                url={data.link}
+                label="Referral link"
+                title={SHARE_TITLE}
+                text={SHARE_TEXT}
+                shareLabel="Share"
+                copiedMessage="Link copied. Paste it anywhere."
+                onResult={(result, message) => {
+                  if (message) toast.show(message, result === "unavailable");
+                }}
+              />
+              <div className="referrals-code-row">
+                <p className="muted referrals-code-line">
+                  Code <code>{data.code}</code>
+                </p>
+                {data.canManage ? (
                   <button type="button" className="inline-link" disabled={busy} onClick={() => void regenerate()}>
                     {busy ? "Updating…" : "Create a new link"}
                   </button>
-                </>
-              ) : null}
-            </p>
-            {!data.canManage && (
-              <Alert tone="info">
-                This is your workspace referral link. Credits land on the billing owner’s account. Only the owner can
-                create a new link.
-              </Alert>
-            )}
-          </Card>
+                ) : null}
+              </div>
+              {!data.canManage && (
+                <Alert tone="info">
+                  This is your workspace referral link. Credits land on the billing owner’s account. Only the owner can
+                  create a new link.
+                </Alert>
+              )}
+            </div>
+          </section>
+
+          <ol className="referrals-steps">
+            <li>
+              <span className="referrals-step-icon" aria-hidden="true">
+                <Icon name="share" size={18} />
+              </span>
+              <strong>Copy or share</strong>
+              <p>Send your personal link in email, text, or anywhere you already talk to other owners.</p>
+            </li>
+            <li>
+              <span className="referrals-step-icon" aria-hidden="true">
+                <Icon name="users" size={18} />
+              </span>
+              <strong>They create a workspace</strong>
+              <p>They land on a partner invite signup. Your code is applied automatically.</p>
+            </li>
+            <li>
+              <span className="referrals-step-icon" aria-hidden="true">
+                <Icon name="sparkles" size={18} />
+              </span>
+              <strong>Earn credits</strong>
+              <p>When they start a paid plan, {rewardCopy || "credits"} are added to your workspace.</p>
+            </li>
+          </ol>
 
           <div className="referrals-stats suite-grid">
-            <Card title="Waiting">
+            <Card>
+              <p className="referrals-kicker">Waiting</p>
               <p className="referrals-stat">{data.stats.pending}</p>
               <p className="muted">Signed up, not paid yet</p>
             </Card>
-            <Card title="Qualified">
+            <Card>
+              <p className="referrals-kicker">Qualified</p>
               <p className="referrals-stat">{data.stats.qualified}</p>
               <p className="muted">Paid — reward processing</p>
             </Card>
-            <Card title="Rewarded">
+            <Card>
+              <p className="referrals-kicker">Rewarded</p>
               <p className="referrals-stat">{data.stats.rewarded}</p>
               <p className="muted">Credits added</p>
             </Card>
@@ -165,13 +194,16 @@ export function ReferralsCenter() {
 
           <Card title="People you invited" description="Businesses that signed up with your link.">
             {!data.redemptions.length ? (
-              <EmptyState title="No referrals yet">
+              <EmptyState title="No referrals yet" icon="users">
                 Share your link with another business owner. Their signup shows up here.
               </EmptyState>
             ) : (
               <ul className="ui-list referrals-list">
                 {data.redemptions.map((row) => (
                   <li key={row.id} className="referrals-row">
+                    <span className="referrals-avatar" aria-hidden="true">
+                      {initials(row.refereeName)}
+                    </span>
                     <div>
                       <strong>{row.refereeName}</strong>
                       <div className="muted">{row.refereeEmail}</div>
@@ -183,7 +215,7 @@ export function ReferralsCenter() {
               </ul>
             )}
           </Card>
-        </>
+        </div>
       )}
     </SuiteShell>
   );

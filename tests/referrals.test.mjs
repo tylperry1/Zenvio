@@ -72,6 +72,14 @@ test("referral share path encodes the code", () => {
   assert.equal(referralSharePath("jamie-studio"), "/sign-up?ref=jamie-studio");
 });
 
+test("in-app referrals page keeps share and regenerate actions", () => {
+  const page = fs.readFileSync("src/components/referrals-center.tsx", "utf8");
+  assert.match(page, /referrals-hero/);
+  assert.match(page, /ShareLinkActions/);
+  assert.match(page, /action: "regenerate"/);
+  assert.match(page, /People you invited/);
+});
+
 test("self-referral is rejected", async () => {
   const owner = "11111111-1111-4111-8111-111111111111";
   const db = {
