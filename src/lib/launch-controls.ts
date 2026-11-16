@@ -1,6 +1,9 @@
 import { getPool, databaseConfigured } from "./db";
-export const launchDefaults = { signupEnabled:true, waitlistEnabled:true, invitationOnly:false, checkoutEnabled:false, maintenance:false, bannerEnabled:true, banner:"Zenvio launches", launchDate:"2026-11-16", features:{smartCards:true,growth:true,assistant:true} };
+export const launchDefaults = { signupEnabled:true, waitlistEnabled:true, invitationOnly:false, checkoutEnabled:false, maintenance:false, bannerEnabled:false, banner:"Zenvio is open for new workspaces", launchDate:"2026-11-16", features:{smartCards:true,growth:true,assistant:true} };
 export type LaunchControls = typeof launchDefaults;
+export function publicRegistrationOpen(controls: LaunchControls) {
+  return controls.signupEnabled && !controls.invitationOnly && !controls.maintenance;
+}
 export async function launchControls():Promise<LaunchControls>{
  if(!databaseConfigured())return {...launchDefaults,signupEnabled:false};
  const row=(await getPool().query("SELECT value FROM private.platform_settings WHERE key='launch_controls'")).rows[0]?.value;
