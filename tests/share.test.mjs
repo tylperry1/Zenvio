@@ -32,15 +32,22 @@ const {
 } = load("src/lib/share.ts");
 
 test("shared booking links use the public site, not a preview host", () => {
-  assert.equal(publicShareOrigin("https://zenvio-git-share.vercel.app"), "https://gozenvio.com");
-  assert.equal(publicShareOrigin("https://www.gozenvio.com"), "https://gozenvio.com");
-  assert.equal(publicShareOrigin("https://zenvio-two.vercel.app"), "https://gozenvio.com");
-  assert.equal(publicShareOrigin("http://localhost:3000"), "http://localhost:3000");
-  assert.equal(publicShareUrl("/book/ada", "https://zenvio-git-share.vercel.app"), "https://gozenvio.com/book/ada");
-  assert.equal(publicShareUrl("https://zenvio-two.vercel.app/p/ada", "https://zenvio-two.vercel.app"), "https://gozenvio.com/p/ada");
-  assert.equal(publicShareUrl("/book/ada", "https://gozenvio.com"), "https://gozenvio.com/book/ada");
-  assert.equal(publicShareUrl("/book/ada", "http://localhost:3000"), "http://localhost:3000/book/ada");
-  assert.equal(publicShareUrl("/book/ada?src=smart-card", "http://localhost:3000"), "http://localhost:3000/book/ada?src=smart-card");
+  const previous = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3100";
+  try {
+    assert.equal(publicShareOrigin("https://zenvio-git-share.vercel.app"), "https://gozenvio.com");
+    assert.equal(publicShareOrigin("https://www.gozenvio.com"), "https://gozenvio.com");
+    assert.equal(publicShareOrigin("https://zenvio-two.vercel.app"), "https://gozenvio.com");
+    assert.equal(publicShareOrigin("http://localhost:3000"), "http://localhost:3000");
+    assert.equal(publicShareUrl("/book/ada", "https://zenvio-git-share.vercel.app"), "https://gozenvio.com/book/ada");
+    assert.equal(publicShareUrl("https://zenvio-two.vercel.app/p/ada", "https://zenvio-two.vercel.app"), "https://gozenvio.com/p/ada");
+    assert.equal(publicShareUrl("/book/ada", "https://gozenvio.com"), "https://gozenvio.com/book/ada");
+    assert.equal(publicShareUrl("/book/ada", "http://localhost:3000"), "http://localhost:3000/book/ada");
+    assert.equal(publicShareUrl("/book/ada?src=smart-card", "http://localhost:3000"), "http://localhost:3000/book/ada?src=smart-card");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previous;
+  }
 });
 
 test("booking share payload names the host and optional event", () => {

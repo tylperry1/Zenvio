@@ -30,15 +30,20 @@ function isAliasHost(hostname: string) {
   );
 }
 
+function canonicalOrLocal(origin: string) {
+  const host = new URL(origin).hostname;
+  if (isLocalHost(host)) return origin;
+  if (isAliasHost(host) || host === "gozenvio.com") return CANONICAL_ORIGIN;
+  return origin;
+}
+
 /** Public booking/profile links always point at production, not a preview host. */
 export function publicShareOrigin(pageOrigin = "") {
   const page = originOf(pageOrigin);
-  if (page && isLocalHost(new URL(page).hostname)) return page;
+  if (page) return canonicalOrLocal(page);
   const configured = originOf(process.env.NEXT_PUBLIC_APP_URL || "");
-  const candidate = configured || page || CANONICAL_ORIGIN;
-  const host = new URL(candidate).hostname;
-  if (isAliasHost(host) || host === "gozenvio.com") return CANONICAL_ORIGIN;
-  return candidate;
+  if (configured) return canonicalOrLocal(configured);
+  return CANONICAL_ORIGIN;
 }
 
 export function publicShareUrl(pathOrUrl: string, pageOrigin = "") {
