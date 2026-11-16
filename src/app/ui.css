@@ -877,6 +877,17 @@
   background: var(--surface-card);
   box-shadow: var(--shadow, 0 8px 24px rgba(21, 27, 56, 0.12));
 }
+.share-menu-url {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 .share-menu a,
 .share-menu button {
   display: flex;

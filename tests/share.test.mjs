@@ -141,6 +141,8 @@ test("workspace and marketing booking surfaces expose Share", () => {
   assert.match(onboarding, /Share link/);
   const shareUi = fs.readFileSync("src/components/share-link.tsx", "utf8");
   assert.match(shareUi, /createPortal/);
+  assert.match(shareUi, /closest\("dialog"\)/);
+  assert.match(shareUi, /share-menu-url/);
   const shareLib = fs.readFileSync("src/lib/share.ts", "utf8");
   assert.match(shareLib, /dialog\[open\]/);
   const icons = fs.readFileSync("src/components/icons.tsx", "utf8");

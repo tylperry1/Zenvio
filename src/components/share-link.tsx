@@ -165,10 +165,21 @@ export function ShareLinkActions({
         <Icon name={copied ? "check" : "link"} size={15} /> {copied ? "Copied" : "Copy"}
       </button>
     );
+  const menuHost =
+    typeof document === "undefined"
+      ? null
+      : trigger.current?.closest("dialog") || document.body;
   const menu =
-    open && typeof document !== "undefined"
+    open && menuHost
       ? createPortal(
           <div ref={menuRef} id={menuId} className="share-menu" style={menuStyle}>
+            <input
+              readOnly
+              className="share-menu-url"
+              value={href || url}
+              aria-label={label}
+              onFocus={(e) => e.currentTarget.select()}
+            />
             <button type="button" onClick={() => void copy()}>
               <Icon name="link" size={15} /> Copy link
             </button>
@@ -179,7 +190,7 @@ export function ShareLinkActions({
               <Icon name="message" size={15} /> Text message
             </a>
           </div>,
-          document.body,
+          menuHost,
         )
       : null;
 
