@@ -1,5 +1,5 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
-import { launchControls } from "@/lib/launch-controls";
+import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
 import { PublicPricing } from "@/components/public-pricing";
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
@@ -8,7 +8,7 @@ import { AccountNotice } from "@/components/account-notice";
 import "./marketing.css";
 
 function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
-  if (controls.signupEnabled && !controls.invitationOnly) {
+  if (publicRegistrationOpen(controls)) {
     return { href: "/sign-up", label: "Create account", short: "Sign up" };
   }
   if (controls.waitlistEnabled) {
@@ -360,6 +360,7 @@ export default async function Home() {
           <PublicPricing
             promotionEnabled={promotionEnabled}
             waitlistEnabled={controls.waitlistEnabled}
+            signupOpen={publicRegistrationOpen(controls)}
             catalog={catalog}
             variant="home"
             joinHref={join.href}

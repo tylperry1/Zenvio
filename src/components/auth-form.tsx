@@ -2,8 +2,96 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
+import type { LaunchControls } from "@/lib/launch-controls";
 
 const REFERRAL_STORAGE_KEY = "zenvio_referral_code";
+
+function PasswordField({
+  name,
+  label,
+  autoComplete,
+  placeholder,
+  minLength,
+}: {
+  name: string;
+  label: string;
+  autoComplete: string;
+  placeholder: string;
+  minLength: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label className="auth-password">
+      {label}
+      <input
+        name={name}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        minLength={minLength}
+        maxLength={128}
+        required
+      />
+      <button
+        type="button"
+        className="auth-password-toggle"
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        onClick={() => setVisible((v) => !v)}
+      >
+        <Icon name={visible ? "eyeOff" : "eye"} size={16} />
+      </button>
+    </label>
+  );
+}
+
+export function SignupUnavailable({
+  invitationOnly,
+  waitlistEnabled,
+  maintenance,
+}: Pick<LaunchControls, "invitationOnly" | "waitlistEnabled" | "maintenance">) {
+  const title = maintenance
+    ? "Registration is temporarily unavailable."
+    : invitationOnly
+      ? "Registration is by invitation right now."
+      : "Public registration is paused.";
+  const detail = maintenance
+    ? "Zenvio is undergoing scheduled maintenance. Existing members can still sign in."
+    : invitationOnly
+      ? "New workspaces open with a team invitation or when public registration is turned on. Existing members can sign in anytime."
+      : "New workspace creation is turned off. Existing members can still sign in, and team invitations still work.";
+  return (
+    <main className="auth-layout auth-layout-register">
+      <section className="auth-main">
+        <Link className="auth-back" href="/">
+          ← Back to Zenvio
+        </Link>
+        <div className="auth-box">
+          <div className="auth-brand">
+            <Link href="/" aria-label="Zenvio home">
+              <Logo />
+            </Link>
+          </div>
+          <p className="eyebrow">WORKSPACE ACCESS</p>
+          <h1>{title}</h1>
+          <p>{detail}</p>
+          <p className="auth-switch">
+            Already have a workspace? <Link href="/sign-in">Sign in</Link>
+          </p>
+          {waitlistEnabled && (
+            <p className="auth-switch">
+              Want a reminder when access opens?{" "}
+              <Link href="/early-access">Join the interest list</Link>
+            </p>
+          )}
+          <p className="legal-note">
+            Have a team invitation? Open the private link from your email. It still works while public signup is off.
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
   const [busy, setBusy] = useState(false),
@@ -12,7 +100,9 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     [recover, setRecover] = useState(false),
     [token, setToken] = useState(""),
     [referralCode, setReferralCode] = useState(""),
-    [accounts, setAccounts] = useState<boolean | null>(null);
+    [accounts, setAccounts] = useState<boolean | null>(null),
+    [signupOpen, setSignupOpen] = useState(false);
+  const registerLayout = mode === "sign-up";
   useEffect(() => {
     if (mode === "reset") {
       const params = new URLSearchParams(window.location.search);
@@ -43,6 +133,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     setError("");
     setMessage("");
     try {
+      if (mode === "sign-up" && String(form.get("password")) !== String(form.get("confirmPassword")))
+        throw new Error("Passwords do not match.");
       const code =
         mode === "sign-up"
           ? String(form.get("referralCode") || referralCode || "").trim()
@@ -90,58 +182,76 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
-      .then((d) => setAccounts(d.accounts === true))
+      .then((d) => {
+        setAccounts(d.accounts === true);
+        setSignupOpen(d.signupOpen === true);
+      })
       .catch(() => setAccounts(false));
   }, []);
   const title = recover
     ? "A fresh start."
     : mode === "sign-up"
-      ? "Create your workspace."
+      ? "Start building a better business with Zenvio."
       : mode === "reset"
         ? "Your new password."
         : "Good to see you again.";
+  const description = recover
+    ? "Enter your email and we’ll send a reset link."
+    : mode === "sign-up"
+      ? "Everything you need to manage appointments, connect with customers, and grow your business—all in one place."
+      : mode === "reset"
+        ? "Choose a password with at least 12 characters."
+        : "Sign in to your workspace and pick up where you left off.";
   return (
-    <main className="auth-layout">
-      <aside className="auth-story">
-        <Link href="/">
-          <Logo light />
-        </Link>
-        <div>
-          <span className="auth-flower">✳</span>
-          <h2>
-            Good things,
-            <br />
-            on the calendar.
-          </h2>
-          <p>Less back-and-forth. More possibility.</p>
-        </div>
-        <small>CLEAR & CONNECTED</small>
-      </aside>
+    <main className={registerLayout ? "auth-layout auth-layout-register" : "auth-layout"}>
+      {!registerLayout && (
+        <aside className="auth-story">
+          <Link href="/">
+            <Logo light />
+          </Link>
+          <div>
+            <span className="auth-flower">✳</span>
+            <h2>
+              Good things,
+              <br />
+              on the calendar.
+            </h2>
+            <p>Less back-and-forth. More possibility.</p>
+          </div>
+          <small>CLEAR & CONNECTED</small>
+        </aside>
+      )}
       <section className="auth-main">
         <Link className="auth-back" href="/">
           ← Back to Zenvio
         </Link>
         <div className="auth-box">
+          {registerLayout && (
+            <div className="auth-brand">
+              <Link href="/" aria-label="Zenvio home">
+                <Logo />
+              </Link>
+            </div>
+          )}
           <p className="eyebrow">
             {mode === "sign-up"
-              ? "A LITTLE MORE POSSIBILITY"
+              ? referralCode
+                ? "PARTNER INVITE"
+                : "CREATE YOUR WORKSPACE"
               : "YOUR TIME, TOGETHER"}
           </p>
           <h1>{title}</h1>
-          <p>
-            {recover
-              ? "Enter your email and we’ll send a reset link."
-              : mode === "sign-up"
-                ? "Create your free workspace. No credit card needed."
-                : mode === "reset"
-                  ? "Choose a password with at least 12 characters."
-                  : "Sign in to your workspace and pick up where you left off."}
-          </p>
+          <p>{description}</p>
           {accounts === false && (
             <p className="notice" role="status">
               Zenvio is getting ready for real accounts. Registration and
               sign-in will open once account services are connected. You can
               explore the complete interactive demo below.
+            </p>
+          )}
+          {mode === "sign-up" && referralCode && (
+            <p id="referral-detected" className="notice" role="status">
+              You’re joining with a partner referral. We’ll credit the business that invited you when this account is created.
             </p>
           )}
           <form onSubmit={submit}>
@@ -160,7 +270,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
             )}
             {mode !== "reset" && (
               <label>
-                Email address
+                Business email
                 <input
                   name="email"
                   type="email"
@@ -172,29 +282,22 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               </label>
             )}
             {!recover && (
-              <label>
-                Password
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete={
-                    mode === "sign-in" ? "current-password" : "new-password"
-                  }
-                  placeholder={
-                    mode === "sign-in"
-                      ? "Your password"
-                      : "At least 12 characters"
-                  }
-                  minLength={mode === "sign-in" ? 1 : 12}
-                  maxLength={128}
-                  required
-                />
-              </label>
+              <PasswordField
+                name="password"
+                label="Password"
+                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                placeholder={mode === "sign-in" ? "Your password" : "At least 12 characters"}
+                minLength={mode === "sign-in" ? 1 : 12}
+              />
             )}
-            {mode === "sign-up" && referralCode && (
-              <p id="referral-detected" className="notice" role="status">
-                Referral code from your invite will be checked when you create your account.
-              </p>
+            {mode === "sign-up" && (
+              <PasswordField
+                name="confirmPassword"
+                label="Confirm password"
+                autoComplete="new-password"
+                placeholder="Re-enter your password"
+                minLength={12}
+              />
             )}
             {mode === "sign-up" && (
               <label>
@@ -204,7 +307,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value)}
                   autoComplete="off"
-                  placeholder="Friend’s code"
+                  placeholder="Friend’s or partner’s code"
                   maxLength={40}
                   aria-describedby={referralCode ? "referral-detected" : undefined}
                 />
@@ -244,7 +347,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
                 : recover
                   ? "Send reset link"
                   : mode === "sign-up"
-                    ? "Create my workspace"
+                    ? "Create account"
                     : mode === "reset"
                       ? "Update password"
                       : "Sign in"}
@@ -275,7 +378,10 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
               </>
             ) : (
               <>
-                New around here? <Link href="/early-access">Join early access</Link>
+                New around here?{" "}
+                <Link href={signupOpen ? "/sign-up" : "/early-access"}>
+                  {signupOpen ? "Create an account" : "Join the interest list"}
+                </Link>
               </>
             )}
           </p>
@@ -297,4 +403,3 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     </main>
   );
 }
-
