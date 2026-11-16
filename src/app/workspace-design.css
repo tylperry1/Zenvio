@@ -154,7 +154,6 @@
   .shell .event-card-footer {flex-wrap:wrap;gap:8px;padding-top:14px}
   .shell .event-card-footer>div {margin-left:auto}
   .shell .event-card-footer button,.shell .event-card-footer a {min-height:44px;display:inline-flex;align-items:center;justify-content:center}
-  .shell .event-card-footer .share-menu {right:auto;left:0}
   .shell .event-card-footer .icon-button {min-width:44px}
   .shell .new-event-card {min-height:150px;padding:20px}
   .shell .workspace-tip {padding:18px;gap:12px;align-items:flex-start;flex-wrap:wrap}

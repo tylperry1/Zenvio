@@ -46,7 +46,8 @@ function copyLegacy(text: string) {
   field.style.position = "fixed";
   field.style.top = "0";
   field.style.left = "-9999px";
-  document.body.append(field);
+  const host = document.querySelector("dialog[open]") || document.body;
+  host.append(field);
   field.select();
   let ok = false;
   try {

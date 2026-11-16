@@ -1,5 +1,8 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+// The app already depends on react-dom; no separate @types/react-dom package is installed.
+// @ts-expect-error react-dom ships with React and exposes createPortal at runtime.
+import { createPortal } from "react-dom";
 import { Icon } from "./icons";
 import {
   canNativeShare,
@@ -18,6 +21,8 @@ export function ShareLinkActions({
   text,
   label,
   variant = "bar",
+  shareLabel = "Share",
+  buttonClass,
   copiedMessage,
   className = "",
   onResult,
@@ -26,16 +31,21 @@ export function ShareLinkActions({
   title: string;
   text?: string;
   label: string;
-  variant?: "bar" | "compact" | "buttons";
+  variant?: "bar" | "compact" | "buttons" | "trigger";
+  shareLabel?: string;
+  buttonClass?: string;
   copiedMessage?: string;
   className?: string;
   onResult?: (result: ShareResult, message: string) => void;
 }) {
   const menuId = useId();
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [href, setHref] = useState("");
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   useEffect(() => {
     try {
       setHref(new URL(url, window.location.origin).href);
@@ -45,19 +55,46 @@ export function ShareLinkActions({
   }, [url]);
   const payload: SharePayload = { url: href || url, title, text };
 
+  function placeMenu() {
+    const box = trigger.current?.getBoundingClientRect();
+    if (!box) return;
+    const width = 196;
+    const left = Math.max(8, Math.min(box.right - width, window.innerWidth - width - 8));
+    const openUp = window.innerHeight - box.bottom < 168 && box.top > 168;
+    setMenuStyle({
+      position: "fixed",
+      left,
+      width,
+      top: openUp ? undefined : box.bottom + 6,
+      bottom: openUp ? window.innerHeight - box.top + 6 : undefined,
+    });
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    placeMenu();
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
+      const node = event.target as Node;
+      if (root.current?.contains(node) || menuRef.current?.contains(node)) return;
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
+    const onMove = () => placeMenu();
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
     };
   }, [open]);
 
@@ -83,44 +120,57 @@ export function ShareLinkActions({
     setOpen(false);
   }
 
+  const shareClass =
+    buttonClass ||
+    (variant === "compact"
+      ? "inline-link"
+      : variant === "buttons"
+        ? "ds-btn sm primary"
+        : variant === "trigger"
+          ? "button primary small"
+          : "ui-btn ui-btn-primary ui-btn-sm");
+  const copyClass =
+    variant === "compact" ? "inline-link" : variant === "buttons" ? "ds-btn sm" : "ui-btn ui-btn-secondary ui-btn-sm";
+
   const shareButton = (
     <button
+      ref={trigger}
       type="button"
-      className={variant === "compact" ? "inline-link" : variant === "buttons" ? "ds-btn sm primary" : "ui-btn ui-btn-primary ui-btn-sm"}
+      className={shareClass}
       aria-haspopup="menu"
       aria-expanded={open}
       aria-controls={menuId}
       disabled={!href}
       onClick={() => void share()}
     >
-      <Icon name="share" size={15} /> Share
+      <Icon name="share" size={15} /> {shareLabel}
     </button>
   );
-  const copyButton = (
-    <button
-      type="button"
-      className={variant === "compact" ? "inline-link" : variant === "buttons" ? "ds-btn sm" : "ui-btn ui-btn-secondary ui-btn-sm"}
-      disabled={!href}
-      onClick={() => void copy()}
-    >
-      <Icon name={copied ? "check" : "link"} size={15} /> {copied ? "Copied" : "Copy"}
-    </button>
-  );
-  const menu = open ? (
-    <div id={menuId} role="menu" className="share-menu">
-      <button type="button" role="menuitem" onClick={() => void copy()}>
-        <Icon name="link" size={15} /> Copy link
+  const copyButton =
+    variant === "trigger" ? null : (
+      <button type="button" className={copyClass} disabled={!href} onClick={() => void copy()}>
+        <Icon name={copied ? "check" : "link"} size={15} /> {copied ? "Copied" : "Copy"}
       </button>
-      <a role="menuitem" href={emailShareHref(payload)} onClick={() => setOpen(false)}>
-        <Icon name="mail" size={15} /> Email
-      </a>
-      <a role="menuitem" href={smsShareHref(payload)} onClick={() => setOpen(false)}>
-        <Icon name="message" size={15} /> Text message
-      </a>
-    </div>
-  ) : null;
+    );
+  const menu =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <div ref={menuRef} id={menuId} role="menu" className="share-menu" style={menuStyle}>
+            <button type="button" role="menuitem" onClick={() => void copy()}>
+              <Icon name="link" size={15} /> Copy link
+            </button>
+            <a role="menuitem" href={emailShareHref(payload)} onClick={() => setOpen(false)}>
+              <Icon name="mail" size={15} /> Email
+            </a>
+            <a role="menuitem" href={smsShareHref(payload)} onClick={() => setOpen(false)}>
+              <Icon name="message" size={15} /> Text message
+            </a>
+          </div>,
+          document.body,
+        )
+      : null;
 
-  if (variant === "compact" || variant === "buttons") {
+  if (variant !== "bar") {
     return (
       <div ref={root} className={`share-actions share-actions-${variant} ${className}`.trim()}>
         {shareButton}
@@ -147,4 +197,3 @@ export function ShareLinkActions({
     </div>
   );
 }
-

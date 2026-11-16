@@ -7,7 +7,6 @@ import { IntakeAnswers } from "./intake-answers";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { ShareLinkActions } from "./share-link";
-import { bookingSharePayload, shareOrCopy, shareResultMessage } from "@/lib/share";
 import { CreateAppointment } from "./create-appointment";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -200,13 +199,20 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   function linkFor(event: EventType) {
     return `/book/${data!.profile.slug}/${event.slug}`;
   }
-  function profileUrl() {
-    return `${window.location.origin}/book/${data!.profile.slug}`;
-  }
-  async function shareProfileLink() {
-    const result = await shareOrCopy(bookingSharePayload(profileUrl(), data!.profile.name));
-    const message = shareResultMessage(result, "Booking page link copied. Share it anywhere.");
-    if (message) toast(message, result === "unavailable");
+  function sharePageControl(shareLabel: string, buttonClass: string) {
+    return (
+      <ShareLinkActions
+        variant="trigger"
+        shareLabel={shareLabel}
+        buttonClass={buttonClass}
+        url={`/book/${data!.profile.slug}`}
+        label="Public booking page link"
+        title={data!.profile.name}
+        text={`Book a time with ${data!.profile.name}`}
+        copiedMessage="Booking page link copied. Share it anywhere."
+        onResult={(_, message) => toast(message, message.startsWith("Couldn’t"))}
+      />
+    );
   }
   async function saveSlug(slug: string) {
     const p = data!.profile;
@@ -524,13 +530,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <>
                 {view === "Overview" && (
                   <>
-                    <button
-                      className="button primary small"
-                      type="button"
-                      onClick={() => void shareProfileLink()}
-                    >
-                      <Icon name="share" size={16} /> Share booking page
-                    </button>
+                    {sharePageControl("Share booking page", "button primary small")}
                     <Link
                       className="button secondary small"
                       href={`/book/${data.profile.slug}`}
@@ -541,15 +541,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     </Link>
                   </>
                 )}
-                {view === "Event types" && (
-                  <button
-                    className="button secondary small"
-                    type="button"
-                    onClick={() => void shareProfileLink()}
-                  >
-                    <Icon name="share" size={16} /> Share page
-                  </button>
-                )}
+                {view === "Event types" && sharePageControl("Share page", "button secondary small")}
                 {["Overview", "Event types"].includes(view) ? (
                   <button
                     className={view === "Overview" ? "button secondary small" : "button primary small"}
@@ -595,7 +587,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 demo={demo}
                 base={demo ? "/demo" : "/app"}
                 onChooseLink={linkPrompt.show}
-                onCopyLink={() => void shareProfileLink()}
+                onCopyLink={sharePageControl("Share link", "button secondary small")}
               />
               <div className="stats-grid">
                 {[

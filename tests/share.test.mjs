@@ -92,6 +92,27 @@ test("copy is the fallback when share is missing or fails", async () => {
   assert.equal(await shareOrCopy({ url: "https://gozenvio.com/book/ada" }, failingShare), "copied");
 });
 
+test("legacy copy prefers an open dialog so modal share still works", async () => {
+  const appended = [];
+  const dialog = { append(node) { appended.push(["dialog", node]); }, querySelector() { return null; } };
+  const body = { append(node) { appended.push(["body", node]); } };
+  globalThis.document = {
+    createElement: () => ({
+      value: "",
+      style: {},
+      setAttribute() {},
+      select() {},
+      remove() {},
+    }),
+    querySelector: (sel) => (sel === "dialog[open]" ? dialog : null),
+    execCommand: () => true,
+    body,
+  };
+  assert.equal(await copyText("https://gozenvio.com/book/ada", {}), true);
+  assert.equal(appended[0][0], "dialog");
+  delete globalThis.document;
+});
+
 test("unavailable copy reports a recovery message", async () => {
   const nav = {
     clipboard: {
@@ -115,8 +136,13 @@ test("workspace and marketing booking surfaces expose Share", () => {
   assert.match(workspace, /Share booking page/);
   assert.match(marketing, /ShareLinkActions/);
   assert.match(cards, /ShareLinkActions/);
-  assert.match(studio, /shareOrCopy/);
+  assert.match(studio, /ShareLinkActions/);
+  assert.match(studio, /kind==='smart'/);
   assert.match(onboarding, /Share link/);
+  const shareUi = fs.readFileSync("src/components/share-link.tsx", "utf8");
+  assert.match(shareUi, /createPortal/);
+  const shareLib = fs.readFileSync("src/lib/share.ts", "utf8");
+  assert.match(shareLib, /dialog\[open\]/);
   const icons = fs.readFileSync("src/components/icons.tsx", "utf8");
   assert.match(icons, /share:/);
 });
