@@ -190,7 +190,7 @@ function BusinessIdentityEditor({
           </label>
           <label>
             Timezone
-            <TimezoneSelect name="timezone" value={zone} onChange={setZone} businessZone={profile.timezone} />
+            <TimezoneSelect name="timezone" value={zone} onChange={setZone} businessZone={profile.timezone} initialAutomatic={false} />
           </label>
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : "Save business information"}
