@@ -61,6 +61,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      if (mode === "sign-up") {
+        try {
+          sessionStorage.removeItem(REFERRAL_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
       if (data.message) setMessage(data.message);
       else {
         const params=new URLSearchParams(window.location.search);
