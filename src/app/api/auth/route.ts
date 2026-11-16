@@ -44,6 +44,10 @@ export async function POST(request: NextRequest) {
             resultHeaders.append("Set-Cookie", cookie);
         if (!response.ok)
             return Response.json({ error: data.message || "Unable to complete this request." }, { status: response.status, headers: resultHeaders });
+        if (input.action === "sign-up" && data.user?.id && input.referralCode) {
+            const { tryRedeemReferralOnSignup } = await import("@/lib/referrals");
+            await tryRedeemReferralOnSignup(String(data.user.id), input.referralCode);
+        }
         if (input.action === "recover")
             return Response.json({ message: "If an account exists, a password reset email is on its way." }, { headers: resultHeaders });
         if (input.action === "reset")
