@@ -19,8 +19,9 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/billing-types";
+import { formatAllowance } from "@/lib/allowance-display";
 type Data = { catalog?:import("@/lib/billing-catalog").BillingCatalog; meteredUsage?: {catalogVersion:string;enforced:boolean;period:string;meters:{meter:string;included:number;used:number;remaining:number;purchasedRemaining:number}[]}; subscription: Subscription; plans: Plan[]; connected: boolean; checkoutEnabled: boolean; usage: { plan: string; seats: number; unlimitedSeats?: boolean; platformIncluded?: boolean; shared: unknown[]; canManageTeamBilling: boolean; envelope: EnvelopeBudget } };
-const allowanceValue=(meter:string,value:number)=>meter==="storageBytes" ? value>=1024**3 ? `${(value/1024**3).toLocaleString(undefined,{maximumFractionDigits:1})} GB` : `${(value/1024**2).toLocaleString(undefined,{maximumFractionDigits:1})} MB` : value.toLocaleString();
+const allowanceValue=(meter:string,value:number)=>formatAllowance(value,{meter});
 export function Billing() {
   const [tab,setTab]=useState<"overview"|"plans"|"usage"|"invoices">("overview");
   const [data, setData] = useState<Data | null>(null),
