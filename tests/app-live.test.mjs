@@ -37,6 +37,7 @@ test("open envelope refreshes on live change without wiping draft fields", () =>
   const source = read("src/components/envelopes.tsx");
   assert.match(source, /keepDraftFields = detail\.envelope\.status === "draft"/);
   assert.match(source, /if \(!keepDraftFields\) setFields/);
+  assert.match(source, /freshLiveDetail\(\);\s*const still = freshDetail\(\)/);
 });
 
 test("live refreshes ignore superseded responses and keep loaded pages on failure", () => {
@@ -45,6 +46,7 @@ test("live refreshes ignore superseded responses and keep loaded pages on failur
   const jobs = read("src/components/jobs-center.tsx");
   assert.match(support, /export function useFreshRequest/);
   assert.match(workspace, /if \(dataRef\.current\)/);
+  assert.match(workspace, /dataStamp\.current >= remoteStamp\.current/);
   assert.match(jobs, /if \(hasDetail\.current\) notify/);
 });
 
