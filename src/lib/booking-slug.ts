@@ -17,3 +17,19 @@ export async function resolveBookingSlug(host: string): Promise<string | null> {
     return slug;
   }
 }
+
+/** Keep attribution and payment return params when redirecting a legacy host. */
+export function bookingQueryString(
+  searchParams: Record<string, string | string[] | undefined>,
+): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) query.append(key, item);
+    } else if (value != null && value !== "") {
+      query.set(key, value);
+    }
+  }
+  const serialized = query.toString();
+  return serialized ? `?${serialized}` : "";
+}
