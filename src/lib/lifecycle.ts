@@ -12,9 +12,9 @@ import {
 } from "./platform-settings";
 import { ApiError } from "./server";
 import { createHash } from "node:crypto";
-import { platformOrigin } from "./transactional-email";
-/** Canonical public origin for email/portal links. Prefer HTTPS production host. */
-export const appOrigin = () => platformOrigin();
+import { resolveAppOrigin } from "./transactional-email";
+/** Canonical public origin for portal/Stripe/lifecycle links. Preserves local CI loopback. */
+export const appOrigin = () => resolveAppOrigin();
 export async function queueDelivery(
   db: PoolClient,
   input: {

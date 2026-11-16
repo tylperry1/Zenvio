@@ -19,7 +19,9 @@ test('legacy teams plan id maps to team catalog allowances',async()=>{
   const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});
   const usage=await service.subscriptionUsage('owner',db);
   const ai=usage.meters.find(m=>m.meter==='aiCredits');
+  const storage=usage.meters.find(m=>m.meter==='storageBytes');
   assert.equal(ai.included,450);
+  assert.equal(storage.included,10_000_000_000);
   assert.equal(await service.reserveSubscriptionUnits(db,'staff','aiCredits',1,'legacy-teams'),'reservation');
   assert.equal(writes.length,1);
 });

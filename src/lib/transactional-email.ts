@@ -25,6 +25,25 @@ export type EmailOptions = {
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const URL_PATTERN = /https:\/\/[^\s<>"']+/g;
 
+function isLoopbackHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+/**
+ * Public app origin for portal/Stripe return URLs and lifecycle links.
+ * Keeps explicitly configured loopback HTTP (CI/local), otherwise HTTPS only.
+ */
+export function resolveAppOrigin() {
+  const configured = process.env.NEXT_PUBLIC_APP_URL || "";
+  try {
+    const url = new URL(configured);
+    if (url.protocol === "https:") return url.origin;
+    if (url.protocol === "http:" && isLoopbackHost(url.hostname)) return url.origin;
+  } catch {}
+  return "https://gozenvio.com";
+}
+
+/** HTTPS origin for branded email CTAs. Loopback is never used in outbound mail buttons. */
 export function platformOrigin() {
   const configured = process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com";
   try {

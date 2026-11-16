@@ -34,3 +34,29 @@ test("platformOrigin rejects non-https defaults and prefers gozenvio.com", () =>
     else process.env.NEXT_PUBLIC_APP_URL = previous;
   }
 });
+
+test("resolveAppOrigin preserves configured loopback HTTP for CI and local returns", () => {
+  const previous = process.env.NEXT_PUBLIC_APP_URL;
+  try {
+    const email = load("src/lib/transactional-email.ts");
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    assert.equal(email.resolveAppOrigin(), "https://gozenvio.com");
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3100";
+    assert.equal(email.resolveAppOrigin(), "http://localhost:3100");
+    process.env.NEXT_PUBLIC_APP_URL = "http://127.0.0.1:3100";
+    assert.equal(email.resolveAppOrigin(), "http://127.0.0.1:3100");
+    process.env.NEXT_PUBLIC_APP_URL = "http://example.com";
+    assert.equal(email.resolveAppOrigin(), "https://gozenvio.com");
+    process.env.NEXT_PUBLIC_APP_URL = "https://staging.example.com";
+    assert.equal(email.resolveAppOrigin(), "https://staging.example.com");
+  } finally {
+    if (previous == null) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previous;
+  }
+});
+
+test("storage guard migration maps legacy teams plan to team allowances", () => {
+  const sql = fs.readFileSync("postgres/migrations/077_legacy_teams_storage_allowance.sql", "utf8");
+  assert.match(sql, /plan_id := CASE WHEN plan_id = 'teams' THEN 'team' ELSE plan_id END/);
+  assert.match(sql, /WHEN 'team' THEN 10000000000/);
+});
