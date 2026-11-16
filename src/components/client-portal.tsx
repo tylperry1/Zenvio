@@ -103,6 +103,30 @@ export function ClientPortal({ token }: { token: string }) {
               <p>{data.host.name}</p>
               <h1>Hi {data.client.name.split(" ")[0]}</h1>
               <span>Your appointments, messages, documents and payments with {data.host.name}, in one place.</span>
+              <div className="portal-hero-actions">
+                {openPayments > 0 ? (
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => setTab("payments")}>
+                    Pay outstanding balance
+                  </button>
+                ) : openEstimates > 0 ? (
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => setTab("estimates")}>
+                    Review pending estimate
+                  </button>
+                ) : upcoming.length > 0 ? (
+                  <button type="button" className="ui-btn ui-btn-primary" onClick={() => setTab("appointments")}>
+                    View upcoming appointment
+                  </button>
+                ) : data.host.slug ? (
+                  <Link className="ui-btn ui-btn-primary" href={`/book/${data.host.slug}`}>
+                    Book an appointment
+                  </Link>
+                ) : null}
+                {pendingDocs > 0 && (
+                  <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setTab("documents")}>
+                    Documents to sign
+                  </button>
+                )}
+              </div>
               <div className="portal-stats">
                 <div>
                   <b>{upcoming.length}</b>

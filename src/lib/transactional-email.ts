@@ -13,6 +13,13 @@ export type EmailOptions = {
   preheader?: string;
   /** Optional details table, e.g. order lines. Values are plain text. */
   rows?: [string, string][];
+  /** Tenant brand for customer-facing mail. Platform/security mail should omit this. */
+  brand?: {
+    name?: string;
+    accent?: string;
+    logoUrl?: string;
+    footerNote?: string;
+  };
 };
 
 const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -73,15 +80,29 @@ function linkify(line: string, origin: string) {
   return out + escape(line.slice(last));
 }
 
-function button(url: string, label: string) {
+function safeAccent(value?: string) {
+  return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#365cff";
+}
+
+function button(url: string, label: string, accent = "#365cff") {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 28px"><tr>
-<td align="center" bgcolor="#365cff" style="border-radius:10px">
+<td align="center" bgcolor="${escape(accent)}" style="border-radius:10px">
 <a href="${escape(url)}" target="_blank" style="display:inline-block;padding:14px 26px;font-family:${font};font-size:16px;font-weight:600;line-height:20px;color:#ffffff;text-decoration:none;border-radius:10px">${escape(label)}</a>
 </td></tr></table>`;
 }
 
 export function transactionalEmail(subject: string, text: string, options: EmailOptions = {}) {
   const origin = platformOrigin();
+  const accent = safeAccent(options.brand?.accent);
+  const brandName = (options.brand?.name || "").trim().slice(0, 80);
+  const logoUrl = options.brand?.logoUrl && (() => {
+    try {
+      const u = new URL(options.brand!.logoUrl!);
+      return u.protocol === "https:" ? u.toString() : "";
+    } catch {
+      return "";
+    }
+  })();
   const sameOrigin = (url: string) => {
     try {
       const u = new URL(url);
@@ -110,12 +131,12 @@ export function transactionalEmail(subject: string, text: string, options: Email
           ls.length && ls.some((l) => l.trim())
             ? `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#2b3350">${ls.map((l) => linkify(l, origin)).join("<br>")}</p>`
             : "";
-        return p(before) + button(actionUrl!, label) + p(after);
+        return p(before) + button(actionUrl!, label, accent) + p(after);
       }
       return `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#2b3350">${lines.map((l) => linkify(l, origin)).join("<br>")}</p>`;
     })
     .join("");
-  const cta = actionUrl && !placed ? button(actionUrl, label) : "";
+  const cta = actionUrl && !placed ? button(actionUrl, label, accent) : "";
   const rows = options.rows?.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 24px;border-top:1px solid #e6e9f2">${options.rows
         .map(
@@ -126,8 +147,18 @@ export function transactionalEmail(subject: string, text: string, options: Email
     : "";
   const preheader = (options.preheader || text.split(/\n\s*\n/)[0].replace(URL_PATTERN, "").replace(/\s+/g, " ").trim()).slice(0, 140);
   const fallback = actionUrl
-    ? `<p style="margin:0;font-size:13px;line-height:1.6;color:#687390">Button not working? Copy this link into your browser:<br><a href="${escape(actionUrl)}" style="color:#365cff;word-break:break-all">${escape(actionUrl)}</a></p>`
+    ? `<p style="margin:0;font-size:13px;line-height:1.6;color:#687390">Button not working? Copy this link into your browser:<br><a href="${escape(actionUrl)}" style="color:${escape(accent)};word-break:break-all">${escape(actionUrl)}</a></p>`
     : "";
+  const header = logoUrl
+    ? `<a href="${origin}" style="text-decoration:none"><img src="${escape(logoUrl)}" alt="${escape(brandName || "Zenvio")}" height="28" style="display:block;border:0;height:28px;width:auto;max-width:180px"></a>`
+    : brandName
+      ? `<span style="font-family:${font};font-size:20px;font-weight:800;letter-spacing:-0.02em;color:#151b38">${escape(brandName)}</span><div style="margin-top:4px;font-size:12px;color:#687390">Powered by Zenvio</div>`
+      : `<a href="${origin}" style="text-decoration:none;font-family:${font};font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#151b38">zenvio</a>`;
+  const footerNote = options.brand?.footerNote
+    ? escape(options.brand.footerNote)
+    : brandName
+      ? `This message was sent on behalf of ${escape(brandName)} using Zenvio.`
+      : "This is a service email from Zenvio about activity on your account or a booking.";
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escape(subject)}</title></head>
@@ -135,13 +166,13 @@ export function transactionalEmail(subject: string, text: string, options: Email
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escape(preheader)}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5fa"><tr><td align="center" style="padding:32px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
-<tr><td style="padding:0 4px 18px"><a href="${origin}" style="text-decoration:none;font-family:${font};font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#151b38">zenvio</a></td></tr>
-<tr><td style="background:#ffffff;border:1px solid #e3e7f0;border-radius:16px;padding:36px 36px 28px">
+<tr><td style="padding:0 4px 18px">${header}</td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e3e7f0;border-radius:16px;padding:36px 36px 28px;border-top:4px solid ${escape(accent)}">
 <h1 style="margin:0 0 22px;font-family:${font};font-size:24px;line-height:1.3;font-weight:700;letter-spacing:-0.01em;color:#151b38">${escape(subject)}</h1>
 ${blocks}${rows}${cta}${fallback}
 </td></tr>
 <tr><td style="padding:24px 8px 0;font-family:${font};font-size:12px;line-height:1.7;color:#687390;text-align:center">
-This is a service email from Zenvio about activity on your account or a booking.<br>
+${footerNote}<br>
 <a href="${origin}/help" style="color:#4a5571;text-decoration:underline">Help Center</a> &nbsp;·&nbsp; <a href="${origin}/privacy" style="color:#4a5571;text-decoration:underline">Privacy</a> &nbsp;·&nbsp; <a href="${origin}/terms" style="color:#4a5571;text-decoration:underline">Terms</a><br>
 © ${new Date().getFullYear()} Zenvio · Clear &amp; Connected
 </td></tr></table></td></tr></table></body></html>`;

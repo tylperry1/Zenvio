@@ -1,7 +1,6 @@
 "use client";
 import { SupportLauncher } from "./platform-support";
 import { InstallPrompt } from "./pwa";
-import { GrowthNavigation } from "./growth-navigation";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
@@ -39,7 +38,6 @@ const groups: NavGroup[] = [
     label: "Scheduling",
     items: [
       { id: "calendar", label: "Calendar", icon: "calendar", href: "/app/calendar" },
-      { id: "bookings", label: "Bookings", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
       { id: "event-types", label: "Booking links", icon: "link", href: "/app?view=event-types", view: "event-types", demo: true },
       { id: "availability", label: "Availability", icon: "spark", href: "/app?view=availability", view: "availability", demo: true },
     ],
@@ -56,12 +54,15 @@ const groups: NavGroup[] = [
   {
     label: "Business",
     items: [
-      { id: "automation", label: "Reminders & workflows", icon: "bell", href: "/app/automation" },
-      { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
-      { id: "growth", label: "Offers & classes", icon: "bag", href: "/app/growth" },
       { id: "growth-suite", label: "Growth", icon: "spark", href: "/app/growth/overview" },
+      { id: "business-profile", label: "Business Profile", icon: "grid", href: "/app/business-profile" },
+      { id: "bookings", label: "Appointments", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
+      { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
+      { id: "growth", label: "Offers & Classes", icon: "bag", href: "/app/growth" },
+      { id: "automation", label: "Automations", icon: "bell", href: "/app/automation" },
       { id: "team", label: "Team", icon: "team", href: "/app/team" },
       { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
+      { id: "notifications", label: "Notifications", icon: "bell", href: "/app/notifications" },
     ],
   },
   {
@@ -91,6 +92,8 @@ function activeItem(pathname: string, view: string | null, demo: boolean) {
       all[0]
     );
   if (pathname.startsWith("/app/marketing") || pathname.startsWith("/app/smart-cards") || pathname.startsWith("/app/growth/overview")) return all.find(i => i.id === "growth-suite");
+  if (pathname.startsWith("/app/business-profile")) return all.find((i) => i.id === "business-profile");
+  if (pathname.startsWith("/app/notifications")) return all.find((i) => i.id === "notifications");
   if (pathname.startsWith("/marketplace"))
     return all.find((i) => i.id === "marketplace");
   return all
@@ -153,16 +156,17 @@ function Navigation({
         const items = group.items.filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace));
         if (!items.length) return null;
         const links = items.map((item) => (
-          <div key={item.id}><Link
+          <Link
             key={item.id}
             href={hrefFor(item, demo)}
             className={current?.id === item.id ? "active" : ""}
             aria-current={current?.id === item.id ? "page" : undefined}
+            title={item.label}
             onClick={onNavigate}
           >
             <Icon name={item.icon} size={18} />
             <span>{item.label}</span>
-          </Link>{item.id === "growth-suite" && <div className="shell-growth-links"><GrowthNavigation/></div>}</div>
+          </Link>
         ));
         if (!group.label) return <div className="shell-nav-group" key="home">{links}</div>;
         return (

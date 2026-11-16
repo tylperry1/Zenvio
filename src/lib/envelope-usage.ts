@@ -4,6 +4,7 @@ import { ApiError } from "./server";
 import { planLimits, type Plan } from "./entitlement-policy";
 import { stripeClient } from "./billing";
 import { billingReadiness } from "./billing-readiness";
+import { isUnlimitedQuantity, UNLIMITED_SEATS_SENTINEL } from "./allowance-display";
 
 type DB = Pick<PoolClient, "query">;
 // A send belongs permanently to one billing owner, even if the sender later leaves.
@@ -13,13 +14,49 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const row = (await db.query(`SELECT private.effective_plan($1) plan,s.plan subscription_plan,s.status,s.customer_id,s.subscription_id,s.envelope_allowance,s.catalog_version,coalesce(s.seats,1) seats,coalesce(o.enabled,false) enabled,coalesce(o.monthly_cap_cents,0) cap FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.envelope_overage_settings o ON o.user_id=u.id WHERE u.id=$1`, [owner])).rows[0];
   const plan = (row?.plan || "free") as Plan;
   const perSeat = ["individual", "team"].includes(plan) ? row?.envelope_allowance ?? 20 : (planLimits[plan] || planLimits.free).envelopes;
-  const seats = roots[0]?.seats || 1;
+  const rawSeats = roots[0]?.seats || 1;
+  const unlimitedSeats = isUnlimitedQuantity(rawSeats);
+  // Never multiply catalog allowances by the unlimited-seat sentinel (int4 max).
+  const seats = unlimitedSeats ? 1 : rawSeats;
   const used = (await db.query(`SELECT count(*)::int sent,coalesce(sum(charge_cents),0)::int spent FROM private.envelope_usage WHERE billing_owner=$1 AND sent_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [owner])).rows[0];
   const eligible = ["individual", "team"].includes(row?.subscription_plan) && row?.status === "active" && Boolean(row?.customer_id && row?.subscription_id);
-  const purchased=Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining",[owner])).rows[0]?.remaining||0);
-  return { purchasedRemaining:Math.max(0,purchased), creditDebt:purchased<0, catalogVersion: row?.catalog_version || "legacy", pooled: (row?.catalog_version === "2026-11-v3" || row?.catalog_version?.startsWith("release-")), owner, canManage: owner === user, plan, perSeat, seats, included: (row?.catalog_version === "2026-11-v3" || row?.catalog_version?.startsWith("release-")) && ["individual","team"].includes(plan) ? (row?.catalog_version==="2026-11-v3" ? (plan==="team"?30:10) : row?.envelope_allowance ?? (plan==="team"?30:10)) : perSeat * seats, sent: used?.sent || 0, spent: used?.spent || 0, enabled: Boolean(row?.enabled), cap: row?.cap || 0, eligible, customer: row?.customer_id, subscription: row?.subscription_id };
+  const purchased = Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining", [owner])).rows[0]?.remaining || 0);
+  const pooledCatalog = row?.catalog_version === "2026-11-v3" || Boolean(row?.catalog_version?.startsWith("release-"));
+  // Platform/unlimited seats keep an unlimited included pool for enforcement.
+  // Display layers format the sentinel as "Unlimited"; never multiply per-seat by int4 max.
+  const included =
+    unlimitedSeats
+      ? UNLIMITED_SEATS_SENTINEL
+      : pooledCatalog && ["individual", "team"].includes(plan)
+        ? row?.catalog_version === "2026-11-v3"
+          ? plan === "team"
+            ? 30
+            : 10
+          : (row?.envelope_allowance ?? (plan === "team" ? 30 : 10))
+        : perSeat * seats;
+  return {
+    purchasedRemaining: Math.max(0, purchased),
+    creditDebt: purchased < 0,
+    catalogVersion: row?.catalog_version || "legacy",
+    pooled: pooledCatalog,
+    owner,
+    canManage: owner === user,
+    plan,
+    perSeat,
+    seats: unlimitedSeats ? UNLIMITED_SEATS_SENTINEL : seats,
+    unlimitedSeats,
+    included,
+    sent: used?.sent || 0,
+    spent: used?.spent || 0,
+    enabled: Boolean(row?.enabled),
+    cap: row?.cap || 0,
+    eligible,
+    customer: row?.customer_id,
+    subscription: row?.subscription_id,
+  };
 }
-export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number }) {
+export function envelopeCharge(budget: { sent: number; included: number; enabled: boolean; eligible: boolean; spent: number; cap: number; unlimitedSeats?: boolean }) {
+  if (budget.unlimitedSeats || isUnlimitedQuantity(budget.included)) return 0;
   if (budget.sent < budget.included) return 0;
   if (!budget.enabled || !budget.eligible) throw new ApiError("Included signing allowance reached. The billing owner can enable $1 envelope overages in Plan & billing.", 409);
   if (budget.spent + 100 > budget.cap) throw new ApiError("Monthly envelope spending limit reached. Ask the billing owner to review Plan & billing.", 409);
@@ -34,14 +71,14 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
   if (current.owner !== budget.owner) throw new ApiError("Team membership changed. Please retry.", 409);
   budget = current;
   if ((await db.query("SELECT 1 FROM private.envelope_usage WHERE source_kind=$1 AND source_id=$2", [kind, id])).rowCount) return;
-  let purchased=false;
-  if((budget.catalogVersion==='2026-11-v3'||budget.catalogVersion.startsWith('release-'))&&budget.sent>=budget.included&&['individual','team'].includes(budget.plan)){
-    await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",['subscription-usage:'+budget.owner]);
-    const current=await envelopeBudget(user,db);
-    if(current.creditDebt)throw new ApiError("Refunded signing credits require billing review before additional sends.",409);
-    if(current.purchasedRemaining>0){
-      await db.query("insert into private.subscription_usage_reservations(billing_owner,user_id,meter,period,reference,reserved,consumed,state,included_quantity,purchased_quantity,settled_at) values($1,$2,'envelopes',date_trunc('month',now() at time zone 'UTC')::date,$3,1,1,'settled',0,1,now())",[budget.owner,user,'envelope:'+kind+':'+id]);
-      purchased=true;
+  let purchased = false;
+  if (!budget.unlimitedSeats && (budget.catalogVersion === "2026-11-v3" || budget.catalogVersion.startsWith("release-")) && budget.sent >= budget.included && ["individual", "team"].includes(budget.plan)) {
+    await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["subscription-usage:" + budget.owner]);
+    const latest = await envelopeBudget(user, db);
+    if (latest.creditDebt) throw new ApiError("Refunded signing credits require billing review before additional sends.", 409);
+    if (latest.purchasedRemaining > 0) {
+      await db.query("insert into private.subscription_usage_reservations(billing_owner,user_id,meter,period,reference,reserved,consumed,state,included_quantity,purchased_quantity,settled_at) values($1,$2,'envelopes',date_trunc('month',now() at time zone 'UTC')::date,$3,1,1,'settled',0,1,now())", [budget.owner, user, "envelope:" + kind + ":" + id]);
+      purchased = true;
     }
   }
   const charge = purchased ? 0 : envelopeCharge(budget);
@@ -49,8 +86,8 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
   if (charge) {
     const stripe = await stripeClient();
     const outstanding = await stripe.invoices.list({ customer: budget.customer, status: "open", limit: 100 });
-    if (outstanding.has_more || outstanding.data.some(invoice => invoice.amount_remaining > 0 && invoice.attempted))
-      throw new ApiError("Review outstanding invoices in Plan & billing before sending additional envelopes.",409);
+    if (outstanding.has_more || outstanding.data.some((invoice) => invoice.amount_remaining > 0 && invoice.attempted))
+      throw new ApiError("Review outstanding invoices in Plan & billing before sending additional envelopes.", 409);
   }
-  await db.query("INSERT INTO private.envelope_usage(source_kind,source_id,user_id,billing_owner,charge_cents,customer_id,subscription_id) VALUES($1,$2,$3,$4,$5,$6,$7)", [kind,id,user,budget.owner,charge,charge ? budget.customer : null,charge ? budget.subscription : null]);
+  await db.query("INSERT INTO private.envelope_usage(source_kind,source_id,user_id,billing_owner,charge_cents,customer_id,subscription_id) VALUES($1,$2,$3,$4,$5,$6,$7)", [kind, id, user, budget.owner, charge, charge ? budget.customer : null, charge ? budget.subscription : null]);
 }
