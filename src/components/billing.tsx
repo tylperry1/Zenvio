@@ -204,6 +204,12 @@ export function Billing() {
                 )}
               </section>}
               {tab === "overview" && <div className="billing-next-actions"><button className="ui-btn ui-btn-primary" onClick={()=>setTab("plans")}>Compare plans</button><button className="ui-btn ui-btn-secondary" onClick={()=>setTab("usage")}>View usage & credits</button><button className="ui-btn ui-btn-secondary" onClick={()=>setTab("invoices")}>Invoice history</button></div>}
+              {tab === "overview" && !managedByTeam && (
+                <p className="billing-note">
+                  Earn extra AI credits and signing envelopes by inviting another business.{" "}
+                  <Link href="/app/referrals">Open referrals</Link>
+                </p>
+              )}
               {tab === "plans" && managedByTeam && <p className="billing-note">Your team owner manages your plan. Your seat is included in the team subscription.</p>}
             </>
           )
