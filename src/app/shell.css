@@ -234,6 +234,9 @@ body {
   order: 0;
   flex: 0 0 auto;
 }
+@media (max-width: 1023px) {
+  .shell-topbar .sp-live-controls { display: none; }
+}
 .shell-account {
   position: relative;
 }
