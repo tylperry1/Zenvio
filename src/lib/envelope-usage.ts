@@ -72,7 +72,8 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
   budget = current;
   if ((await db.query("SELECT 1 FROM private.envelope_usage WHERE source_kind=$1 AND source_id=$2", [kind, id])).rowCount) return;
   let purchased = false;
-  if (!budget.unlimitedSeats && (budget.catalogVersion === "2026-11-v3" || budget.catalogVersion.startsWith("release-")) && budget.sent >= budget.included && ["individual", "team"].includes(budget.plan)) {
+  // Spend prepaid envelope credits (purchases or referral rewards) for any plan once the included pool is exhausted.
+  if (!budget.unlimitedSeats && budget.sent >= budget.included) {
     await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["subscription-usage:" + budget.owner]);
     const latest = await envelopeBudget(user, db);
     if (latest.creditDebt) throw new ApiError("Refunded signing credits require billing review before additional sends.", 409);

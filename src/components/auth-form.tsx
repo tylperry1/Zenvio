@@ -2,18 +2,38 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
+
+const REFERRAL_STORAGE_KEY = "zenvio_referral_code";
+
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [recover, setRecover] = useState(false),
     [token, setToken] = useState(""),
+    [referralCode, setReferralCode] = useState(""),
     [accounts, setAccounts] = useState<boolean | null>(null);
   useEffect(() => {
     if (mode === "reset") {
       const params = new URLSearchParams(window.location.search);
       setToken(params.get("token") || "");
       window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [mode]);
+  useEffect(() => {
+    if (mode !== "sign-up") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = (params.get("ref") || params.get("referral") || "").trim();
+    if (fromQuery) setReferralCode(fromQuery);
+    try {
+      if (fromQuery) {
+        sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromQuery);
+        return;
+      }
+      const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "";
+      if (stored) setReferralCode(stored);
+    } catch {
+      /* persistence is optional; query attribution still applies above */
     }
   }, [mode]);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -23,6 +43,10 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
     setError("");
     setMessage("");
     try {
+      const code =
+        mode === "sign-up"
+          ? String(form.get("referralCode") || referralCode || "").trim()
+          : "";
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,10 +56,18 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
           password: form.get("password"),
           name: form.get("name"),
           token,
+          ...(code ? { referralCode: code } : {}),
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      if (mode === "sign-up") {
+        try {
+          sessionStorage.removeItem(REFERRAL_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
       if (data.message) setMessage(data.message);
       else {
         const params=new URLSearchParams(window.location.search);
@@ -156,6 +188,19 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" | "reset" }) {
                   minLength={mode === "sign-in" ? 1 : 12}
                   maxLength={128}
                   required
+                />
+              </label>
+            )}
+            {mode === "sign-up" && (
+              <label>
+                Referral code <span className="muted">(optional)</span>
+                <input
+                  name="referralCode"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                  autoComplete="off"
+                  placeholder="Friend’s code"
+                  maxLength={40}
                 />
               </label>
             )}

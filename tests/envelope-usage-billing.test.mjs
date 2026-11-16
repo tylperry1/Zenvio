@@ -7,18 +7,20 @@ import ts from 'typescript';
 function load(file, deps) {const filename=path.resolve(file),m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const original=m.require.bind(m);m.require=id=>Object.hasOwn(deps,id)?deps[id]:original(id);m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);return m.exports;}
 class ApiError extends Error {constructor(message,status=400){super(message);this.status=status;}}
 const limits=load('src/lib/entitlement-policy.ts',{}).planLimits;
-function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active',allowance=20,unpaid=false,version='legacy',plan='team'}={}) {
- let inserts=[],locks=[];
+function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active',allowance=20,unpaid=false,version='legacy',plan='team',credits=0,subscriptionPlan}={}) {
+ let inserts=[],locks=[],reservations=[];
  const db={query:async(sql,args)=>{
  if(sql.includes('pg_advisory_xact_lock'))locks.push(args[0]);
  if(sql.startsWith('SELECT * FROM private.team_entitlement_roots'))return {rows:[{owner_id:'owner',seats:3}]};
- if(sql.startsWith('SELECT private.effective_plan'))return {rows:[{plan,subscription_plan:'team',catalog_version:version,status,customer_id:'cus',subscription_id:'sub',envelope_allowance:allowance,seats:3,enabled,cap}]};
+ if(sql.startsWith('SELECT private.effective_plan'))return {rows:[{plan,subscription_plan:subscriptionPlan??(plan==='free'?'free':'team'),catalog_version:version,status,customer_id:'cus',subscription_id:'sub',envelope_allowance:allowance,seats:3,enabled,cap}]};
  if(sql.startsWith('SELECT count(*)::int sent'))return {rows:[{sent,spent}]};
+ if(sql.startsWith('select coalesce((select sum(quantity) from private.subscription_credit_entries'))return {rows:[{remaining:credits-reservations.length}]};
  if(sql.startsWith('SELECT 1 FROM private.envelope_usage'))return {rows:[],rowCount:inserts.some(x=>x[1]===args[1])?1:0};
+ if(sql.startsWith('insert into private.subscription_usage_reservations')){reservations.push(args);return {rows:[],rowCount:1};}
  if(sql.startsWith('INSERT INTO private.envelope_usage')){inserts.push(args);sent++;spent+=args[4];}
  return {rows:[],rowCount:0};}};
  const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
- return {db,service,inserts,locks};
+ return {db,service,inserts,locks,reservations};
 }
 test('unlimited seat sentinel keeps an unlimited included pool without multiplying per-seat',async()=>{
  const f=fixture({sent:0,allowance:20,enabled:false});
@@ -55,6 +57,14 @@ test('staff cannot enable spending for the billing owner; enabling requires expl
 });
 
 test('v3 Teams envelope allowance is one fixed pool and free access never inherits a paid pool',async()=>{const paid=fixture({version:'2026-11-v3',sent:29,enabled:false});assert.equal((await paid.service.envelopeBudget('staff',paid.db)).included,30);await paid.service.recordEnvelopeSend(paid.db,'staff','pdf','last');await assert.rejects(paid.service.recordEnvelopeSend(paid.db,'staff','pdf','exhausted'));const free=fixture({version:'2026-11-v3',plan:'free'});assert.equal((await free.service.envelopeBudget('staff',free.db)).included,15);});
+
+test('free workspaces can spend referral envelope credits after the included pool',async()=>{
+ const f=fixture({version:'2026-11-v3',plan:'free',sent:15,enabled:false,credits:5});
+ await f.service.recordEnvelopeSend(f.db,'staff','pdf','referral-credit');
+ assert.equal(f.reservations.length,1);
+ assert.equal(f.inserts[0][4],0);
+ assert.ok(f.locks.includes('subscription-usage:owner'));
+});
 
 test("new published Teams allowance remains a fixed snapshot instead of multiplying by seats",async()=>{
  const f=fixture({plan:"team",version:"release-11111111-1111-4111-8111-111111111111",allowance:42});
