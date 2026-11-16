@@ -1,7 +1,7 @@
 "use client";
 import { PageHeader } from "./app-shell";
-import { useEffect, useState } from "react";
-import { useWorkspaceLive } from "./platform-support";
+import { useEffect, useRef, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { PdfPages } from "./pdf-pages";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -72,31 +72,41 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
     if (!r.ok) throw Error(d.error);
     return d;
   }
+  const freshList = useFreshRequest();
+  const freshDetail = useFreshRequest();
+  const openId = useRef<string | null>(null);
   async function load() {
+    const still = freshList();
     const r = await fetch("/api/envelopes", { cache: "no-store" }),
       d = await r.json();
+    if (!still()) return;
     if (!r.ok) throw Error(d.error);
     setItems(d.envelopes);
+    setError("");
   }
   async function open(id: string) {
+    openId.current = id;
     setError("");
     setBusy(true);
     setBytes(null);
+    const still = freshDetail();
     try {
       const r = await fetch("/api/envelopes?id=" + id, { cache: "no-store" }),
         d = await r.json();
+      if (!still() || openId.current !== id) return;
       if (!r.ok) throw Error(d.error);
       setDetail(d);
       setFields(d.envelope.fields);
       setRecipient(d.recipients[0]?.id);
       setSelected("");
       const p = await fetch("/api/envelopes?id=" + id + "&pdf=original");
+      if (!still() || openId.current !== id) return;
       if (!p.ok) throw Error("Unable to load PDF.");
       setBytes(new Uint8Array(await p.arrayBuffer()));
     } catch (e) {
-      setError((e as Error).message);
+      if (still() && openId.current === id) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (still() && openId.current === id) setBusy(false);
     }
   }
   useEffect(() => {
@@ -106,17 +116,21 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
   }, []);
   useWorkspaceLive(() => {
     load().catch((e) => setError(e.message));
-    const openId = detail?.envelope.id;
-    if (!openId) return;
+    const id = detail?.envelope.id;
+    if (!id) return;
     const keepDraftFields = detail.envelope.status === "draft";
-    fetch("/api/envelopes?id=" + openId, { cache: "no-store" })
+    const still = freshDetail();
+    fetch("/api/envelopes?id=" + id, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
+        if (!still() || openId.current !== id) return;
         if (!r.ok) throw Error(d.error);
         setDetail(d);
         if (!keepDraftFields) setFields(d.envelope.fields);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        if (still() && openId.current === id) setError(e.message);
+      });
   });
   async function action(action: string) {
     if (!detail || busy) return;
@@ -177,6 +191,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
               disabled={busy}
               onClick={() => {
                 setCreating(true);
+                openId.current = null;
                 setDetail(null);
                 setLinks([]);
                 setError("");
@@ -388,6 +403,7 @@ export function Envelopes({ tabs }: { tabs: React.ReactNode }) {
                 <button
                   className="ui-btn ui-btn-ghost"
                   onClick={() => {
+                    openId.current = null;
                     setDetail(null);
                     setBytes(null);
                   }}

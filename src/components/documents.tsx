@@ -1,7 +1,7 @@
 "use client";
 import { PageHeader } from "./app-shell";
 import { useEffect, useState } from "react";
-import { useWorkspaceLive } from "./platform-support";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Icon } from "./icons";
 type SigningDocument = {
   id: string;
@@ -36,11 +36,15 @@ export function Documents({ tabs }: { tabs: React.ReactNode }) {
     [name, setName] = useState(""),
     [email, setEmail] = useState("");
   const [filter, setFilter] = useState("all");
+  const freshLoad = useFreshRequest();
   async function load() {
+    const still = freshLoad();
     const r = await fetch("/api/documents", { cache: "no-store" });
     const d = await r.json();
+    if (!still()) return;
     if (!r.ok) throw new Error(d.error || "Unable to load documents.");
     setData(d);
+    setError("");
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));

@@ -38,6 +38,15 @@ test("open envelope refreshes on live change without wiping draft fields", () =>
   assert.match(source, /if \(!keepDraftFields\) setFields/);
 });
 
+test("live refreshes ignore superseded responses and keep loaded pages on failure", () => {
+  const support = read("src/components/platform-support.tsx");
+  const workspace = read("src/components/workspace.tsx");
+  const jobs = read("src/components/jobs-center.tsx");
+  assert.match(support, /export function useFreshRequest/);
+  assert.match(workspace, /if \(dataRef\.current\)/);
+  assert.match(jobs, /if \(hasDetail\.current\) notify/);
+});
+
 test("workspace shell and portal subscribe to live updates", () => {
   const shell = read("src/components/app-shell.tsx");
   const portal = read("src/components/client-portal.tsx");

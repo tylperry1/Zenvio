@@ -105,6 +105,15 @@ export function useWorkspaceLive(onChange: () => void) {
   }, []);
 }
 
+/** Ignore responses from a load that a newer request has already replaced. */
+export function useFreshRequest() {
+  const seq = useRef(0);
+  return useCallback(() => {
+    const id = ++seq.current;
+    return () => seq.current === id;
+  }, []);
+}
+
 /**
  * Subscribes to a support event stream and calls `onChange` when the server
  * reports new activity. The server closes each stream after ~25 s and the

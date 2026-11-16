@@ -8,8 +8,8 @@ import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { ShareLinkActions } from "./share-link";
 import { CreateAppointment } from "./create-appointment";
-import { useEffect, useState } from "react";
-import { useWorkspaceLive } from "./platform-support";
+import { useEffect, useRef, useState } from "react";
+import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
 import { AccountData } from "./account-data";
@@ -111,26 +111,36 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
       controller.abort();
     };
   }, [demo, view, filter, search, bookingPage, calendar, month, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const freshLoad = useFreshRequest();
+  const dataRef = useRef(data);
+  dataRef.current = data;
   async function load() {
-    setFatal("");
+    const still = freshLoad();
     try {
-      if (demo) setData(readDemo());
-      else {
+      if (demo) {
+        if (!still()) return;
+        setData(readDemo());
+      } else {
         const r = await fetch("/api/workspace", { cache: "no-store" });
         const d = await r.json();
+        if (!still()) return;
         if (r.status === 401) {
           window.location.assign("/sign-in");
           return;
         }
         if (!r.ok) throw new Error(d.error);
         setData(d);
+        setFatal("");
       }
     } catch (e) {
-      setFatal(
-        e instanceof Error ? e.message : "Unable to load your workspace.",
-      );
+      if (!still()) return;
+      const message = e instanceof Error ? e.message : "Unable to load your workspace.";
+      if (dataRef.current) {
+        setNotice(message);
+        setNoticeError(true);
+      } else setFatal(message);
     } finally {
-      setLoading(false);
+      if (still()) setLoading(false);
     }
   }
   useEffect(() => {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Icon, Logo } from "./icons";
 import { Alert, Badge, EmptyState, Field, LinkProblem, Skeleton, Tabs, formatDateTime } from "./ui";
-import { LiveControls, useLive } from "./platform-support";
+import { LiveControls, useFreshRequest, useLive } from "./platform-support";
 import { money } from "@/lib/contractor";
 
 type Estimate = {
@@ -42,17 +42,22 @@ export function ClientPortal({ token }: { token: string }) {
     [missing, setMissing] = useState(false),
     [tab, setTab] = useState<Tab>("appointments"),
     [notice, setNotice] = useState<{ tone: "success" | "danger" | "info"; text: string } | null>(null);
+  const freshLoad = useFreshRequest();
   const load = useCallback(async () => {
+    const still = freshLoad();
     try {
       const r = await fetch(`/api/portal/${token}`, { cache: "no-store" });
       const d = await r.json();
+      if (!still()) return;
       if (r.status === 404) return setMissing(true);
       if (!r.ok) throw Error(d.error);
       setData(d);
+      setError("");
     } catch (e) {
+      if (!still()) return;
       setError(e instanceof Error ? e.message : "The portal couldn’t be loaded.");
     }
-  }, [token]);
+  }, [token, freshLoad]);
   useEffect(() => {
     void load();
     const p = new URLSearchParams(window.location.search).get("payment");
