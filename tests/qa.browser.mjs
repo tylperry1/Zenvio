@@ -90,7 +90,10 @@ try {
         }
         // Wait for client-loaded Business Profile editors before checking overflow.
         if (route === "/app/business-profile?section=details") {
-          const editor = page.locator(".bp-hub-editor form");
+          // Details now has two forms (identity + business street address); target the timezone form.
+          const editor = page
+            .locator(".bp-hub-editor form")
+            .filter({ has: page.locator('input[name="timezone"]') });
           await editor.waitFor({ state: "visible" });
           const savedZone = (await (await member.request.get(origin + "/api/workspace")).json()).profile.timezone || "UTC";
           const selector = editor.getByLabel("Time zone", { exact: true });
