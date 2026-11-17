@@ -153,8 +153,10 @@ export function AdminSmarty() {
   }
 
   const connection = useMemo(() => (data ? connectionFrom(data) : null), [data]);
+  const saving = busy === "save";
   const capUsd = monthlyCap / 1_000_000;
-  const spendUsd = data?.usage.estimatedCostUsd ?? 0;
+  const spendMicros = data?.usage.monthMicros ?? 0;
+  const spendUsd = spendMicros / 1_000_000;
 
   if (!data && !error) {
     return (
@@ -282,14 +284,23 @@ export function AdminSmarty() {
         <div className="ds-stack">
           <Panel title="Connection controls" description="Enablement never invents credentials. Live booking lookups require vault Auth ID + Token.">
             <label className="ds-check">
-              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={saving}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />
               <span>
                 <b>Enable Smarty</b>
                 <small>Allow booking address autocomplete and validation when Connected.</small>
               </span>
             </label>
             <Field label="Credential mode">
-              <select value={envMode} onChange={(e) => setEnvMode(e.target.value === "live" ? "live" : "test")}>
+              <select
+                value={envMode}
+                disabled={saving}
+                onChange={(e) => setEnvMode(e.target.value === "live" ? "live" : "test")}
+              >
                 <option value="test">Test / sandbox intention</option>
                 <option value="live">Live intention</option>
               </select>
@@ -304,8 +315,8 @@ export function AdminSmarty() {
           <Panel title="Usage & budget" description="Estimates use the µ$/lookup rates below — not Smarty invoices. Cap enforcement is live.">
             <MeterBar
               label="Month spend vs cap"
-              value={spendUsd}
-              max={Math.max(capUsd, 0.01)}
+              value={spendMicros}
+              max={Math.max(monthlyCap, 1)}
               detail={`${spendUsd.toFixed(2)} / ${capUsd.toFixed(2)} USD`}
             />
             <div className="ds-form-grid">
@@ -313,6 +324,7 @@ export function AdminSmarty() {
                 <input
                   type="number"
                   min={0}
+                  disabled={saving}
                   value={autocompleteMicros}
                   onChange={(e) => setAutocompleteMicros(Number(e.target.value) || 0)}
                 />
@@ -321,6 +333,7 @@ export function AdminSmarty() {
                 <input
                   type="number"
                   min={0}
+                  disabled={saving}
                   value={validationMicros}
                   onChange={(e) => setValidationMicros(Number(e.target.value) || 0)}
                 />
@@ -329,6 +342,7 @@ export function AdminSmarty() {
                 <input
                   type="number"
                   min={0}
+                  disabled={saving}
                   value={monthlyCap}
                   onChange={(e) => setMonthlyCap(Number(e.target.value) || 0)}
                 />

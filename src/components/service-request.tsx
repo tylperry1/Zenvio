@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Icon, Logo } from "./icons";
 import { Captcha } from "./captcha";
 import { AddressAutocomplete } from "./address-autocomplete";
-import { Alert, Field, LinkProblem, Skeleton } from "./ui";
+import { FormActions, Notice } from "./ds";
+import { Field, LinkProblem, Skeleton } from "./ui";
 import { emptyAddress, jobSiteSubmission, type StructuredAddress } from "@/lib/addresses";
 
 type Info = { business: string; slug: string; accent: string; industry: string; categories: string[]; captchaSiteKey: string | null };
@@ -119,7 +120,7 @@ export function ServiceRequestForm({ host }: { host: string }) {
       </div>
     );
   return (
-    <div className="portal-page" style={{ "--profile-accent": info?.accent || "#365CFF" } as CSSProperties}>
+    <div className="portal-page ds-root" style={{ "--profile-accent": info?.accent || "#365CFF" } as CSSProperties}>
       <header className="portal-top">
         <Link href="/" aria-label="Zenvio home">
           <Logo />
@@ -129,28 +130,30 @@ export function ServiceRequestForm({ host }: { host: string }) {
       <main className="portal-main request-main">
         {!info && <Skeleton rows={6} />}
         {info && done && (
-          <section className="request-done" role="status">
-            <span className="as-welcome-mark">
-              <Icon name="check" size={22} />
-            </span>
-            <h1>Request sent</h1>
-            <p>
-              {info.business} has your request and will follow up by email to confirm details and timing.
-            </p>
-            <Link className="ui-btn ui-btn-secondary" href={`/book/${info.slug}`}>
-              Book a time instead
-            </Link>
+          <section className="request-done ds-panel" role="status">
+            <div className="ds-panel-body ds-stack">
+              <span className="as-welcome-mark">
+                <Icon name="check" size={22} />
+              </span>
+              <h1>Request sent</h1>
+              <p>
+                {info.business} has your request and will follow up by email to confirm details and timing.
+              </p>
+              <Link className="ds-btn" href={`/book/${info.slug}`}>
+                Book a time instead
+              </Link>
+            </div>
           </section>
         )}
         {info && !done && (
           <>
             <section className="portal-hero">
-              <p>{info.industry}</p>
+              <p className="ds-eyebrow">{info.industry}</p>
               <h1>Request service from {info.business}</h1>
               <span>Tell us what’s going on and where. Photos help us quote accurately.</span>
             </section>
             <form
-              className="ui-form request-form"
+              className="ui-form request-form ds-panel"
               onSubmit={async (e) => {
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
@@ -197,7 +200,7 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 }
               }}
             >
-              {error && <Alert tone="danger">{error}</Alert>}
+              {error && <Notice tone="danger">{error}</Notice>}
               <div className="ui-form-grid">
                 <Field label="Your name">
                   <input className="ui-input" name="name" required minLength={2} maxLength={100} autoComplete="name" />
@@ -252,9 +255,11 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 </label>
               </div>
               <Captcha siteKey={info.captchaSiteKey || ""} onToken={setCaptcha} resetKey={attempts} />
-              <button className="ui-btn ui-btn-primary request-submit" disabled={busy || (!!info.captchaSiteKey && !captcha)}>
-                {busy ? "Sending…" : "Send request"}
-              </button>
+              <FormActions>
+                <button className="ds-btn primary request-submit" disabled={busy || (!!info.captchaSiteKey && !captcha)}>
+                  {busy ? "Sending…" : "Send request"}
+                </button>
+              </FormActions>
               <p className="ui-hint">
                 By sending this request, you share these details and photos with {info.business} so they can respond. Zenvio
                 provides this form on their behalf and isn’t a party to any work or quote. See our{" "}
