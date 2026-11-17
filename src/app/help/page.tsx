@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { currentCatalog } from "@/lib/billing-catalog";
-import { liveBillingHelpText } from "@/lib/public-pricing-surface";
+import { liveBillingHelpText } from "@/lib/public-pricing-display";
 
 export const metadata = { title: "Zenvio Help Center" };
 export const dynamic = "force-dynamic";

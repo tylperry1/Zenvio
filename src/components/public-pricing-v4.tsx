@@ -12,7 +12,7 @@ import {
   pricingV4Tagline,
 } from "@/lib/pricing-v4-catalog.mjs";
 import { money } from "@/lib/billing-types";
-import { publicAddonsForDisplay } from "@/lib/public-pricing-surface";
+import { publicAddonsForDisplay } from "@/lib/public-pricing-display";
 
 export function PublicPricingV4({
   joinHref = "/early-access",

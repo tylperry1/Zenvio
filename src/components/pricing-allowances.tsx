@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { monthlyAllowances } from "@/lib/subscription-offers.mjs";
 import { money } from "@/lib/billing-types";
-import { publicAddonsForDisplay, type PublicAddon } from "@/lib/public-pricing-surface";
+import { publicAddonsForDisplay, type PublicAddon } from "@/lib/public-pricing-display";
 
 type Allowances = import("@/lib/billing-catalog").BillingCatalog["allowances"];
 

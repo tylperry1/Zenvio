@@ -29,35 +29,21 @@ const v4 = load("src/lib/pricing-v4-catalog.mjs");
 const offers = load("src/lib/subscription-offers.mjs");
 
 test("public add-ons never advertise SMS for sale or as coming soon", () => {
-  const surface = load("src/lib/public-pricing-surface.ts", {
-    "./billing-catalog": { currentCatalog: async () => ({ version: "2026-11-v3", offers: [], allowances: {} }) },
-    "./pricing-activation": {
-      pricingV4Settings: async () => ({ previewEnabled: false, enrollmentEnabled: false, publicCatalog: "v3" }),
-      pricingV4EnvGates: () => ({ validated: false, addonValidated: false, checkoutEnabled: false }),
-    },
-    "./pricing-v4-catalog.mjs": v4,
+  const display = load("src/lib/public-pricing-display.ts", {
     "./subscription-offers.mjs": offers,
-    "./billing-readiness": { billingReadiness: async () => ({ checkoutEnabled: false }) },
   });
-  const publicAddons = surface.publicAddonsForDisplay(offers.addonOffers);
+  const publicAddons = display.publicAddonsForDisplay(offers.addonOffers);
   assert.ok(publicAddons.every((a) => a.unit !== "smsSegments"));
   assert.ok(!publicAddons.some((a) => /sms/i.test(a.id) || /sms/i.test(a.name)));
-  const v4Public = surface.publicAddonsForDisplay(v4.pricingV4Addons);
+  const v4Public = display.publicAddonsForDisplay(v4.pricingV4Addons);
   assert.ok(v4Public.every((a) => a.available === false));
 });
 
 test("live help text is derived from published catalog amounts", () => {
-  const surface = load("src/lib/public-pricing-surface.ts", {
-    "./billing-catalog": { currentCatalog: async () => ({ version: "x", offers: [], allowances: {} }) },
-    "./pricing-activation": {
-      pricingV4Settings: async () => ({ previewEnabled: false, enrollmentEnabled: false, publicCatalog: "v3" }),
-      pricingV4EnvGates: () => ({ validated: false, addonValidated: false, checkoutEnabled: false }),
-    },
-    "./pricing-v4-catalog.mjs": v4,
+  const display = load("src/lib/public-pricing-display.ts", {
     "./subscription-offers.mjs": offers,
-    "./billing-readiness": { billingReadiness: async () => ({ checkoutEnabled: false }) },
   });
-  const text = surface.liveBillingHelpText({
+  const text = display.liveBillingHelpText({
     version: "2026-11-v3",
     offers: [
       { id: "individual", name: "Individual", monthly: 2999, annual: 0, seats: 1 },
@@ -72,7 +58,19 @@ test("live help text is derived from published catalog amounts", () => {
   assert.doesNotMatch(text, /\$19\.99/);
 });
 
+test("client pricing components import display helpers, not the server surface", () => {
+  const v4Src = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
+  const allowances = fs.readFileSync("src/components/pricing-allowances.tsx", "utf8");
+  assert.match(v4Src, /public-pricing-display/);
+  assert.doesNotMatch(v4Src, /public-pricing-surface/);
+  assert.match(allowances, /public-pricing-display/);
+  assert.doesNotMatch(allowances, /public-pricing-surface/);
+});
+
 test("v3 and v4 public surfaces stay consistent when preview flips", async () => {
+  const display = load("src/lib/public-pricing-display.ts", {
+    "./subscription-offers.mjs": offers,
+  });
   const make = (settings) =>
     load("src/lib/public-pricing-surface.ts", {
       "./billing-catalog": {
@@ -89,6 +87,7 @@ test("v3 and v4 public surfaces stay consistent when preview flips", async () =>
       "./pricing-v4-catalog.mjs": v4,
       "./subscription-offers.mjs": offers,
       "./billing-readiness": { billingReadiness: async () => ({ checkoutEnabled: true }) },
+      "./public-pricing-display": display,
     });
 
   const v3 = await make({
