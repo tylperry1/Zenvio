@@ -293,6 +293,108 @@ export function Notice({ tone = "info", children }: { tone?: Tone; children: Rea
   );
 }
 
+export function Field({
+  label,
+  hint,
+  children,
+  htmlFor,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  htmlFor?: string;
+}) {
+  return (
+    <label className="ds-field" htmlFor={htmlFor}>
+      <span>{label}</span>
+      {children}
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+
+/** Dollar-facing currency input; stores whole cents via onCentsChange. */
+export function CurrencyField({
+  id,
+  label,
+  hint,
+  cents,
+  onCentsChange,
+  minCents = 1,
+  maxCents = 1_000_000,
+  required,
+}: {
+  id?: string;
+  label: ReactNode;
+  hint?: ReactNode;
+  cents: number;
+  onCentsChange: (cents: number) => void;
+  minCents?: number;
+  maxCents?: number;
+  required?: boolean;
+}) {
+  const dollars = Number.isFinite(cents) ? (cents / 100).toFixed(2) : "";
+  const invalid =
+    !Number.isFinite(cents) || cents < minCents || cents > maxCents || !Number.isSafeInteger(cents);
+  return (
+    <label className="ds-field" htmlFor={id}>
+      <span>{label}</span>
+      <span className={`ds-money${invalid ? " invalid" : ""}`}>
+        <span aria-hidden="true">$</span>
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min={(minCents / 100).toFixed(2)}
+          max={(maxCents / 100).toFixed(2)}
+          required={required}
+          value={dollars}
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            if (raw === "") return;
+            const n = Number(raw);
+            if (!Number.isFinite(n)) return;
+            onCentsChange(Math.round(n * 100));
+          }}
+          aria-invalid={invalid || undefined}
+        />
+      </span>
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+
+export function FormActions({ children }: { children: ReactNode }) {
+  return <div className="ds-form-actions">{children}</div>;
+}
+
+export function MeterBar({
+  label,
+  value,
+  max,
+  detail,
+}: {
+  label: ReactNode;
+  value: number;
+  max: number;
+  detail?: ReactNode;
+}) {
+  const safeMax = Math.max(1, max);
+  const pct = Math.min(100, Math.round((Math.max(0, value) / safeMax) * 100));
+  return (
+    <div className="ds-meter">
+      <div className="ds-meter-head">
+        <span>{label}</span>
+        {detail && <small>{detail}</small>}
+      </div>
+      <div className="ds-meter-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={typeof label === "string" ? label : undefined}>
+        <i style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export const formatDate = (s?: string | null, opts: Intl.DateTimeFormatOptions = { dateStyle: "medium" }) =>
   s ? new Date(s).toLocaleString(undefined, opts) : "—";
 export function relativeTime(s?: string | null) {

@@ -1181,9 +1181,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: min(1180px, 100%);
+  max-width: min(1280px, 100%);
   margin: 0 auto;
-  padding: 18px clamp(16px, 3vw, 28px);
+  padding: 18px clamp(16px, 3vw, 32px);
 }
 .portal-top > span {
   color: var(--text-secondary);
@@ -1202,9 +1202,9 @@
   gap: 12px;
 }
 .portal-main {
-  max-width: min(1180px, 100%);
+  max-width: min(1280px, 100%);
   margin: 0 auto;
-  padding: 8px clamp(16px, 3vw, 28px) 56px;
+  padding: 8px clamp(16px, 3vw, 32px) 56px;
 }
 .portal-hero {
   margin-bottom: 22px;
@@ -1269,15 +1269,19 @@
   margin-bottom: 14px;
 }
 .portal-panel {
-  padding: 18px;
+  padding: clamp(16px, 2.5vw, 22px);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface-card);
   box-shadow: var(--shadow);
+  color: var(--text-primary);
 }
 .portal-panel h2 {
-  margin: 4px 0 10px;
-  font-size: 15px;
+  margin: 4px 0 12px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 .portal-panel h2:not(:first-child) {
   margin-top: 24px;
@@ -1294,9 +1298,16 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow);
+}
+.portal-list li > div > b,
+.portal-list li .portal-amount {
+  color: var(--text-primary);
 }
 .portal-list li > div {
   display: grid;

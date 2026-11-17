@@ -193,6 +193,16 @@
 .ds-root.ds-root .ds-field textarea { height: auto; padding: 10px 12px; }
 .ds-field { display: grid; gap: 6px; font-size: var(--ds-text-sm); font-weight: 600; color: var(--text-primary); }
 .ds-field small { font-weight: 400; color: var(--text-muted); font-size: var(--ds-text-xs); }
+.ds-money { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-inset); width: 100%; max-width: 180px; color: var(--text-muted); font-size: var(--ds-text-md); }
+.ds-money:focus-within { border-color: var(--action-primary); box-shadow: 0 0 0 3px #365cff1f; }
+.ds-money.invalid { border-color: var(--error); }
+.ds-root.ds-root .ds-money input { border: 0; padding: 0; min-height: 0; height: 36px; width: 100%; text-align: right; font-size: var(--ds-text-md); font-variant-numeric: tabular-nums; outline: none; box-shadow: none; background: transparent; color: var(--text-primary); }
+.ds-form-actions { display: flex; flex-wrap: wrap; gap: var(--ds-2); justify-content: flex-end; align-items: center; padding-top: var(--ds-2); }
+.ds-meter { display: grid; gap: 6px; }
+.ds-meter-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: var(--ds-text-sm); font-weight: 600; color: var(--text-primary); }
+.ds-meter-head small { font-weight: 500; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ds-meter-track { height: 8px; border-radius: 999px; background: var(--surface-inset); overflow: hidden; }
+.ds-meter-track > i { display: block; height: 100%; border-radius: inherit; background: var(--action-primary); }
 /* Neutralize platform.css defaults (.platform-page section/button/label/input) inside .ds-root. */
 .ds-root.ds-root section.ds-panel { padding: 0; margin: 0; border-radius: var(--ds-radius-lg); border-color: var(--ds-line); }
 .ds-root.ds-root .ds-btn { margin: 0; background: var(--surface-card); color: var(--text-primary); border: 1px solid var(--ds-line); }
