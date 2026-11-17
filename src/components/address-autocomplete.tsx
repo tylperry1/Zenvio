@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { StructuredAddress } from "@/lib/addresses";
 import { emptyAddress, formatAddress } from "@/lib/addresses";
 
@@ -35,27 +35,24 @@ export function AddressAutocomplete({
   disabled?: boolean;
 }) {
   const listId = useId();
-  const [query, setQuery] = useState(value.formatted || value.street || "");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [message, setMessage] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const validateSeq = useRef(0);
+  const latestStreet = useRef(value.street);
 
-  useEffect(() => {
-    setQuery(value.formatted || [value.street, value.city, value.state, value.postalCode].filter(Boolean).join(", "));
-  }, [value.formatted, value.street, value.city, value.state, value.postalCode]);
-
-  function scheduleSearch(next: string, selected?: string) {
+  function scheduleSearch(street: string, selected?: string) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      if (next.trim().length < 3) {
+      if (street.trim().length < 3) {
         setSuggestions([]);
         return;
       }
       setBusy(true);
       try {
-        const params = new URLSearchParams({ host, search: next.slice(0, 32) });
+        const params = new URLSearchParams({ host, search: street.slice(0, 32) });
         if (selected) params.set("selected", selected);
         const r = await fetch(`/api/address/autocomplete?${params}`, { cache: "no-store" });
         const d = await r.json();
@@ -79,13 +76,20 @@ export function AddressAutocomplete({
   async function choose(s: Suggestion) {
     if (s.entries > 1) {
       const selected = suggestionLabel(s).replace(/\s\(\d+ units\)$/, "");
-      setQuery(selected);
+      onChange({
+        ...value,
+        street: s.streetLine,
+        formatted: formatAddress({ ...value, street: s.streetLine }),
+        validated: false,
+        source: "manual",
+      });
+      latestStreet.current = s.streetLine;
       scheduleSearch(s.streetLine, selected);
       return;
     }
     const next = {
       ...emptyAddress(),
-      ...value,
+      accessInstructions: value.accessInstructions || "",
       street: s.streetLine,
       street2: s.secondary || "",
       city: s.city,
@@ -96,10 +100,11 @@ export function AddressAutocomplete({
       validated: false,
     };
     next.formatted = formatAddress(next);
+    latestStreet.current = next.street;
     onChange(next);
-    setQuery(next.formatted);
     setSuggestions([]);
     setOpen(false);
+    const seq = ++validateSeq.current;
     try {
       const r = await fetch("/api/address/validate", {
         method: "POST",
@@ -107,9 +112,15 @@ export function AddressAutocomplete({
         body: JSON.stringify({ host, address: next }),
       });
       const d = await r.json();
+      if (seq !== validateSeq.current) return;
+      if (latestStreet.current !== next.street) return;
       if (r.ok && d.address) {
-        onChange({ ...next, ...d.address, accessInstructions: value.accessInstructions });
-        setQuery(d.address.formatted || next.formatted);
+        onChange({
+          ...next,
+          ...d.address,
+          street2: d.address.street2 || next.street2,
+          accessInstructions: value.accessInstructions || next.accessInstructions || "",
+        });
         if (d.message) setMessage(d.message);
       }
     } catch {
@@ -120,29 +131,31 @@ export function AddressAutocomplete({
   return (
     <div className="address-autocomplete">
       <label>
-        {label}
+        Street address
         {required ? "" : <span className="optional"> optional</span>}
         <input
-          value={query}
+          value={value.street}
           disabled={disabled}
           required={required}
-          autoComplete="street-address"
-          placeholder="Start typing an address"
+          autoComplete="address-line1"
+          placeholder="Start typing a street address"
           maxLength={200}
+          aria-label={label}
           aria-autocomplete="list"
           aria-controls={listId}
           aria-expanded={open}
           onChange={(e) => {
-            const next = e.target.value;
-            setQuery(next);
+            const street = e.target.value;
+            latestStreet.current = street;
+            validateSeq.current += 1;
             onChange({
               ...value,
-              street: next,
-              formatted: next,
+              street,
+              formatted: formatAddress({ ...value, street }),
               validated: false,
               source: "manual",
             });
-            scheduleSearch(next);
+            scheduleSearch(street);
           }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onFocus={() => suggestions.length && setOpen(true)}
@@ -168,14 +181,15 @@ export function AddressAutocomplete({
             maxLength={100}
             autoComplete="address-line2"
             placeholder="Apt 4B"
-            onChange={(e) =>
+            onChange={(e) => {
+              validateSeq.current += 1;
               onChange({
                 ...value,
                 street2: e.target.value,
                 formatted: formatAddress({ ...value, street2: e.target.value }),
                 validated: false,
-              })
-            }
+              });
+            }}
           />
         </label>
         <label>
@@ -185,7 +199,10 @@ export function AddressAutocomplete({
             disabled={disabled}
             maxLength={1000}
             placeholder="Gate code, parking, entrance"
-            onChange={(e) => onChange({ ...value, accessInstructions: e.target.value })}
+            onChange={(e) => {
+              validateSeq.current += 1;
+              onChange({ ...value, accessInstructions: e.target.value });
+            }}
           />
         </label>
       </div>
@@ -198,15 +215,16 @@ export function AddressAutocomplete({
             required={required}
             maxLength={100}
             autoComplete="address-level2"
-            onChange={(e) =>
+            onChange={(e) => {
+              validateSeq.current += 1;
               onChange({
                 ...value,
                 city: e.target.value,
                 formatted: formatAddress({ ...value, city: e.target.value }),
                 validated: false,
                 source: "manual",
-              })
-            }
+              });
+            }}
           />
         </label>
         <label>
@@ -217,15 +235,16 @@ export function AddressAutocomplete({
             required={required}
             maxLength={50}
             autoComplete="address-level1"
-            onChange={(e) =>
+            onChange={(e) => {
+              validateSeq.current += 1;
               onChange({
                 ...value,
                 state: e.target.value,
                 formatted: formatAddress({ ...value, state: e.target.value }),
                 validated: false,
                 source: "manual",
-              })
-            }
+              });
+            }}
           />
         </label>
         <label>
@@ -236,18 +255,22 @@ export function AddressAutocomplete({
             required={required}
             maxLength={20}
             autoComplete="postal-code"
-            onChange={(e) =>
+            onChange={(e) => {
+              validateSeq.current += 1;
               onChange({
                 ...value,
                 postalCode: e.target.value,
                 formatted: formatAddress({ ...value, postalCode: e.target.value }),
                 validated: false,
                 source: "manual",
-              })
-            }
+              });
+            }}
           />
         </label>
       </div>
+      {value.formatted && (
+        <small className="booking-field-help">Using: {value.formatted}</small>
+      )}
       {(message || busy) && (
         <small className="booking-field-help">
           {busy ? "Looking up addresses…" : message}

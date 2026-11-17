@@ -47,14 +47,18 @@ export function resolveBookingLocation(input: {
     .trim()
     .slice(0, 1000);
   if (requested === "virtual") {
+    const instructions =
+      accessInstructions ||
+      String(input.event.virtual_instructions || "")
+        .replace(/[\x00-\x1f\x7f]/g, " ")
+        .trim()
+        .slice(0, 1000);
     return {
       locationMode: "virtual",
-      locationText:
-        (input.event.virtual_instructions || "").trim() ||
-        input.event.location ||
-        "Virtual meeting",
+      // Keep location ≤500 chars for bookings.location / paid checkout; full copy stays in accessInstructions.
+      locationText: (input.event.location || "Virtual meeting").slice(0, 500),
       serviceAddress: null,
-      accessInstructions,
+      accessInstructions: instructions,
     };
   }
   if (requested === "at_business") {
@@ -63,13 +67,20 @@ export function resolveBookingLocation(input: {
       business?.formatted ||
       input.event.location ||
       locationLabel("at_business");
+    const entry =
+      accessInstructions ||
+      String(business?.accessInstructions || "")
+        .replace(/[\x00-\x1f\x7f]/g, " ")
+        .trim()
+        .slice(0, 1000);
     return {
       locationMode: "at_business",
       locationText: text.slice(0, 500),
+      // Snapshot the public address on the appointment; entry instructions stay on the booking row only.
       serviceAddress: business
-        ? { ...business, accessInstructions: accessInstructions || business.accessInstructions }
+        ? { ...business, accessInstructions: "" }
         : null,
-      accessInstructions,
+      accessInstructions: entry,
     };
   }
   const serviceAddress = parseAddressInput(input.guest.serviceAddress);
@@ -145,18 +156,19 @@ export async function persistBookingAddress(
   }
   if (!contactId) return;
 
+  // Public guests are not authenticated for that contact. Only fill blank phone; never overwrite.
   if (input.guestPhone) {
     await db.query(
       `UPDATE public.contacts
-          SET phone=CASE WHEN phone='' OR $3 THEN $2 ELSE phone END
-        WHERE id=$1 AND user_id=$4`,
-      [contactId, input.guestPhone, true, input.workspaceId],
+          SET phone=$2
+        WHERE id=$1 AND user_id=$3 AND phone=''`,
+      [contactId, input.guestPhone, input.workspaceId],
     );
   }
 
   if (!input.serviceAddress || !addressHasStreet(input.serviceAddress)) return;
 
-  // Always keep an appointment-specific saved service address for reuse; never auto-overwrite residential.
+  // Appointment-scoped reuse only. Do not mutate residential/billing from an unauthenticated booking.
   const row = toDbAddress(input.serviceAddress);
   await db.query(
     `INSERT INTO private.addresses(
@@ -179,64 +191,7 @@ export async function persistBookingAddress(
       row.source,
     ],
   );
-
-  if (input.saveAsResidential === true) {
-    const existing = (
-      await db.query(
-        "SELECT id FROM private.addresses WHERE contact_id=$1 AND address_type='residential' LIMIT 1",
-        [contactId],
-      )
-    ).rows[0];
-    if (existing) {
-      await db.query(
-        `UPDATE private.addresses SET
-           street=$2, street2=$3, city=$4, state=$5, postal_code=$6, country=$7,
-           formatted=$8, access_instructions=$9, validated=$10, smarty_key=$11, source=$12, updated_at=now()
-         WHERE id=$1`,
-        [
-          existing.id,
-          row.street,
-          row.street2,
-          row.city,
-          row.state,
-          row.postal_code,
-          row.country,
-          row.formatted,
-          row.access_instructions,
-          row.validated,
-          row.smarty_key,
-          row.source,
-        ],
-      );
-    } else {
-      await db.query(
-        `INSERT INTO private.addresses(
-           workspace_id, contact_id, address_type, street, street2, city, state, postal_code,
-           country, formatted, access_instructions, validated, smarty_key, source
-         ) VALUES ($1,$2,'residential',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [
-          input.workspaceId,
-          contactId,
-          row.street,
-          row.street2,
-          row.city,
-          row.state,
-          row.postal_code,
-          row.country,
-          row.formatted,
-          row.access_instructions,
-          row.validated,
-          row.smarty_key,
-          row.source,
-        ],
-      );
-    }
-    // Keep legacy text column in sync when the customer explicitly saves residential.
-    await db.query(
-      "UPDATE public.contacts SET address=$2 WHERE id=$1 AND user_id=$3",
-      [contactId, row.formatted.slice(0, 500), input.workspaceId],
-    );
-  }
+  void input.saveAsResidential;
 }
 
 export async function businessAddressForWorkspace(db: PoolClient, workspaceId: string) {

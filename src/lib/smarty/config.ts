@@ -128,11 +128,19 @@ export async function smartyCredentials() {
 export async function markSmartyHealth(
   patch: Pick<SmartyConfig, "health" | "lastError" | "lastSuccessfulAt" | "lastCheckedAt">,
 ) {
-  const current = await smartyConfiguration();
-  const next = { ...current, ...patch };
+  // Merge only health fields so concurrent admin enable/cap edits are not overwritten.
+  const healthPatch = {
+    health: patch.health,
+    lastError: patch.lastError,
+    lastSuccessfulAt: patch.lastSuccessfulAt,
+    lastCheckedAt: patch.lastCheckedAt,
+  };
+  const defaults = { ...defaultSmartyConfig(), ...healthPatch };
   await getPool().query(
-    `INSERT INTO private.platform_settings(key,value,updated_at) VALUES($1,$2,now())
-     ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=now()`,
-    [settingsKey(), JSON.stringify(next)],
+    `INSERT INTO private.platform_settings(key,value,updated_at) VALUES($1,$2::jsonb,now())
+     ON CONFLICT(key) DO UPDATE SET
+       value = private.platform_settings.value || $3::jsonb,
+       updated_at = now()`,
+    [settingsKey(), JSON.stringify(defaults), JSON.stringify(healthPatch)],
   );
 }

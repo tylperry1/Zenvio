@@ -118,7 +118,8 @@ test("virtual bookings skip physical address and keep instructions", () => {
   });
   assert.equal(resolved.locationMode, "virtual");
   assert.equal(resolved.serviceAddress, null);
-  assert.match(resolved.locationText, /Zoom/);
+  assert.equal(resolved.locationText, "Video call");
+  assert.match(resolved.accessInstructions, /Zoom/);
 });
 
 test("at-business uses business address without requiring guest re-entry", () => {
@@ -169,7 +170,30 @@ test("booking form requires telephone and keeps Smarty failure soft", () => {
   const page = fs.readFileSync("src/components/booking-page.tsx", "utf8");
   assert.match(page, /Telephone number/);
   assert.match(page, /AddressAutocomplete/);
-  assert.match(page, /saveAsResidential/);
+  assert.doesNotMatch(page, /saveAsResidential/);
   const autocomplete = fs.readFileSync("src/components/address-autocomplete.tsx", "utf8");
   assert.match(autocomplete, /Enter the address manually/);
+  assert.match(autocomplete, /validateSeq/);
+  assert.match(autocomplete, /address-line1/);
+});
+
+test("Greptile P1 guards: migration order, browser origin, health merge, confirmation location", () => {
+  const migration = fs.readFileSync("postgres/migrations/092_smarty_addresses.sql", "utf8");
+  const checkAt = migration.indexOf("event_types_allowed_location_modes_check CHECK");
+  const backfillAt = migration.indexOf("allowed_location_modes = ARRAY[inferred.mode]");
+  assert.ok(backfillAt > 0 && checkAt > backfillAt, "compound check must follow backfill");
+  const server = fs.readFileSync("src/lib/server.ts", "utf8");
+  assert.match(server, /sameOriginBrowser/);
+  const autocompleteRoute = fs.readFileSync("src/app/api/address/autocomplete/route.ts", "utf8");
+  assert.match(autocompleteRoute, /sameOriginBrowser/);
+  assert.doesNotMatch(autocompleteRoute, /sameOrigin\(request\)/);
+  const config = fs.readFileSync("src/lib/smarty/config.ts", "utf8");
+  assert.match(config, /platform_settings\.value \|\| \$3::jsonb/);
+  const book = fs.readFileSync("src/app/api/book/route.ts", "utf8");
+  assert.match(book, /location: location\.locationText/);
+  assert.match(book, /offersBusiness/);
+  assert.doesNotMatch(book, /access_instructions,validated,smarty_key/);
+  const bookingAddress = fs.readFileSync("src/lib/booking-address.ts", "utf8");
+  assert.match(bookingAddress, /phone=''/);
+  assert.match(bookingAddress, /Virtual meeting"\)\.slice\(0, 500\)/);
 });

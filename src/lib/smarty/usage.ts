@@ -11,7 +11,7 @@ export async function recordSmartyUsage(input: {
 }) {
   if (!Number.isSafeInteger(input.micros) || input.micros < 0)
     throw new ApiError("Invalid Smarty usage amount.", 503);
-  if (input.micros === 0) return null;
+  // Zero-cost lookups still count toward dashboard volume.
   if (!input.workspaceId) throw new ApiError("Missing workspace for Smarty usage.", 503);
   const db = await getPool().connect();
   try {

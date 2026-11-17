@@ -53,30 +53,34 @@ ALTER TABLE public.event_types
   ADD COLUMN IF NOT EXISTS custom_location_prompt text NOT NULL DEFAULT ''
     CHECK (length(custom_location_prompt) <= 500);
 
+-- Backfill before the compound check so existing "Phone call" / Zoom rows never
+-- temporarily violate location_mode ∈ allowed_location_modes.
 ALTER TABLE public.event_types
   DROP CONSTRAINT IF EXISTS event_types_allowed_location_modes_check;
+
+UPDATE public.event_types SET
+  location_mode = inferred.mode,
+  allowed_location_modes = ARRAY[inferred.mode]::text[]
+FROM (
+  SELECT id,
+    CASE
+      WHEN lower(location) ~ '(video|zoom|google meet|teams|virtual|phone call|facetime)' THEN 'virtual'
+      WHEN lower(location) ~ '(my (office|studio|shop|location)|at (the )?(business|office)|in[- ]person office)' THEN 'at_business'
+      WHEN lower(location) ~ '(your (home|location|address|place)|on[- ]site|customer location|client location|mobile service)' THEN 'at_customer'
+      ELSE 'custom'
+    END AS mode
+  FROM public.event_types
+) inferred
+WHERE public.event_types.id = inferred.id
+  AND public.event_types.location_mode = 'custom'
+  AND public.event_types.allowed_location_modes = ARRAY['custom']::text[];
+
 ALTER TABLE public.event_types
   ADD CONSTRAINT event_types_allowed_location_modes_check CHECK (
     cardinality(allowed_location_modes) BETWEEN 1 AND 4
     AND allowed_location_modes <@ ARRAY['at_business', 'at_customer', 'virtual', 'custom']::text[]
     AND location_mode = ANY (allowed_location_modes)
   );
-
-UPDATE public.event_types SET
-  location_mode = CASE
-    WHEN lower(location) ~ '(video|zoom|google meet|teams|virtual|phone call|facetime)' THEN 'virtual'
-    WHEN lower(location) ~ '(my (office|studio|shop|location)|at (the )?(business|office)|in[- ]person office)' THEN 'at_business'
-    WHEN lower(location) ~ '(your (home|location|address|place)|on[- ]site|customer location|client location|mobile service)' THEN 'at_customer'
-    ELSE 'custom'
-  END
-WHERE location_mode = 'custom'
-  AND allowed_location_modes = ARRAY['custom']::text[];
-
-UPDATE public.event_types
-SET allowed_location_modes = ARRAY[location_mode]::text[]
-WHERE cardinality(allowed_location_modes) = 1
-  AND allowed_location_modes[1] = 'custom'
-  AND location_mode <> 'custom';
 
 ALTER TABLE public.bookings
   ADD COLUMN IF NOT EXISTS location_mode text

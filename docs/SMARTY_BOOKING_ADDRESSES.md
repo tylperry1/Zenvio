@@ -46,3 +46,9 @@ Official endpoints used:
 ## Failure handling
 
 If Smarty is disabled, misconfigured, or unreachable, autocomplete returns an empty list with a manual-entry message. Booking still proceeds with the customer’s typed address.
+
+## Privacy notes
+
+- Public booking never overwrites an existing CRM phone or residential address (fill-blank phone only; service addresses are appointment-scoped).
+- Business `accessInstructions` are omitted from public event payloads; only `at_business` events receive a public formatted business address.
+- Confirmation responses return the resolved appointment location, not only the event default.

@@ -51,8 +51,7 @@ export function BookingPage({
     [attempts, setAttempts] = useState(0),
     [files, setFiles] = useState<Record<string, { id: string; filename: string }[]>>({}),
     [locationMode, setLocationMode] = useState<LocationMode>("custom"),
-    [serviceAddress, setServiceAddress] = useState<StructuredAddress>(emptyAddress()),
-    [saveAsResidential, setSaveAsResidential] = useState(false);
+    [serviceAddress, setServiceAddress] = useState<StructuredAddress>(emptyAddress());
   const captchaSiteKey = useCaptchaSiteKey();
   const uploads = useGuestUploads(host);
   const allowedModes = (event?.allowed_location_modes?.length
@@ -239,7 +238,6 @@ export function BookingPage({
             locationMode,
             serviceAddress,
             accessInstructions: serviceAddress.accessInstructions || "",
-            saveAsResidential,
             captcha,
             attribution: readAttribution(host),
             uploadKey: uploads.key,
@@ -623,16 +621,6 @@ export function BookingPage({
                       required={locationMode === "at_customer"}
                       label={locationMode === "at_customer" ? "Service address" : "Meeting address"}
                     />
-                    {locationMode === "at_customer" && (
-                      <label className="checkbox-row">
-                        <input
-                          type="checkbox"
-                          checked={saveAsResidential}
-                          onChange={(e) => setSaveAsResidential(e.target.checked)}
-                        />
-                        Save this as my residential address
-                      </label>
-                    )}
                   </>
                 )}
                 <label>

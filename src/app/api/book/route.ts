@@ -74,16 +74,22 @@ export async function GET(request: NextRequest) {
         [host, event],
       )
     ).rows[0];
-    const businessAddress = eventRow
-      ? (
-          await getPool().query(
-            `SELECT street,street2,city,state,postal_code,country,formatted,access_instructions,validated,smarty_key,source
-               FROM private.addresses
-              WHERE workspace_id=$1 AND address_type='business'
-              ORDER BY updated_at DESC LIMIT 1`,
-            [eventRow.user_id],
-          )
-        ).rows[0]
+    const allowedModes: string[] = eventRow?.allowed_location_modes || ["custom"];
+    const offersBusiness = allowedModes.includes("at_business");
+    const businessAddress =
+      eventRow && offersBusiness
+        ? (
+            await getPool().query(
+              `SELECT street,street2,city,state,postal_code,country,formatted,validated,smarty_key,source
+                 FROM private.addresses
+                WHERE workspace_id=$1 AND address_type='business'
+                ORDER BY updated_at DESC LIMIT 1`,
+              [eventRow.user_id],
+            )
+          ).rows[0]
+        : null;
+    const publicBusiness = businessAddress
+      ? { ...fromDbAddress(businessAddress), accessInstructions: "" }
       : null;
     return Response.json(
       {
@@ -93,10 +99,10 @@ export async function GET(request: NextRequest) {
           minimum_notice_minutes: Number(policy?.noticeMinutes ?? 120),
           questions: eventRow?.intake_questions || [],
           location_mode: eventRow?.location_mode || "custom",
-          allowed_location_modes: eventRow?.allowed_location_modes || ["custom"],
+          allowed_location_modes: allowedModes,
           virtual_instructions: eventRow?.virtual_instructions || "",
           custom_location_prompt: eventRow?.custom_location_prompt || "",
-          business_address: businessAddress ? fromDbAddress(businessAddress) : null,
+          business_address: publicBusiness,
         },
         slots,
         instructions:
@@ -230,7 +236,7 @@ export async function POST(request: NextRequest) {
           locationText: location.locationText,
           serviceAddress: location.serviceAddress,
           accessInstructions: location.accessInstructions,
-          saveAsResidential: input.saveAsResidential === true,
+          saveAsResidential: false,
         });
       } catch {
         // Reservation stands; location enrichment is best-effort after confirm.
@@ -254,10 +260,18 @@ export async function POST(request: NextRequest) {
     );
     after(() => deliverBookingEmails());
     after(() => runGoogleJobsForHost(host));
-    return Response.json(result, {
-      status: 201,
-      headers: { "Cache-Control": "no-store" },
-    });
+    return Response.json(
+      {
+        ...result,
+        location: location.locationText,
+        location_mode: location.locationMode,
+        access_instructions: location.accessInstructions,
+      },
+      {
+        status: 201,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch (error) {
     return failure(error);
   }

@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { allowRequest, clientIp } from "@/lib/booking-protection";
 import { smartyAutocomplete } from "@/lib/smarty";
-import { ApiError, failure, publicHostSlug, sameOrigin, string } from "@/lib/server";
+import { ApiError, failure, publicHostSlug, sameOriginBrowser, string } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    sameOrigin(request);
+    sameOriginBrowser(request);
     const ip = clientIp(request);
     if (!(await allowRequest("smarty-autocomplete", ip, 60, 60)))
       throw new ApiError("Too many address lookups. Please wait a moment.", 429);

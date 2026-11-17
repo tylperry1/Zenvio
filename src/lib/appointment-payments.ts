@@ -93,8 +93,14 @@ export async function createAppointmentCheckout(
       locationMode: input.locationMode || null,
       serviceAddress: input.serviceAddress || null,
       accessInstructions: string(input.accessInstructions || "", "access instructions", 1000, 0),
-      bookingLocation: string(input.bookingLocation || "", "meeting location", 500, 0),
-      saveAsResidential: input.saveAsResidential === true,
+      bookingLocation: string(
+        String(input.bookingLocation || "").slice(0, 500),
+        "meeting location",
+        500,
+        0,
+      ),
+      // Public paid booking must not mutate CRM residential/billing without ownership proof.
+      saveAsResidential: false,
     };
     payment = (
       await db.query(
