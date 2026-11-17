@@ -89,7 +89,11 @@ export async function queueDelivery(
     ],
   );
 }
-export async function scheduleBooking(db: PoolClient, id: string) {
+export async function scheduleBooking(
+  db: PoolClient,
+  id: string,
+  options?: { skipChangeEmails?: boolean },
+) {
   await db.query(
     "UPDATE public.bookings b SET contact_id=c.id FROM public.contacts c WHERE b.id=$1 AND b.contact_id IS NULL AND c.user_id=b.user_id AND c.email=b.guest_email",
     [id],
@@ -158,7 +162,7 @@ export async function scheduleBooking(db: PoolClient, id: string) {
       },
     });
   }
-  if (b.revision > 0) {
+  if (b.revision > 0 && !options?.skipChangeEmails) {
     const changedText = `Your appointment has moved to ${when} (${b.timezone}).${links}`;
     for (const to of [b.guest_email, b.host_email]) {
       const emailKey = `changed:${b.id}:${b.revision}:${to}`;

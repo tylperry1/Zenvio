@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { TimezoneSelect } from "./timezone-select";
+import { AppointmentDetailModal } from "./appointment-detail";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -207,81 +208,16 @@ export function CalendarCenter() {
           </p>
         ))}
 
-      {selected && (
-        <Modal title={selected.title} onClose={() => !busy && setSelected(null)}>
-          <div className="ui-form">
-            <dl className="ui-dl">
-              <dt>Guest</dt>
-              <dd>{selected.guest_name}</dd>
-              <dt>When</dt>
-              <dd>
-                {new Date(selected.starts_at).toLocaleString([], {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  timeZone: zone,
-                })}
-              </dd>
-              <dt>Location</dt><dd>{selected.location || "Not specified"}</dd>
-              <dt>Status</dt>
-              <dd>
-                <Badge tone={selected.status === "confirmed" ? "success" : "neutral"}>{selected.status}</Badge>
-              </dd>
-            </dl>
-            {selected.status === "confirmed" && (
-              <form className="cal-move" onSubmit={move}>
-                <Field label="Move to" hint={`Times in ${zone.replaceAll("_", " ")}. Availability is checked first.`}>
-                  <input name="time" type="datetime-local" required />
-                </Field>
-                <button className="ui-btn ui-btn-primary" disabled={busy}>
-                  Reschedule
-                </button>
-              </form>
-            )}
-            <div className="ui-modal-actions">
-              {selected.status === "confirmed" && (
-                <button
-                  className="ui-btn ui-btn-danger"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (
-                      !(await confirm({
-                        title: "Cancel this appointment?",
-                        body: `${selected.guest_name} will be notified.`,
-                        confirmLabel: "Cancel appointment",
-                        danger: true,
-                      }))
-                    )
-                      return;
-                    setBusy(true);
-                    try {
-                      const r = await fetch("/api/workspace", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "cancel", id: selected.id }),
-                      });
-                      if (!r.ok) throw Error((await r.json()).error);
-                      setSelected(null);
-                      setMessage("Appointment cancelled.");
-                      await load();
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  Cancel appointment
-                </button>
-              )}
-              <button className="ui-btn ui-btn-secondary" onClick={() => setSelected(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </Modal>
+      {selected?.id && (
+        <AppointmentDetailModal
+          bookingId={selected.id}
+          hostSlug={workspace?.profile?.slug || ""}
+          onClose={() => setSelected(null)}
+          onChanged={() => {
+            setMessage("Appointment updated.");
+            void load();
+          }}
+        />
       )}
       {confirmNode}
       {view === "day" || view === "week" ? (
