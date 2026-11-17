@@ -300,6 +300,7 @@ test("UI never renders money(0) for null financial metrics", () => {
   assert.match(src, /displayedPeriod/);
   assert.match(src, /requestedPeriod/);
   assert.match(src, /load\(requestedPeriod\.current\)/);
+  assert.match(src, /requestedPeriod\.current = displayedPeriod\.current/);
   assert.match(src, /seq !== loadSeq\.current\) return/);
   assert.doesNotMatch(src, /money\(data\.overview\.planning\.costCents\)/);
 });
@@ -483,6 +484,11 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /financial_invoice_refund_events/);
   assert.match(sync, /WHEN \$18::timestamptz IS NOT NULL THEN \$18::timestamptz/);
   assert.match(sync, /COALESCE\(private\.financial_invoice_snapshots\.refunded_at, EXCLUDED\.paid_at\)/);
+  assert.match(sync, /status !== "succeeded"/);
+  assert.match(sync, /eventsComplete/);
+  assert.match(sync, /incompleteRefundLookups/);
+  assert.match(sync, /credit_note:\$\{row\.id\}/);
+  assert.match(sync, /DELETE FROM private\.financial_invoice_refund_events/);
   assert.doesNotMatch(sync, /COALESCE\(EXCLUDED\.refunded_at, now\(\)\)/);
   assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
   const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
@@ -491,4 +497,6 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   const overviewSrc = fs.readFileSync("src/lib/financial-intelligence.ts", "utf8");
   assert.match(overviewSrc, /financial_invoice_refund_events/);
   assert.match(overviewSrc, /status = 'active' AND subscription_id IS NOT NULL/);
+  assert.match(overviewSrc, /refundQueryOk/);
+  assert.match(overviewSrc, /ok: true as const/);
 });

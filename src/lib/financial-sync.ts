@@ -41,6 +41,10 @@ type InvoiceRefundInfo = {
   cents: number;
   latestRefundAt: Date | null;
   events: InvoiceRefundEvent[];
+  /** False when a refunds.list call failed or dated events under-count charge refunds. */
+  eventsComplete: boolean;
+  /** Refund ids observed as failed/canceled — drop any previously stored rows. */
+  invalidateIds: string[];
 };
 
 /** Resolve refunded cents + dated refund events via invoice payments → PI → Charge (Stripe 23+). */
@@ -50,7 +54,9 @@ async function invoiceRefundInfo(
 ): Promise<InvoiceRefundInfo> {
   const creditNotes = Number(invoice.post_payment_credit_notes_amount || 0);
   let fromCharges = 0;
+  let listFailures = 0;
   const events: InvoiceRefundEvent[] = [];
+  const invalidateIds: string[] = [];
   const seen = new Set<string>();
   const paymentIntentIds = new Set<string>();
   const legacyPi = invoice.payment_intent;
@@ -83,6 +89,13 @@ async function invoiceRefundInfo(
         const refunds = await stripe.refunds.list({ charge: chargeId, limit: 100 });
         for (const refund of refunds.data) {
           if (!refund.id || !refund.created) continue;
+          const status = String(refund.status || "");
+          if (status === "failed" || status === "canceled") {
+            invalidateIds.push(refund.id);
+            continue;
+          }
+          // Only succeeded refunds count toward cash (pending/requires_action stay out).
+          if (status !== "succeeded") continue;
           const amountCents = Number(refund.amount || 0);
           if (amountCents <= 0 || seen.has(refund.id)) continue;
           seen.add(refund.id);
@@ -93,7 +106,7 @@ async function invoiceRefundInfo(
           });
         }
       } catch {
-        // Charge refund list is best-effort; cents still count.
+        listFailures += 1;
       }
     } catch {
       // Keep aggregating remaining payment intents.
@@ -101,25 +114,25 @@ async function invoiceRefundInfo(
   }
 
   const eventCents = events.reduce((n, e) => n + e.amountCents, 0);
-  // Prefer dated Stripe refund events; fall back to charge/credit totals when the list is empty.
-  let cents = eventCents > 0 ? eventCents : Math.max(creditNotes, fromCharges);
-  if (eventCents === 0 && creditNotes > fromCharges && creditNotes > 0) {
+  const eventsComplete =
+    listFailures === 0 && (fromCharges === 0 || eventCents >= fromCharges || paymentIntentIds.size === 0);
+  // Dated events are authoritative only when the list is complete; otherwise keep cumulative.
+  let cents = Math.max(creditNotes, fromCharges);
+  if (eventsComplete && eventCents > 0) cents = eventCents;
+  if (eventsComplete && eventCents === 0 && creditNotes > fromCharges && creditNotes > 0) {
     events.push({
       stripeRefundId: `credit_note:${invoice.id}`,
       amountCents: creditNotes,
       refundedAt: new Date((invoice.status_transitions?.paid_at || invoice.created) * 1000),
     });
     cents = creditNotes;
-  } else if (eventCents === 0 && fromCharges > 0) {
-    // Refunds exist on the charge but listing failed — keep cumulative cents without inventing dates.
-    cents = fromCharges;
   }
 
   const latestRefundAt =
     events.length > 0
       ? events.reduce((latest, e) => (e.refundedAt > latest ? e.refundedAt : latest), events[0].refundedAt)
       : null;
-  return { cents, latestRefundAt, events };
+  return { cents, latestRefundAt, events, eventsComplete, invalidateIds };
 }
 
 function classifyInvoice(invoice: InvoiceCompat, refundedCents: number): string {
@@ -254,13 +267,13 @@ async function upsertInvoice(
   stripe: Stripe,
   invoice: Stripe.Invoice,
   userId: string | null,
-) {
+): Promise<{ refundEventsIncomplete: boolean }> {
   const row = invoice as InvoiceCompat;
   const customer =
     typeof row.customer === "string"
       ? row.customer
       : row.customer?.id;
-  if (!customer) return;
+  if (!customer) return { refundEventsIncomplete: false };
   const subscription = invoiceSubscriptionId(row);
   const paid = invoicePaid(row);
   const paidAt = row.status_transitions?.paid_at
@@ -274,81 +287,110 @@ async function upsertInvoice(
   // Stripe-sourced refund time only in $18. Insert falls back to paid_at/created when null.
   // Updates prefer a later Stripe timestamp (repairs estimated dates) and never invent now().
   const stripeRefundedAt = refund.latestRefundAt;
-  const db = getPool();
-  await db.query(
-    `INSERT INTO private.financial_invoice_snapshots(
-       stripe_invoice_id,user_id,customer_id,status,billing_reason,currency,
-       amount_paid_cents,amount_due_cents,amount_remaining_cents,amount_refunded_cents,
-       subtotal_cents,total_cents,subscription_id,paid,attempted,
-       created_at,paid_at,refunded_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
-     ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-       CASE WHEN $10::int > 0 THEN COALESCE($18::timestamptz, $17::timestamptz, $16::timestamptz) ELSE NULL END,
-       $19,$20,$21,$22,now()
-     )
-     ON CONFLICT(stripe_invoice_id) DO UPDATE SET
-       user_id=EXCLUDED.user_id,
-       status=EXCLUDED.status,
-       billing_reason=EXCLUDED.billing_reason,
-       amount_paid_cents=EXCLUDED.amount_paid_cents,
-       amount_due_cents=EXCLUDED.amount_due_cents,
-       amount_remaining_cents=EXCLUDED.amount_remaining_cents,
-       amount_refunded_cents=EXCLUDED.amount_refunded_cents,
-       subtotal_cents=EXCLUDED.subtotal_cents,
-       total_cents=EXCLUDED.total_cents,
-       subscription_id=EXCLUDED.subscription_id,
-       paid=EXCLUDED.paid,
-       attempted=EXCLUDED.attempted,
-       paid_at=EXCLUDED.paid_at,
-       refunded_at=CASE
-         WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
-         WHEN $18::timestamptz IS NOT NULL THEN $18::timestamptz
-         ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.paid_at)
-       END,
-       period_start=EXCLUDED.period_start,
-       period_end=EXCLUDED.period_end,
-       hosted_invoice_url=EXCLUDED.hosted_invoice_url,
-       classification=EXCLUDED.classification,
-       reconciled_at=now()`,
-    [
-      row.id,
-      userId,
-      customer,
-      row.status,
-      row.billing_reason || null,
-      currency,
-      row.amount_paid || 0,
-      row.amount_due || 0,
-      row.amount_remaining || 0,
-      refund.cents,
-      row.subtotal ?? null,
-      row.total ?? null,
-      subscription,
-      paid,
-      Boolean(row.attempted),
-      createdAt,
-      paidAt,
-      stripeRefundedAt,
-      row.period_start ? new Date(row.period_start * 1000) : null,
-      row.period_end ? new Date(row.period_end * 1000) : null,
-      row.hosted_invoice_url || null,
-      classifyInvoice(row, refund.cents),
-    ],
-  );
-
-  for (const event of refund.events) {
-    await db.query(
-      `INSERT INTO private.financial_invoice_refund_events(
-         stripe_refund_id,stripe_invoice_id,currency,amount_cents,refunded_at,reconciled_at
-       ) VALUES ($1,$2,$3,$4,$5,now())
-       ON CONFLICT(stripe_refund_id) DO UPDATE SET
-         amount_cents=EXCLUDED.amount_cents,
-         refunded_at=EXCLUDED.refunded_at,
-         currency=EXCLUDED.currency,
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO private.financial_invoice_snapshots(
+         stripe_invoice_id,user_id,customer_id,status,billing_reason,currency,
+         amount_paid_cents,amount_due_cents,amount_remaining_cents,amount_refunded_cents,
+         subtotal_cents,total_cents,subscription_id,paid,attempted,
+         created_at,paid_at,refunded_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
+       ) VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+         CASE WHEN $10::int > 0 THEN COALESCE($18::timestamptz, $17::timestamptz, $16::timestamptz) ELSE NULL END,
+         $19,$20,$21,$22,now()
+       )
+       ON CONFLICT(stripe_invoice_id) DO UPDATE SET
+         user_id=EXCLUDED.user_id,
+         status=EXCLUDED.status,
+         billing_reason=EXCLUDED.billing_reason,
+         amount_paid_cents=EXCLUDED.amount_paid_cents,
+         amount_due_cents=EXCLUDED.amount_due_cents,
+         amount_remaining_cents=EXCLUDED.amount_remaining_cents,
+         amount_refunded_cents=EXCLUDED.amount_refunded_cents,
+         subtotal_cents=EXCLUDED.subtotal_cents,
+         total_cents=EXCLUDED.total_cents,
+         subscription_id=EXCLUDED.subscription_id,
+         paid=EXCLUDED.paid,
+         attempted=EXCLUDED.attempted,
+         paid_at=EXCLUDED.paid_at,
+         refunded_at=CASE
+           WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
+           WHEN $18::timestamptz IS NOT NULL THEN $18::timestamptz
+           ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.paid_at)
+         END,
+         period_start=EXCLUDED.period_start,
+         period_end=EXCLUDED.period_end,
+         hosted_invoice_url=EXCLUDED.hosted_invoice_url,
+         classification=EXCLUDED.classification,
          reconciled_at=now()`,
-      [event.stripeRefundId, row.id, currency, event.amountCents, event.refundedAt],
+      [
+        row.id,
+        userId,
+        customer,
+        row.status,
+        row.billing_reason || null,
+        currency,
+        row.amount_paid || 0,
+        row.amount_due || 0,
+        row.amount_remaining || 0,
+        refund.cents,
+        row.subtotal ?? null,
+        row.total ?? null,
+        subscription,
+        paid,
+        Boolean(row.attempted),
+        createdAt,
+        paidAt,
+        stripeRefundedAt,
+        row.period_start ? new Date(row.period_start * 1000) : null,
+        row.period_end ? new Date(row.period_end * 1000) : null,
+        row.hosted_invoice_url || null,
+        classifyInvoice(row, refund.cents),
+      ],
     );
+
+    const hasRealRefundEvents = refund.events.some((e) => !e.stripeRefundId.startsWith("credit_note:"));
+    if (hasRealRefundEvents) {
+      // Atomically drop synthetic credit-note fallback so it cannot double-count with real refunds.
+      await client.query(
+        `DELETE FROM private.financial_invoice_refund_events
+         WHERE stripe_refund_id = $1`,
+        [`credit_note:${row.id}`],
+      );
+    }
+
+    for (const event of refund.events) {
+      await client.query(
+        `INSERT INTO private.financial_invoice_refund_events(
+           stripe_refund_id,stripe_invoice_id,currency,amount_cents,refunded_at,reconciled_at
+         ) VALUES ($1,$2,$3,$4,$5,now())
+         ON CONFLICT(stripe_refund_id) DO UPDATE SET
+           amount_cents=EXCLUDED.amount_cents,
+           refunded_at=EXCLUDED.refunded_at,
+           currency=EXCLUDED.currency,
+           reconciled_at=now()`,
+        [event.stripeRefundId, row.id, currency, event.amountCents, event.refundedAt],
+      );
+    }
+
+    if (refund.invalidateIds.length) {
+      await client.query(
+        `DELETE FROM private.financial_invoice_refund_events
+         WHERE stripe_refund_id = ANY($1::text[])`,
+        [refund.invalidateIds],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
   }
+  return { refundEventsIncomplete: !refund.eventsComplete };
 }
 
 /** Pull Stripe invoices for known customers into local cash snapshots (paginated). */
@@ -361,6 +403,7 @@ export async function reconcileStripeInvoices(actorId: string | null) {
   let customersTotal = 0;
   let customersSynced = 0;
   let truncated = false;
+  let incompleteRefundLookups = 0;
   const errors: string[] = [];
   try {
     type CustRow = { user_id: string; customer_id: string };
@@ -390,7 +433,11 @@ export async function reconcileStripeInvoices(actorId: string | null) {
               ...(startingAfter ? { starting_after: startingAfter } : {}),
             });
             for (const invoice of page.data) {
-              await upsertInvoice(stripe, invoice, row.user_id);
+              const result = await upsertInvoice(stripe, invoice, row.user_id);
+              if (result.refundEventsIncomplete) {
+                incompleteRefundLookups += 1;
+                truncated = true;
+              }
               processed += 1;
             }
             if (!page.has_more || !page.data.length) break;
@@ -407,21 +454,39 @@ export async function reconcileStripeInvoices(actorId: string | null) {
       }
       if (rows.length < PAGE) break;
     }
-    const completeCoverage = failed === 0 && !truncated && customersTotal === customersSynced;
-    const connectionStatus = completeCoverage ? "connected" : failed === 0 ? "degraded" : processed > 0 ? "degraded" : "error";
+    const completeCoverage =
+      failed === 0 && !truncated && incompleteRefundLookups === 0 && customersTotal === customersSynced;
+    const connectionStatus = completeCoverage
+      ? "connected"
+      : failed === 0 || processed > 0
+        ? "degraded"
+        : "error";
     await db.query(
       `INSERT INTO private.provider_cost_sync_state(provider, connection_status, last_sync_at, last_error, updated_at)
        VALUES('stripe',$2,now(),$1,now())
        ON CONFLICT(provider) DO UPDATE
        SET connection_status=$2, last_sync_at=now(), last_error=COALESCE($1,private.provider_cost_sync_state.last_error), updated_at=now()`,
-      [failed ? `${failed} invoice customer error(s)` : truncated ? "Invoice sync truncated before full coverage" : null, connectionStatus],
+      [
+        failed || incompleteRefundLookups
+          ? `${failed} invoice customer error(s); ${incompleteRefundLookups} incomplete refund lookup(s)`
+          : truncated
+            ? "Invoice sync truncated before full coverage"
+            : null,
+        connectionStatus,
+      ],
     );
-    const status = failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
+    const status =
+      failed === 0 && incompleteRefundLookups === 0
+        ? "succeeded"
+        : processed > 0
+          ? "partial"
+          : "failed";
     const details = {
       kind: "stripe_invoices",
       customersTotal,
       customersSynced,
       truncated,
+      incompleteRefundLookups,
       completeCoverage,
       errors: errors.slice(0, 25),
     };

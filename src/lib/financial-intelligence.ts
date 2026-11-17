@@ -279,15 +279,18 @@ export async function financialIntelligenceOverview(input?: {
          GROUP BY currency`,
         [period.start.toISOString(), period.end.toISOString()],
       ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
-      db.query(
-        `SELECT
-           currency,
-           coalesce(sum(amount_cents), 0)::int AS refunded_cents
-         FROM private.financial_invoice_refund_events
-         WHERE refunded_at >= $1 AND refunded_at < $2
-         GROUP BY currency`,
-        [period.start.toISOString(), period.end.toISOString()],
-      ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
+      db
+        .query(
+          `SELECT
+             currency,
+             coalesce(sum(amount_cents), 0)::int AS refunded_cents
+           FROM private.financial_invoice_refund_events
+           WHERE refunded_at >= $1 AND refunded_at < $2
+           GROUP BY currency`,
+          [period.start.toISOString(), period.end.toISOString()],
+        )
+        .then((r) => ({ ok: true as const, rows: r.rows as Record<string, unknown>[] }))
+        .catch(() => ({ ok: false as const, rows: [] as Record<string, unknown>[] })),
       db.query(
         `SELECT
            coalesce(sum(amount_cents) FILTER (WHERE state = 'paid'), 0)::int AS addon_paid_cents,
@@ -468,19 +471,28 @@ export async function financialIntelligenceOverview(input?: {
     (r) => String(r.currency || "").toLowerCase() !== "usd",
   );
   const usdCash = invoiceAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
+  const refundQueryOk = refundAgg.ok;
   const usdRefunds = refundAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
   const invoiceCount = usdCash ? Number(usdCash.invoices) : 0;
   const collectedCents = usdCash && invoiceCount > 0 ? Number(usdCash.collected_cents) : null;
-  // Dated refund events — each Stripe refund keeps its own period (not cumulative refunded_at).
-  const refundedCents = usdRefunds ? Number(usdRefunds.refunded_cents) : invoiceCount > 0 ? 0 : null;
+  // Dated refund events — query failure stays unavailable (never a verified $0).
+  const refundedCents = !refundQueryOk
+    ? null
+    : usdRefunds
+      ? Number(usdRefunds.refunded_cents)
+      : invoiceCount > 0
+        ? 0
+        : null;
   const outstandingCents = usdCash && invoiceCount > 0 ? Number(usdCash.outstanding_cents) : null;
-  const cashCoverageComplete = Boolean(invoiceCoverage.completeCoverage);
+  const cashCoverageComplete = Boolean(invoiceCoverage.completeCoverage) && refundQueryOk;
   const cashClassification: CostClassification =
-    invoiceCount === 0
+    invoiceCount === 0 && refundedCents == null
       ? "unavailable"
-      : cashCoverageComplete
-        ? "verified"
-        : "partial";
+      : !cashCoverageComplete
+        ? invoiceCount === 0
+          ? "unavailable"
+          : "partial"
+        : "verified";
 
   const addonPaid = Number(addonAgg.rows[0]?.addon_paid_cents || 0);
   const addonRefunded = Number(addonAgg.rows[0]?.addon_refunded_cents || 0);

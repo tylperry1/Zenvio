@@ -242,6 +242,7 @@ export function FinancialIntelligence() {
     } catch (e) {
       // Ignore stale failures so an older error cannot overwrite a newer success.
       if (seq !== loadSeq.current) return;
+      requestedPeriod.current = displayedPeriod.current;
       setPeriod(displayedPeriod.current);
       throw e;
     }
