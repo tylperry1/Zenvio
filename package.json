@@ -23,7 +23,8 @@
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "sharp": "^0.35.5",
-    "stripe": "^23.0.1"
+    "stripe": "^23.0.1",
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

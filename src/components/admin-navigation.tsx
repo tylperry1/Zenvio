@@ -8,6 +8,7 @@ import {
   type AdminNavItem,
 } from "@/lib/admin-console-nav";
 import { useAdminAccess, useCan } from "./admin-access";
+import { AdminAlertBell, useAdminBadges } from "./admin-alert-bell";
 import { Icon, Logo } from "./icons";
 import { ThemeControl } from "./theme-control";
 
@@ -18,27 +19,6 @@ async function defaultSignOut() {
     body: JSON.stringify({ action: "sign-out" }),
   });
   if (r.ok) window.location.assign("/sign-in");
-}
-
-/** Conversations waiting on Zenvio, for the Support inbox badge. Refreshes every 30 s. */
-function useSupportWaiting(enabled: boolean) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!enabled) return;
-    let stopped = false;
-    const load = () =>
-      fetch("/api/admin/support?summary=1", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => !stopped && d?.counts && setCount(d.counts.open))
-        .catch(() => {});
-    void load();
-    const timer = window.setInterval(() => document.visibilityState === "visible" && void load(), 30000);
-    return () => {
-      stopped = true;
-      window.clearInterval(timer);
-    };
-  }, [enabled]);
-  return count;
 }
 
 type NavProps = {
@@ -67,7 +47,9 @@ function AdminNavigationInner({
   const search = useRef<HTMLInputElement>(null);
   const access = useAdminAccess();
   const can = useCan();
-  const supportWaiting = useSupportWaiting(!!access && can("support"));
+  const { badges } = useAdminBadges(!!access);
+  const supportWaiting = can("support") ? badges.support : 0;
+  const feedbackOpen = can("feedback") ? badges.feedback : 0;
   const pathname = usePathname() || "/admin";
   const searchParams = useSearchParams();
   const activeId = useMemo(
@@ -122,9 +104,14 @@ function AdminNavigationInner({
           <Icon name={item.icon} size={16} />
         </span>
         <span className="acx-label">{item.label}</span>
-        {item.id === "support" && supportWaiting > 0 && (
+        {(item.id === "support" || item.id === "support-ops") && supportWaiting > 0 && (
           <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
             {supportWaiting > 99 ? "99+" : supportWaiting}
+          </span>
+        )}
+        {(item.id === "feedback") && feedbackOpen > 0 && (
+          <span className="acx-count" aria-label={`${feedbackOpen} open suggestions`}>
+            {feedbackOpen > 99 ? "99+" : feedbackOpen}
           </span>
         )}
         {item.permission === "team" && <span className="acx-pill">Owner</span>}
@@ -266,6 +253,7 @@ export function AdminTopbar({
       </div>
       <div className="acx-topbar-actions">
         {actions}
+        <AdminAlertBell enabled={!!access} />
         <ThemeControl />
         <span className={`acx-role ${access?.role === "staff" ? "staff" : ""}`}>
           <Icon name="shield" size={13} />

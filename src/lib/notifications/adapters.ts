@@ -202,21 +202,58 @@ export async function dispatchSmsAttempt(
 }
 
 /**
- * Push adapter interface for future Firebase Cloud Messaging.
- * Slice 1 records a suppressed attempt and never claims device delivery.
+ * Device push via Web Push (VAPID). Delivers to subscriptions registered for
+ * the recipient user. When no subscriptions exist, records suppressed — never
+ * claims delivery. Firebase remains unused.
  */
 export async function dispatchPushAttempt(
-  _db: PoolClient,
-  _input: EnqueueNotificationInput,
+  db: PoolClient,
+  input: EnqueueNotificationInput,
   push: PushChannelPayload,
 ): Promise<ChannelAttemptResult> {
-  void push;
-  return {
-    channel: "push",
-    status: "suppressed",
-    provider: "firebase",
-    failureClass: "not_implemented",
-    failureReason:
-      "Web push adapter is reserved for Firebase Cloud Messaging; not activated in this slice.",
-  };
+  const userId = input.recipientUserId;
+  if (!userId) {
+    return {
+      channel: "push",
+      status: "suppressed",
+      provider: "web_push",
+      failureClass: "invalid_recipient",
+      failureReason: "Push requires a recipient user with a registered device subscription.",
+    };
+  }
+  try {
+    const { deliverWebPushToUser } = await import("../web-push");
+    const result = await deliverWebPushToUser(db, userId, {
+      title: push.title || "Zenvio",
+      body: push.body || "",
+      url: push.url || "/admin",
+      tag: push.tag || input.category,
+    });
+    if (result.sent > 0) {
+      return {
+        channel: "push",
+        status: "delivered",
+        provider: "web_push",
+        providerReference: `devices:${result.sent}`,
+      };
+    }
+    return {
+      channel: "push",
+      status: "suppressed",
+      provider: "web_push",
+      failureClass: "suppressed",
+      failureReason:
+        "skipped" in result
+          ? `Push skipped (${result.skipped}).`
+          : "No registered push devices for this user.",
+    };
+  } catch (error) {
+    return {
+      channel: "push",
+      status: "failed",
+      provider: "web_push",
+      failureClass: "transient",
+      failureReason: (error as Error).message || "Web push dispatch failed.",
+    };
+  }
 }

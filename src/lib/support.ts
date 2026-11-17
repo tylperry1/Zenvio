@@ -5,8 +5,9 @@ import { getPool } from "./db";
 import { queueDelivery, appOrigin } from "./lifecycle";
 import { attachmentResponse, normalizeAttachment, readUpload } from "./uploads";
 import { ApiError, body, sameOrigin, session, string, uuid } from "./server";
-import { isSupportCategory, supportPriorities } from "./support-options";
+import { isSupportCategory, normalizeSupportStatus, supportPriorities } from "./support-options";
 import { queueStaffAlert, queueVisitorReply } from "./support-notify";
+import { applySlaDeadlines } from "./support-sla";
 
 const AGENT_ONLINE_MINUTES = 3;
 type Q = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
@@ -47,13 +48,18 @@ async function supportTeam(db: Q) {
 async function supportCounts(db: Q, me: string) {
   return (
     await db.query(
-      `SELECT count(*) FILTER (WHERE status='open')::int open,
-              count(*) FILTER (WHERE status='pending')::int pending,
-              count(*) FILTER (WHERE status<>'resolved' AND assigned_to IS NULL)::int unassigned,
-              count(*) FILTER (WHERE status<>'resolved' AND assigned_to=$1)::int mine,
-              count(*) FILTER (WHERE status<>'resolved' AND user_id IS NULL)::int visitors,
+      `SELECT count(*) FILTER (WHERE status IN ('new','open','in_progress','escalated'))::int open,
+              count(*) FILTER (WHERE status='waiting_customer')::int pending,
+              count(*) FILTER (WHERE status NOT IN ('resolved','closed') AND assigned_to IS NULL AND merged_into IS NULL)::int unassigned,
+              count(*) FILTER (WHERE status NOT IN ('resolved','closed') AND assigned_to=$1 AND merged_into IS NULL)::int mine,
+              count(*) FILTER (WHERE status NOT IN ('resolved','closed') AND user_id IS NULL AND merged_into IS NULL)::int visitors,
+              count(*) FILTER (WHERE status='waiting_internal')::int waiting_internal,
+              count(*) FILTER (WHERE status='escalated')::int escalated,
+              count(*) FILTER (WHERE status NOT IN ('resolved','closed') AND (sla_first_breached OR sla_resolve_breached))::int sla_breached,
+              count(*) FILTER (WHERE resolved_at::date = current_date)::int resolved_today,
               (SELECT coalesce(max(id),0) FROM private.support_messages WHERE NOT staff)::text latest_customer,
               round(avg(extract(epoch FROM first_response_at-created_at)/60) FILTER (WHERE first_response_at IS NOT NULL AND created_at > now()-interval '30 days'))::int first_response_minutes,
+              round(avg(extract(epoch FROM resolved_at-created_at)/60) FILTER (WHERE resolved_at IS NOT NULL AND created_at > now()-interval '30 days'))::int resolve_minutes,
               round(avg(rating) FILTER (WHERE rating IS NOT NULL AND created_at > now()-interval '30 days'),1)::float rating,
               count(rating) FILTER (WHERE created_at > now()-interval '30 days')::int ratings
          FROM private.support_tickets`,
@@ -134,28 +140,36 @@ export async function supportGet(request: NextRequest, staff: boolean) {
     return result;
   }
   const params = request.nextUrl.searchParams;
-  const status = params.get("status") ?? "";
+  const rawStatus = params.get("status") ?? "";
+  const status =
+    rawStatus === "pending"
+      ? "waiting_customer"
+      : rawStatus === "active" || rawStatus === ""
+        ? rawStatus
+        : normalizeSupportStatus(rawStatus) || "";
+  if (rawStatus && rawStatus !== "active" && rawStatus !== "pending" && !status) throw new ApiError("Invalid status.");
   const q = string(params.get("q") ?? "", "search", 100, 0);
   const page = Number(params.get("page") ?? 0);
   if (!Number.isSafeInteger(page) || page < 0 || page > 10000) throw new ApiError("Invalid page.");
-  if (status && !["open", "pending", "resolved", "active"].includes(status)) throw new ApiError("Invalid status.");
   const view = staff ? params.get("view") ?? "" : "";
   const category = isSupportCategory(params.get("category")) ? params.get("category")! : "";
+  const filterStatus = status === "active" ? "active" : status;
   const tickets = await db.query(
     `SELECT t.id,t.subject,t.status,t.assigned_to,t.updated_at,t.created_at,t.category,t.priority,t.rating,coalesce(u.name,t.visitor_name) name,
-       ${staff ? "coalesce(u.email,t.visitor_email) email,a.name assignee_name,(t.user_id IS NULL) visitor," : ""}
+       ${staff ? "coalesce(u.email,t.visitor_email) email,a.name assignee_name,(t.user_id IS NULL) visitor,t.escalation_level,t.sla_first_due_at,t.sla_resolve_due_at,t.sla_first_breached,t.sla_resolve_breached," : ""}
        (SELECT CASE WHEN EXISTS(SELECT 1 FROM private.support_attachments a WHERE a.message_id=m.id) THEN 'Image: '||m.content ELSE m.content END
           FROM private.support_messages m WHERE m.ticket_id=t.id AND NOT m.internal ORDER BY m.id DESC LIMIT 1) preview,
        (SELECT count(*)::int FROM private.support_messages m WHERE m.ticket_id=t.id AND NOT m.internal
         AND m.staff<>$1 AND m.id>CASE WHEN $1 THEN t.staff_read ELSE t.customer_read END) unread
        FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to
-       WHERE ($1::boolean OR t.user_id=$2) AND ($3='' OR t.status=$3 OR ($3='active' AND t.status<>'resolved'))
+       WHERE ($1::boolean OR t.user_id=$2) AND coalesce(t.merged_into::text,'')=''
+       AND ($3='' OR t.status=$3 OR ($3='active' AND t.status NOT IN ('resolved','closed')))
        AND ($4='' OR strpos(lower(t.subject),lower($4))>0 OR ($1 AND (strpos(lower(coalesce(u.email,t.visitor_email)),lower($4))>0 OR strpos(lower(coalesce(u.name,t.visitor_name,'')),lower($4))>0)))
-       AND ($6='' OR ($6='mine' AND t.assigned_to=$2) OR ($6='unassigned' AND t.assigned_to IS NULL) OR ($6='visitors' AND t.user_id IS NULL))
+       AND ($6='' OR ($6='mine' AND t.assigned_to=$2) OR ($6='unassigned' AND t.assigned_to IS NULL) OR ($6='visitors' AND t.user_id IS NULL) OR ($6='escalated' AND t.status='escalated') OR ($6='sla' AND (t.sla_first_breached OR t.sla_resolve_breached)))
        AND ($7='' OR t.category=$7)
-       ORDER BY CASE WHEN $1 AND t.status<>'resolved' THEN CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 ELSE 2 END ELSE 2 END,
+       ORDER BY CASE WHEN $1 AND t.status NOT IN ('resolved','closed') THEN CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 ELSE 2 END ELSE 2 END,
                 t.updated_at DESC,t.id LIMIT 31 OFFSET $5`,
-    [staff, current.token, status, q, page * 30, view, category],
+    [staff, current.token, filterStatus === "active" ? "active" : filterStatus, q, page * 30, view, category],
   );
   if (!staff) return { tickets: tickets.rows.slice(0, 30), hasMore: tickets.rows.length > 30, replies: [], online: await supportOnline(db) };
   const [replies, counts, team, available, alerts] = await Promise.all([
@@ -233,9 +247,16 @@ export async function supportPost(request: NextRequest, staff: boolean) {
       }
       const count = await db.query("SELECT count(*)::int n FROM private.support_tickets WHERE user_id=$1 AND status<>'resolved'", [current.token]);
       if (count.rows[0].n >= 10) throw new ApiError("You have 10 active conversations. Reply to an existing conversation.", 409);
-      id = (await db.query("INSERT INTO private.support_tickets(user_id,subject,category,page) VALUES($1,$2,$3,$4) RETURNING id",
+      id = (await db.query(
+        "INSERT INTO private.support_tickets(user_id,subject,category,page,status,last_customer_at) VALUES($1,$2,$3,$4,'new',now()) RETURNING id",
         [current.token, string(input.subject, "subject", 150), isSupportCategory(input.category) ? input.category : "other",
-         typeof input.page === "string" ? input.page.slice(0, 300) : ""])).rows[0].id;
+         typeof input.page === "string" ? input.page.slice(0, 300) : ""],
+      )).rows[0].id;
+      await db.query(
+        "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'created',$3::jsonb)",
+        [id, current.token, JSON.stringify({ subject: string(input.subject, "subject", 150) })],
+      ).catch(() => null);
+      await applySlaDeadlines(db, id, "normal").catch(() => null);
     } else {
       id = uuid(input.ticket);
     }
@@ -252,13 +273,25 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         const prior = (await db.query("SELECT ticket_id,sender_id,content,internal FROM private.support_messages WHERE reference=$1", [reference])).rows[0];
         if (prior.ticket_id !== id || prior.sender_id !== current.token || prior.content !== content || prior.internal !== internal) throw new ApiError("Message reference already used.", 409);
       } else {
-        // A staff reply may hand the conversation back to the customer ("pending") or resolve it.
-        const after = staff && !internal && (input.status === "pending" || input.status === "resolved") ? input.status : null;
+        // Staff may hand the conversation back to the customer or resolve it.
+        const requested = staff && !internal ? normalizeSupportStatus(input.status) : null;
+        const after =
+          requested === "waiting_customer" || requested === "resolved" || requested === "waiting_internal" || requested === "in_progress"
+            ? requested
+            : staff && !internal && (input.status === "pending" || input.status === "resolved")
+              ? input.status === "pending"
+                ? "waiting_customer"
+                : "resolved"
+              : null;
         await db.query(
           `UPDATE private.support_tickets SET updated_at=now(),
-             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text ELSE 'open' END,
+             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text WHEN $3 THEN 'waiting_customer' ELSE 'open' END,
              resolved_at=CASE WHEN $2 THEN resolved_at WHEN $4::text='resolved' THEN coalesce(resolved_at,now()) ELSE NULL END,
-             first_response_at=CASE WHEN $3 AND NOT $2 THEN coalesce(first_response_at,now()) ELSE first_response_at END
+             first_response_at=CASE WHEN $3 AND NOT $2 THEN coalesce(first_response_at,now()) ELSE first_response_at END,
+             last_staff_at=CASE WHEN $3 AND NOT $2 THEN now() ELSE last_staff_at END,
+             last_customer_at=CASE WHEN NOT $3 THEN now() ELSE last_customer_at END,
+             closed_at=CASE WHEN $4::text='closed' THEN coalesce(closed_at,now()) ELSE closed_at END,
+             reopened_at=CASE WHEN NOT $3 AND status IN ('resolved','closed') THEN now() ELSE reopened_at END
            WHERE id=$1`,
           [id, internal, staff, after]);
         if (staff && !internal && !ticket.user_id) await queueVisitorReply(db, ticket, reference);
@@ -268,10 +301,14 @@ export async function supportPost(request: NextRequest, staff: boolean) {
           text: `The Zenvio support team replied to your conversation “${ticket.subject}”.\n\nRead the reply and respond in Zenvio:\n${appOrigin()}/app/support?ticket=${id}\n\nPlease reply in Zenvio rather than to this email so the team sees your message.`,
         });
         if (!staff) await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
+        await db.query(
+          "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,$3,$4::jsonb)",
+          [id, current.token, internal ? "internal_note" : staff ? "staff_message" : "customer_message", JSON.stringify({ reference })],
+        ).catch(() => null);
       }
     } else if (input.action === "update") {
-      const status = String(input.status ?? ticket.status);
-      if (!["open", "pending", "resolved"].includes(status)) throw new ApiError("Invalid status.");
+      const status = normalizeSupportStatus(input.status ?? ticket.status);
+      if (!status) throw new ApiError("Invalid status.");
       let assigned = ticket.assigned_to;
       if (staff && input.assigned !== undefined) {
         assigned = input.assigned === "self" ? current.token : input.assigned ? uuid(input.assigned) : null;
@@ -282,10 +319,22 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         if (!(supportPriorities as readonly string[]).includes(String(input.priority))) throw new ApiError("Invalid priority.");
         priority = String(input.priority);
       }
+      const resolutionNotes =
+        staff && typeof input.resolution_notes === "string"
+          ? string(input.resolution_notes, "resolution notes", 4000, 0)
+          : ticket.resolution_notes || "";
       await db.query(
         `UPDATE private.support_tickets SET status=$2,assigned_to=$3,priority=$4,updated_at=now(),
-           resolved_at=CASE WHEN $2='resolved' THEN coalesce(resolved_at,now()) ELSE NULL END WHERE id=$1`,
-        [id, status, assigned, priority]);
+           resolution_notes=CASE WHEN $2 IN ('resolved','closed') THEN $5 ELSE resolution_notes END,
+           resolved_at=CASE WHEN $2 IN ('resolved','closed') THEN coalesce(resolved_at,now()) ELSE NULL END,
+           closed_at=CASE WHEN $2='closed' THEN coalesce(closed_at,now()) WHEN $2='resolved' THEN closed_at ELSE NULL END,
+           reopened_at=CASE WHEN $2 NOT IN ('resolved','closed') AND status IN ('resolved','closed') THEN now() ELSE reopened_at END
+         WHERE id=$1`,
+        [id, status, assigned, priority, resolutionNotes]);
+      await db.query(
+        "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'updated',$3::jsonb)",
+        [id, current.token, JSON.stringify({ status, assigned, priority })],
+      ).catch(() => null);
     } else if (!staff && input.action === "rate") {
       const rating = Number(input.rating);
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError("Choose a rating from 1 to 5.");

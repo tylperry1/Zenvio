@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
 import { getPool } from "@/lib/db";
+import { createPlatformAlertsForStaff } from "@/lib/platform-alerts";
 import { ApiError, body, failure, sameOrigin, session, string, uuid } from "@/lib/server";
 import { allowRequest } from "@/lib/booking-protection";
 import { readUpload } from "@/lib/uploads";
@@ -51,11 +52,22 @@ export async function POST(request: NextRequest) {
     const input = await body(request);
     const category = String(input.category);
     if (!categories.includes(category)) throw new ApiError("Choose a feedback type.");
+    const message = string(input.message, "message", 4000);
     const { rows } = await getPool().query(
       "INSERT INTO private.feedback(user_id,category,message,page) VALUES($1,$2,$3,$4) RETURNING id",
-      [user.id, category, string(input.message, "message", 4000), string(input.page ?? "", "page", 300, 0)],
+      [user.id, category, message, string(input.page ?? "", "page", 300, 0)],
     );
-    return Response.json({ id: rows[0].id }, { status: 201 });
+    const id = rows[0].id as string;
+    await createPlatformAlertsForStaff(getPool(), ["feedback"], {
+      kind: "feedback_new",
+      title: `New ${category} suggestion`,
+      body: message.slice(0, 180),
+      href: `/admin/feedback`,
+      dedupeKey: `feedback:new:${id}`,
+      payload: { feedback: id, category },
+      push: true,
+    }).catch(() => ({ created: 0 }));
+    return Response.json({ id }, { status: 201 });
   } catch (e) {
     return failure(e);
   }
