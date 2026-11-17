@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zenvio Billing preview</title>
+  <link rel="stylesheet" href="/src/app/theme.css" />
+  <link rel="stylesheet" href="/src/app/design-system.css" />
+  <link rel="stylesheet" href="/src/app/admin/admin.css" />
+  <style>
+    body { margin: 0; font-family: var(--font-family, system-ui); background: var(--surface-page); color: var(--text-primary); }
+    .preview-wrap { padding: 28px; }
+  </style>
+</head>
+<body>
+  <div class="preview-wrap">
+    <div class="ds-root bc">
+      <div class="ds-page-header">
+        <div>
+          <p class="ds-eyebrow">Billing operations</p>
+          <h1>Billing & revenue</h1>
+          <p class="ds-page-description">Draft and publish catalog prices for new enrollments. Existing customers keep contracted prices until an explicit, previewed change.</p>
+        </div>
+      </div>
+      <div class="ds-kpis">
+        <article class="ds-kpi"><div class="ds-kpi-top"><span>Published catalog</span></div><strong>a1b2c3d4</strong><p>Published 2 days ago</p></article>
+        <article class="ds-kpi info"><div class="ds-kpi-top"><span>Draft versions</span></div><strong>1</strong><p>Ready to review and publish</p></article>
+        <article class="ds-kpi"><div class="ds-kpi-top"><span>Active promotions</span></div><strong>1</strong><p>Platform-created promotion codes</p></article>
+        <article class="ds-kpi success"><div class="ds-kpi-top"><span>Failed operations</span></div><strong>0</strong><p>No recent failures</p></article>
+      </div>
+      <div class="ds-segmented" role="group" aria-label="Billing sections">
+        <button type="button" aria-pressed="true">Pricing & allowances</button>
+        <button type="button" aria-pressed="false">Coupons</button>
+        <button type="button" aria-pressed="false">Seats & proration</button>
+        <button type="button" aria-pressed="false">Sync & audit</button>
+      </div>
+      <section class="ds-panel">
+        <header class="ds-panel-header"><div><h2>Current published prices</h2><p>Values come from the live catalog.</p></div></header>
+        <div class="ds-panel-body">
+          <div class="bc-packages">
+            <article class="bc-package">
+              <header><div><h3>Professional plan</h3><p>Everything a single host needs</p></div><span class="ds-badge info"><i></i>Published</span></header>
+              <div class="bc-price"><strong>$29.99</strong><span>/ month</span></div>
+            </article>
+            <article class="bc-package featured">
+              <header><div><h3>Teams plan</h3><p>Shared scheduling for 3 or more hosts</p></div><span class="ds-badge info"><i></i>Published</span></header>
+              <div class="bc-price"><strong>$49.99</strong><span>/ month · 3 seats included</span></div>
+            </article>
+            <article class="bc-package">
+              <header><div><h3>Additional team seat</h3><p>Per seat beyond the included three</p></div><span class="ds-badge info"><i></i>Published</span></header>
+              <div class="bc-price"><strong>$9.99</strong><span>/ month</span></div>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="ds-panel">
+        <header class="ds-panel-header"><div><h2>Draft pricing</h2><p>Enter customer-facing dollar amounts. Cents conversion stays internal.</p></div></header>
+        <div class="ds-panel-body">
+          <div class="bc-packages">
+            <article class="bc-package edit">
+              <header><div><h3>Professional plan</h3><p>Everything a single host needs</p></div><span class="ds-badge">Draft</span></header>
+              <label class="ds-field"><span>Professional plan — monthly</span>
+                <span class="ds-money"><span>$</span><input value="29.99" readonly /></span>
+                <small>Stored as 2999 USD cents</small>
+              </label>
+            </article>
+            <article class="bc-package edit">
+              <header><div><h3>Teams plan</h3><p>Shared scheduling for 3 or more hosts</p></div><span class="ds-badge">Draft</span></header>
+              <label class="ds-field"><span>Teams plan — monthly</span>
+                <span class="ds-money"><span>$</span><input value="49.99" readonly /></span>
+                <small>Stored as 4999 USD cents</small>
+              </label>
+            </article>
+            <article class="bc-package edit">
+              <header><div><h3>Additional team seat</h3><p>Per seat beyond the included three</p></div><span class="ds-badge">Draft</span></header>
+              <label class="ds-field"><span>Additional team seat — monthly</span>
+                <span class="ds-money"><span>$</span><input value="9.99" readonly /></span>
+                <small>Stored as 999 USD cents</small>
+              </label>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
