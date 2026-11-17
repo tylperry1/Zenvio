@@ -173,7 +173,12 @@ try {
   await localPage.getByRole("button",{name:"+ New appointment",exact:true}).click();
   const localDialog=localPage.getByRole("dialog",{name:"Create appointment"});
   assert.equal(await localDialog.getByLabel("Time zone",{exact:true}).inputValue(),"auto");
-  await localDialog.getByLabel("Meeting location",{exact:true}).fill("120 Main Street");
+  // Location UI is mode-dependent: structured address, virtual link, or business status text.
+  const addressInput=localDialog.getByLabel(/^(Meeting address|Customer service address)$/);
+  const linkInput=localDialog.getByLabel("Meeting link for this appointment",{exact:true});
+  if(await addressInput.count()) await addressInput.fill("120 Main Street");
+  else if(await linkInput.count()) await linkInput.fill("https://meet.example.com/qa");
+  else await localDialog.getByText(/^Location:/).waitFor({state:"visible"});
   await localDialog.getByRole("button",{name:"Close dialog",exact:true}).click();
   await localContext.close();
 
