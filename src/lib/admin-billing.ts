@@ -147,8 +147,27 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               : input,
           );
           const products = productsForTargets(parsed.catalogTargets || ["v3"]);
-          const local = await insertLocalCoupon(db, actor, parsed, products);
-          couponId = local.id;
+          // Reuse coupon from a prior failed attempt of this operation, or an existing code row.
+          const priorCouponId =
+            prior.state === "failed" && prior.result && typeof prior.result === "object"
+              ? (prior.result as { couponId?: string }).couponId
+              : null;
+          if (priorCouponId) {
+            couponId = String(priorCouponId);
+          } else {
+            const existing = (
+              await db.query(
+                "SELECT id FROM private.billing_coupons WHERE lower(code)=lower($1) LIMIT 1",
+                [parsed.code],
+              )
+            ).rows[0];
+            if (existing?.id) {
+              couponId = existing.id;
+            } else {
+              const local = await insertLocalCoupon(db, actor, parsed, products);
+              couponId = local.id;
+            }
+          }
         } else {
           couponId = uuid(input.couponId);
         }
@@ -169,14 +188,15 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             syncStatus: synced.sync_status,
           };
         } catch (syncError) {
-          // Commit durable failed/pending coupon row, then surface the error.
+          // Commit durable failed coupon row (with couponId for reuse), then surface the error.
           await db.query(
-            "UPDATE private.billing_admin_operations SET state='failed',error=$2,updated_at=now() WHERE id=$1",
+            "UPDATE private.billing_admin_operations SET state='failed',error=$2,result=$3,updated_at=now() WHERE id=$1",
             [
               operation,
               syncError instanceof ApiError
                 ? syncError.message
                 : "Stripe coupon synchronization failed.",
+              JSON.stringify({ couponId, syncStatus: "failed" }),
             ],
           );
           await db.query("COMMIT");

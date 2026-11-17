@@ -90,11 +90,40 @@ export async function POST(req: NextRequest) {
       throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
     }
     if (family === "v4") {
-      if (!readiness.connected || readiness.blockers.some((b) => /credential|webhook|sandbox/i.test(b))) {
+      // Check the launch checkout switch directly — do not reuse v3 price-mapping readiness.
+      const { launchControls } = await import("@/lib/launch-controls");
+      if (!(await launchControls()).checkoutEnabled) {
+        throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+      }
+      if (!readiness.connected) {
+        throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+      }
+      if (readiness.blockers.some((b) => /credential|webhook|sandbox/i.test(b))) {
         throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
       }
       if (process.env.PRICING_V4_VALIDATED !== "true") {
         throw new ApiError("Pricing v4 acceptance is pending. No payment has been taken.", 503);
+      }
+      // v4 price readiness is independent of v3 individual/team/team_extra mappings.
+      const maps = await getPool().query(
+        "SELECT plan, period FROM private.subscription_prices WHERE catalog_version=$1 AND plan = ANY($2::text[])",
+        [pricingV4Version, ["starter", "professional", "business", "business_extra"]],
+      );
+      const need = [
+        ["starter", "monthly"],
+        ["starter", "annual"],
+        ["professional", "monthly"],
+        ["professional", "annual"],
+        ["business", "monthly"],
+        ["business", "annual"],
+        ["business_extra", "monthly"],
+        ["business_extra", "annual"],
+      ];
+      const ready = need.every(([plan, per]) =>
+        maps.rows.some((r) => r.plan === plan && r.period === per),
+      );
+      if (!ready) {
+        throw new ApiError("Pricing v4 Stripe price mappings are incomplete. No payment has been taken.", 503);
       }
     }
 

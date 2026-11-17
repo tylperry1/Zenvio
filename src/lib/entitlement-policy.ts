@@ -96,6 +96,14 @@ export function isTeamCapacityPlan(plan: string, catalogVersion?: string | null)
   return false;
 }
 
+/** Whether a resolved entitlementUsage plan may create/manage a team workspace. */
+export function hasTeamWorkspaceAccess(
+  plan: string,
+  catalogVersion?: string | null,
+): boolean {
+  return isTeamCapacityPlan(plan, catalogVersion);
+}
+
 /** Contact allowance for CRM capacity checks. null = unlimited / not enforced. */
 export function contactAllowance(plan: string, catalogVersion?: string | null): number | null {
   if (!isV4CatalogVersion(catalogVersion)) return null;

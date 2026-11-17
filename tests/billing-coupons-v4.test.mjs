@@ -174,6 +174,19 @@ test("v4 Team plan limits override legacy solo business ceilings", () => {
   assert.equal(v4.envelopes, 50);
   assert.equal(policy.isTeamCapacityPlan("business", "legacy"), false);
   assert.equal(policy.isTeamCapacityPlan("business", "2026-11-v4"), true);
+  assert.equal(policy.hasTeamWorkspaceAccess("business", "2026-11-v4"), true);
+  assert.equal(policy.hasTeamWorkspaceAccess("business", "legacy"), false);
   assert.equal(policy.contactAllowance("starter", "2026-11-v4"), 1000);
   assert.equal(policy.contactAllowance("starter", "2026-11-v3"), null);
+});
+
+test("storage guard migration keeps release overlays and custom allowances", () => {
+  const sql = fs.readFileSync("postgres/migrations/092_billing_coupons_entitlements.sql", "utf8");
+  assert.match(sql, /version LIKE 'release-%'/);
+  assert.match(sql, /billing_catalog_versions/);
+  assert.match(sql, /workspace_meter_overrides/);
+  assert.match(sql, /storageBytes/);
+  const roots = fs.readFileSync("postgres/migrations/093_v4_team_entitlement_roots.sql", "utf8");
+  assert.match(roots, /s\.plan = 'business'/);
+  assert.match(roots, /2026-11-v4/);
 });

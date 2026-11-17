@@ -4,13 +4,20 @@ import { getPool } from "./db";
 import { ApiError } from "./server";
 import {
   contactAllowance,
+  hasTeamWorkspaceAccess,
   isTeamCapacityPlan,
   isV4CatalogVersion,
   planLimits,
   planLimitsFor,
   type Plan,
 } from "./entitlement-policy";
-export { planLimits, planLimitsFor, contactAllowance } from "./entitlement-policy";
+export {
+  planLimits,
+  planLimitsFor,
+  contactAllowance,
+  hasTeamWorkspaceAccess,
+  isTeamCapacityPlan,
+} from "./entitlement-policy";
 export async function entitlementUsage(
   user: string,
   db: Pick<PoolClient, "query"> = getPool(),

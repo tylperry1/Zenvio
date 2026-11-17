@@ -184,9 +184,11 @@ BEGIN
   SELECT catalog_version, plan, status INTO version, plan_id, state
     FROM private.subscriptions WHERE user_id = owner;
 
+  -- Match 077: enforce v3, published release-* overlays, and v4 catalogs.
   enforce := version = '2026-11-v3'
     OR version = '2026-11-v4'
-    OR (version IS NOT NULL AND version LIKE '2026-11-v4%');
+    OR (version IS NOT NULL AND version LIKE '2026-11-v4%')
+    OR (version IS NOT NULL AND version LIKE 'release-%');
 
   IF NOT enforce
      OR EXISTS (SELECT 1 FROM private.platform_roles WHERE user_id = owner AND enabled)
@@ -243,12 +245,20 @@ BEGIN
   END IF;
   IF new_bytes <= old_bytes THEN RETURN NEW; END IF;
 
-  IF version = '2026-11-v3' OR (version IS NOT NULL AND version LIKE 'release-%') THEN
-    -- release-* published overlays use v3 product shapes; keep prior v3 caps for known plans.
+  -- Legacy plan id "teams" shares the current "team" catalog allowances.
+  plan_id := CASE WHEN plan_id = 'teams' THEN 'team' ELSE plan_id END;
+
+  IF version IS NOT NULL AND version LIKE 'release-%' THEN
+    -- Published overlays keep their saved storageBytes allowances.
+    SELECT coalesce((catalog->'allowances'->plan_id->>'storageBytes')::bigint, 0)
+      INTO cap
+      FROM private.billing_catalog_versions
+     WHERE id = substring(version FROM 9)::uuid;
+    cap := CASE WHEN state IN ('active', 'trialing') THEN coalesce(cap, 0) ELSE 0 END;
+  ELSIF version = '2026-11-v3' THEN
     cap := CASE WHEN state IN ('active', 'trialing') THEN
       CASE plan_id
         WHEN 'team' THEN 10000000000
-        WHEN 'teams' THEN 10000000000
         WHEN 'individual' THEN 2000000000
         ELSE 0
       END

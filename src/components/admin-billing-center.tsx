@@ -206,6 +206,14 @@ export function AdminBillingCenter() {
       return d;
     } catch (e) {
       setError((e as Error).message);
+      // Refresh after failed coupon sync so Retry sync / legacy controls appear without a full reload.
+      if (String(input.action).startsWith("coupon")) {
+        try {
+          await load();
+        } catch {
+          /* keep original error */
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -747,6 +755,64 @@ export function AdminBillingCenter() {
               </ul>
             )}
           </Panel>
+          {legacyCouponOps.some((o) => o.result?.promotion) ? (
+            <Panel
+              title="Legacy promotions"
+              description="Promotions created before the durable coupon catalog. Pause/resume still works via Stripe promotion id."
+            >
+              <ul className="bc-versions">
+                {legacyCouponOps
+                  .filter((o) => o.result?.promotion)
+                  .filter(
+                    (o) =>
+                      !coupons.some(
+                        (c) => c.stripe_promotion_code_id && c.stripe_promotion_code_id === o.result?.promotion,
+                      ),
+                  )
+                  .map((o) => (
+                    <li key={o.id}>
+                      <div>
+                        <b>{o.result?.code || o.result?.promotion}</b>
+                        <small>{o.result?.promotion}</small>
+                        <Badge tone="neutral" dot>
+                          legacy
+                        </Badge>
+                      </div>
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void send({
+                            action: "promotion-status",
+                            promotionId: o.result?.promotion,
+                            active: false,
+                            reason: "Pause legacy promotion redemptions",
+                          })
+                        }
+                      >
+                        Pause
+                      </button>
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void send({
+                            action: "promotion-status",
+                            promotionId: o.result?.promotion,
+                            active: true,
+                            reason: "Resume legacy promotion redemptions",
+                          })
+                        }
+                      >
+                        Resume
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </Panel>
+          ) : null}
         </div>
       )}
 
