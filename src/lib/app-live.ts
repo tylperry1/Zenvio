@@ -1,5 +1,5 @@
 import { getPool } from "./db";
-import { threadAccess } from "./messaging";
+import { threadAccess, threadUnreadCountSql } from "./messaging";
 
 /**
  * Cheap fingerprint of a host's bookings, inbox, clients, jobs, payments and
@@ -15,9 +15,16 @@ export async function workspaceSignature(userId: string) {
           FROM public.bookings WHERE user_id=$1) bookings,
        (SELECT coalesce(md5(string_agg(t.id::text||t.status||coalesce(t.assigned_to::text,'')||t.last_message_at::text, ',' ORDER BY t.id)), '')
           FROM private.message_threads t WHERE ${threadAccess}) inbox,
-       (SELECT coalesce(count(*) FILTER (WHERE m.direction='inbound' AND m.read_at IS NULL)::text,'0') || ':' ||
-               coalesce(max(m.created_at)::text,'')
-          FROM private.thread_messages m JOIN private.message_threads t ON t.id=m.thread_id WHERE ${threadAccess}) messages,
+       (SELECT coalesce((
+                 SELECT count(*)::int FROM private.message_threads t
+                  WHERE ${threadAccess} AND ${threadUnreadCountSql} > 0
+               )::text,'0') || ':' ||
+               coalesce(max(m.created_at)::text,'') || ':' ||
+               coalesce(max(rs.last_read_at)::text,'')
+          FROM private.thread_messages m
+          JOIN private.message_threads t ON t.id=m.thread_id
+          LEFT JOIN private.thread_user_state rs ON rs.thread_id=t.id AND rs.user_id=$1
+         WHERE ${threadAccess} AND m.deleted_at IS NULL) messages,
        (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(created_at)::text,'') FROM public.contacts WHERE user_id=$1) contacts,
        (SELECT coalesce(max(updated_at)::text,'') || ':' || coalesce(count(*)::text,'0') FROM private.jobs WHERE user_id=$1) jobs,
        (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(updated_at)::text,'') || ':' || coalesce(max(status),'') FROM private.estimates WHERE user_id=$1) estimates,

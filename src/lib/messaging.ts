@@ -7,8 +7,11 @@ import { createPortalLink } from "./portal";
 import { smsReadiness, smsTransport, normalizePhone } from "./sms";
 import { ApiError } from "./server";
 
-// Messaging center storage is a temporary adapter (see docs/ZENVIO_2_1.md). Email goes out
-// through the existing Resend delivery queue; SMS goes through the shared transport contract.
+// Product Inbox storage: private.message_threads / thread_messages (see docs/ZENVIO_2_1.md).
+// Provider SMS/email ledger remains private.messaging_threads / message_records (/api/messages).
+// Dual-store is intentional: ledger for provider accounting; contact threads for the Inbox UI.
+// Inbound SMS bridges into the product inbox when the sender maps to exactly one contact
+// (see bridgeProviderSmsToInbox). Email goes out through Resend delivery; SMS via shared transport.
 export type Channel = "email" | "sms" | "note";
 export type ThreadStatus = "open" | "pending_response" | "closed" | "archived";
 
@@ -70,6 +73,38 @@ export async function ensureContactThread(db: PoolClient, userId: string, contac
     [userId, contactId, contact.name],
   );
   return rows[0].id as string;
+}
+
+/**
+ * Copy a provider-ledger inbound SMS into the product Inbox when the phone maps to
+ * exactly one contact. Keeps messaging_threads as the accounting store; Inbox stays
+ * contact-thread based. Idempotent on message id.
+ */
+export async function bridgeProviderSmsToInbox(
+  db: PoolClient,
+  input: {
+    userId: string;
+    contactId: string;
+    messageId: string;
+    from: string;
+    body: string;
+  },
+) {
+  const inboxId = await ensureContactThread(db, input.userId, input.contactId);
+  await db.query(
+    `INSERT INTO private.thread_messages(id,thread_id,direction,channel,author_name,body,status)
+     VALUES($1,$2,'inbound','sms',$3,$4,'received')
+     ON CONFLICT (id) DO NOTHING`,
+    [input.messageId, inboxId, input.from.slice(0, 120), input.body.slice(0, 5000)],
+  );
+  await db.query(
+    `UPDATE private.message_threads
+        SET last_message_at=now(),
+            status=CASE WHEN status='archived' THEN status ELSE 'open' END
+      WHERE id=$1`,
+    [inboxId],
+  );
+  return inboxId;
 }
 
 // Latest phone number the client gave on a booking (contacts don't store phones yet).

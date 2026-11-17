@@ -11,10 +11,13 @@ test("workspace live stream is session-scoped and uses the cheap change fingerpr
   assert.match(route, /workspaceSignature\(token\)/);
   assert.match(route, /changeStream/);
   assert.match(lib, /threadAccess/);
+  assert.match(lib, /threadUnreadCountSql/);
+  assert.match(lib, /thread_user_state/);
   assert.match(lib, /FROM public\.bookings WHERE user_id=\$1/);
   assert.match(lib, /private\.message_threads/);
   assert.match(lib, /t\.id::text\|\|t\.status\|\|coalesce\(t\.assigned_to::text/);
   assert.match(lib, /md5\(string_agg\(id::text\|\|status/);
+  assert.doesNotMatch(lib, /m\.read_at IS NULL/);
   assert.doesNotMatch(lib, /SELECT \*/);
 });
 

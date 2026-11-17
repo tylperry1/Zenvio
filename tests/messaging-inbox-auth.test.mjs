@@ -100,3 +100,46 @@ test("list page size restored and assistant excludes soft-deleted messages", () 
   const tools = fs.readFileSync("src/lib/assistant/tools.ts", "utf8");
   assert.match(tools, /list_conversations[\s\S]*?m\.deleted_at IS NULL[\s\S]*?m\.deleted_at IS NULL/);
 });
+
+test("staff role is not in threadAccess; only owner/admin/assignee/host", () => {
+  assert.match(messaging, /role IN \('owner','administrator'\)/);
+  assert.doesNotMatch(messaging, /role IN \('owner','administrator','staff'\)/);
+  assert.match(messaging, /t\.assigned_to=\$1/);
+});
+
+test("attachments download and upload require accessibleThread", () => {
+  const attachments = fs.readFileSync("src/app/api/inbox/attachments/route.ts", "utf8");
+  assert.match(attachments, /accessibleThread/);
+  assert.match(attachments, /await accessibleThread\(getPool\(\), user\.id, file\.thread_id\)/);
+  assert.match(attachments, /await accessibleThread\(getPool\(\), user\.id, uuid\(/);
+});
+
+test("dual-store: provider SMS bridges into product inbox via helper", () => {
+  assert.match(messaging, /bridgeProviderSmsToInbox/);
+  assert.match(messaging, /messaging_threads/);
+  const telnyx = fs.readFileSync("src/app/api/messaging/telnyx/route.ts", "utf8");
+  assert.match(telnyx, /bridgeProviderSmsToInbox/);
+  assert.doesNotMatch(telnyx, /ensureContactThread/);
+  const messagesApi = fs.readFileSync("src/app/api/messages/route.ts", "utf8");
+  // Ledger route queries messaging_threads only (comment may mention message_threads).
+  assert.match(messagesApi, /from private\.messaging_threads/);
+  assert.doesNotMatch(messagesApi, /from private\.message_threads/);
+  assert.doesNotMatch(messagesApi, /into private\.message_threads/);
+});
+
+test("mark unread leaves conversation instead of reloading thread", () => {
+  const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
+  assert.match(ui, /onMarkedUnread/);
+  assert.match(ui, /await onMarkedUnread\(\)/);
+  assert.doesNotMatch(
+    ui,
+    /action: "unread"[\s\S]{0,120}await onChange\(\)/,
+  );
+});
+
+test("live fingerprint uses per-user unread, not shared read_at", () => {
+  const live = fs.readFileSync("src/lib/app-live.ts", "utf8");
+  assert.match(live, /threadUnreadCountSql/);
+  assert.match(live, /thread_user_state/);
+  assert.doesNotMatch(live, /m\.read_at IS NULL/);
+});
