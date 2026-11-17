@@ -223,12 +223,17 @@ test("email adapter requeues failed delivery jobs instead of recording a false q
   assert.equal(jobs.get("reminder:b1:0:60").status, "queued");
 });
 
-test("push adapter is stubbed as not_implemented without claiming delivery", async () => {
+test("push adapter suppresses without a recipient and does not claim delivery", async () => {
   const adapters = load("src/lib/notifications/adapters.ts", {
     "../sms": {
       normalizePhone: () => null,
       smsReadiness: async () => ({ ok: false }),
       smsTransport: () => ({ send: async () => ({ status: "failed", providerId: null }) }),
+    },
+    "../web-push": {
+      deliverWebPushToUser: async () => {
+        throw new Error("push should not run without a recipient user");
+      },
     },
   });
   const result = await adapters.dispatchPushAttempt({}, { workspaceId: "ws", channels: ["push"] }, {
@@ -236,8 +241,47 @@ test("push adapter is stubbed as not_implemented without claiming delivery", asy
     body: "There",
   });
   assert.equal(result.status, "suppressed");
-  assert.equal(result.failureClass, "not_implemented");
-  assert.equal(result.provider, "firebase");
+  assert.equal(result.failureClass, "invalid_recipient");
+  assert.equal(result.provider, "web_push");
+});
+
+test("push adapter records web_push delivery or transient failure without inventing success", async () => {
+  const adapters = load("src/lib/notifications/adapters.ts", {
+    "../sms": {
+      normalizePhone: () => null,
+      smsReadiness: async () => ({ ok: false }),
+      smsTransport: () => ({ send: async () => ({ status: "failed", providerId: null }) }),
+    },
+    "../web-push": {
+      deliverWebPushToUser: async () => ({ sent: 0, failed: 1 }),
+    },
+  });
+  const failed = await adapters.dispatchPushAttempt(
+    {},
+    { workspaceId: "ws", recipientUserId: "11111111-1111-1111-1111-111111111111", channels: ["push"] },
+    { title: "Hi", body: "There" },
+  );
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.failureClass, "transient");
+  assert.equal(failed.provider, "web_push");
+
+  const adaptersEmpty = load("src/lib/notifications/adapters.ts", {
+    "../sms": {
+      normalizePhone: () => null,
+      smsReadiness: async () => ({ ok: false }),
+      smsTransport: () => ({ send: async () => ({ status: "failed", providerId: null }) }),
+    },
+    "../web-push": {
+      deliverWebPushToUser: async () => ({ sent: 0, skipped: "no-subscriptions" }),
+    },
+  });
+  const empty = await adaptersEmpty.dispatchPushAttempt(
+    {},
+    { workspaceId: "ws", recipientUserId: "11111111-1111-1111-1111-111111111111", channels: ["push"] },
+    { title: "Hi", body: "There" },
+  );
+  assert.equal(empty.status, "suppressed");
+  assert.equal(empty.provider, "web_push");
 });
 
 test("enqueueNotification is idempotent and isolates channel failures", async () => {
