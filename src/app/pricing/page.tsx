@@ -1,22 +1,38 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
+import { pricingV4Settings } from "@/lib/pricing-activation";
 import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
+import { PublicPricingV4 } from "@/components/public-pricing-v4";
 import { Logo, Icon } from "@/components/icons";
+import {
+  pricingV4Hero,
+  pricingV4Tagline,
+} from "@/lib/pricing-v4-catalog.mjs";
+
 export const metadata = {
   alternates: { canonical: "https://gozenvio.com/pricing" },
   title: "Simple scheduling and signing pricing",
   description:
-    "Compare current Individual and Teams monthly subscriptions, included allowances, and additional seats. Scheduling and signing included.",
+    "Compare Zenvio subscription plans, included allowances, and team seats. Scheduling and signing included.",
 };
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
-  const [promotionEnabled, controls] = await Promise.all([
+  const [promotionEnabled, controls, v4] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
+    pricingV4Settings(),
   ]);
   const signupOpen = publicRegistrationOpen(controls);
+  const showV4 = v4.previewEnabled && v4.publicCatalog === "v4";
+  const joinHref = signupOpen ? "/sign-up" : controls.waitlistEnabled ? "/early-access" : "/demo";
+  const joinLabel = signupOpen
+    ? "Create account"
+    : controls.waitlistEnabled
+      ? "Join early access"
+      : "Explore demo";
+
   return (
     <div className="subscription-pricing-page">
       <nav aria-label="Main navigation">
@@ -33,27 +49,47 @@ export default async function PricingPage() {
       </nav>
       <main>
         <header className="subscription-pricing-intro">
-          <span className="subscription-kicker">A CLEAR PRICE FOR YOUR NEXT CHAPTER</span>
+          <span className="subscription-kicker">
+            {showV4 ? pricingV4Tagline.toUpperCase() : "A CLEAR PRICE FOR YOUR NEXT CHAPTER"}
+          </span>
           <h1>
-            Great work starts here.
-            <br />
-            <span>So does simple pricing.</span>
+            {showV4 ? (
+              <>
+                {pricingV4Hero.split(". ")[0]}.
+                <br />
+                <span>{pricingV4Hero.split(". ").slice(1).join(". ")}</span>
+              </>
+            ) : (
+              <>
+                Great work starts here.
+                <br />
+                <span>So does simple pricing.</span>
+              </>
+            )}
           </h1>
           <p>
-            Your calendar, clients, and signed agreements. Together in one workspace, with a monthly bill you can
-            understand.
+            {showV4
+              ? "An affordable operating system for bookings, clients, documents, marketing, and growth — with Professional as the flagship."
+              : "Your calendar, clients, and signed agreements. Together in one workspace, with a monthly bill you can understand."}
           </p>
         </header>
-        <PublicPricing
-          promotionEnabled={promotionEnabled}
-          waitlistEnabled={controls.waitlistEnabled}
-          signupOpen={signupOpen}
-          catalog={await (await import("@/lib/billing-catalog")).currentCatalog()}
-        />
+        {showV4 ? (
+          <PublicPricingV4 joinHref={joinHref} joinLabel={joinLabel} signupOpen={signupOpen} />
+        ) : (
+          <PublicPricing
+            promotionEnabled={promotionEnabled}
+            waitlistEnabled={controls.waitlistEnabled}
+            signupOpen={signupOpen}
+            catalog={await (await import("@/lib/billing-catalog")).currentCatalog()}
+          />
+        )}
         <div className="subscription-free-note">
           <h2>Want a closer look first?</h2>
           <p>
-            Explore the demo with sample data. See the current launch offer above when it is available.
+            Explore the demo with sample data.
+            {showV4
+              ? " Proposed v4 pricing is shown for preview only and is not yet open for paid enrollment."
+              : " See the current launch offer above when it is available."}{" "}
             No credit card required.
           </p>
           <Link href="/demo">

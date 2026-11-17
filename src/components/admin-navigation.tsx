@@ -35,6 +35,7 @@ const groups: { label: string; items: Item[] }[] = [
     label: "Billing",
     items: [
       {id:"billing-center",icon:"card",label:"Billing & revenue",href:"/admin/billing",permission:"team"},
+      {id:"financial-intelligence",icon:"spark",label:"Financial Intelligence",href:"/admin/financial-intelligence",permission:"team",hint:"mrr provider costs budgets forecasts profitability"},
       { id: "subscriptions", icon: "card", label: "Subscriptions", href: "/admin/operations?section=subscriptions", permission: "subscriptions" },
       { id: "pricing", icon: "spark", label: "Pricing", href: "/admin/operations?section=pricing", permission: "pricing" },
       { id: "entitlements", icon: "layers", label: "Plans & entitlements", href: "/admin/entitlements", permission: "entitlements" },

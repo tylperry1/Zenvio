@@ -34,6 +34,7 @@ export function EntitlementAdmin() {
       title="Plan entitlements & recurring prices"
       description="Approved feature allocations, Stripe price mappings, and expiring audited overrides."
     >
+      <p><a href="/admin/financial-intelligence">Financial Intelligence →</a></p>
       <p><a href="/admin/economics">Pricing &amp; provider economics →</a></p>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
