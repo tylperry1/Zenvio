@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { Badge as DsBadge, EmptyState as DsEmpty, Notice, PageHeader, Panel } from "./ds";
 import { Alert, Badge, Card, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
 
 type Item = {
@@ -79,15 +80,13 @@ export function FeedbackCenter() {
     }
   }
   return (
-    <div className="platform-page">
+    <div className="ds-root platform-page">
       <main className="narrow-page">
-        <header className="page-header">
-          <div>
-            <h1>Feedback</h1>
-            <p>Report a problem or suggest an improvement. The Zenvio team reads every message.</p>
-          </div>
-        </header>
-        <Card>
+        <PageHeader
+          title="Feedback"
+          description="Report a problem or suggest an improvement. The Zenvio team reads every message."
+        />
+        <Panel>
           {sent ? (
             <div className="fb-thanks" role="status">
               <span className="as-welcome-mark">
@@ -95,7 +94,7 @@ export function FeedbackCenter() {
               </span>
               <h2>Thanks — we got it.</h2>
               <p>You can follow its status below. We may follow up by email if we need more detail.</p>
-              <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setSent(false)}>
+              <button type="button" className="ds-btn" onClick={() => setSent(false)}>
                 Send more feedback
               </button>
             </div>
@@ -107,7 +106,7 @@ export function FeedbackCenter() {
                 void submit();
               }}
             >
-              {error && <Alert tone="danger">{error}</Alert>}
+              {error && <Notice tone="danger">{error}</Notice>}
               <fieldset className="fb-categories">
                 <legend className="ui-label">What kind of feedback?</legend>
                 {feedbackCategories.map(([id, label]) => (
@@ -126,7 +125,7 @@ export function FeedbackCenter() {
               <div className="ui-field">
                 <span className="ui-label">Screenshot (optional)</span>
                 <div className="fb-shot">
-                  <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => input.current?.click()}>
+                  <button type="button" className="ds-btn sm" onClick={() => input.current?.click()}>
                     <Icon name="image" size={14} /> {shot ? "Replace" : "Attach screenshot"}
                   </button>
                   {shot && (
@@ -151,15 +150,15 @@ export function FeedbackCenter() {
                   }}
                 />
               </div>
-              <button className="ui-btn ui-btn-primary fb-submit" disabled={busy || !message.trim()}>
+              <button className="ds-btn primary fb-submit" disabled={busy || !message.trim()}>
                 {busy ? "Sending…" : "Send feedback"}
               </button>
             </form>
           )}
-        </Card>
-        <Card title="Your feedback" flush>
+        </Panel>
+        <Panel title="Your feedback" flush>
           {!items && <Skeleton rows={3} />}
-          {items && !items.length && <EmptyState icon="feedback" title="Nothing sent yet" />}
+          {items && !items.length && <DsEmpty icon="message" title="Nothing sent yet" />}
           {items && items.length > 0 && (
             <ul className="ui-list">
               {items.map((f) => (
@@ -170,12 +169,12 @@ export function FeedbackCenter() {
                     {f.admin_note && <small className="fb-note">Zenvio team: {f.admin_note}</small>}
                     <small>{formatDateTime(f.created_at)}</small>
                   </div>
-                  <Badge tone={statusInfo[f.status]?.tone}>{statusInfo[f.status]?.label || f.status}</Badge>
+                  <DsBadge tone={statusInfo[f.status]?.tone}>{statusInfo[f.status]?.label || f.status}</DsBadge>
                 </li>
               ))}
             </ul>
           )}
-        </Card>
+        </Panel>
         {toast.node}
       </main>
     </div>
@@ -204,22 +203,22 @@ export function FeedbackAdmin() {
   }, [status, category]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = (data?.counts.new || 0) + (data?.counts.reviewing || 0) + (data?.counts.planned || 0);
   return (
-    <main className="ea-admin">
-      <header className="page-header">
-        <div>
-          <h1>Feedback</h1>
-          <p>Bug reports and suggestions from workspace members. Status changes are visible to the person who sent them.</p>
-        </div>
-        <select className="ui-input fb-filter" aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="all">All categories</option>
-          {feedbackCategories.map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </header>
-      {error && <Alert tone="danger">{error}</Alert>}
+    <main className="ea-admin ds-root">
+      <PageHeader
+        title="Feedback"
+        description="Bug reports and suggestions from workspace members. Status changes are visible to the person who sent them."
+        actions={
+          <select className="ds-select fb-filter" aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="all">All categories</option>
+            {feedbackCategories.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      {error && <Notice tone="danger">{error}</Notice>}
       <Tabs
         label="Feedback status"
         value={status}

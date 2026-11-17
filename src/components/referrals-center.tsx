@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { SuiteShell } from "./suite-shell";
 import { ShareLinkActions } from "./share-link";
+import { Notice } from "./ds";
 import { Alert, Badge, Card, EmptyState, Skeleton, useConfirm, useToast } from "./ui";
 import { Icon } from "./icons";
 
@@ -103,9 +104,10 @@ export function ReferralsCenter() {
       title="Referrals"
       description="Invite another business to Zenvio. Share your link, they get a workspace, and you earn credits when they start a paid plan."
     >
+      <div className="ds-root">
       {toast.node}
       {confirmNode}
-      {error && <Alert tone="danger">{error}</Alert>}
+      {error && <Notice tone="danger">{error}</Notice>}
       {!data && !error && <Skeleton rows={4} />}
       {data && (
         <div className="referrals-page">
@@ -217,6 +219,7 @@ export function ReferralsCenter() {
           </Card>
         </div>
       )}
+      </div>
     </SuiteShell>
   );
 }
