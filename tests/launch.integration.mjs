@@ -167,7 +167,8 @@ try{
  const packs=await call('/api/billing/addons',null,a.cookie);
  assert.equal(packs.status,200);
  assert.equal(packs.data.enabled,false);
- assert.deepEqual(packs.data.offers.map(offer=>offer.id),['ai_100','ai_500','envelopes_10','envelope_1','video_1000']);
+ // Durable catalog lists one-time packs by amount (envelope_1=$1 first), excluding SMS/seats/storage.
+ assert.deepEqual(packs.data.offers.map(offer=>offer.id),['envelope_1','ai_100','ai_500','envelopes_10','video_1000']);
  assert.ok(packs.data.offers.every(offer=>offer.available===false));
  assert.equal((await call('/api/billing/addons',null)).status,401);
  const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
@@ -190,7 +191,7 @@ try{
  const allowanceFilename=path.resolve('src/lib/allowance-display.ts'),allowanceModule=new Module(allowanceFilename);
  allowanceModule._compile(ts.transpileModule(fs.readFileSync(allowanceFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,allowanceFilename);
  const envelopeFilename=path.resolve('src/lib/envelope-usage.ts'),envelopeModule=new Module(envelopeFilename);
- envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}}}:id==='./allowance-display'?allowanceModule.exports:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
+ envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}},planLimitsFor:(plan,version)=>version&&String(version).startsWith('2026-11-v4')?{envelopes:plan==='business'?50:0}:{envelopes:({free:5,team:30,individual:10})[plan]||5},isV4CatalogVersion:v=>Boolean(v&&(v==='2026-11-v4'||String(v).startsWith('2026-11-v4')))}:id==='./allowance-display'?allowanceModule.exports:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
  envelopeModule._compile(ts.transpileModule(fs.readFileSync(envelopeFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,envelopeFilename);
  await db.query("insert into private.envelope_usage(source_id,source_kind,user_id,billing_owner) select gen_random_uuid(),'pdf',$1,$1 from generate_series(1,30)",[owner]);
  await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason) values($1,'envelopes',1,$2,'Disposable prepaid envelope concurrency fixture')",[owner,'fixture-envelope-credit-'+suffix]);

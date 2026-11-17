@@ -29,7 +29,7 @@ import {
 } from "@/lib/server";
 import { teamRole } from "@/lib/teams";
 import { canManageTeam, resolveTeamPermissions, teamActionPermission, teamPermissions } from "@/lib/team-permissions";
-import { entitlementUsage } from "@/lib/entitlements";
+import { entitlementUsage, hasTeamWorkspaceAccess } from "@/lib/entitlements";
 import { signingToken, documentHash } from "@/lib/document-signing";
 export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
@@ -105,7 +105,7 @@ async function joinTeam(db: PoolClient, invite: Invite, userId: string) {
   const existingMember=(await db.query("SELECT role,active FROM private.memberships WHERE organization_id=$1 AND user_id=$2 FOR UPDATE",[invite.organization_id,userId])).rows[0];
   if(existingMember?.role==="owner" || existingMember?.active) throw new ApiError("You already have an active membership in this workspace.",409);
   const usage = await entitlementUsage(owner.owner_id, db);
-  if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
+  if (!hasTeamWorkspaceAccess(usage.plan, usage.catalogVersion) || !usage.canManageTeamBilling)
     throw new ApiError(
       "This workspace requires an active Teams subscription.",
       409,
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
         await joinTeam(db, invite, token);
       } else if (v.action === "create") {
         const usage = await entitlementUsage(token, db);
-        if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
+        if (!hasTeamWorkspaceAccess(usage.plan, usage.catalogVersion) || !usage.canManageTeamBilling)
           throw new ApiError(
             "Team workspaces require an active Teams subscription or an audited master-admin entitlement.",
             409,
@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
           } else {
             await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+role.owner_id]);
             const usage=await entitlementUsage(role.owner_id,db);
-            if (!["team","teams"].includes(usage.plan)||!usage.canManageTeamBilling) throw new ApiError("An active Teams subscription is required.",409);
+            if (!hasTeamWorkspaceAccess(usage.plan, usage.catalogVersion)||!usage.canManageTeamBilling) throw new ApiError("An active Teams subscription is required.",409);
             const count=(await db.query("SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active AND m.user_id<>$2",[role.owner_id,target])).rows[0].n;
             if(!usage.unlimitedSeats && count>=usage.seats) throw new ApiError("The owner must add a seat before reactivating this member.",409);
             await db.query("UPDATE private.memberships SET active=true WHERE organization_id=$1 AND user_id=$2",[organization,target]);
@@ -342,7 +342,7 @@ Open the invitation to set up your account or sign in with the invited email add
             throw new ApiError("Choose at least one staff member.");
           const staff = [...new Set(v.staff.map(uuid))];
           const usage = await entitlementUsage(role.owner_id, db);
-          if (!["teams", "team"].includes(usage.plan) || !usage.canManageTeamBilling)
+          if (!hasTeamWorkspaceAccess(usage.plan, usage.catalogVersion) || !usage.canManageTeamBilling)
             throw new ApiError("This workspace requires a Teams subscription.", 409);
           const count = (
             await db.query(

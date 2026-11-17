@@ -3,7 +3,18 @@ import { getPool } from "./db";
 import { ApiError } from "./server";
 import { monthlyAllowances, catalogVersion } from "./subscription-offers.mjs";
 import { pricingV4Allowances, pricingV4Version } from "./pricing-v4-catalog.mjs";
-export type Meter = "aiCredits" | "videoMinutes" | "emails" | "smsSegments" | "storageBytes" | "envelopes";
+export type Meter =
+  | "aiCredits"
+  | "videoMinutes"
+  | "emails"
+  | "smsSegments"
+  | "storageBytes"
+  | "envelopes"
+  | "marketingEmails"
+  | "automationExecutions"
+  | "apiCalls"
+  | "contacts"
+  | "appointments";
 type DB = Pick<PoolClient,"query">;
 export async function usageOwner(db:DB,user:string) {
  const root=(await db.query("select owner_id from private.team_entitlement_roots($1) order by (owner_id=$1) desc,owner_id limit 1",[user])).rows[0];
@@ -25,11 +36,41 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  const credits=(await db.query(`select c.meter,c.quantity-coalesce(u.used,0) remaining from
  (select meter,sum(quantity) quantity from private.subscription_credit_entries where billing_owner=$1 group by meter)c
  left join(select meter,sum(purchased_quantity) used from private.subscription_usage_reservations where billing_owner=$1 and state<>'released' group by meter)u using(meter)`,[owner])).rows;
- const meters:Meter[]=["aiCredits","videoMinutes","emails","smsSegments","storageBytes","envelopes"];
- const storage=Number((await db.query("select private.workspace_storage_bytes($1)::text bytes",[owner])).rows[0]?.bytes||0);
- const storageOverride=(await db.query("select allowance from private.workspace_meter_overrides where billing_owner=$1 and meter='storageBytes' and expires_at>now()",[owner])).rows[0];
- const creditDebt=credits.some(r=>Number(r.remaining)<0);
- return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced:versioned,period:"UTC calendar month",meters:meters.map(meter=>{
+  const meters:Meter[]=[
+    "aiCredits","videoMinutes","emails","smsSegments","storageBytes","envelopes",
+    "marketingEmails","automationExecutions","apiCalls","contacts","appointments",
+  ];
+  const storage=Number((await db.query("select private.workspace_storage_bytes($1)::text bytes",[owner])).rows[0]?.bytes||0);
+  const storageOverride=(await db.query("select allowance from private.workspace_meter_overrides where billing_owner=$1 and meter='storageBytes' and expires_at>now()",[owner])).rows[0];
+  // Contacts are concurrent capacity (not monthly consumable). Count live CRM rows for v4 display.
+  const contactCount=Number((await db.query(
+    `select count(*)::int n from public.contacts c
+      where c.user_id in (
+        select $1::uuid
+        union
+        select m.user_id from private.memberships m
+          join private.organizations o on o.id=m.organization_id
+         where o.owner_id=$1 and m.active
+      )`,
+    [owner],
+  )).rows[0]?.n||0);
+  // Paid bookings this UTC month (appointment payments settled/confirmed).
+  const paidBookings=Number((await db.query(
+    `select count(*)::int n from private.appointment_payments p
+      join public.bookings b on b.id=p.booking_id
+     where b.user_id in (
+        select $1::uuid
+        union
+        select m.user_id from private.memberships m
+          join private.organizations o on o.id=m.organization_id
+         where o.owner_id=$1 and m.active
+      )
+       and p.status = 'paid'
+       and p.created_at >= date_trunc('month', now() at time zone 'UTC')`,
+    [owner],
+  )).rows[0]?.n||0);
+  const creditDebt=credits.some(r=>Number(r.remaining)<0);
+  return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced:versioned,period:"UTC calendar month",meters:meters.map(meter=>{
   const raw = allowances ? allowances[meter] : undefined;
   // Catalog null means unlimited / custom contract — never coerce to zero included.
   const unlimited = Boolean(allowances) && raw === null;
@@ -42,6 +83,17 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
     }
     if(unlimited) return {meter,included:null,used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
     return {meter,included:included||0,used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Math.max(0,(included||0)-storage),unlimited:false};
+  }
+  if(meter==='contacts'){
+    if(unlimited) return {meter,included:null,used:contactCount,reservedIncluded:contactCount,purchasedRemaining:0,remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
+    return {meter,included:included||0,used:contactCount,reservedIncluded:contactCount,purchasedRemaining:0,remaining:Math.max(0,(included||0)-contactCount),unlimited:false};
+  }
+  if(meter==='appointments'){
+    if(unlimited || included === null || (allowances && raw === null)) {
+      return {meter,included:null,used:paidBookings,reservedIncluded:paidBookings,purchasedRemaining:0,remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
+    }
+    // Free-plan paid booking ceiling is a monthly consumable of paid appointments.
+    return {meter,included:included||0,used:paidBookings,reservedIncluded:paidBookings,purchasedRemaining:0,remaining:Math.max(0,(included||0)-paidBookings),unlimited:false};
   }
   if(unlimited) return {meter,included:null,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
   return {meter,included:included||0,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Math.max(0,(included||0)-includedUsed)+Math.max(0,purchased),unlimited:false};

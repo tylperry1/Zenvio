@@ -119,6 +119,25 @@ try {
             { idempotencyKey: lookup },
           );
         }
+        const prior = (
+          await db.query(
+            "SELECT stripe_price_id FROM private.subscription_prices WHERE plan=$1 AND period=$2 FOR UPDATE",
+            [offer.id, period],
+          )
+        ).rows[0];
+        if (prior?.stripe_price_id && prior.stripe_price_id !== price.id) {
+          // Refuse to overwrite a mapping the test key cannot read (likely live Stripe IDs).
+          try {
+            await stripe.prices.retrieve(prior.stripe_price_id);
+          } catch (e) {
+            if (e.code === "resource_missing") {
+              throw Error(
+                `Refusing to overwrite ${offer.id}/${period} mapping ${prior.stripe_price_id} — not readable with this test key (possible live mapping). Use a disposable test database for step 3/10.`,
+              );
+            }
+            throw e;
+          }
+        }
         await db.query(
           "INSERT INTO private.subscription_prices(plan,period,stripe_price_id,catalog_version) VALUES($1,$2,$3,$4) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=excluded.stripe_price_id,catalog_version=excluded.catalog_version",
           [offer.id, period, price.id, pricingV4Version],
@@ -129,6 +148,74 @@ try {
         );
       }
     }
+    // Also map durable add-on products/prices when the billing_addons table exists.
+    const addonTable = await db.query(
+      "SELECT to_regclass('private.billing_addons') IS NOT NULL AS ready",
+    );
+    if (addonTable.rows[0]?.ready) {
+      const addons = (
+        await db.query(
+          "SELECT id,name,amount_cents,quantity,unit,recurring,stripe_product_id,stripe_price_id FROM private.billing_addons ORDER BY id FOR UPDATE",
+        )
+      ).rows;
+      for (const row of addons) {
+        const productKey = `zenvio_addon_${row.id}`;
+        let product;
+        try {
+          product = await stripe.products.retrieve(row.stripe_product_id || productKey);
+        } catch (e) {
+          if (e.code !== "resource_missing") throw e;
+          product = await stripe.products.create(
+            {
+              id: productKey,
+              name: `Zenvio ${row.name}`,
+              metadata: {
+                zenvio_addon: row.id,
+                zenvio_unit: row.unit,
+                zenvio_recurring: String(row.recurring),
+              },
+            },
+            { idempotencyKey: productKey },
+          );
+        }
+        const lookup = `zenvio_addon_${row.id}_${row.amount_cents}_${row.recurring ? "mo" : "once"}`;
+        const found = await stripe.prices.list({ lookup_keys: [lookup], limit: 5 });
+        let price = found.data.find(
+          (p) =>
+            p.active &&
+            p.product === product.id &&
+            p.unit_amount === row.amount_cents &&
+            p.currency === "usd",
+        );
+        if (!price) {
+          price = await stripe.prices.create(
+            {
+              product: product.id,
+              currency: "usd",
+              unit_amount: row.amount_cents,
+              lookup_key: lookup,
+              transfer_lookup_key: true,
+              ...(row.recurring ? { recurring: { interval: "month", interval_count: 1 } } : {}),
+              metadata: {
+                zenvio_addon: row.id,
+                zenvio_quantity: String(row.quantity),
+                zenvio_unit: row.unit,
+              },
+            },
+            { idempotencyKey: lookup },
+          );
+        }
+        await db.query(
+          `UPDATE private.billing_addons
+              SET stripe_product_id=$2,stripe_price_id=$3,sync_status='synced',
+                  sync_error=NULL,last_synced_at=now(),updated_at=now()
+            WHERE id=$1`,
+          [row.id, product.id, price.id],
+        );
+      }
+      console.log(`Add-on Stripe products/prices mapped (${addons.length}). Purchase remains gated.`);
+    }
+
     await db.query("COMMIT");
     console.log(
       `Pricing v4 test catalog mapped (${pricingV4Version}). Live enrollment remains gated until PRICING_V4_VALIDATED + enrollmentEnabled.`,

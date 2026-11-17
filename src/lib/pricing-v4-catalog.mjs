@@ -23,7 +23,7 @@ export const pricingV4Offers = Object.freeze([
   }),
   Object.freeze({
     id: "business",
-    name: "Business / Team",
+    name: "Team",
     monthly: 3499,
     annual: 33588,
     seats: 3,
@@ -165,7 +165,7 @@ export const pricingV4Features = Object.freeze({
     "Role-based access · staff management",
     "Team productivity reporting & analytics",
     "30k contacts · 5k marketing emails · 500 AI credits · 50 envelopes · 15 GB",
-    "Additional team members $5 / user / month",
+    "Additional team members $5 / user / month (billed annually at $48)",
   ]),
   enterprise: Object.freeze([
     "Custom seats, locations, and quotas",
@@ -175,14 +175,20 @@ export const pricingV4Features = Object.freeze({
   ]),
 });
 
-/** Proposed add-ons. available:false until ADDON + V4 acceptance gates. SMS remains unpublished. */
+/**
+ * Approved add-on catalog (USD cents). available:false until ADDON + V4 acceptance
+ * and a working fulfillment path exist. SMS stays unpublished until carrier costs clear.
+ */
 export const pricingV4Addons = [
-  { id: "emails_1000", name: "1,000 marketing emails", amount: 300, quantity: 1000, unit: "marketingEmails", recurring: false },
-  { id: "ai_100", name: "100 AI credits", amount: 399, quantity: 100, unit: "aiCredits", recurring: false },
-  { id: "envelopes_10", name: "10 additional signature envelopes", amount: 500, quantity: 10, unit: "envelopes", recurring: false },
-  { id: "storage_10gb", name: "Additional 10 GB storage", amount: 300, quantity: 10 * 1024 * 1024 * 1024, unit: "storageBytes", recurring: true },
+  { id: "ai_100", name: "100 AI credits", amount: 299, quantity: 100, unit: "aiCredits", recurring: false },
+  { id: "ai_500", name: "500 AI credits", amount: 999, quantity: 500, unit: "aiCredits", recurring: false },
+  { id: "envelopes_10", name: "10 additional e-sign envelopes", amount: 999, quantity: 10, unit: "envelopes", recurring: false },
+  { id: "envelope_1", name: "Individual e-sign envelope", amount: 100, quantity: 1, unit: "envelopes", recurring: false },
+  { id: "video_1000", name: "1,000 video minutes", amount: 999, quantity: 1000, unit: "videoMinutes", recurring: false },
+  { id: "storage_10gb", name: "Additional 10 GB storage", amount: 299, quantity: 10 * 1024 * 1024 * 1024, unit: "storageBytes", recurring: true },
+  { id: "sms_starter", name: "SMS Starter · 300 US segments", amount: 1499, quantity: 300, unit: "smsSegments", recurring: true },
+  { id: "sms_segment", name: "Additional SMS segments", amount: 3, quantity: 1, unit: "smsSegments", recurring: false },
   { id: "business_extra", name: "Extra team member", amount: 500, quantity: 1, unit: "seats", recurring: true },
-  { id: "custom_domain", name: "Custom domain", amount: 500, quantity: 1, unit: "customDomain", recurring: true },
 ].map((x) => Object.freeze({ ...x, available: false }));
 
 /** Preliminary planning budgets (cents) — estimates, not invoices. */

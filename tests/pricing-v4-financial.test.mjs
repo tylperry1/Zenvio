@@ -38,9 +38,11 @@ test("v4 catalog prices Professional at $19.99 and bills annual as a yearly tota
   assert.throws(() => catalog.pricingV4SubscriptionTotal("enterprise"), /published/);
 });
 
-test("v4 add-ons stay unpublished and SMS is not promised as available", () => {
+test("v4 add-ons stay unpublished; SMS catalog rows exist but are not purchasable", () => {
   assert.ok(catalog.pricingV4Addons.every((a) => a.available === false));
-  assert.ok(!catalog.pricingV4Addons.some((a) => /sms/i.test(a.id)));
+  const sms = catalog.pricingV4Addons.filter((a) => /sms/i.test(a.id));
+  assert.ok(sms.length >= 1);
+  assert.ok(sms.every((a) => a.available === false));
 });
 
 test("financial intelligence migration and admin surfaces are wired", () => {
@@ -57,7 +59,7 @@ test("financial intelligence migration and admin surfaces are wired", () => {
   assert.match(sql, /NOT VALID/);
   assert.match(validate, /VALIDATE CONSTRAINT subscription_usage_reservations_meter_check/);
   assert.match(validate, /VALIDATE CONSTRAINT entitlement_overrides_plan_check/);
-  assert.match(docs, /Outside this PR/);
+  assert.match(docs, /Gated v4 enrollment/);
   assert.match(docs, /live webhook acceptance/);
   assert.match(docs, /enrollmentEnabled: false/);
   assert.match(nav, /financial-intelligence/);

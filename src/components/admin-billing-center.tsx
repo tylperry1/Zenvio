@@ -125,10 +125,45 @@ function opTone(state: string): "success" | "warning" | "danger" | "neutral" | "
 
 export function AdminBillingCenter() {
   const params = useSearchParams();
+  type CouponRow = {
+    id: string;
+    code: string;
+    name?: string;
+    discount_type: string;
+    percent_off?: number | null;
+    amount_off_cents?: number | null;
+    duration: string;
+    duration_in_months?: number | null;
+    max_redemptions?: number | null;
+    active: boolean;
+    sync_status: string;
+    sync_error?: string | null;
+    stripe_coupon_id?: string | null;
+    stripe_promotion_code_id?: string | null;
+    catalog_targets?: string[];
+    updated_at?: string;
+  };
+  type AddonRow = {
+    id: string;
+    name: string;
+    amount_cents: number;
+    quantity: number | string;
+    unit: string;
+    recurring: boolean;
+    available: boolean;
+    catalog_targets?: string[];
+    stripe_product_id?: string | null;
+    stripe_price_id?: string | null;
+    sync_status: string;
+    sync_error?: string | null;
+    updated_at?: string;
+  };
   const [data, setData] = useState<{
     versions: Version[];
     operations: Operation[];
     catalog: BillingCatalog;
+    coupons?: CouponRow[];
+    addons?: AddonRow[];
     sync?: CatalogSyncReport;
     publicSurface?: {
       family: string;
@@ -144,8 +179,11 @@ export function AdminBillingCenter() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [last, setLast] = useState<Record<string, unknown> | null>(null);
   const [planTab, setPlanTab] = useState<"individual" | "team">("individual");
-  const [section, setSection] = useState<"pricing" | "coupons" | "seats" | "audit">(
+  const [section, setSection] = useState<"pricing" | "coupons" | "addons" | "seats" | "audit">(
     params.get("userId") ? "seats" : "pricing",
+  );
+  const [addonDrafts, setAddonDrafts] = useState<Record<string, { name: string; amount: string; available: boolean }>>(
+    {},
   );
   // Bumped when leaving Seats (or starting a newer preview) so stale send() completions cannot restore preview.
   const seatsPreviewGen = useRef(0);
@@ -187,6 +225,14 @@ export function AdminBillingCenter() {
       return d;
     } catch (e) {
       setError((e as Error).message);
+      // Refresh after failed coupon sync so Retry sync / legacy controls appear without a full reload.
+      if (String(input.action).startsWith("coupon") || String(input.action).startsWith("addon")) {
+        try {
+          await load();
+        } catch {
+          /* keep original error */
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -194,12 +240,31 @@ export function AdminBillingCenter() {
 
   const published = useMemo(() => data?.versions.find((v) => v.state === "published") || null, [data]);
   const drafts = useMemo(() => data?.versions.filter((v) => v.state === "draft") || [], [data]);
-  const coupons = useMemo(
+  const coupons = useMemo(() => data?.coupons || [], [data]);
+  const addons = useMemo(() => data?.addons || [], [data]);
+  const legacyCouponOps = useMemo(
     () => data?.operations.filter((o) => o.action === "coupon" && o.state === "succeeded") || [],
     [data],
   );
   const recentOps = useMemo(() => data?.operations || [], [data]);
   const failedOps = useMemo(() => data?.operations.filter((o) => o.state === "failed").length || 0, [data]);
+
+  useEffect(() => {
+    if (!addons.length) return;
+    setAddonDrafts((prev) => {
+      const next = { ...prev };
+      for (const a of addons) {
+        if (!next[a.id]) {
+          next[a.id] = {
+            name: a.name,
+            amount: (a.amount_cents / 100).toFixed(2),
+            available: a.available,
+          };
+        }
+      }
+      return next;
+    });
+  }, [addons]);
 
   if (error && !data) {
     return (
@@ -287,10 +352,14 @@ export function AdminBillingCenter() {
           detail={drafts.length ? "Ready to review and publish" : "Save a draft to start a change"}
         />
         <Kpi
-          label="Promo creations"
+          label="Promotion codes"
           icon="spark"
-          value={coupons.length}
-          detail="Successful coupon-create operations (not live code status)"
+          value={coupons.length || legacyCouponOps.length}
+          detail={
+            coupons.some((c) => c.sync_status === "failed")
+              ? "Includes failed Stripe sync — open Coupons to retry"
+              : "Durable coupon catalog with Stripe sync status"
+          }
         />
         <Kpi
           label="Failed operations"
@@ -316,6 +385,7 @@ export function AdminBillingCenter() {
           options={[
             ["pricing", "Pricing & allowances"],
             ["coupons", "Coupons"],
+            ["addons", "Add-ons"],
             ["seats", "Seats & proration"],
             ["audit", "Sync & audit"],
           ]}
@@ -518,12 +588,13 @@ export function AdminBillingCenter() {
                         onClick={() => {
                           if (
                             window.confirm(
-                              "Publish this version for new enrollments only? Existing subscriptions remain unchanged. Stripe sandbox acceptance is required.",
+                              "Publish this version for new enrollments only? This creates NEW Stripe prices. Existing subscriber prices are never rewritten. Stripe sandbox acceptance is required.",
                             )
                           ) {
                             void send({
                               action: "publish",
                               draftId: v.id,
+                              confirmLiveStripe: true,
                               reason: "Publish approved draft for new enrollments",
                             });
                           }
@@ -540,96 +611,406 @@ export function AdminBillingCenter() {
         </div>
       )}
 
+      {section === "addons" && (
+        <div className="ds-stack">
+          <Panel
+            title="Add-on catalog"
+            description="Approved retail amounts are stored locally and synchronized to Stripe as Products + Prices. Purchase stays off until ADDON_BILLING_VALIDATED and each row is marked available. Recurring SMS/storage and seat add-ons remain unpublished until fulfillment acceptance."
+          >
+            <FormActions>
+              <button
+                type="button"
+                className="ds-btn primary"
+                disabled={busy}
+                onClick={() =>
+                  void send({
+                    action: "addon-sync-all",
+                    confirmStripeSync: true,
+                    reason: "Sync all platform add-ons to Stripe products and prices",
+                  })
+                }
+              >
+                Sync all to Stripe
+              </button>
+            </FormActions>
+            {!addons.length ? (
+              <EmptyState icon="spark" title="No add-ons seeded">
+                Apply migration 094 to seed the approved add-on catalog.
+              </EmptyState>
+            ) : (
+              <ul className="bc-versions">
+                {addons.map((a) => {
+                  const draft = addonDrafts[a.id] || {
+                    name: a.name,
+                    amount: (a.amount_cents / 100).toFixed(2),
+                    available: a.available,
+                  };
+                  return (
+                    <li key={a.id}>
+                      <div>
+                        <b>{a.id}</b>
+                        <small>
+                          {a.quantity} {a.unit}
+                          {a.recurring ? " · monthly" : " · one-time"}
+                          {(a.catalog_targets || []).length
+                            ? ` · ${(a.catalog_targets || []).join("+")}`
+                            : ""}
+                        </small>
+                        <Badge
+                          tone={
+                            a.sync_status === "synced"
+                              ? "success"
+                              : a.sync_status === "failed"
+                                ? "danger"
+                                : "warning"
+                          }
+                          dot
+                        >
+                          {a.sync_status}
+                        </Badge>
+                        {a.stripe_price_id ? <small>{a.stripe_price_id}</small> : null}
+                        {a.sync_error ? <small>{a.sync_error}</small> : null}
+                      </div>
+                      <div className="bc-form-grid">
+                        <Field label="Display name" htmlFor={`addon-name-${a.id}`}>
+                          <input
+                            id={`addon-name-${a.id}`}
+                            className="bc-input"
+                            value={draft.name}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, name: e.target.value },
+                              }))
+                            }
+                          />
+                        </Field>
+                        <Field label="Amount (USD)" htmlFor={`addon-amt-${a.id}`}>
+                          <input
+                            id={`addon-amt-${a.id}`}
+                            className="bc-input"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={draft.amount}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, amount: e.target.value },
+                              }))
+                            }
+                          />
+                        </Field>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={draft.available}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, available: e.target.checked },
+                              }))
+                            }
+                          />{" "}
+                          Available (local; still needs ADDON_BILLING_VALIDATED)
+                        </label>
+                      </div>
+                      <FormActions>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void send({
+                              action: "addon-update",
+                              addonId: a.id,
+                              name: draft.name,
+                              amountCents: Math.round(Number(draft.amount) * 100),
+                              available: draft.available,
+                              reason: `Update add-on ${a.id} catalog fields`,
+                            }).then((result) => {
+                              // send() resolves undefined on failure — keep the draft so edits are not lost.
+                              if (!result) return;
+                              setAddonDrafts((d) => {
+                                const n = { ...d };
+                                delete n[a.id];
+                                return n;
+                              });
+                            })
+                          }
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void send({
+                              action: "addon-sync",
+                              addonId: a.id,
+                              reason: `Sync add-on ${a.id} to Stripe`,
+                            })
+                          }
+                        >
+                          Sync to Stripe
+                        </button>
+                      </FormActions>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
+
       {section === "coupons" && (
         <div className="ds-grid-2">
-          <Panel title="Create promotion code" description="Percent-off codes apply to Individual and Teams products. Stripe mutations require sandbox acceptance.">
+          <Panel
+            title="Create promotion code"
+            description="Saved locally first, then synchronized to Stripe as a coupon + promotion code. Success requires both Stripe objects. Sandbox acceptance is required."
+          >
             <form
               className="bc-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
+                const discountType = String(f.get("discountType") || "percent");
+                const duration = String(f.get("duration") || "repeating");
+                const targets = [
+                  f.get("targetV3") === "on" ? "v3" : null,
+                  f.get("targetV4") === "on" ? "v4" : null,
+                ].filter(Boolean);
                 void send({
                   action: "coupon",
                   code: f.get("code"),
-                  percent: Number(f.get("percent")),
-                  months: Number(f.get("months")),
-                  maxRedemptions: Number(f.get("limit")),
+                  name: f.get("name") || f.get("code"),
+                  discountType,
+                  percent: discountType === "percent" ? Number(f.get("percent")) : undefined,
+                  amountOffCents:
+                    discountType === "amount" ? Math.round(Number(f.get("amount")) * 100) : undefined,
+                  duration,
+                  durationInMonths: duration === "repeating" ? Number(f.get("months")) : undefined,
+                  maxRedemptions: Number(f.get("limit")) || undefined,
+                  redeemBy: (() => {
+                    const raw = String(f.get("expires") || "").trim();
+                    if (!raw) return undefined;
+                    // datetime-local has no zone; convert the selected local instant to ISO with offset.
+                    const local = new Date(raw);
+                    return Number.isFinite(local.getTime()) ? local.toISOString() : raw;
+                  })(),
+                  firstTimeTransaction: f.get("firstTime") === "on",
+                  catalogTargets: targets.length ? targets : ["v3"],
                   reason: f.get("reason"),
                 });
               }}
             >
               <div className="bc-form-grid">
                 <Field label="Promotion code" htmlFor="bc-code">
-                  <input id="bc-code" name="code" className="bc-input" required pattern="[A-Za-z0-9_-]+" minLength={3} maxLength={40} />
+                  <input id="bc-code" name="code" className="bc-input" required pattern="[A-Za-z0-9-]+" minLength={3} maxLength={40} title="Letters, digits, and dashes only" />
                 </Field>
-                <Field label="Discount percent" htmlFor="bc-percent">
-                  <input id="bc-percent" name="percent" className="bc-input" type="number" min={1} max={100} defaultValue={50} required />
+                <Field label="Display name" htmlFor="bc-name">
+                  <input id="bc-name" name="name" className="bc-input" maxLength={120} />
+                </Field>
+                <Field label="Discount type" htmlFor="bc-dtype">
+                  <select id="bc-dtype" name="discountType" className="bc-input" defaultValue="percent">
+                    <option value="percent">Percent off</option>
+                    <option value="amount">Fixed amount (USD)</option>
+                  </select>
+                </Field>
+                <Field label="Percent off" htmlFor="bc-percent">
+                  <input id="bc-percent" name="percent" className="bc-input" type="number" min={1} max={100} defaultValue={50} />
+                </Field>
+                <Field label="Amount off (USD)" htmlFor="bc-amount">
+                  <input id="bc-amount" name="amount" className="bc-input" type="number" min={0.01} step={0.01} placeholder="10.00" />
+                </Field>
+                <Field label="Duration" htmlFor="bc-duration">
+                  <select id="bc-duration" name="duration" className="bc-input" defaultValue="repeating">
+                    <option value="once">Once</option>
+                    <option value="repeating">Repeating</option>
+                    <option value="forever">Forever</option>
+                  </select>
                 </Field>
                 <Field label="Duration in months" htmlFor="bc-months">
-                  <input id="bc-months" name="months" className="bc-input" type="number" min={1} max={24} defaultValue={3} required />
+                  <input id="bc-months" name="months" className="bc-input" type="number" min={1} max={36} defaultValue={3} />
                 </Field>
                 <Field label="Maximum redemptions" htmlFor="bc-limit">
-                  <input id="bc-limit" name="limit" className="bc-input" type="number" min={1} max={100000} defaultValue={100} required />
+                  <input id="bc-limit" name="limit" className="bc-input" type="number" min={1} max={1000000} defaultValue={100} />
                 </Field>
+                <Field label="Expires (optional ISO)" htmlFor="bc-expires">
+                  <input id="bc-expires" name="expires" className="bc-input" type="datetime-local" />
+                </Field>
+              </div>
+              <div className="bc-form-grid" style={{ marginTop: 12 }}>
+                <label>
+                  <input type="checkbox" name="targetV3" defaultChecked /> Apply to v3 Individual/Teams
+                </label>
+                <label>
+                  <input type="checkbox" name="targetV4" /> Apply to v4 Starter/Professional/Team
+                </label>
+                <label>
+                  <input type="checkbox" name="firstTime" /> First-time customers only
+                </label>
               </div>
               <Field label="Reason" htmlFor="bc-coupon-reason">
                 <input id="bc-coupon-reason" name="reason" className="bc-input" minLength={5} maxLength={500} required />
               </Field>
               <FormActions>
                 <button type="submit" className="ds-btn primary" disabled={busy}>
-                  Create promotion
+                  Create &amp; sync to Stripe
                 </button>
               </FormActions>
             </form>
           </Panel>
-          <Panel title="Managed promotions" description="Only promotions created here can be paused or resumed.">
+          <Panel title="Coupon catalog" description="Sync status is authoritative. Failed rows were saved locally and can be retried — they never report success without Stripe IDs.">
             {!coupons.length ? (
-              <EmptyState icon="spark" title="No promotions yet">
-                Create a code to manage pause and resume from this panel.
+              <EmptyState icon="spark" title="No coupons yet">
+                Create a code to manage pause, resume, and Stripe retry from this panel.
               </EmptyState>
             ) : (
               <ul className="bc-versions">
-                {coupons.map((o) => (
-                  <li key={o.id}>
+                {coupons.map((c) => (
+                  <li key={c.id}>
                     <div>
-                      <b>{o.result?.code}</b>
-                      <small>{o.id}</small>
+                      <b>{c.code}</b>
+                      <small>
+                        {c.discount_type === "percent"
+                          ? `${c.percent_off}%`
+                          : usd(c.amount_off_cents || 0)}{" "}
+                        · {c.duration}
+                        {c.duration_in_months ? ` ${c.duration_in_months}mo` : ""} ·{" "}
+                        {(c.catalog_targets || []).join("+") || "v3"}
+                      </small>
+                      <Badge
+                        tone={
+                          c.sync_status === "synced"
+                            ? "success"
+                            : c.sync_status === "failed"
+                              ? "danger"
+                              : c.sync_status === "disabled"
+                                ? "neutral"
+                                : "warning"
+                        }
+                        dot
+                      >
+                        {c.sync_status}
+                      </Badge>
+                      {c.sync_error ? <small>{c.sync_error}</small> : null}
                     </div>
-                    <button
-                      type="button"
-                      className="ds-btn sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void send({
-                          action: "promotion-status",
-                          promotionId: o.result?.promotion,
-                          active: false,
-                          reason: "Pause promotion redemptions",
-                        })
-                      }
-                    >
-                      Pause
-                    </button>
-                    <button
-                      type="button"
-                      className="ds-btn sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void send({
-                          action: "promotion-status",
-                          promotionId: o.result?.promotion,
-                          active: true,
-                          reason: "Resume promotion redemptions",
-                        })
-                      }
-                    >
-                      Resume
-                    </button>
+                    {c.sync_status === "failed" || c.sync_status === "pending" ? (
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void send({
+                            action: "coupon-retry",
+                            couponId: c.id,
+                            reason: "Retry Stripe coupon synchronization",
+                          })
+                        }
+                      >
+                        Retry sync
+                      </button>
+                    ) : null}
+                    {c.stripe_promotion_code_id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy || !c.active}
+                          onClick={() =>
+                            void send({
+                              action: "promotion-status",
+                              couponId: c.id,
+                              active: false,
+                              reason: "Pause promotion redemptions",
+                            })
+                          }
+                        >
+                          Pause
+                        </button>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy || c.active}
+                          onClick={() =>
+                            void send({
+                              action: "promotion-status",
+                              couponId: c.id,
+                              active: true,
+                              reason: "Resume promotion redemptions",
+                            })
+                          }
+                        >
+                          Resume
+                        </button>
+                      </>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
           </Panel>
+          {legacyCouponOps.some((o) => o.result?.promotion) ? (
+            <Panel
+              title="Legacy promotions"
+              description="Promotions created before the durable coupon catalog. Pause/resume still works via Stripe promotion id."
+            >
+              <ul className="bc-versions">
+                {legacyCouponOps
+                  .filter((o) => o.result?.promotion)
+                  .filter(
+                    (o) =>
+                      !coupons.some(
+                        (c) => c.stripe_promotion_code_id && c.stripe_promotion_code_id === o.result?.promotion,
+                      ),
+                  )
+                  .map((o) => (
+                    <li key={o.id}>
+                      <div>
+                        <b>{o.result?.code || o.result?.promotion}</b>
+                        <small>{o.result?.promotion}</small>
+                        <Badge tone="neutral" dot>
+                          legacy
+                        </Badge>
+                      </div>
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void send({
+                            action: "promotion-status",
+                            promotionId: o.result?.promotion,
+                            active: false,
+                            reason: "Pause legacy promotion redemptions",
+                          })
+                        }
+                      >
+                        Pause
+                      </button>
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void send({
+                            action: "promotion-status",
+                            promotionId: o.result?.promotion,
+                            active: true,
+                            reason: "Resume legacy promotion redemptions",
+                          })
+                        }
+                      >
+                        Resume
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </Panel>
+          ) : null}
         </div>
       )}
 
