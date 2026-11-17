@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { BillingCatalog } from "@/lib/billing-catalog";
@@ -135,6 +135,8 @@ export function AdminBillingCenter() {
   const [section, setSection] = useState<"pricing" | "coupons" | "seats" | "audit">(
     params.get("userId") ? "seats" : "pricing",
   );
+  // Bumped when leaving Seats (or starting a newer preview) so stale send() completions cannot restore preview.
+  const seatsPreviewGen = useRef(0);
 
   async function load() {
     const r = await fetch("/api/admin/billing", { cache: "no-store" });
@@ -149,6 +151,8 @@ export function AdminBillingCenter() {
   }, []);
 
   async function send(input: Record<string, unknown>, retry = false) {
+    if (input.action === "preview") seatsPreviewGen.current += 1;
+    const previewGen = seatsPreviewGen.current;
     const request = retry ? input : { ...input, operationId: crypto.randomUUID() };
     setLast(request);
     setBusy(true);
@@ -164,7 +168,7 @@ export function AdminBillingCenter() {
       if (!r.ok) throw Error(d.error);
       setLast(null);
       setMessage(d.message || "Billing operation completed.");
-      if (input.action === "preview") {
+      if (input.action === "preview" && previewGen === seatsPreviewGen.current) {
         setPreview({ ...d, id: String(request.operationId), reason: String(request.reason) });
       }
       await load();
@@ -290,8 +294,11 @@ export function AdminBillingCenter() {
           label="Billing sections"
           value={section}
           onChange={(next) => {
-            // Drop stale proration previews when leaving Seats; the form remounts uncontrolled.
-            if (next !== "seats") setPreview(null);
+            // Drop stale proration previews when leaving Seats; invalidate in-flight preview sends.
+            if (next !== "seats") {
+              seatsPreviewGen.current += 1;
+              setPreview(null);
+            }
             setSection(next);
           }}
           options={[

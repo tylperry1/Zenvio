@@ -91,7 +91,7 @@
 .ds-search:focus-within { border-color: var(--action-primary); box-shadow: 0 0 0 3px #365cff1f; }
 .ds-search input { flex: 1; min-width: 0; height: 34px; min-height: 0; padding: 0; border: 0; background: transparent; outline: none; box-shadow: none; font-size: var(--ds-text-sm); color: var(--text-primary); }
 .ds-search button { display: grid; place-items: center; width: 22px; height: 22px; min-height: 0; padding: 0; border: 0; border-radius: 6px; background: var(--surface-inset); color: var(--text-muted); }
-.ds-segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-inset); max-width: 100%; overflow-x: auto; }
+.ds-segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-inset); width: max-content; max-width: 100%; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .ds-segmented button { height: 30px; min-height: 0; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: 500 var(--ds-text-xs) var(--font-family); white-space: nowrap; }
 .ds-segmented button[aria-pressed=true] { background: var(--surface-card); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px #151b3814; }
 .ds-select { height: 36px; min-height: 0; padding: 0 30px 0 10px; border: 1px solid var(--ds-line); border-radius: 9px; background-color: var(--surface-card); font-size: var(--ds-text-sm); color: var(--text-primary); }

@@ -788,9 +788,11 @@
 .supplier-views a:focus-visible {outline:2px solid #365cff;outline-offset:2px}
 
 /* ---------- Billing & revenue (.bc) ---------- */
-.bc{display:grid;gap:16px;max-width:var(--ds-content);margin:0 auto}
+.admin-v3 .av-frame-content{min-width:0;max-width:100%}
+.bc{display:grid;gap:16px;max-width:var(--ds-content);width:100%;min-width:0;margin:0 auto}
 .bc .ds-kpis,.bc .ds-grid-2,.bc .ds-stack{margin-bottom:0}
-.bc-nav{display:flex;flex-wrap:wrap;gap:10px}
+.bc-nav{display:flex;flex-wrap:wrap;gap:10px;min-width:0;max-width:100%}
+.bc-nav .ds-segmented{display:flex;width:max-content;max-width:100%;min-width:0}
 .bc-packages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .bc-package{display:grid;gap:14px;align-content:start;padding:20px;background:var(--surface-card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--ds-elev-1);min-width:0}
 .bc-package.featured{border-color:color-mix(in srgb,var(--action-primary) 35%,var(--border));background:linear-gradient(180deg,var(--surface-subtle),var(--surface-card) 42%)}
@@ -828,6 +830,7 @@
 .bc-safeguards p{margin:3px 0 0;font-size:13px;color:var(--text-muted);line-height:1.5}
 @media(max-width:980px){.bc-packages{grid-template-columns:1fr 1fr}.bc-allowance-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.bc-packages,.bc-form-grid{grid-template-columns:1fr}.bc-package{padding:16px}.bc-price strong{font-size:28px}}
+@media(max-width:420px){.bc .ds-kpis{grid-template-columns:1fr}}
 
 /* ---------- Subscriptions (.as) ---------- */
 .as{display:grid;gap:16px;max-width:var(--ds-content);margin:0 auto}
