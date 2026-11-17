@@ -170,6 +170,23 @@ export function Icon({
         <path d="M6 12v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7" />
       </>
     ),
+    nfc: (
+      <>
+        <path d="M7 8.5a7 7 0 0 1 0 7" />
+        <path d="M10 10a4.5 4.5 0 0 1 0 4" />
+        <circle cx="12.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
+        <path d="M17 8.5a7 7 0 0 0 0 7" />
+        <path d="M14 10a4.5 4.5 0 0 0 0 4" />
+      </>
+    ),
+    qr: (
+      <>
+        <rect x="4" y="4" width="7" height="7" rx="1.2" />
+        <rect x="13" y="4" width="7" height="7" rx="1.2" />
+        <rect x="4" y="13" width="7" height="7" rx="1.2" />
+        <path d="M14 14h2.5v2.5H14Zm4 0H20v2.5h-2Zm0 4H20V20h-2Zm-4 0h2.5V20H14Z" />
+      </>
+    ),
     sparkles: <path d="M12 3.5 13.8 9l5.7 1.9-5.7 1.9L12 18.5l-1.8-5.7-5.7-1.9L10.2 9 12 3.5ZM18.5 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z" />,
     briefcase: <path d="M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6M4 6h16a1 1 0 0 1 1 1v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1Zm-1 6h18m-9-1v2" />,
     paperclip: <path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3l7.5-7.5" />,
