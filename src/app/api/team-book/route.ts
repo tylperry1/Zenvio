@@ -58,7 +58,10 @@ function teamLocationPolicy(
   for (const set of modeSets.slice(1)) {
     intersection = intersection.filter((m) => set.has(m));
   }
-  if (!intersection.length) intersection = ["custom"];
+  if (!intersection.length)
+    throw new ApiError(
+      "These appointment types do not share a meeting location option.",
+    );
   const defaults = staffRows.map((s) =>
     isLocationMode(s.location_mode) ? s.location_mode : null,
   );

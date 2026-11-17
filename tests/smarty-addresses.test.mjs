@@ -369,6 +369,14 @@ test("platform business address write path and CRM typed addresses", () => {
   assert.match(crm, /key=\{c\.id\}/);
   const teamBook = fs.readFileSync("src/app/api/team-book/route.ts", "utf8");
   assert.match(teamBook, /function teamLocationPolicy/);
+  assert.match(
+    teamBook,
+    /do not share a meeting location option/,
+  );
+  assert.doesNotMatch(
+    teamBook,
+    /if \(!intersection\.length\) intersection = \["custom"\]/,
+  );
   assert.match(teamBook, /SAVEPOINT enrichment/);
   assert.match(teamBook, /ROLLBACK TO SAVEPOINT enrichment/);
   assert.match(teamBook, /serviceAddress: v\.serviceAddress/);
