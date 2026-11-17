@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
 import { monthlyAllowances, catalogVersion } from "./subscription-offers.mjs";
+import { pricingV4Allowances, pricingV4Version } from "./pricing-v4-catalog.mjs";
 export type Meter = "aiCredits" | "videoMinutes" | "emails" | "smsSegments" | "storageBytes" | "envelopes";
 type DB = Pick<PoolClient,"query">;
 export async function usageOwner(db:DB,user:string) {
@@ -12,10 +13,11 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  const owner=await usageOwner(db,user);
  const row=(await db.query("select s.plan,s.status,s.catalog_version,exists(select 1 from private.platform_roles where user_id=$1 and enabled) or exists(select 1 from private.entitlement_overrides where user_id=$1 and expires_at>now()) exempt from private.subscriptions s where s.user_id=$1",[owner])).rows[0];
  const custom=row?.catalog_version?.startsWith("release-")?(await db.query("SELECT catalog FROM private.billing_catalog_versions WHERE id=$1",[row.catalog_version.slice(8)])).rows[0]?.catalog:null;
- const versioned=(row?.catalog_version===catalogVersion||Boolean(custom)) && !row?.exempt;
+ const isV4 = row?.catalog_version === pricingV4Version;
+ const versioned=(row?.catalog_version===catalogVersion||isV4||Boolean(custom)) && !row?.exempt;
  // Legacy subscriptions may still store plan id "teams"; catalog keys use "team".
  const planKey = row?.plan === "teams" ? "team" : row?.plan;
- const allowanceTable = (custom?.allowances || monthlyAllowances) as Record<string, (typeof monthlyAllowances)["individual"]>;
+ const allowanceTable = (custom?.allowances || (isV4 ? pricingV4Allowances : monthlyAllowances)) as Record<string, (typeof monthlyAllowances)["individual"]>;
  const allowances=versioned&&["active","trialing"].includes(row?.status) ? allowanceTable[planKey as string] || null : null;
  const totals=(await db.query(`select meter,sum(case when state='settled' then consumed else reserved end)::text used,
  sum(included_quantity)::text included_used from private.subscription_usage_reservations

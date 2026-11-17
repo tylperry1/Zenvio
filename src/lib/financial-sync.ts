@@ -170,12 +170,13 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
       }
       if (rows.length < PAGE) break;
     }
+    const connectionStatus = failed === 0 ? "connected" : processed > 0 ? "degraded" : "error";
     await db.query(
       `INSERT INTO private.provider_cost_sync_state(provider, connection_status, last_sync_at, last_error, updated_at)
-       VALUES('stripe','connected',now(),$1,now())
+       VALUES('stripe',$2,now(),$1,now())
        ON CONFLICT(provider) DO UPDATE
-       SET connection_status='connected', last_sync_at=now(), last_error=$1, updated_at=now()`,
-      [failed ? `${failed} subscription reconcile error(s)` : null],
+       SET connection_status=$2, last_sync_at=now(), last_error=$1, updated_at=now()`,
+      [failed ? `${failed} subscription reconcile error(s)` : null, connectionStatus],
     );
     const status = failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
     const details = {
@@ -329,12 +330,13 @@ export async function reconcileStripeInvoices(actorId: string | null) {
       if (rows.length < PAGE) break;
     }
     const completeCoverage = failed === 0 && !truncated && customersTotal === customersSynced;
+    const connectionStatus = completeCoverage ? "connected" : failed === 0 ? "degraded" : processed > 0 ? "degraded" : "error";
     await db.query(
       `INSERT INTO private.provider_cost_sync_state(provider, connection_status, last_sync_at, last_error, updated_at)
-       VALUES('stripe','connected',now(),$1,now())
+       VALUES('stripe',$2,now(),$1,now())
        ON CONFLICT(provider) DO UPDATE
-       SET connection_status='connected', last_sync_at=now(), last_error=COALESCE($1,private.provider_cost_sync_state.last_error), updated_at=now()`,
-      [failed ? `${failed} invoice customer error(s)` : null],
+       SET connection_status=$2, last_sync_at=now(), last_error=COALESCE($1,private.provider_cost_sync_state.last_error), updated_at=now()`,
+      [failed ? `${failed} invoice customer error(s)` : truncated ? "Invoice sync truncated before full coverage" : null, connectionStatus],
     );
     const status = failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
     const details = {

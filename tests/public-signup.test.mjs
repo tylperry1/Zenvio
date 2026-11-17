@@ -33,6 +33,8 @@ test("signup form is the Better Auth workspace flow with confirmation and partne
   assert.match(form, /You’ve been invited to Zenvio/);
   assert.match(form, /auth-layout-invite/);
   assert.match(form, /auth-invite-banner/);
+  assert.match(form, /start a paid Individual or Teams/);
+  assert.doesNotMatch(form, /credit the business that invited you when this account is created/);
   assert.match(form, /referralLocked/);
   assert.match(form, /Change code/);
   assert.match(form, /invited \? \(/);

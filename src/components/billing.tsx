@@ -393,6 +393,13 @@ export function Billing() {
                   Online billing is not connected yet. Your current workspace remains available.
                 </Notice>
               )}
+              {data.connected && !data.checkoutEnabled && (
+                <Notice tone="info">
+                  Stripe is configured, but paid plan enrollment is paused until checkout readiness is
+                  complete. You can still sync an existing subscription and open Payment details for
+                  invoices. Compare plans to review the published catalog.
+                </Notice>
+              )}
               {sub.promotion_ends_at && (
                 <Notice tone="info">
                   Your launch promotion ends {billingDate(sub.promotion_ends_at)}. Your normal base subscription price

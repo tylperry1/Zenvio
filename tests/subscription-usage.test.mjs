@@ -25,6 +25,24 @@ test('legacy teams plan id maps to team catalog allowances',async()=>{
   assert.equal(await service.reserveSubscriptionUnits(db,'staff','aiCredits',1,'legacy-teams'),'reservation');
   assert.equal(writes.length,1);
 });
+test('v4 professional catalog enforces pricingV4Allowances',async()=>{
+  const writes=[];
+  const db={query:async(sql,args)=>{
+    if(sql.startsWith('select owner_id'))return {rows:[{owner_id:'owner'}]};
+    if(sql.startsWith('select s.plan'))return {rows:[{plan:'professional',status:'active',catalog_version:'2026-11-v4',exempt:false}]};
+    if(sql.startsWith('select meter,sum'))return {rows:[]};
+    if(sql.startsWith('select c.meter'))return {rows:[]};
+    if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}
+    return {rows:[]};
+  }};
+  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});
+  const usage=await service.subscriptionUsage('owner',db);
+  assert.equal(usage.enforced,true);
+  assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,200);
+  assert.equal(usage.meters.find(m=>m.meter==='envelopes').included,20);
+  assert.equal(await service.reserveSubscriptionUnits(db,'staff','aiCredits',1,'v4-pro'),'reservation');
+  assert.equal(writes.length,1);
+});
 test('NaN and unsafe reservation quantities never reach the database',async()=>{const f=fixture();for(const n of [NaN,Infinity,0,-1,1.5])await assert.rejects(f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',n,'round'));assert.equal(f.writes.length,0);});
 const addons=load('src/lib/subscription-addons.ts',{'./server':{ApiError}});
 function addonDB(){let grants=0;const order={id:'o',checkout_id:'cs',customer_id:'cus',billing_owner:'owner',amount_cents:299,quantity:100,meter:'aiCredits',state:'pending',refunded_cents:0,reversed_credits:0};return {order,get grants(){return grants;},query:async(sql,args)=>{if(sql.startsWith('select *'))return {rows:[order]};if(sql.startsWith('insert into private.subscription_credit'))grants+=Number(args[2]);if(sql.startsWith("update private.subscription_addon_orders set state='paid'")){order.state='paid';order.payment_intent_id=args[1];}if(sql.startsWith('update private.subscription_addon_orders set refunded')){order.refunded_cents=args[1];order.reversed_credits=args[2];order.state=args[3];}return {rows:[]};}};}

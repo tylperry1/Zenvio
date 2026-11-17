@@ -7,6 +7,7 @@ import { resolvePortal, type PortalScope } from "@/lib/portal";
 import { appOrigin, drainDeliveries, queueDelivery } from "@/lib/lifecycle";
 import { ensureContactThread } from "@/lib/messaging";
 import { checkoutForRequest, paymentRequestReadiness, syncPaymentRequests } from "@/lib/payment-requests";
+import { unsealSecret } from "@/lib/platform-settings";
 export const dynamic = "force-dynamic";
 
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         [s.userId, s.contactId],
       ),
       pool.query(
-        `SELECT e.id,e.title,e.status,e.sent_at,e.completed_at,r.status signer_status
+        `SELECT e.id,e.title,e.status,e.sent_at,e.completed_at,r.status signer_status,r.link_ciphertext
            FROM private.signature_envelopes e JOIN private.signature_recipients r ON r.envelope_id=e.id
           WHERE e.user_id=$1 AND lower(r.email)=lower($2) AND e.status<>'draft' ORDER BY e.created_at DESC LIMIT 50`,
         [s.userId, s.email],
@@ -90,7 +91,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         client: { name: s.name },
         appointments,
         messages: thread.rows.reverse(),
-        documents: envelopes.rows,
+        documents: envelopes.rows.map((d) => {
+          let sign_url: string | null = null;
+          if (d.status === "sent" && d.signer_status !== "signed" && d.link_ciphertext) {
+            try {
+              sign_url = `${appOrigin()}/sign/envelope#token=${unsealSecret(d.link_ciphertext)}`;
+            } catch {
+              sign_url = null;
+            }
+          }
+          return {
+            id: d.id,
+            title: d.title,
+            status: d.status,
+            signer_status: d.signer_status,
+            sent_at: d.sent_at,
+            completed_at: d.completed_at,
+            sign_url,
+          };
+        }),
         estimates: estimates.rows,
         payments: requests.rows,
         receipts: [

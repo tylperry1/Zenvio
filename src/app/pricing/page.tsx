@@ -72,7 +72,13 @@ export default async function PricingPage() {
           </p>
         </header>
         {showV4 ? (
-          <PublicPricingV4 joinHref={joinHref} joinLabel={joinLabel} signupOpen={signupOpen} />
+          <PublicPricingV4
+            joinHref={joinHref}
+            joinLabel={joinLabel}
+            signupOpen={signupOpen}
+            previewOnly={surface.previewOnly}
+            enrollmentReady={surface.enrollment.enabled}
+          />
         ) : (
           <PublicPricing
             promotionEnabled={promotionEnabled}

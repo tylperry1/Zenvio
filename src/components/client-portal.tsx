@@ -28,7 +28,15 @@ type Data = {
   client: { name: string };
   appointments: { id: string; title: string; starts_at: string; ends_at: string; status: string; location: string; manage_url: string | null }[];
   messages: { id: string; direction: string; channel: string; body: string; created_at: string; author_name: string; attachments: { id: string; filename: string }[] }[];
-  documents: { id: string; title: string; status: string; signer_status: string; sent_at: string; completed_at: string | null }[];
+  documents: {
+    id: string;
+    title: string;
+    status: string;
+    signer_status: string;
+    sent_at: string;
+    completed_at: string | null;
+    sign_url?: string | null;
+  }[];
   estimates: Estimate[];
   payments: { id: string; kind: string; description: string; amount_cents: number; currency: string; status: string; job_title: string; paid_at: string | null }[];
   receipts: { id: string; description: string; amount_cents: number; currency: string; date: string }[];
@@ -244,13 +252,21 @@ export function ClientPortal({ token }: { token: string }) {
                             {d.signer_status === "signed"
                               ? `Signed${d.completed_at ? " · completed " + formatDateTime(d.completed_at) : ""}`
                               : d.status === "sent"
-                                ? "Waiting for your signature — use the signing link in the email from Zenvio."
+                                ? d.sign_url
+                                  ? "Waiting for your signature"
+                                  : "Waiting for your signature — use the signing link in the email from Zenvio."
                                 : d.status}
                           </small>
                         </div>
-                        <Badge tone={d.signer_status === "signed" ? "success" : d.status === "sent" ? "warning" : "neutral"}>
-                          {d.signer_status === "signed" ? "Signed" : d.status === "sent" ? "To sign" : d.status}
-                        </Badge>
+                        {d.sign_url && d.signer_status !== "signed" && d.status === "sent" ? (
+                          <a className="ui-btn ui-btn-primary ui-btn-sm" href={d.sign_url}>
+                            Review and sign
+                          </a>
+                        ) : (
+                          <Badge tone={d.signer_status === "signed" ? "success" : d.status === "sent" ? "warning" : "neutral"}>
+                            {d.signer_status === "signed" ? "Signed" : d.status === "sent" ? "To sign" : d.status}
+                          </Badge>
+                        )}
                       </li>
                     ))}
                   </ul>

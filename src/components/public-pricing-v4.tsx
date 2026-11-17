@@ -18,22 +18,28 @@ export function PublicPricingV4({
   joinHref = "/early-access",
   joinLabel = "Join early access",
   signupOpen = false,
+  /** When true, paid CTAs must not deep-link unenrollable v4 plan ids. */
+  previewOnly = true,
+  enrollmentReady = false,
   variant = "full",
 }: {
   joinHref?: string;
   joinLabel?: string;
   signupOpen?: boolean;
+  previewOnly?: boolean;
+  enrollmentReady?: boolean;
   variant?: "full" | "home";
 }) {
   const [annual, setAnnual] = useState(false);
   const paid = pricingV4Offers.filter((o) => o.id !== "enterprise");
   const addons = publicAddonsForDisplay(pricingV4Addons);
+  const canEnroll = enrollmentReady && !previewOnly;
 
   return (
     <div className={`subscription-offers subscription-offers-v4 subscription-offers-${variant}`}>
       <div className="subscription-offer-banner">
         <div className="sob-copy">
-          <span className="sob-badge">Proposed pricing preview</span>
+          <span className="sob-badge">{canEnroll ? "Published pricing" : "Proposed pricing preview"}</span>
           <strong>{pricingV4Tagline}</strong>
           <p>{pricingV4Hero}</p>
         </div>
@@ -51,13 +57,33 @@ export function PublicPricingV4({
         {paid.map((offer) => {
           const featured = offer.id === pricingV4Flagship;
           const price = annual ? offer.annual : offer.monthly;
-          const href = signupOpen
-            ? `/sign-up?plan=${offer.id}`
-            : offer.id === "free"
-              ? joinHref
-              : joinHref.includes("early-access")
-                ? `${joinHref}${joinHref.includes("?") ? "&" : "?"}plan=${offer.id}`
-                : joinHref;
+          const isFree = offer.id === "free";
+          // Preview mode never deep-links starter|professional|business — auth/enroll only
+          // accept Individual/Teams until v4 enrollment is fully wired.
+          const href = isFree
+            ? signupOpen
+              ? "/sign-up"
+              : joinHref
+            : canEnroll && signupOpen
+              ? `/sign-up?plan=${offer.id}`
+              : canEnroll
+                ? joinHref.includes("early-access")
+                  ? `${joinHref}${joinHref.includes("?") ? "&" : "?"}plan=${offer.id}`
+                  : joinHref
+                : signupOpen
+                  ? "/sign-up"
+                  : joinHref;
+          const cta = isFree
+            ? signupOpen
+              ? "Create free account"
+              : joinLabel
+            : canEnroll
+              ? signupOpen
+                ? "Choose plan"
+                : joinLabel
+              : signupOpen
+                ? "Create free account"
+                : joinLabel;
           return (
             <article
               key={offer.id}
@@ -83,19 +109,16 @@ export function PublicPricingV4({
                   Billed once yearly · equals {money(Math.round(offer.annual / 12))}/mo
                 </p>
               ) : null}
+              {!isFree && !canEnroll ? (
+                <p className="premium-note">Preview only — paid enrollment stays on the live catalog.</p>
+              ) : null}
               <ul>
                 {pricingV4Features[offer.id as keyof typeof pricingV4Features].map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
               <Link className={featured ? "button primary" : "button"} href={href}>
-                {offer.id === "free"
-                  ? signupOpen
-                    ? "Create free account"
-                    : joinLabel
-                  : signupOpen
-                    ? "Choose plan"
-                    : joinLabel}
+                {cta}
               </Link>
             </article>
           );
