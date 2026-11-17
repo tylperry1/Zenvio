@@ -134,6 +134,7 @@ export async function deliverWebPushToUser(db: DB, userId: string, payload: WebP
   });
 
   let sent = 0;
+  let failed = 0;
   for (const row of rows) {
     try {
       await webpush.sendNotification(
@@ -152,11 +153,12 @@ export async function deliverWebPushToUser(db: DB, userId: string, payload: WebP
       if (status === 404 || status === 410) {
         await db.query("DELETE FROM private.push_subscriptions WHERE id=$1", [row.id]);
       } else {
+        failed++;
         await db.query("UPDATE private.push_subscriptions SET last_error=$2 WHERE id=$1", [row.id, message]);
       }
     }
   }
-  return { sent };
+  return { sent, failed };
 }
 
 /** Hash used only for diagnostics — never log raw endpoints. */

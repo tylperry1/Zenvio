@@ -1,10 +1,9 @@
 import "../admin.css";
-import { AdminFrame } from "@/components/admin-frame";
 
+/**
+ * Shared chrome for Support Ops. AdminFrame lives on the framed page only so
+ * the dedicated /popout route can open without Master Admin navigation.
+ */
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return (
-    <AdminFrame view="support-ops" label="Support Operations">
-      {children}
-    </AdminFrame>
-  );
+  return children;
 }

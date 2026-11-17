@@ -16,7 +16,7 @@ test("support extras migration is additive and private", () => {
 test("employee-only fields never reach customers", () => {
   assert.match(lib, /\$\{staff \? "coalesce\(u\.email,t\.visitor_email\) email,a\.name assignee_name,\(t\.user_id IS NULL\) visitor/);
   assert.match(lib, /\$\{staff \? ',t\.page,t\.user_id,coalesce\(u\.name,t\.visitor_name\) customer_name,coalesce\(u\.email,t\.visitor_email\) customer_email/);
-  assert.match(lib, /if \(staff\) \{\s*const meta/);
+  assert.match(lib, /if \(staff\) \{\s*const meta = ticketRow/);
   // Search by name or email is staff-only.
   assert.match(lib, /OR \(\$1 AND \(strpos\(lower\(coalesce\(u\.email,t\.visitor_email\)\)/);
 });
@@ -33,7 +33,8 @@ test("staff-only actions are gated and priority/rating are validated", () => {
 
 test("staff reply status hand-off accepts pending alias or resolved and keeps internal notes neutral", () => {
   assert.match(lib, /normalizeSupportStatus\(input\.status\)/);
-  assert.match(lib, /input\.status === "pending" \|\| input\.status === "resolved"/);
+  assert.match(lib, /input\.status === "pending"/);
+  assert.match(lib, /keepOpen/);
   assert.match(lib, /status=CASE WHEN \$2 THEN status/);
   assert.match(lib, /first_response_at=CASE WHEN \$3 AND NOT \$2/);
 });

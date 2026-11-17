@@ -237,6 +237,16 @@ export async function dispatchPushAttempt(
         providerReference: `devices:${result.sent}`,
       };
     }
+    // Provider/device errors must stay failed (retryable), not suppressed.
+    if ("failed" in result && Number(result.failed) > 0) {
+      return {
+        channel: "push",
+        status: "failed",
+        provider: "web_push",
+        failureClass: "transient",
+        failureReason: `Push delivery failed on ${result.failed} device(s).`,
+      };
+    }
     return {
       channel: "push",
       status: "suppressed",

@@ -27,6 +27,25 @@ test("SLA helper never claims compliance without dues/timestamps", () => {
   assert.match(sla, /Never claim SLA met\/breached when the required timestamps or policy targets are missing/);
   assert.match(sla, /state: "unknown"/);
   assert.match(sla, /First response SLA not configured/);
+  assert.match(sla, /addBusinessMinutes/);
+  assert.match(sla, /business_hours_only/);
+  assert.doesNotMatch(sla, /ORDER BY updated_at DESC LIMIT/);
+});
+
+test("Greptile P1 guards: ticket-before-dashboard, merge safety, empty caps, push after commit", () => {
+  const ops = read("src/lib/support-ops.ts");
+  const lib = read("src/lib/support.ts");
+  const notify = read("src/lib/support-notify.ts");
+  const bell = read("src/components/admin-alert-bell.tsx");
+  assert.match(ops, /Ticket detail must win over the dashboard default/);
+  assert.match(ops, /same customer/);
+  assert.match(ops, /already merged/);
+  assert.match(ops, /No agent row: defaults\. Empty stored array/);
+  assert.match(lib, /status NOT IN \('resolved','closed'\) AND merged_into IS NULL/);
+  assert.match(lib, /resolveMergeTarget/);
+  assert.match(lib, /requireCap\(caps,/);
+  assert.match(notify, /push: false/);
+  assert.match(bell, /Permission alone is not registration/);
 });
 
 test("support ops denies impersonation secrets and gates capabilities", () => {

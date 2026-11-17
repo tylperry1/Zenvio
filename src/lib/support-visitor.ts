@@ -7,6 +7,7 @@ import { ApiError, body, email, sameOrigin, string, uuid } from "./server";
 import { supportOnline } from "./support";
 import { queueStaffAlert } from "./support-notify";
 import { isSupportCategory } from "./support-options";
+import { deliverWebPushToUser } from "./web-push";
 
 /**
  * Website visitors chat without an account. Each conversation has a 256-bit
@@ -30,14 +31,30 @@ export function visitorCookie(request: NextRequest, token: string | null) {
 
 async function visitorTicket(token: string) {
   if (!token) return null;
-  return (
-    (
+  const row = (
+    await getPool().query(
+      "SELECT id,subject,status,category,rating,created_at,updated_at,visitor_name,visitor_email,customer_read,merged_into FROM private.support_tickets WHERE visitor_token_hash=$1",
+      [hash(token)],
+    )
+  ).rows[0];
+  if (!row) return null;
+  // Follow merge chain so visitor replies never land on a hidden source ticket.
+  let id = row.id as string;
+  let merged = row.merged_into as string | null;
+  for (let i = 0; i < 10 && merged; i++) {
+    const next = (
       await getPool().query(
-        "SELECT id,subject,status,category,rating,created_at,updated_at,visitor_name,visitor_email,customer_read FROM private.support_tickets WHERE visitor_token_hash=$1",
-        [hash(token)],
+        "SELECT id,subject,status,category,rating,created_at,updated_at,visitor_name,visitor_email,customer_read,merged_into FROM private.support_tickets WHERE id=$1",
+        [merged],
       )
-    ).rows[0] || null
-  );
+    ).rows[0];
+    if (!next) break;
+    id = next.id;
+    merged = next.merged_into;
+    Object.assign(row, next);
+  }
+  row.id = id;
+  return row;
 }
 
 /** Change signature for the visitor's live stream. */
@@ -95,7 +112,10 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
     try {
       await db.query("BEGIN");
       const open = (
-        await db.query("SELECT count(*)::int n FROM private.support_tickets WHERE user_id IS NULL AND lower(visitor_email)=lower($1) AND status<>'resolved'", [address])
+        await db.query(
+          "SELECT count(*)::int n FROM private.support_tickets WHERE user_id IS NULL AND lower(visitor_email)=lower($1) AND status NOT IN ('resolved','closed') AND merged_into IS NULL",
+          [address],
+        )
       ).rows[0].n;
       if (open >= 3) throw new ApiError("There are already open conversations for this email. We’ll reply there — check your inbox for the link.", 409);
       const id = (
@@ -110,8 +130,16 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
         [id, content, reference],
       );
       await db.query("UPDATE private.support_tickets SET customer_read=$2 WHERE id=$1", [id, message.rows[0].id]);
-      await queueStaffAlert(db, id, "staff_new_ticket");
+      const alert = await queueStaffAlert(db, id, "staff_new_ticket");
       await db.query("COMMIT");
+      for (const job of alert.pushes) {
+        void deliverWebPushToUser(getPool(), job.userId, {
+          title: job.title,
+          body: job.body,
+          url: job.url,
+          tag: job.tag,
+        }).catch(() => null);
+      }
       return { data: { ok: true, id }, cookie: visitorCookie(request, token), status: 201 };
     } catch (e) {
       await db.query("ROLLBACK").catch(() => {});
@@ -126,6 +154,7 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
   if (!(await allowRequest("support-visitor-message", ticket.id, 30, 600)) || !(await allowRequest("support-visitor-ip", ip, 120, 3600)))
     throw new ApiError("You’re sending messages very quickly. Please wait a moment.", 429);
   const db = await getPool().connect();
+  const pendingPushes: Awaited<ReturnType<typeof queueStaffAlert>>["pushes"] = [];
   try {
     await db.query("BEGIN");
     await db.query("SELECT id FROM private.support_tickets WHERE id=$1 FOR UPDATE", [ticket.id]);
@@ -141,7 +170,8 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
         if (prior.ticket_id !== ticket.id || prior.content !== content) throw new ApiError("Message reference already used.", 409);
       } else {
         await db.query("UPDATE private.support_tickets SET status='open',resolved_at=NULL,updated_at=now(),customer_read=$2 WHERE id=$1", [ticket.id, inserted.rows[0].id]);
-        await queueStaffAlert(db, ticket.id, "staff_customer_reply");
+        const alert = await queueStaffAlert(db, ticket.id, "staff_customer_reply");
+        pendingPushes.push(...alert.pushes);
       }
     } else if (input.action === "resolve") {
       await db.query("UPDATE private.support_tickets SET status='resolved',resolved_at=coalesce(resolved_at,now()),updated_at=now() WHERE id=$1", [ticket.id]);
@@ -152,6 +182,14 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
       await db.query("UPDATE private.support_tickets SET rating=$2 WHERE id=$1", [ticket.id, rating]);
     } else throw new ApiError("Unknown action.");
     await db.query("COMMIT");
+    for (const job of pendingPushes) {
+      void deliverWebPushToUser(getPool(), job.userId, {
+        title: job.title,
+        body: job.body,
+        url: job.url,
+        tag: job.tag,
+      }).catch(() => null);
+    }
     return { data: { ok: true } };
   } catch (e) {
     await db.query("ROLLBACK").catch(() => {});

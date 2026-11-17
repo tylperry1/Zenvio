@@ -9,6 +9,14 @@ import { transactionalEmail } from "./transactional-email";
 type DB = Pick<PoolClient, "query">;
 const AWAY_MINUTES = 3;
 
+export type SupportPushJob = {
+  userId: string;
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+};
+
 async function queue(db: DB, input: { ticket: string; kind: string; to: string; user?: string | null; key: string; subject: string; text: string }) {
   await db.query(
     `INSERT INTO private.support_notifications(ticket_id,kind,recipient,recipient_user,dedupe_key,subject,payload_sealed)
@@ -47,7 +55,7 @@ export async function queueStaffAlert(db: DB, ticketId: string, kind: "staff_new
       [ticketId],
     )
   ).rows[0];
-  if (!t) return;
+  if (!t) return { pushes: [] as SupportPushJob[] };
   const { rows: team } = await db.query(
     `SELECT u.id,u.email FROM public."user" u LEFT JOIN private.support_agents a ON a.user_id=u.id
       WHERE u.id IN (SELECT user_id FROM private.platform_roles WHERE enabled
@@ -62,10 +70,12 @@ export async function queueStaffAlert(db: DB, ticketId: string, kind: "staff_new
   const title = kind === "staff_new_ticket" ? `New support chat: ${t.subject}` : `New reply: ${t.subject}`;
   const body = `${t.who} (${source}) ${kind === "staff_new_ticket" ? "started a conversation" : "replied"}: “${t.subject}”.`;
   const href = `${appOrigin()}/admin/support-ops?ticket=${t.id}`;
-  // In-app bell + device push for every support teammate (not just those away).
+  // In-app bell for every support teammate. Device push is deferred until after
+  // the caller commits so slow providers never hold the ticket lock.
   const recipients = await staffRecipients(db, ["support"]);
+  const pushes: SupportPushJob[] = [];
   for (const userId of recipients) {
-    await createPlatformAlert(db, {
+    const alert = await createPlatformAlert(db, {
       recipientUserId: userId,
       kind: kind === "staff_new_ticket" ? "support_new_ticket" : "support_customer_reply",
       title: title.slice(0, 160),
@@ -76,8 +86,17 @@ export async function queueStaffAlert(db: DB, ticketId: string, kind: "staff_new
           ? `support:new:${t.id}:${userId}`
           : `support:reply:${t.id}:${userId}:${window}`,
       payload: { ticket: t.id },
-      push: true,
+      push: false,
     });
+    if (alert.created) {
+      pushes.push({
+        userId,
+        title: title.slice(0, 160),
+        body: body.slice(0, 500),
+        url: `/admin/support-ops?ticket=${t.id}`,
+        tag: kind === "staff_new_ticket" ? "support-new" : "support-reply",
+      });
+    }
   }
   for (const member of team) {
     await queue(db, {
@@ -90,6 +109,7 @@ export async function queueStaffAlert(db: DB, ticketId: string, kind: "staff_new
       text: `${body}\n\nOpen the conversation:\n${href}\n\nYou’re receiving this because you’re on the Zenvio support team and away from the inbox. You can turn these emails off under Alerts in the support inbox.`,
     });
   }
+  return { pushes };
 }
 
 /** Sends queued support notifications. Each uses a Resend idempotency key, so a retry can't send twice. */

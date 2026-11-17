@@ -16,20 +16,30 @@ import { applySlaDeadlines, listSlaPolicies, refreshSlaBreaches, slaState } from
 
 type Q = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
 
-async function agentCapabilities(db: Q, userId: string, access: Awaited<ReturnType<typeof adminAccess>>) {
+/** Master admin: all caps. No agent row: defaults. Empty stored array: no caps (intentional revoke). */
+export async function agentCapabilities(db: Q, userId: string, access: Awaited<ReturnType<typeof adminAccess>>) {
   if (access?.role === "master_admin") return [...supportCapabilityKeys] as SupportCapability[];
   const { rows } = await db.query(
     "SELECT capabilities FROM private.support_agents WHERE user_id=$1",
     [userId],
   );
-  const caps = Array.isArray(rows[0]?.capabilities)
+  if (!rows[0]) return [...defaultSupportCapabilities];
+  return Array.isArray(rows[0].capabilities)
     ? rows[0].capabilities.filter(isSupportCapability)
-    : defaultSupportCapabilities;
-  return caps.length ? caps : defaultSupportCapabilities;
+    : [...defaultSupportCapabilities];
 }
 
-function requireCap(caps: SupportCapability[], need: SupportCapability) {
+export function requireCap(caps: SupportCapability[], need: SupportCapability) {
   if (!caps.includes(need)) throw new ApiError("You don’t have permission for that support action.", 403);
+}
+
+function redactTicketContact<T extends Record<string, unknown>>(ticket: T, caps: SupportCapability[]): T {
+  if (caps.includes("customer_contact")) return ticket;
+  const next = { ...ticket };
+  for (const key of ["customer_name", "customer_email", "email", "name", "visitor_name", "visitor_email"]) {
+    if (key in next) (next as Record<string, unknown>)[key] = null;
+  }
+  return next;
 }
 
 async function recordEvent(db: Q, ticketId: string, actorId: string, kind: string, details: Record<string, unknown> = {}) {
@@ -151,6 +161,56 @@ export async function supportOpsGet(request: NextRequest) {
   const caps = await agentCapabilities(db, current.token, current.access);
   requireCap(caps, "inbox");
 
+  // Ticket detail must win over the dashboard default — UI requests `?ticket=` only.
+  const ticketParam = request.nextUrl.searchParams.get("ticket");
+  if (ticketParam) {
+    const id = uuid(ticketParam);
+    const found = (
+      await db.query(
+        `SELECT t.*, coalesce(u.name,t.visitor_name) customer_name, coalesce(u.email,t.visitor_email) customer_email,
+                u."createdAt" customer_since, a.name assignee_name, tm.name team_name
+           FROM private.support_tickets t
+           LEFT JOIN public."user" u ON u.id=t.user_id
+           LEFT JOIN public."user" a ON a.id=t.assigned_to
+           LEFT JOIN private.support_teams tm ON tm.id=t.team_id
+          WHERE t.id=$1`,
+        [id],
+      )
+    ).rows[0];
+    if (!found) throw new ApiError("Ticket not found.", 404);
+    const [messages, events, intel] = await Promise.all([
+      db.query(
+        `SELECT id::text,sender_id,staff,internal,content,created_at,
+                EXISTS(SELECT 1 FROM private.support_attachments a WHERE a.message_id=m.id) attachment
+           FROM private.support_messages m WHERE ticket_id=$1 ORDER BY id`,
+        [id],
+      ),
+      db.query(
+        `SELECT id::text,actor_id,kind,details,created_at FROM private.support_ticket_events
+          WHERE ticket_id=$1 ORDER BY id DESC LIMIT 100`,
+        [id],
+      ),
+      customerIntelligence(db, found.user_id, caps),
+    ]);
+    return {
+      ticket: redactTicketContact(found, caps),
+      messages: messages.rows,
+      events: events.rows,
+      intelligence: intel,
+      sla: slaState({
+        createdAt: found.created_at,
+        firstResponseAt: found.first_response_at,
+        resolvedAt: found.resolved_at,
+        firstDueAt: found.sla_first_due_at,
+        resolveDueAt: found.sla_resolve_due_at,
+        firstBreached: found.sla_first_breached,
+        resolveBreached: found.sla_resolve_breached,
+      }),
+      capabilities: caps,
+      me: current.token,
+    };
+  }
+
   const view = request.nextUrl.searchParams.get("view") || "dashboard";
   if (view === "dashboard") {
     const dash = await supportOpsDashboard(current.token);
@@ -171,7 +231,15 @@ export async function supportOpsGet(request: NextRequest) {
          round(avg(extract(epoch FROM first_response_at-created_at)/60) FILTER (WHERE first_response_at IS NOT NULL))::int avg_first_response_minutes,
          round(avg(extract(epoch FROM resolved_at-created_at)/60) FILTER (WHERE resolved_at IS NOT NULL))::int avg_resolve_minutes,
          count(*) FILTER (WHERE sla_first_breached IS TRUE OR sla_resolve_breached IS TRUE)::int sla_breaches,
-         count(*) FILTER (WHERE sla_first_breached IS FALSE AND (sla_resolve_breached IS FALSE OR sla_resolve_breached IS NULL) AND first_response_at IS NOT NULL)::int sla_met_samples,
+         count(*) FILTER (
+           WHERE first_response_at IS NOT NULL
+             AND sla_first_due_at IS NOT NULL
+             AND sla_first_breached IS FALSE
+             AND (
+               sla_resolve_due_at IS NULL
+               OR (resolved_at IS NOT NULL AND sla_resolve_breached IS FALSE)
+             )
+         )::int sla_met_samples,
          round(avg(rating) FILTER (WHERE rating IS NOT NULL),1)::float csat,
          count(rating)::int csat_count
        FROM private.support_tickets
@@ -255,55 +323,6 @@ export async function supportOpsGet(request: NextRequest) {
     };
   }
 
-  const ticket = request.nextUrl.searchParams.get("ticket");
-  if (ticket) {
-    const id = uuid(ticket);
-    const found = (
-      await db.query(
-        `SELECT t.*, coalesce(u.name,t.visitor_name) customer_name, coalesce(u.email,t.visitor_email) customer_email,
-                u."createdAt" customer_since, a.name assignee_name, tm.name team_name
-           FROM private.support_tickets t
-           LEFT JOIN public."user" u ON u.id=t.user_id
-           LEFT JOIN public."user" a ON a.id=t.assigned_to
-           LEFT JOIN private.support_teams tm ON tm.id=t.team_id
-          WHERE t.id=$1`,
-        [id],
-      )
-    ).rows[0];
-    if (!found) throw new ApiError("Ticket not found.", 404);
-    const [messages, events, intel] = await Promise.all([
-      db.query(
-        `SELECT id::text,sender_id,staff,internal,content,created_at,
-                EXISTS(SELECT 1 FROM private.support_attachments a WHERE a.message_id=m.id) attachment
-           FROM private.support_messages m WHERE ticket_id=$1 ORDER BY id`,
-        [id],
-      ),
-      db.query(
-        `SELECT id::text,actor_id,kind,details,created_at FROM private.support_ticket_events
-          WHERE ticket_id=$1 ORDER BY id DESC LIMIT 100`,
-        [id],
-      ),
-      customerIntelligence(db, found.user_id, caps),
-    ]);
-    return {
-      ticket: found,
-      messages: messages.rows,
-      events: events.rows,
-      intelligence: intel,
-      sla: slaState({
-        createdAt: found.created_at,
-        firstResponseAt: found.first_response_at,
-        resolvedAt: found.resolved_at,
-        firstDueAt: found.sla_first_due_at,
-        resolveDueAt: found.sla_resolve_due_at,
-        firstBreached: found.sla_first_breached,
-        resolveBreached: found.sla_resolve_breached,
-      }),
-      capabilities: caps,
-      me: current.token,
-    };
-  }
-
   throw new ApiError("Unknown support ops view.");
 }
 
@@ -327,25 +346,46 @@ export async function supportOpsPost(request: NextRequest) {
         `UPDATE private.support_tickets
             SET status='escalated', priority=$2, escalation_level=least(escalation_level+1,5),
                 escalated_at=coalesce(escalated_at,now()), escalated_by=$3, escalation_reason=$4, updated_at=now()
-          WHERE id=$1 AND merged_into IS NULL RETURNING id, subject`,
+          WHERE id=$1 AND merged_into IS NULL
+          RETURNING id, subject, escalation_level`,
         [id, priority, current.token, reason],
       );
       if (!updated.rowCount) throw new ApiError("Ticket not found.", 404);
+      const level = Number(updated.rows[0].escalation_level || 1);
       await applySlaDeadlines(db, id, priority);
-      await recordEvent(db, id, current.token, "escalated", { reason, priority });
+      await recordEvent(db, id, current.token, "escalated", { reason, priority, level });
       const recipients = await staffRecipients(db, ["support"]);
+      const pushJobs: Array<{ userId: string; title: string; body: string; url: string }> = [];
       for (const userId of recipients) {
-        await createPlatformAlert(db, {
+        const alert = await createPlatformAlert(db, {
           recipientUserId: userId,
           kind: "support_escalated",
           title: `Escalated: ${updated.rows[0].subject}`,
           body: reason || "A support ticket was escalated.",
           href: `/admin/support-ops?ticket=${id}`,
-          dedupeKey: `support:escalated:${id}:${userId}:${updated.rows[0].id}`,
-          push: true,
+          // Dedupe per escalation level so re-escalations still notify once each.
+          dedupeKey: `support:escalated:${id}:L${level}:${userId}`,
+          push: false,
         });
+        if (alert.created) {
+          pushJobs.push({
+            userId,
+            title: `Escalated: ${updated.rows[0].subject}`,
+            body: reason || "A support ticket was escalated.",
+            url: `/admin/support-ops?ticket=${id}`,
+          });
+        }
       }
       await db.query("COMMIT");
+      const { deliverWebPushToUser } = await import("./web-push");
+      for (const job of pushJobs) {
+        void deliverWebPushToUser(getPool(), job.userId, {
+          title: job.title,
+          body: job.body,
+          url: job.url,
+          tag: `support-escalated-${id}-L${level}`,
+        }).catch(() => null);
+      }
       return { ok: true };
     }
 
@@ -355,10 +395,27 @@ export async function supportOpsPost(request: NextRequest) {
       const target = uuid(input.target);
       if (source === target) throw new ApiError("Choose two different tickets.");
       const rows = await db.query(
-        "SELECT id,subject,user_id FROM private.support_tickets WHERE id=ANY($1::uuid[]) FOR UPDATE",
+        `SELECT id, subject, user_id, visitor_email, merged_into
+           FROM private.support_tickets WHERE id=ANY($1::uuid[]) FOR UPDATE`,
         [[source, target]],
       );
       if (rows.rowCount !== 2) throw new ApiError("Both tickets must exist.", 404);
+      const byId = Object.fromEntries(rows.rows.map((r) => [r.id, r]));
+      const src = byId[source];
+      const tgt = byId[target];
+      if (src.merged_into || tgt.merged_into) {
+        throw new ApiError("Cannot merge tickets that were already merged.", 409);
+      }
+      const sameUser = src.user_id && tgt.user_id && src.user_id === tgt.user_id;
+      const sameVisitor =
+        !src.user_id &&
+        !tgt.user_id &&
+        src.visitor_email &&
+        tgt.visitor_email &&
+        String(src.visitor_email).toLowerCase() === String(tgt.visitor_email).toLowerCase();
+      if (!sameUser && !sameVisitor) {
+        throw new ApiError("Tickets can only be merged when they belong to the same customer.", 400);
+      }
       await db.query(
         "UPDATE private.support_messages SET ticket_id=$2 WHERE ticket_id=$1",
         [source, target],
@@ -366,7 +423,7 @@ export async function supportOpsPost(request: NextRequest) {
       await db.query(
         `UPDATE private.support_tickets
             SET merged_into=$2, status='closed', closed_at=coalesce(closed_at,now()), updated_at=now()
-          WHERE id=$1`,
+          WHERE id=$1 AND merged_into IS NULL`,
         [source, target],
       );
       await recordEvent(db, source, current.token, "merged_into", { target });

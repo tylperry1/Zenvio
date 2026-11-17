@@ -33,14 +33,14 @@ async function post(action: string, payload: Record<string, unknown> = {}) {
   return d;
 }
 
-/** Registers this browser for Web Push platform alerts when permission is granted. */
-async function ensureDevicePush(vapidPublicKey: string | null) {
-  if (!vapidPublicKey || typeof window === "undefined") return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-  if (typeof Notification === "undefined") return;
-  if (Notification.permission !== "granted") return;
+/** Registers this browser for Web Push. Returns true only after a successful subscription save. */
+async function ensureDevicePush(vapidPublicKey: string | null): Promise<boolean> {
+  if (!vapidPublicKey || typeof window === "undefined") return false;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  if (typeof Notification === "undefined") return false;
+  if (Notification.permission !== "granted") return false;
   const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null);
-  if (!reg) return;
+  if (!reg) return false;
   const existing = await reg.pushManager.getSubscription();
   const subscription =
     existing ||
@@ -49,10 +49,11 @@ async function ensureDevicePush(vapidPublicKey: string | null) {
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
     }));
   const json = subscription.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return;
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;
   await post("push-subscribe", {
     subscription: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } },
   });
+  return true;
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -126,8 +127,25 @@ export function AdminAlertBell({ enabled = true }: { enabled?: boolean }) {
       setPushState("unsupported");
       return;
     }
-    setPushState(Notification.permission === "granted" ? "on" : "off");
-  }, []);
+    // Permission alone is not registration — stay "off" until subscribe succeeds.
+    if (Notification.permission !== "granted") {
+      setPushState("off");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration("/");
+        const sub = await reg?.pushManager.getSubscription();
+        if (!cancelled) setPushState(sub ? "on" : "off");
+      } catch {
+        if (!cancelled) setPushState("off");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [vapid]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,14 +162,16 @@ export function AdminAlertBell({ enabled = true }: { enabled?: boolean }) {
       if (typeof Notification === "undefined") throw new Error("Notifications aren’t supported here.");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Notification permission wasn’t granted.");
+      const ok = await ensureDevicePush(vapid);
+      if (!ok) throw new Error("Couldn’t register this device for push. Try again.");
       setPushState("on");
-      await ensureDevicePush(vapid);
       new Notification("Zenvio platform alerts ready", {
         body: "Support, feedback, and other platform alerts will reach this device.",
         icon: "/brand/icon-192.png",
         tag: "zenvio-push-ready",
       });
     } catch (e) {
+      setPushState("off");
       setError(e instanceof Error ? e.message : "Unable to enable device alerts.");
     }
   }

@@ -974,8 +974,9 @@ function SupportConsole() {
               <select aria-label="Status" value={status} onChange={(e) => filter(setStatus)(e.target.value as typeof status)}>
                 <option value="active">Active</option>
                 <option value="open">Needs reply</option>
-                <option value="pending">Waiting on customer</option>
+                <option value="waiting_customer">Waiting on customer</option>
                 <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
                 <option value="">All statuses</option>
               </select>
               <select aria-label="Topic" value={category} onChange={(e) => filter(setCategory)(e.target.value)}>
@@ -1082,7 +1083,7 @@ function StaffThread({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [internal, setInternal] = useState(false);
-  const [after, setAfter] = useState<"pending" | "resolved" | "">("pending");
+  const [after, setAfter] = useState<"waiting_customer" | "resolved" | "open">("waiting_customer");
   const [busy, setBusy] = useState(false);
   const draft = useDraft();
   const names = Object.fromEntries(team.map((m) => [m.id, m.name]));
@@ -1170,10 +1171,19 @@ function StaffThread({
               </option>
             ))}
           </Select>
-          <Select label="Status" value={t.status} onChange={(v) => update({ status: v })}>
+          <Select
+            label="Status"
+            value={t.status === "pending" ? "waiting_customer" : t.status}
+            onChange={(v) => update({ status: v })}
+          >
+            <option value="new">New</option>
             <option value="open">Needs reply</option>
-            <option value="pending">Waiting on customer</option>
+            <option value="in_progress">In progress</option>
+            <option value="waiting_customer">Waiting on customer</option>
+            <option value="waiting_internal">Waiting internal</option>
+            <option value="escalated">Escalated</option>
             <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
           </Select>
           {t.assigned_to !== me && (
             <button type="button" className="ds-btn sm" onClick={() => update({ assigned: "self" })}>
@@ -1253,9 +1263,9 @@ function StaffThread({
             )}
             {!internal && (
               <select aria-label="Status after sending" value={after} onChange={(e) => setAfter(e.target.value as typeof after)}>
-                <option value="pending">Then: wait on customer</option>
+                <option value="waiting_customer">Then: wait on customer</option>
                 <option value="resolved">Then: resolve</option>
-                <option value="">Then: keep open</option>
+                <option value="open">Then: keep open</option>
               </select>
             )}
             <button type="submit" className="ds-btn primary sm" disabled={busy || !draft.text.trim()}>

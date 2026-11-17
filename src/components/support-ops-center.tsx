@@ -89,8 +89,8 @@ async function send(path: string, payload: Record<string, unknown>) {
 }
 
 function openPopOut(ticket?: string | null) {
-  const url = new URL("/admin/support-ops", window.location.origin);
-  url.searchParams.set("popout", "1");
+  // Dedicated route lives outside AdminFrame (see support-ops/popout).
+  const url = new URL("/admin/support-ops/popout", window.location.origin);
   if (ticket) url.searchParams.set("ticket", ticket);
   window.open(url.toString(), "zenvio-support-ops", "noopener,noreferrer,width=1280,height=900");
 }
@@ -100,6 +100,8 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [caps, setCaps] = useState<SupportCapability[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [queuePage, setQueuePage] = useState(0);
+  const [queueHasMore, setQueueHasMore] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [detail, setDetail] = useState<OpsTicket | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, unknown> | null>(null);
@@ -117,14 +119,16 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
     setCaps(d.capabilities || []);
   }, []);
 
-  const loadQueue = useCallback(async () => {
+  const loadQueue = useCallback(async (page = 0, append = false) => {
     const r = await fetch(
-      `/api/admin/support?${new URLSearchParams({ view, status, q, page: "0" })}`,
+      `/api/admin/support?${new URLSearchParams({ view, status, q, page: String(page) })}`,
       { cache: "no-store" },
     );
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || "Queue unavailable.");
-    setTickets(d.tickets || []);
+    setQueuePage(page);
+    setQueueHasMore(!!d.hasMore);
+    setTickets((prev) => (append ? [...prev, ...(d.tickets || [])] : d.tickets || []));
   }, [view, status, q]);
 
   const loadTicket = useCallback(async (id: string) => {
@@ -148,7 +152,7 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
 
   useEffect(() => {
     if (tab !== "queue") return;
-    const t = window.setTimeout(() => void loadQueue().catch((e) => setError(e.message)), q ? 250 : 0);
+    const t = window.setTimeout(() => void loadQueue(0, false).catch((e) => setError(e.message)), q ? 250 : 0);
     return () => window.clearTimeout(t);
   }, [tab, loadQueue, q]);
 
@@ -280,27 +284,38 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
                 Nothing matches these filters.
               </EmptyState>
             ) : (
-              <ul className="sp-list">
-                {tickets.map((t) => (
-                  <li key={t.id}>
-                    <button type="button" className={active === t.id ? "active" : ""} onClick={() => select(t.id)}>
-                      <span className="sp-list-top">
-                        <b>{t.name || t.email}</b>
-                        <small>{relativeTime(t.updated_at)}</small>
-                      </span>
-                      <span className="sp-list-subject">{t.subject}</span>
-                      <span className="sp-list-tags">
-                        <Badge tone={statusTone(t.status)}>
-                          {supportStatusLabels[t.status as SupportStatus] || t.status}
-                        </Badge>
-                        {(t.sla_first_breached || t.sla_resolve_breached) && <Badge tone="danger">SLA</Badge>}
-                        {t.priority !== "normal" && <Badge tone="warning">{t.priority}</Badge>}
-                        {t.unread > 0 && <span className="sp-unread">{t.unread} new</span>}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="sp-list">
+                  {tickets.map((t) => (
+                    <li key={t.id}>
+                      <button type="button" className={active === t.id ? "active" : ""} onClick={() => select(t.id)}>
+                        <span className="sp-list-top">
+                          <b>{t.name || t.email}</b>
+                          <small>{relativeTime(t.updated_at)}</small>
+                        </span>
+                        <span className="sp-list-subject">{t.subject}</span>
+                        <span className="sp-list-tags">
+                          <Badge tone={statusTone(t.status)}>
+                            {supportStatusLabels[t.status as SupportStatus] || t.status}
+                          </Badge>
+                          {(t.sla_first_breached || t.sla_resolve_breached) && <Badge tone="danger">SLA</Badge>}
+                          {t.priority !== "normal" && <Badge tone="warning">{t.priority}</Badge>}
+                          {t.unread > 0 && <span className="sp-unread">{t.unread} new</span>}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {queueHasMore && (
+                  <button
+                    type="button"
+                    className="ds-btn sm soc-load-more"
+                    onClick={() => void loadQueue(queuePage + 1, true).catch((e) => setError(e.message))}
+                  >
+                    Load more
+                  </button>
+                )}
+              </>
             )}
           </section>
           <section className="sp-workspace soc-detail" aria-label="Ticket detail">

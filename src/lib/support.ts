@@ -5,9 +5,34 @@ import { getPool } from "./db";
 import { queueDelivery, appOrigin } from "./lifecycle";
 import { attachmentResponse, normalizeAttachment, readUpload } from "./uploads";
 import { ApiError, body, sameOrigin, session, string, uuid } from "./server";
-import { isSupportCategory, normalizeSupportStatus, supportPriorities } from "./support-options";
-import { queueStaffAlert, queueVisitorReply } from "./support-notify";
+import { isSupportCategory, normalizeSupportStatus, supportPriorities, type SupportCapability } from "./support-options";
+import { queueStaffAlert, queueVisitorReply, type SupportPushJob } from "./support-notify";
 import { applySlaDeadlines } from "./support-sla";
+import { agentCapabilities, requireCap } from "./support-ops";
+import { deliverWebPushToUser } from "./web-push";
+
+function stripContactFields<T extends Record<string, unknown>>(row: T, caps: SupportCapability[]): T {
+  if (caps.includes("customer_contact")) return row;
+  const next = { ...row };
+  for (const key of ["customer_name", "customer_email", "email", "name", "visitor_name", "visitor_email"]) {
+    if (key in next) (next as Record<string, unknown>)[key] = null;
+  }
+  return next;
+}
+
+/** Follow merge chain so replies never land on a hidden source ticket. */
+async function resolveMergeTarget(db: Q, ticketId: string) {
+  let id = ticketId;
+  for (let i = 0; i < 10; i++) {
+    const row = (
+      await db.query("SELECT id, merged_into FROM private.support_tickets WHERE id=$1", [id])
+    ).rows[0] as { id: string; merged_into: string | null } | undefined;
+    if (!row) return null;
+    if (!row.merged_into) return row.id;
+    id = row.merged_into;
+  }
+  throw new ApiError("This conversation was merged. Open the surviving ticket instead.", 409);
+}
 
 const AGENT_ONLINE_MINUTES = 3;
 type Q = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
@@ -90,10 +115,19 @@ export async function staffSignature() {
 export async function supportGet(request: NextRequest, staff: boolean) {
   const current = staff ? await adminSession("support") : await session();
   const db = getPool();
-  if (staff && request.nextUrl.searchParams.get("summary")) return { counts: await supportCounts(db, current.token) };
+  const caps = staff
+    ? await agentCapabilities(db, current.token, await adminAccess(current.token))
+    : ([] as SupportCapability[]);
+  if (staff) requireCap(caps, "inbox");
+  if (staff && request.nextUrl.searchParams.get("summary")) {
+    return { counts: await supportCounts(db, current.token), capabilities: caps };
+  }
   const ticket = request.nextUrl.searchParams.get("ticket");
   if (ticket) {
-    const id = uuid(ticket);
+    let id = uuid(ticket);
+    const target = await resolveMergeTarget(db, id);
+    if (!target) throw new ApiError("Conversation not found.", 404);
+    id = target;
     const found = await db.query("SELECT id FROM private.support_tickets WHERE id=$1 AND ($2::boolean OR user_id=$3)", [id, staff, current.token]);
     if (!found.rowCount) throw new ApiError("Conversation not found.", 404);
     const after = request.nextUrl.searchParams.get("after") ?? "0";
@@ -109,9 +143,13 @@ export async function supportGet(request: NextRequest, staff: boolean) {
       `UPDATE private.support_tickets SET ${staff ? "staff_read" : "customer_read"}=greatest(${staff ? "staff_read" : "customer_read"},$2::bigint) WHERE id=$1`,
       [id, last],
     );
-    const result: Record<string, unknown> = { messages: messages.rows, hasMore: messages.rows.length === 100 };
+    const result: Record<string, unknown> = {
+      messages: messages.rows,
+      hasMore: messages.rows.length === 100,
+      ...(ticket !== id ? { redirectedFrom: ticket } : {}),
+    };
     if (after === "0") {
-      result.ticket = (
+      const ticketRow = (
         await db.query(
           `SELECT t.id,t.subject,t.status,t.category,t.priority,t.rating,t.created_at,t.updated_at,t.assigned_to,t.first_response_at,t.resolved_at
                   ${staff ? ',t.page,t.user_id,coalesce(u.name,t.visitor_name) customer_name,coalesce(u.email,t.visitor_email) customer_email,u."createdAt" customer_since,a.name assignee_name,(t.user_id IS NULL) visitor' : ""}
@@ -119,8 +157,9 @@ export async function supportGet(request: NextRequest, staff: boolean) {
           [id],
         )
       ).rows[0];
+      result.ticket = staff ? stripContactFields(ticketRow, caps) : ticketRow;
       if (staff) {
-        const meta = result.ticket as { user_id: string | null; customer_email: string };
+        const meta = ticketRow as { user_id: string | null; customer_email: string };
         // Earlier conversations: the account's, or a visitor's earlier chats from the same email.
         const [history, feedback] = await Promise.all([
           db.query(
@@ -135,6 +174,7 @@ export async function supportGet(request: NextRequest, staff: boolean) {
         ]);
         result.history = history.rows;
         result.feedback = feedback.rows;
+        result.capabilities = caps;
       }
     }
     return result;
@@ -179,9 +219,10 @@ export async function supportGet(request: NextRequest, staff: boolean) {
     agentHeartbeat(current.token, undefined, db),
     db.query("SELECT email_alerts FROM private.support_agents WHERE user_id=$1", [current.token]),
   ]);
+  const listed = tickets.rows.slice(0, 30).map((row) => stripContactFields(row, caps));
   return {
-    tickets: tickets.rows.slice(0, 30), hasMore: tickets.rows.length > 30, replies: replies.rows, counts, team, available,
-    emailAlerts: alerts.rows[0]?.email_alerts ?? true, me: current.token,
+    tickets: listed, hasMore: tickets.rows.length > 30, replies: replies.rows, counts, team, available,
+    emailAlerts: alerts.rows[0]?.email_alerts ?? true, me: current.token, capabilities: caps,
   };
 }
 
@@ -191,9 +232,14 @@ export async function supportPost(request: NextRequest, staff: boolean) {
   if (!(await allowRequest("support-post", current.token, 60, 3600))) throw new ApiError("Too many messages. Please try again later.", 429);
   const input = await body(request);
   const db = await getPool().connect();
+  const pendingPushes: SupportPushJob[] = [];
   try {
     await db.query("BEGIN");
+    const caps = staff
+      ? await agentCapabilities(db, current.token, await adminAccess(current.token))
+      : ([] as SupportCapability[]);
     if (staff && input.action === "save-reply") {
+      requireCap(caps, "reply");
       await db.query("INSERT INTO private.support_replies(title,content) VALUES($1,$2)",
         [string(input.title, "title", 100), string(input.content, "reply", 4000)]);
       await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_reply_saved','{}')", [current.token]);
@@ -201,6 +247,7 @@ export async function supportPost(request: NextRequest, staff: boolean) {
       return { ok: true };
     }
     if (staff && input.action === "delete-reply") {
+      requireCap(caps, "reply");
       await db.query("DELETE FROM private.support_replies WHERE id=$1", [uuid(input.id)]);
       await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_reply_deleted','{}')", [current.token]);
       await db.query("COMMIT");
@@ -221,6 +268,7 @@ export async function supportPost(request: NextRequest, staff: boolean) {
       return { ok: true, emailAlerts: rows[0].email_alerts };
     }
     if (staff && input.action === "suggestion") {
+      requireCap(caps, "inbox");
       // Files a customer's message in the Suggestions & feedback inbox.
       const filed = await db.query(
         `INSERT INTO private.feedback(user_id,category,message,page)
@@ -245,7 +293,10 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         await db.query("COMMIT");
         return { ok: true, id: existing.rows[0].ticket_id };
       }
-      const count = await db.query("SELECT count(*)::int n FROM private.support_tickets WHERE user_id=$1 AND status<>'resolved'", [current.token]);
+      const count = await db.query(
+        "SELECT count(*)::int n FROM private.support_tickets WHERE user_id=$1 AND status NOT IN ('resolved','closed') AND merged_into IS NULL",
+        [current.token],
+      );
       if (count.rows[0].n >= 10) throw new ApiError("You have 10 active conversations. Reply to an existing conversation.", 409);
       id = (await db.query(
         "INSERT INTO private.support_tickets(user_id,subject,category,page,status,last_customer_at) VALUES($1,$2,$3,$4,'new',now()) RETURNING id",
@@ -259,10 +310,18 @@ export async function supportPost(request: NextRequest, staff: boolean) {
       await applySlaDeadlines(db, id, "normal").catch(() => null);
     } else {
       id = uuid(input.ticket);
+      const target = await resolveMergeTarget(db, id);
+      if (!target) throw new ApiError("Conversation not found.", 404);
+      id = target;
+    }
+    if (staff && reference) {
+      const internal = input.internal === true;
+      requireCap(caps, internal ? "notes" : "reply");
     }
     const ticket = (await db.query('SELECT t.*,coalesce(u.email,t.visitor_email) email FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
       [id, staff, current.token])).rows[0];
     if (!ticket) throw new ApiError("Conversation not found.", 404);
+    if (ticket.merged_into) throw new ApiError("This conversation was merged into another ticket.", 409);
     if (reference) {
       const internal = staff && input.internal === true;
       const inserted = await db.query(
@@ -273,19 +332,21 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         const prior = (await db.query("SELECT ticket_id,sender_id,content,internal FROM private.support_messages WHERE reference=$1", [reference])).rows[0];
         if (prior.ticket_id !== id || prior.sender_id !== current.token || prior.content !== content || prior.internal !== internal) throw new ApiError("Message reference already used.", 409);
       } else {
-        // Staff may hand the conversation back to the customer or resolve it.
+        // Staff may hand the conversation back to the customer, resolve it, or keep it open.
+        // Empty / keep-open must NOT fall through to waiting_customer.
         const requested = staff && !internal ? normalizeSupportStatus(input.status) : null;
+        const keepOpen = staff && !internal && (input.status === "" || input.status === "open" || input.status === "in_progress");
         const after =
-          requested === "waiting_customer" || requested === "resolved" || requested === "waiting_internal" || requested === "in_progress"
+          requested === "waiting_customer" || requested === "resolved" || requested === "waiting_internal" || requested === "in_progress" || requested === "open"
             ? requested
-            : staff && !internal && (input.status === "pending" || input.status === "resolved")
-              ? input.status === "pending"
-                ? "waiting_customer"
-                : "resolved"
-              : null;
+            : staff && !internal && input.status === "pending"
+              ? "waiting_customer"
+              : keepOpen
+                ? "open"
+                : null;
         await db.query(
           `UPDATE private.support_tickets SET updated_at=now(),
-             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text WHEN $3 THEN 'waiting_customer' ELSE 'open' END,
+             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text WHEN $3 THEN 'open' ELSE 'open' END,
              resolved_at=CASE WHEN $2 THEN resolved_at WHEN $4::text='resolved' THEN coalesce(resolved_at,now()) ELSE NULL END,
              first_response_at=CASE WHEN $3 AND NOT $2 THEN coalesce(first_response_at,now()) ELSE first_response_at END,
              last_staff_at=CASE WHEN $3 AND NOT $2 THEN now() ELSE last_staff_at END,
@@ -300,13 +361,17 @@ export async function supportPost(request: NextRequest, staff: boolean) {
           subject: `New reply: ${ticket.subject}`.slice(0, 200),
           text: `The Zenvio support team replied to your conversation “${ticket.subject}”.\n\nRead the reply and respond in Zenvio:\n${appOrigin()}/app/support?ticket=${id}\n\nPlease reply in Zenvio rather than to this email so the team sees your message.`,
         });
-        if (!staff) await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
+        if (!staff) {
+          const alert = await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
+          pendingPushes.push(...(alert?.pushes || []));
+        }
         await db.query(
           "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,$3,$4::jsonb)",
           [id, current.token, internal ? "internal_note" : staff ? "staff_message" : "customer_message", JSON.stringify({ reference })],
         ).catch(() => null);
       }
     } else if (input.action === "update") {
+      if (staff) requireCap(caps, "assign");
       const status = normalizeSupportStatus(input.status ?? ticket.status);
       if (!status) throw new ApiError("Invalid status.");
       let assigned = ticket.assigned_to;
@@ -344,6 +409,14 @@ export async function supportPost(request: NextRequest, staff: boolean) {
     if (staff) await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_updated',$2)",
       [current.token, JSON.stringify({ ticket: id, action: input.action, internal: input.internal === true, ...(input.priority !== undefined && { priority: String(input.priority) }) })]);
     await db.query("COMMIT");
+    for (const job of pendingPushes) {
+      void deliverWebPushToUser(getPool(), job.userId, {
+        title: job.title,
+        body: job.body,
+        url: job.url,
+        tag: job.tag,
+      }).catch(() => null);
+    }
     return { ok: true, id };
   } catch (error) {
     await db.query("ROLLBACK");
@@ -368,7 +441,7 @@ export async function supportAttachment(request: NextRequest, staff: boolean, up
     return attachmentResponse(result.rows[0]);
   }
   if (!(await allowRequest("support-upload", current.token, 20, 3600))) throw new ApiError("Too many uploads. Try again later.", 429);
-  const ticketId = uuid(request.nextUrl.searchParams.get("ticket"));
+  let ticketId = uuid(request.nextUrl.searchParams.get("ticket"));
   const reference = uuid(request.nextUrl.searchParams.get("reference"));
   const source = await readUpload(request, 2000000, "image");
   const file = await normalizeAttachment(source, request.nextUrl.searchParams.get("filename") ?? "image");
@@ -377,12 +450,20 @@ export async function supportAttachment(request: NextRequest, staff: boolean, up
   const db = await getPool().connect();
   try {
     await db.query("BEGIN");
+    if (staff) {
+      const caps = await agentCapabilities(db, current.token, await adminAccess(current.token));
+      requireCap(caps, internal ? "notes" : "attachments");
+    }
     await db.query('SELECT id FROM public."user" WHERE id=$1 FOR UPDATE', [current.token]);
+    const target = await resolveMergeTarget(db, ticketId);
+    if (!target) throw new ApiError("Conversation not found.", 404);
+    ticketId = target;
     const ticket = (await db.query(
       'SELECT t.*,u.email FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id WHERE t.id=$1 AND ($2::boolean OR t.user_id=$3) FOR UPDATE OF t',
       [ticketId, staff, current.token],
     )).rows[0];
     if (!ticket) throw new ApiError("Conversation not found.", 404);
+    if (ticket.merged_into) throw new ApiError("This conversation was merged into another ticket.", 409);
     if (!ticket.user_id) throw new ApiError("Images can’t be shared with website visitors. Send a written reply instead.", 409);
     const prior = await db.query("SELECT ticket_id,sender_id FROM private.support_messages WHERE reference=$1", [reference]);
     if (prior.rowCount) {
