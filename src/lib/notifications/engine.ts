@@ -8,9 +8,13 @@ import { channelAllowedByPreference, loadNotificationPreferences } from "./prefe
 import type {
   ChannelAttemptResult,
   EnqueueNotificationInput,
+  FailureClass,
   NotificationChannel,
   NotificationStatus,
 } from "./types";
+
+const terminalSuccess = new Set<NotificationStatus>(["accepted", "delivered", "queued", "scheduled", "processing"]);
+const retryableFailures = new Set<FailureClass | undefined>(["transient", undefined]);
 
 function rollupStatus(results: ChannelAttemptResult[]): NotificationStatus {
   if (!results.length) return "failed";
@@ -26,6 +30,11 @@ function rollupStatus(results: ChannelAttemptResult[]): NotificationStatus {
   }
   if (statuses.some((s) => s === "queued" || s === "scheduled" || s === "processing")) return "queued";
   return "processing";
+}
+
+function attemptShouldRetry(status: NotificationStatus, failureClass?: FailureClass | null) {
+  if (status !== "failed") return false;
+  return retryableFailures.has(failureClass || undefined);
 }
 
 async function recordAttempt(
@@ -50,8 +59,14 @@ async function recordAttempt(
        sms_outbox_reference=COALESCE(EXCLUDED.sms_outbox_reference, private.notification_attempts.sms_outbox_reference),
        failure_reason=EXCLUDED.failure_reason,
        failure_class=EXCLUDED.failure_class,
-       accepted_at=COALESCE(EXCLUDED.accepted_at, private.notification_attempts.accepted_at),
-       delivered_at=COALESCE(EXCLUDED.delivered_at, private.notification_attempts.delivered_at),
+       accepted_at=CASE
+         WHEN EXCLUDED.status IN ('accepted','delivered') THEN coalesce(private.notification_attempts.accepted_at, now())
+         ELSE private.notification_attempts.accepted_at
+       END,
+       delivered_at=CASE
+         WHEN EXCLUDED.status='delivered' THEN coalesce(private.notification_attempts.delivered_at, now())
+         ELSE private.notification_attempts.delivered_at
+       END,
        retry_count=private.notification_attempts.retry_count + CASE WHEN private.notification_attempts.status='failed' THEN 1 ELSE 0 END,
        updated_at=now()`,
     [
@@ -82,9 +97,49 @@ async function recordAttempt(
   }
 }
 
+async function dispatchChannel(
+  db: PoolClient,
+  input: EnqueueNotificationInput,
+  channel: NotificationChannel,
+): Promise<ChannelAttemptResult> {
+  try {
+    if (channel === "email") {
+      if (!input.email) {
+        return {
+          channel: "email",
+          status: "failed",
+          failureClass: "permanent",
+          failureReason: "Email payload missing for email channel.",
+        };
+      }
+      return await dispatchEmailAttempt(db, input, input.email);
+    }
+    if (channel === "sms") {
+      if (!input.sms) {
+        return {
+          channel: "sms",
+          status: "suppressed",
+          failureClass: "invalid_recipient",
+          failureReason: "SMS payload missing for SMS channel.",
+        };
+      }
+      return await dispatchSmsAttempt(db, input, input.sms);
+    }
+    return await dispatchPushAttempt(db, input, input.push || { title: "", body: "" });
+  } catch (error) {
+    return {
+      channel,
+      status: "failed",
+      failureClass: "transient",
+      failureReason: (error as Error).message || "Channel dispatch failed.",
+    };
+  }
+}
+
 /**
  * Create a tenant-scoped notification and dispatch each requested channel independently.
  * A failure or suppression on one channel never rolls back other channels.
+ * Re-entry with the same idempotency key retries only recoverable failed channels.
  */
 export async function enqueueNotification(db: PoolClient, input: EnqueueNotificationInput) {
   const channels = [...new Set(input.channels)];
@@ -97,26 +152,87 @@ export async function enqueueNotification(db: PoolClient, input: EnqueueNotifica
       [input.workspaceId, input.idempotencyKey],
     )
   ).rows[0];
+
   if (existing) {
-    const attempts = (
+    const prior = (
       await db.query(
         `SELECT channel, status, provider, provider_reference, failure_reason, failure_class
-           FROM private.notification_attempts WHERE notification_id=$1 ORDER BY channel`,
+           FROM private.notification_attempts WHERE notification_id=$1`,
         [existing.id],
       )
     ).rows;
+    const byChannel = new Map(prior.map((a) => [a.channel as NotificationChannel, a]));
+    const prefs = await loadNotificationPreferences(db, input.workspaceId);
+    const results: ChannelAttemptResult[] = [];
+    let retried = false;
+
+    for (const channel of channels) {
+      const previous = byChannel.get(channel);
+      if (
+        previous &&
+        (terminalSuccess.has(previous.status) ||
+          previous.status === "suppressed" ||
+          previous.status === "canceled" ||
+          (previous.status === "failed" && !attemptShouldRetry(previous.status, previous.failure_class)))
+      ) {
+        results.push({
+          channel,
+          status: previous.status,
+          provider: previous.provider,
+          providerReference: previous.provider_reference,
+          failureReason: previous.failure_reason,
+          failureClass: previous.failure_class,
+        });
+        continue;
+      }
+
+      if (!channelAllowedByPreference(prefs, channel, input.category)) {
+        const suppressed: ChannelAttemptResult = {
+          channel,
+          status: "suppressed",
+          failureClass: "preference",
+          failureReason: `Channel ${channel} disabled by workspace notification preferences.`,
+        };
+        results.push(suppressed);
+        await recordAttempt(db, existing.id, input.workspaceId, suppressed);
+        retried = true;
+        continue;
+      }
+
+      const result = await dispatchChannel(db, input, channel);
+      results.push(result);
+      await recordAttempt(db, existing.id, input.workspaceId, result);
+      retried = true;
+    }
+
+    // Preserve attempts for channels not requested on this retry.
+    for (const [channel, previous] of byChannel) {
+      if (!channels.includes(channel)) {
+        results.push({
+          channel,
+          status: previous.status,
+          provider: previous.provider,
+          providerReference: previous.provider_reference,
+          failureReason: previous.failure_reason,
+          failureClass: previous.failure_class,
+        });
+      }
+    }
+
+    const status = rollupStatus(results);
+    if (retried) {
+      await db.query(
+        `UPDATE private.notifications
+            SET status=$2, processed_at=now(), updated_at=now()
+          WHERE id=$1`,
+        [existing.id, status],
+      );
+    }
     return {
       id: existing.id as string,
-      status: existing.status as NotificationStatus,
-      deduped: true as const,
-      attempts: attempts.map((a) => ({
-        channel: a.channel as NotificationChannel,
-        status: a.status as NotificationStatus,
-        provider: a.provider,
-        providerReference: a.provider_reference,
-        failureReason: a.failure_reason,
-        failureClass: a.failure_class,
-      })),
+      status,
+      deduped: !retried,
+      attempts: results,
     };
   }
 
@@ -169,41 +285,7 @@ export async function enqueueNotification(db: PoolClient, input: EnqueueNotifica
       continue;
     }
 
-    let result: ChannelAttemptResult;
-    try {
-      if (channel === "email") {
-        if (!input.email) {
-          result = {
-            channel: "email",
-            status: "failed",
-            failureClass: "permanent",
-            failureReason: "Email payload missing for email channel.",
-          };
-        } else {
-          result = await dispatchEmailAttempt(db, input, input.email);
-        }
-      } else if (channel === "sms") {
-        if (!input.sms) {
-          result = {
-            channel: "sms",
-            status: "suppressed",
-            failureClass: "invalid_recipient",
-            failureReason: "SMS payload missing for SMS channel.",
-          };
-        } else {
-          result = await dispatchSmsAttempt(db, input, input.sms);
-        }
-      } else {
-        result = await dispatchPushAttempt(db, input, input.push || { title: "", body: "" });
-      }
-    } catch (error) {
-      result = {
-        channel,
-        status: "failed",
-        failureClass: "transient",
-        failureReason: (error as Error).message || "Channel dispatch failed.",
-      };
-    }
+    const result = await dispatchChannel(db, input, channel);
     results.push(result);
     await recordAttempt(db, notificationId, input.workspaceId, result);
   }
@@ -224,6 +306,79 @@ export async function enqueueNotification(db: PoolClient, input: EnqueueNotifica
   };
 }
 
+/** Mirror delivery_jobs outcomes onto linked notification attempts (provider acceptance ≠ read). */
+export async function syncNotificationAttemptFromDeliveryJob(
+  db: PoolClient,
+  job: {
+    id: string;
+    notification_attempt_id?: string | null;
+    status: string;
+    provider_id?: string | null;
+    last_error?: string | null;
+  },
+) {
+  if (!job.notification_attempt_id) return;
+  const mapped: NotificationStatus =
+    job.status === "sent"
+      ? "accepted"
+      : job.status === "failed"
+        ? "failed"
+        : job.status === "cancelled"
+          ? "canceled"
+          : job.status === "uncertain"
+            ? "failed"
+            : job.status === "queued"
+              ? "queued"
+              : "processing";
+  await db.query(
+    `UPDATE private.notification_attempts
+        SET status=$2,
+            provider='resend',
+            provider_reference=COALESCE($3, provider_reference),
+            failure_reason=CASE WHEN $2 IN ('failed','canceled') THEN COALESCE($4, failure_reason) ELSE NULL END,
+            failure_class=CASE
+              WHEN $2='failed' AND $5='uncertain' THEN 'transient'
+              WHEN $2='failed' THEN 'transient'
+              WHEN $2='canceled' THEN 'suppressed'
+              ELSE failure_class
+            END,
+            accepted_at=CASE WHEN $2='accepted' THEN coalesce(accepted_at, now()) ELSE accepted_at END,
+            updated_at=now()
+      WHERE id=$1
+        AND status IN ('queued','scheduled','processing','failed')`,
+    [job.notification_attempt_id, mapped, job.provider_id || null, job.last_error || null, job.status],
+  );
+  await db.query(
+    `UPDATE private.notifications n
+        SET status=CASE
+              WHEN EXISTS (
+                SELECT 1 FROM private.notification_attempts a
+                 WHERE a.notification_id=n.id AND a.status='delivered'
+              ) THEN 'delivered'
+              WHEN EXISTS (
+                SELECT 1 FROM private.notification_attempts a
+                 WHERE a.notification_id=n.id AND a.status='accepted'
+              ) THEN 'accepted'
+              WHEN EXISTS (
+                SELECT 1 FROM private.notification_attempts a
+                 WHERE a.notification_id=n.id AND a.status IN ('queued','scheduled','processing')
+              ) THEN 'queued'
+              WHEN EXISTS (
+                SELECT 1 FROM private.notification_attempts a
+                 WHERE a.notification_id=n.id AND a.status='failed'
+              ) THEN 'failed'
+              WHEN EXISTS (
+                SELECT 1 FROM private.notification_attempts a
+                 WHERE a.notification_id=n.id AND a.status IN ('suppressed','canceled')
+              ) THEN 'suppressed'
+              ELSE n.status
+            END,
+            updated_at=now()
+      WHERE n.id=(SELECT notification_id FROM private.notification_attempts WHERE id=$1)`,
+    [job.notification_attempt_id],
+  );
+}
+
 /** Cancel open orchestration rows for a booking (email jobs remain handled by lifecycle trigger). */
 export async function cancelNotificationsForBooking(db: PoolClient, bookingId: string) {
   await db.query(
@@ -234,14 +389,22 @@ export async function cancelNotificationsForBooking(db: PoolClient, bookingId: s
        FROM private.notifications n
       WHERE a.notification_id=n.id
         AND n.booking_id=$1
-        AND a.status IN ('queued','scheduled','processing')`,
+        AND a.status IN ('queued','scheduled','processing')
+        AND NOT EXISTS (
+          SELECT 1 FROM private.delivery_jobs j
+           WHERE j.notification_attempt_id=a.id AND j.status IN ('sent','uncertain')
+        )`,
     [bookingId],
   );
   await db.query(
-    `UPDATE private.notifications
+    `UPDATE private.notifications n
         SET status='canceled', updated_at=now()
       WHERE booking_id=$1
-        AND status IN ('queued','scheduled','processing')`,
+        AND status IN ('queued','scheduled','processing')
+        AND NOT EXISTS (
+          SELECT 1 FROM private.notification_attempts a
+           WHERE a.notification_id=n.id AND a.status IN ('accepted','delivered')
+        )`,
     [bookingId],
   );
 }

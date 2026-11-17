@@ -102,6 +102,44 @@ test("SMS adapter suppresses when production SMS flag is off", async () => {
   }
 });
 
+test("SMS adapter passes bookingId through the transport for appointment texts", async () => {
+  const previous = process.env.TELNYX_MESSAGING_ENABLED;
+  process.env.TELNYX_MESSAGING_ENABLED = "true";
+  try {
+    let sent;
+    const adapters = load("src/lib/notifications/adapters.ts", {
+      "../sms": {
+        normalizePhone: (v) => v,
+        smsReadiness: async () => ({ ok: true, sender: "+15550001111", preview: "ok" }),
+        smsTransport: () => ({
+          send: async (input) => {
+            sent = input;
+            return { status: "queued", providerId: null };
+          },
+        }),
+      },
+    });
+    const bookingId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    await adapters.dispatchSmsAttempt(
+      {},
+      { workspaceId: "ws", channels: ["sms"], bookingId, bookingRevision: 2 },
+      {
+        to: "+15551234567",
+        body: "Confirmed",
+        reference: `confirm:${bookingId}:2`,
+        bookingId,
+        bookingRevision: 2,
+      },
+    );
+    assert.equal(sent.bookingId, bookingId);
+    assert.equal(sent.bookingRevision, 2);
+    assert.equal(sent.reference, `confirm:${bookingId}:2`);
+  } finally {
+    if (previous === undefined) delete process.env.TELNYX_MESSAGING_ENABLED;
+    else process.env.TELNYX_MESSAGING_ENABLED = previous;
+  }
+});
+
 test("push adapter is stubbed as not_implemented without claiming delivery", async () => {
   const adapters = load("src/lib/notifications/adapters.ts", {
     "../sms": {
@@ -123,7 +161,7 @@ test("enqueueNotification is idempotent and isolates channel failures", async ()
   const previous = process.env.TELNYX_MESSAGING_ENABLED;
   process.env.TELNYX_MESSAGING_ENABLED = "false";
   const inserts = [];
-  const updates = [];
+  const attemptRows = [];
   const db = {
     query: async (sql, args = []) => {
       if (sql.includes("FROM private.notifications WHERE workspace_id")) {
@@ -140,23 +178,28 @@ test("enqueueNotification is idempotent and isolates channel failures", async ()
         return { rows: [{ id: "n1", status: args[6] }] };
       }
       if (sql.includes("INSERT INTO private.notification_attempts")) {
-        inserts.push(["attempt", ...args]);
+        const channel = args[2];
+        const existing = attemptRows.find((a) => a.channel === channel);
+        if (existing) Object.assign(existing, { status: args[3], failure_class: args[9], provider: args[4] });
+        else
+          attemptRows.push({
+            channel,
+            status: args[3],
+            provider: args[4],
+            provider_reference: args[5],
+            failure_reason: args[8],
+            failure_class: args[9],
+          });
         return { rows: [] };
       }
       if (sql.includes("UPDATE private.notifications")) {
-        updates.push(args);
         return { rows: [] };
       }
       if (sql.includes("UPDATE private.delivery_jobs")) {
         return { rows: [] };
       }
       if (sql.includes("FROM private.notification_attempts WHERE notification_id")) {
-        return {
-          rows: [
-            { channel: "email", status: "queued", provider: "resend" },
-            { channel: "push", status: "suppressed", provider: "firebase", failure_class: "not_implemented" },
-          ],
-        };
+        return { rows: attemptRows };
       }
       return { rows: [] };
     },
@@ -197,7 +240,13 @@ test("enqueueNotification is idempotent and isolates channel failures", async ()
       subject: "Reminder",
       text: "Soon",
     },
-    sms: { to: "+15551234567", body: "Soon", reference: "sms-reminder-b1-0-60xx" },
+    sms: {
+      to: "+15551234567",
+      body: "Soon",
+      reference: "reminder:b1:0:60xxxxx",
+      bookingId: "b1",
+      bookingRevision: 0,
+    },
     push: { title: "Reminder", body: "Soon" },
   });
   assert.equal(first.deduped, false);
@@ -225,6 +274,83 @@ test("enqueueNotification is idempotent and isolates channel failures", async ()
 
   if (previous === undefined) delete process.env.TELNYX_MESSAGING_ENABLED;
   else process.env.TELNYX_MESSAGING_ENABLED = previous;
+});
+
+test("enqueueNotification retries failed channels without resending successes", async () => {
+  const attemptRows = [
+    {
+      channel: "email",
+      status: "failed",
+      provider: "resend",
+      provider_reference: null,
+      failure_reason: "missing key",
+      failure_class: "transient",
+    },
+    {
+      channel: "push",
+      status: "suppressed",
+      provider: "firebase",
+      provider_reference: null,
+      failure_reason: "stub",
+      failure_class: "not_implemented",
+    },
+  ];
+  const db = {
+    query: async (sql, args = []) => {
+      if (sql.includes("FROM private.notifications WHERE workspace_id")) {
+        return { rows: [{ id: "n1", status: "failed" }] };
+      }
+      if (sql.includes("FROM private.notification_attempts WHERE notification_id")) {
+        return { rows: attemptRows };
+      }
+      if (sql.includes("FROM private.notification_preferences")) return { rows: [] };
+      if (sql.includes("INSERT INTO private.notification_attempts")) {
+        const channel = args[2];
+        const row = attemptRows.find((a) => a.channel === channel);
+        if (row) Object.assign(row, { status: args[3], failure_class: args[9], provider: args[4] });
+        return { rows: [] };
+      }
+      if (sql.includes("UPDATE private.notifications") || sql.includes("UPDATE private.delivery_jobs")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    },
+  };
+  let emailed = 0;
+  let pushed = 0;
+  const engine = load("src/lib/notifications/engine.ts", {
+    "./adapters": {
+      dispatchEmailAttempt: async (_db, _input, email) => {
+        emailed += 1;
+        return { channel: "email", status: "queued", provider: "resend", deliveryJobKey: email.key };
+      },
+      dispatchSmsAttempt: async () => ({ channel: "sms", status: "suppressed", failureClass: "provider_disabled" }),
+      dispatchPushAttempt: async () => {
+        pushed += 1;
+        return { channel: "push", status: "suppressed", failureClass: "not_implemented", provider: "firebase" };
+      },
+    },
+    "./preferences": load("src/lib/notifications/preferences.ts"),
+  });
+  const result = await engine.enqueueNotification(db, {
+    workspaceId: "11111111-1111-1111-1111-111111111111",
+    idempotencyKey: "notify:reminder:b1:0:60",
+    category: "appointment_reminder",
+    channels: ["email", "push"],
+    email: {
+      kind: "booking_reminder",
+      key: "reminder:b1:0:60",
+      to: "guest@example.com",
+      subject: "Reminder",
+      text: "Soon",
+    },
+    push: { title: "Reminder", body: "Soon" },
+  });
+  assert.equal(emailed, 1);
+  assert.equal(pushed, 0);
+  assert.equal(result.deduped, false);
+  assert.equal(result.attempts.find((a) => a.channel === "email").status, "queued");
+  assert.equal(result.attempts.find((a) => a.channel === "push").status, "suppressed");
 });
 
 test("scheduleBooking routes through the notification engine", () => {

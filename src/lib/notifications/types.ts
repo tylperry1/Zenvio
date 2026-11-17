@@ -64,6 +64,9 @@ export type SmsChannelPayload = {
   to: string;
   body: string;
   reference: string;
+  /** Required for appointment SMS so drainSmsOutbox can validate the live booking. */
+  bookingId?: string;
+  bookingRevision?: number;
 };
 
 export type PushChannelPayload = {

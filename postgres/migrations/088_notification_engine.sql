@@ -129,11 +129,20 @@ BEGIN
       FROM private.notifications n
       WHERE a.notification_id = n.id
         AND n.booking_id = OLD.id
-        AND a.status IN ('queued', 'scheduled', 'processing');
+        AND a.status IN ('queued', 'scheduled', 'processing')
+        AND NOT EXISTS (
+          SELECT 1 FROM private.delivery_jobs j
+           WHERE j.notification_attempt_id = a.id AND j.status IN ('sent', 'uncertain')
+        );
     UPDATE private.notifications
       SET status = 'canceled', updated_at = now()
       WHERE booking_id = OLD.id
-        AND status IN ('queued', 'scheduled', 'processing');
+        AND status IN ('queued', 'scheduled', 'processing')
+        AND NOT EXISTS (
+          SELECT 1 FROM private.notification_attempts a
+           WHERE a.notification_id = private.notifications.id
+             AND a.status IN ('accepted', 'delivered')
+        );
   END IF;
   RETURN NEW;
 END;

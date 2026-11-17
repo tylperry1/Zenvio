@@ -1,4 +1,8 @@
-export { enqueueNotification, cancelNotificationsForBooking } from "./engine";
+export {
+  enqueueNotification,
+  cancelNotificationsForBooking,
+  syncNotificationAttemptFromDeliveryJob,
+} from "./engine";
 export { loadNotificationPreferences, channelAllowedByPreference } from "./preferences";
 export type {
   NotificationChannel,

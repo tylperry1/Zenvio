@@ -97,11 +97,16 @@ export async function dispatchSmsAttempt(
         smsReference: sms.reference,
       };
     }
+    const bookingId = sms.bookingId || input.bookingId;
+    const bookingRevision = sms.bookingRevision ?? input.bookingRevision;
     const result = await smsTransport().send({
       userId: input.workspaceId,
       to,
       body: sms.body,
       reference: sms.reference,
+      ...(bookingId
+        ? { bookingId, bookingRevision: bookingRevision ?? 0 }
+        : {}),
     });
     return {
       channel: "sms",
