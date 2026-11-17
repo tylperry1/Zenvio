@@ -36,6 +36,7 @@ type Data = {
     sent_at: string;
     completed_at: string | null;
     sign_url?: string | null;
+    sign_state?: "ready" | "waiting" | "expired" | "signed" | "closed";
   }[];
   estimates: Estimate[];
   payments: { id: string; kind: string; description: string; amount_cents: number; currency: string; status: string; job_title: string; paid_at: string | null }[];
@@ -241,34 +242,59 @@ export function ClientPortal({ token }: { token: string }) {
                   </EmptyState>
                 ) : (
                   <ul className="portal-list">
-                    {data.documents.map((d) => (
+                    {data.documents.map((d) => {
+                      const state = d.sign_state || (d.signer_status === "signed" ? "signed" : d.sign_url ? "ready" : "closed");
+                      const detail =
+                        state === "signed"
+                          ? `Signed${d.completed_at ? " · completed " + formatDateTime(d.completed_at) : ""}`
+                          : state === "expired"
+                            ? "This signing request expired. Ask your provider for a new link."
+                            : state === "waiting"
+                              ? "Waiting for an earlier signer before you can review this document."
+                              : state === "ready"
+                                ? "Waiting for your signature"
+                                : d.status === "sent"
+                                  ? "Waiting for your signature — use the signing link in the email from Zenvio."
+                                  : d.status;
+                      return (
                       <li key={d.id}>
                         <span className="ui-list-icon">
                           <Icon name="file" size={16} />
                         </span>
                         <div>
                           <b>{d.title}</b>
-                          <small>
-                            {d.signer_status === "signed"
-                              ? `Signed${d.completed_at ? " · completed " + formatDateTime(d.completed_at) : ""}`
-                              : d.status === "sent"
-                                ? d.sign_url
-                                  ? "Waiting for your signature"
-                                  : "Waiting for your signature — use the signing link in the email from Zenvio."
-                                : d.status}
-                          </small>
+                          <small>{detail}</small>
                         </div>
-                        {d.sign_url && d.signer_status !== "signed" && d.status === "sent" ? (
+                        {state === "ready" && d.sign_url ? (
                           <a className="ui-btn ui-btn-primary ui-btn-sm" href={d.sign_url}>
                             Review and sign
                           </a>
                         ) : (
-                          <Badge tone={d.signer_status === "signed" ? "success" : d.status === "sent" ? "warning" : "neutral"}>
-                            {d.signer_status === "signed" ? "Signed" : d.status === "sent" ? "To sign" : d.status}
+                          <Badge
+                            tone={
+                              state === "signed"
+                                ? "success"
+                                : state === "expired"
+                                  ? "danger"
+                                  : state === "waiting" || state === "ready"
+                                    ? "warning"
+                                    : "neutral"
+                            }
+                          >
+                            {state === "signed"
+                              ? "Signed"
+                              : state === "expired"
+                                ? "Expired"
+                                : state === "waiting"
+                                  ? "Waiting on others"
+                                  : state === "ready"
+                                    ? "To sign"
+                                    : d.status}
                           </Badge>
                         )}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 ))}
               {tab === "estimates" &&

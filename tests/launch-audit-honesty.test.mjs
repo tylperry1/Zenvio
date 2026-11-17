@@ -29,15 +29,29 @@ test("portal documents expose a recipient sign URL when available", () => {
   const ui = read("src/components/client-portal.tsx");
   assert.match(api, /link_ciphertext/);
   assert.match(api, /sign_url/);
+  assert.match(api, /sign_state/);
+  assert.match(api, /waiting_on_others/);
+  assert.match(api, /expires_at/);
   assert.match(api, /\/sign\/envelope#token=/);
   assert.match(ui, /Review and sign/);
-  assert.match(ui, /d\.sign_url/);
+  assert.match(ui, /Waiting on others/);
+  assert.match(ui, /Expired/);
 });
 
 test("financial sync marks degraded or error when reconcile fails", () => {
   const sync = read("src/lib/financial-sync.ts");
+  const migration = read("postgres/migrations/090_provider_sync_degraded.sql");
   assert.match(sync, /connectionStatus = failed === 0 \? "connected" : processed > 0 \? "degraded" : "error"/);
   assert.match(sync, /connection_status=\$2/);
+  assert.match(migration, /'degraded'/);
+  assert.match(migration, /provider_cost_sync_state_connection_status_check/);
+});
+
+test("smoke script fails on pageerror and retains them in the report", () => {
+  const smoke = read("scripts/prod-launch-smoke.mjs");
+  assert.match(smoke, /pageErrors\.push/);
+  assert.match(smoke, /routeErrors\.length, 0/);
+  assert.match(smoke, /pageErrors,/);
 });
 
 test("notifications page is titled as browser alerts and does not imply server push", () => {

@@ -43,7 +43,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         [s.userId, s.contactId],
       ),
       pool.query(
-        `SELECT e.id,e.title,e.status,e.sent_at,e.completed_at,r.status signer_status,r.link_ciphertext
+        `SELECT e.id,e.title,e.status,e.sent_at,e.completed_at,e.expires_at,e.signing_mode,
+                r.status signer_status,r.signing_order,r.link_ciphertext,
+                EXISTS(
+                  SELECT 1 FROM private.signature_recipients earlier
+                   WHERE earlier.envelope_id=e.id
+                     AND earlier.signing_order < coalesce(r.signing_order,1)
+                     AND earlier.status<>'signed'
+                ) waiting_on_others
            FROM private.signature_envelopes e JOIN private.signature_recipients r ON r.envelope_id=e.id
           WHERE e.user_id=$1 AND lower(r.email)=lower($2) AND e.status<>'draft' ORDER BY e.created_at DESC LIMIT 50`,
         [s.userId, s.email],
@@ -92,12 +99,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         appointments,
         messages: thread.rows.reverse(),
         documents: envelopes.rows.map((d) => {
+          const expired =
+            d.status === "sent" && d.signer_status !== "signed" && Date.parse(d.expires_at) <= now;
+          const waiting =
+            d.status === "sent" &&
+            d.signer_status !== "signed" &&
+            d.signing_mode === "sequential" &&
+            Boolean(d.waiting_on_others);
           let sign_url: string | null = null;
-          if (d.status === "sent" && d.signer_status !== "signed" && d.link_ciphertext) {
+          let sign_state: "ready" | "waiting" | "expired" | "signed" | "closed" =
+            d.signer_status === "signed" ? "signed" : d.status === "sent" ? "closed" : "closed";
+          if (d.signer_status === "signed") sign_state = "signed";
+          else if (expired) sign_state = "expired";
+          else if (waiting) sign_state = "waiting";
+          else if (d.status === "sent" && d.link_ciphertext) {
             try {
               sign_url = `${appOrigin()}/sign/envelope#token=${unsealSecret(d.link_ciphertext)}`;
+              sign_state = "ready";
             } catch {
               sign_url = null;
+              sign_state = "closed";
             }
           }
           return {
@@ -108,6 +129,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             sent_at: d.sent_at,
             completed_at: d.completed_at,
             sign_url,
+            sign_state,
           };
         }),
         estimates: estimates.rows,
