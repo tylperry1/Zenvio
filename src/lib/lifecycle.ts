@@ -86,36 +86,122 @@ export async function scheduleBooking(db: PoolClient, id: string) {
     timeZone: b.timezone,
   }).format(new Date(b.starts_at));
   const links = `\nManage or reschedule: ${appOrigin()}/reschedule#token=${b.cancel_token}\nTimes shown in ${b.timezone}.`;
+  // Fan-out through the unified notification engine. Email still uses delivery_jobs;
+  // SMS stays gated; push is a stub until FCM. Confirmation email remains on the
+  // legacy email_outbox → delivery_jobs bridge to avoid duplicate Resend sends.
+  const { enqueueNotification } = await import("./notifications/engine");
+  const phone = (b.guest_phone as string) || "";
+  const reminderText = `Your appointment: ${b.title}\n${when} (${b.timezone})${links}`;
   const offsets: number[] = [...new Set(b.reminder_minutes as number[])];
   for (const minutes of offsets) {
     const at = new Date(new Date(b.starts_at).getTime() - minutes * 60000);
     if (at.getTime() <= Date.now()) continue;
-    await queueDelivery(db, {
-      user: b.user_id,
-      kind: "booking_reminder",
-      key: `reminder:${b.id}:${b.revision}:${minutes}`,
-      booking: b.id,
-      revision: b.revision,
-      to: b.guest_email,
-      subject: "Reminder: " + b.title,
-      text: `Your appointment: ${b.title}\n${when} (${b.timezone})${links}`,
-      at,
-      expires: new Date(b.starts_at),
+    const emailKey = `reminder:${b.id}:${b.revision}:${minutes}`;
+    const reminderChannels = ["email", "push", ...(phone ? (["sms"] as const) : [])] as (
+      | "email"
+      | "sms"
+      | "push"
+    )[];
+    await enqueueNotification(db, {
+      workspaceId: b.user_id,
+      idempotencyKey: `notify:${emailKey}`,
+      category: "appointment_reminder",
+      templateId: "appointment_reminder",
+      channels: reminderChannels,
+      recipientAddress: b.guest_email,
+      recipientContactId: b.contact_id,
+      bookingId: b.id,
+      bookingRevision: b.revision,
+      scheduledAt: at,
+      email: {
+        kind: "booking_reminder",
+        key: emailKey,
+        to: b.guest_email,
+        subject: "Reminder: " + b.title,
+        text: reminderText,
+        at,
+        expires: new Date(b.starts_at),
+      },
+      sms: phone
+        ? {
+            to: phone,
+            body: `Reminder: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule`,
+            reference: `sms-reminder-${b.id}-${b.revision}-${minutes}`.slice(0, 120),
+          }
+        : undefined,
+      push: {
+        title: "Appointment reminder",
+        body: `${b.title} · ${when}`,
+      },
     });
   }
-  if (b.revision > 0)
-    for (const to of [b.guest_email, b.host_email])
-      await queueDelivery(db, {
-        user: b.user_id,
-        kind: "booking_changed",
-        key: `changed:${b.id}:${b.revision}:${to}`,
-        booking: b.id,
-        revision: b.revision,
-        to,
-        subject: "Appointment rescheduled: " + b.title,
-        text: `Your appointment has moved to ${when} (${b.timezone}).${links}`,
-        expires: new Date(b.starts_at),
+  if (b.revision > 0) {
+    const changedText = `Your appointment has moved to ${when} (${b.timezone}).${links}`;
+    for (const to of [b.guest_email, b.host_email]) {
+      const emailKey = `changed:${b.id}:${b.revision}:${to}`;
+      const guestSms = to === b.guest_email && phone;
+      const channels = [
+        "email" as const,
+        "push" as const,
+        ...(guestSms ? (["sms"] as const) : []),
+      ];
+      await enqueueNotification(db, {
+        workspaceId: b.user_id,
+        idempotencyKey: `notify:${emailKey}`,
+        category: "appointment_reschedule",
+        templateId: "appointment_reschedule",
+        channels,
+        recipientAddress: to,
+        recipientContactId: to === b.guest_email ? b.contact_id : null,
+        bookingId: b.id,
+        bookingRevision: b.revision,
+        email: {
+          kind: "booking_changed",
+          key: emailKey,
+          to,
+          subject: "Appointment rescheduled: " + b.title,
+          text: changedText,
+          expires: new Date(b.starts_at),
+        },
+        sms: guestSms
+          ? {
+              to: phone,
+              body: `Rescheduled: ${b.title} is now ${when}. Manage: ${appOrigin()}/reschedule`,
+              reference: `sms-changed-${b.id}-${b.revision}`.slice(0, 120),
+            }
+          : undefined,
+        push: {
+          title: "Appointment rescheduled",
+          body: `${b.title} · ${when}`,
+        },
       });
+    }
+  } else {
+    // Confirmation: SMS + push only (email confirmation still from email_outbox bridge).
+    const confirmChannels = ["push", ...(phone ? (["sms"] as const) : [])] as ("sms" | "push")[];
+    await enqueueNotification(db, {
+      workspaceId: b.user_id,
+      idempotencyKey: `notify:confirm:${b.id}:${b.revision}`,
+      category: "appointment_confirmation",
+      templateId: "appointment_confirmation",
+      channels: confirmChannels,
+      recipientAddress: b.guest_email,
+      recipientContactId: b.contact_id,
+      bookingId: b.id,
+      bookingRevision: b.revision,
+      sms: phone
+        ? {
+            to: phone,
+            body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule`,
+            reference: `sms-confirm-${b.id}-${b.revision}`.slice(0, 120),
+          }
+        : undefined,
+      push: {
+        title: "Appointment confirmed",
+        body: `${b.title} · ${when}`,
+      },
+    });
+  }
 }
 export async function materializeReminders(user?: string) {
   const db = await getPool().connect();
