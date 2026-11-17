@@ -158,6 +158,27 @@ test("coupon parser accepts percent/amount and rejects bad shapes", () => {
   assert.throws(
     () =>
       coupons.parseCouponInput({
+        code: "LAUNCH_2026",
+        discountType: "percent",
+        percent: 10,
+        duration: "once",
+      }),
+    /letters|dashes/,
+  );
+  assert.throws(
+    () =>
+      coupons.parseCouponInput({
+        code: "SAVE10",
+        discountType: "percent",
+        percent: 10,
+        duration: "once",
+        active: false,
+      }),
+    /active|pause/i,
+  );
+  assert.throws(
+    () =>
+      coupons.parseCouponInput({
         code: "OKAY",
         discountType: "percent",
         percent: 10,
@@ -186,6 +207,10 @@ test("storage guard migration keeps release overlays and custom allowances", () 
   assert.match(sql, /billing_catalog_versions/);
   assert.match(sql, /workspace_meter_overrides/);
   assert.match(sql, /storageBytes/);
+  assert.match(sql, /coalesce\(/);
+  assert.match(sql, /enforce IS NOT TRUE/);
+  assert.match(sql, /ON CONFLICT upserts|existing \(user_id, email\)/);
+  assert.match(sql, /\^\[A-Za-z0-9-\]/);
   const roots = fs.readFileSync("postgres/migrations/093_v4_team_entitlement_roots.sql", "utf8");
   assert.match(roots, /s\.plan = 'business'/);
   assert.match(roots, /2026-11-v4/);

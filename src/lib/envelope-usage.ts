@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
-import { planLimits, type Plan } from "./entitlement-policy";
+import { isV4CatalogVersion, planLimitsFor, type Plan } from "./entitlement-policy";
 import { stripeClient } from "./billing";
 import { billingReadiness } from "./billing-readiness";
 import { isUnlimitedQuantity, UNLIMITED_SEATS_SENTINEL } from "./allowance-display";
@@ -13,27 +13,42 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const owner: string = roots[0]?.owner_id || user;
   const row = (await db.query(`SELECT private.effective_plan($1) plan,s.plan subscription_plan,s.status,s.customer_id,s.subscription_id,s.envelope_allowance,s.catalog_version,coalesce(s.seats,1) seats,coalesce(o.enabled,false) enabled,coalesce(o.monthly_cap_cents,0) cap FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.envelope_overage_settings o ON o.user_id=u.id WHERE u.id=$1`, [owner])).rows[0];
   const plan = (row?.plan || "free") as Plan;
-  const perSeat = ["individual", "team"].includes(plan) ? row?.envelope_allowance ?? 20 : (planLimits[plan] || planLimits.free).envelopes;
+  const catalogVersion = (row?.catalog_version as string | null | undefined) || "legacy";
+  const v4 = isV4CatalogVersion(catalogVersion);
+  const catalogLimits = planLimitsFor(plan, catalogVersion);
+  const perSeat = ["individual", "team"].includes(plan)
+    ? row?.envelope_allowance ?? 20
+    : catalogLimits.envelopes;
   const rawSeats = roots[0]?.seats || 1;
   const unlimitedSeats = isUnlimitedQuantity(rawSeats);
   // Never multiply catalog allowances by the unlimited-seat sentinel (int4 max).
   const seats = unlimitedSeats ? 1 : rawSeats;
   const used = (await db.query(`SELECT count(*)::int sent,coalesce(sum(charge_cents),0)::int spent FROM private.envelope_usage WHERE billing_owner=$1 AND sent_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [owner])).rows[0];
-  const eligible = ["individual", "team"].includes(row?.subscription_plan) && row?.status === "active" && Boolean(row?.customer_id && row?.subscription_id);
+  const eligible =
+    (["individual", "team"].includes(row?.subscription_plan) ||
+      (v4 && ["starter", "professional", "business"].includes(row?.subscription_plan))) &&
+    row?.status === "active" &&
+    Boolean(row?.customer_id && row?.subscription_id);
   const purchased = Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining", [owner])).rows[0]?.remaining || 0);
-  const pooledCatalog = row?.catalog_version === "2026-11-v3" || Boolean(row?.catalog_version?.startsWith("release-"));
+  const pooledCatalog =
+    v4 ||
+    catalogVersion === "2026-11-v3" ||
+    Boolean(catalogVersion?.startsWith("release-"));
   // Platform/unlimited seats keep an unlimited included pool for enforcement.
   // Display layers format the sentinel as "Unlimited"; never multiply per-seat by int4 max.
+  // v4 Free=0 / Team(business)=50 are pooled catalog ceilings (not legacy seat multipliers).
   const included =
     unlimitedSeats
       ? UNLIMITED_SEATS_SENTINEL
-      : pooledCatalog && ["individual", "team"].includes(plan)
-        ? row?.catalog_version === "2026-11-v3"
-          ? plan === "team"
-            ? 30
-            : 10
-          : (row?.envelope_allowance ?? (plan === "team" ? 30 : 10))
-        : perSeat * seats;
+      : v4
+        ? catalogLimits.envelopes
+        : pooledCatalog && ["individual", "team"].includes(plan)
+          ? catalogVersion === "2026-11-v3"
+            ? plan === "team"
+              ? 30
+              : 10
+            : (row?.envelope_allowance ?? (plan === "team" ? 30 : 10))
+          : perSeat * seats;
   return {
     purchasedRemaining: Math.max(0, purchased),
     creditDebt: purchased < 0,

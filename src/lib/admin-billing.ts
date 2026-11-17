@@ -269,7 +269,19 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               { active: input.active },
               { idempotencyKey: operation },
             );
-            result = { ok: true, promotion: id, active: input.active, syncStatus: input.active ? "synced" : "disabled" };
+            const live = await stripe.promotionCodes.retrieve(id);
+            if (live.active !== input.active) {
+              throw new ApiError(
+                "This promotion status change was superseded by a newer pause/resume. Refresh and try again.",
+                409,
+              );
+            }
+            result = {
+              ok: true,
+              promotion: id,
+              active: live.active === true,
+              syncStatus: live.active ? "synced" : "disabled",
+            };
           }
         }
       } else if (action === "preview" || action === "change") {
@@ -391,7 +403,30 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               "This attempted change requires manual Stripe reconciliation before retry.",
               409,
             );
-          await stripe.subscriptions.update(current.id, dispatch.request, {
+          const targetSeats = Number(
+            (dispatch.request as { targetSeats?: number } | null)?.targetSeats,
+          );
+          if (Number.isInteger(targetSeats) && targetSeats > 0) {
+            await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+              "entitlements:" + user,
+            ]);
+            const occupied =
+              (
+                await db.query(
+                  "SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active",
+                  [user],
+                )
+              ).rows[0]?.n || 0;
+            if (occupied > targetSeats) {
+              throw new ApiError(
+                "Team membership changed while this seat reduction was pending. Preview again before reducing seats.",
+                409,
+              );
+            }
+          }
+          const dispatchRequest = { ...(dispatch.request as Record<string, unknown>) };
+          delete dispatchRequest.targetSeats;
+          await stripe.subscriptions.update(current.id, dispatchRequest as never, {
             idempotencyKey: operation,
           });
           await saveSubscription(
@@ -442,6 +477,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             payment_behavior: "pending_if_incomplete" as const,
             proration_behavior: "always_invoice" as const,
             proration_date: p.prorationDate,
+            targetSeats: p.seats,
           };
           await pool.query(
             "INSERT INTO private.billing_change_dispatches(operation_id,actor_id,user_id,subscription_id,request) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",

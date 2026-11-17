@@ -35,8 +35,11 @@ export function productsForTargets(targets: CatalogTarget[]) {
 
 export function parseCouponInput(input: Record<string, unknown>): BillingCouponInput {
   const code = string(input.code, "promotion code", 40, 3);
-  if (!/^[A-Za-z0-9_-]+$/.test(code)) {
-    throw new ApiError("Use letters, digits, dashes or underscores for the promotion code.");
+  if (!/^[A-Za-z0-9-]+$/.test(code)) {
+    throw new ApiError("Use letters, digits, or dashes for the promotion code.");
+  }
+  if (input.active === false) {
+    throw new ApiError("Create the promotion as active, then pause it after Stripe sync.");
   }
   const discountType = String(input.discountType || "percent") as CouponDiscountType;
   if (!["percent", "amount"].includes(discountType)) {
@@ -168,15 +171,17 @@ export async function syncCouponToStripe(
   stripe: Stripe,
   couponId: string,
   actor: string,
-  idempotencyKey: string,
+  _operationIdempotencyKey: string,
 ) {
   const row = (
     await db.query("SELECT * FROM private.billing_coupons WHERE id=$1 FOR UPDATE", [couponId])
   ).rows[0];
   if (!row) throw new ApiError("Coupon not found.", 404);
-  if (row.sync_status === "disabled" || row.active === false) {
+  if (row.sync_status === "disabled") {
     throw new ApiError("Disabled coupons cannot be synchronized.", 409);
   }
+  // Stable Stripe keys keyed by coupon id so coupon-retry (new operation id) still replays.
+  const stripeKeyBase = `zenvio-billing-coupon-${couponId}`;
 
   const input: BillingCouponInput = {
     code: row.code,
@@ -190,7 +195,7 @@ export async function syncCouponToStripe(
     redeemBy: row.redeem_by ? new Date(row.redeem_by).toISOString() : null,
     firstTimeTransaction: row.first_time_transaction,
     catalogTargets: row.catalog_targets,
-    active: row.active,
+    active: row.active !== false,
   };
   const products = row.applies_to_products?.length
     ? row.applies_to_products
@@ -200,7 +205,7 @@ export async function syncCouponToStripe(
     let stripeCouponId = row.stripe_coupon_id as string | null;
     if (!stripeCouponId) {
       const coupon = await stripe.coupons.create(stripeCouponParams(input, products), {
-        idempotencyKey: `${idempotencyKey}-coupon`,
+        idempotencyKey: `${stripeKeyBase}-coupon`,
       });
       stripeCouponId = coupon.id;
       await db.query(
@@ -211,11 +216,26 @@ export async function syncCouponToStripe(
 
     let promoId = row.stripe_promotion_code_id as string | null;
     if (!promoId) {
+      // Reconcile a promotion that may already exist from a prior lost response.
+      try {
+        const existing = await stripe.promotionCodes.list({ code: row.code, limit: 1 });
+        const match = existing.data.find(
+          (p) =>
+            (typeof p.promotion?.coupon === "string"
+              ? p.promotion.coupon
+              : p.promotion?.coupon?.id) === stripeCouponId,
+        );
+        if (match) promoId = match.id;
+      } catch {
+        /* fall through to create */
+      }
+    }
+    if (!promoId) {
       const promo = await stripe.promotionCodes.create(
         {
           promotion: { type: "coupon", coupon: stripeCouponId },
           code: row.code,
-          active: row.active !== false,
+          active: true,
           ...(row.max_redemptions ? { max_redemptions: row.max_redemptions } : {}),
           ...(row.redeem_by
             ? { expires_at: Math.floor(new Date(row.redeem_by).getTime() / 1000) }
@@ -224,7 +244,7 @@ export async function syncCouponToStripe(
             ? { restrictions: { first_time_transaction: true } }
             : {}),
         },
-        { idempotencyKey: `${idempotencyKey}-promotion` },
+        { idempotencyKey: `${stripeKeyBase}-promotion` },
       );
       promoId = promo.id;
     }
@@ -292,19 +312,27 @@ export async function setPromotionActive(
     { active },
     { idempotencyKey },
   );
+  // Idempotent retries can return a cached response; live retrieve is authoritative.
+  const live = await stripe.promotionCodes.retrieve(row.stripe_promotion_code_id);
+  if (live.active !== active) {
+    throw new ApiError(
+      "This promotion status change was superseded by a newer pause/resume. Refresh and try again.",
+      409,
+    );
+  }
   const updated = (
     await db.query(
       `UPDATE private.billing_coupons
           SET active=$2,sync_status=CASE WHEN $2 THEN 'synced' ELSE 'disabled' END,
               updated_at=now(),updated_by=$3
         WHERE id=$1 RETURNING *`,
-      [couponId, active, actor],
+      [couponId, live.active === true, actor],
     )
   ).rows[0];
   await db.query(
     `INSERT INTO private.billing_coupon_audit(coupon_id,actor_id,action,after_state)
      VALUES($1,$2,$3,$4)`,
-    [couponId, actor, active ? "resume" : "pause", JSON.stringify(updated)],
+    [couponId, actor, live.active ? "resume" : "pause", JSON.stringify(updated)],
   );
   return updated;
 }

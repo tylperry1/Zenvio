@@ -22,7 +22,7 @@ export async function GET() {
       ),
       catalogSyncReport(),
       publicPricingSurface(),
-      listBillingCoupons(db).catch(() => []),
+      listBillingCoupons(db),
     ]);
     return Response.json(
       {

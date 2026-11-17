@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS private.billing_coupons (
     (duration = 'repeating' AND duration_in_months IS NOT NULL)
     OR (duration IN ('once','forever') AND duration_in_months IS NULL)
   ),
-  CONSTRAINT billing_coupons_code_format CHECK (code ~ '^[A-Za-z0-9_-]{3,40}$')
+  CONSTRAINT billing_coupons_code_format CHECK (code ~ '^[A-Za-z0-9-]{3,40}$')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS billing_coupons_code_unique
   ON private.billing_coupons (lower(code));
@@ -136,7 +136,14 @@ BEGIN
        WHERE o.owner_id = owner AND m.active
     );
 
+  -- BEFORE INSERT still fires for ON CONFLICT upserts; allow existing (user_id, email) rows at capacity.
   IF used >= cap THEN
+    IF EXISTS (
+      SELECT 1 FROM public.contacts c
+       WHERE c.user_id = NEW.user_id AND c.email = NEW.email
+    ) THEN
+      RETURN NEW;
+    END IF;
     RAISE EXCEPTION 'contact_allowance_reached'
       USING ERRCODE = 'P0001',
             MESSAGE = format('Your plan allows %s CRM contacts. Review Plan & billing to upgrade.', cap);
@@ -185,12 +192,16 @@ BEGIN
     FROM private.subscriptions WHERE user_id = owner;
 
   -- Match 077: enforce v3, published release-* overlays, and v4 catalogs.
-  enforce := version = '2026-11-v3'
-    OR version = '2026-11-v4'
-    OR (version IS NOT NULL AND version LIKE '2026-11-v4%')
-    OR (version IS NOT NULL AND version LIKE 'release-%');
+  -- COALESCE so a NULL catalog_version (legacy) is never treated as enforceable.
+  enforce := coalesce(
+    version = '2026-11-v3'
+      OR version = '2026-11-v4'
+      OR (version IS NOT NULL AND version LIKE '2026-11-v4%')
+      OR (version IS NOT NULL AND version LIKE 'release-%'),
+    false
+  );
 
-  IF NOT enforce
+  IF enforce IS NOT TRUE
      OR EXISTS (SELECT 1 FROM private.platform_roles WHERE user_id = owner AND enabled)
      OR EXISTS (SELECT 1 FROM private.entitlement_overrides WHERE user_id = owner AND expires_at > now())
   THEN

@@ -6,7 +6,8 @@ import path from 'node:path';
 import ts from 'typescript';
 function load(file, deps) {const filename=path.resolve(file),m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const original=m.require.bind(m);m.require=id=>Object.hasOwn(deps,id)?deps[id]:original(id);m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);return m.exports;}
 class ApiError extends Error {constructor(message,status=400){super(message);this.status=status;}}
-const limits=load('src/lib/entitlement-policy.ts',{}).planLimits;
+const policy=load('src/lib/entitlement-policy.ts',{});
+const limits=policy.planLimits;
 function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active',allowance=20,unpaid=false,version='legacy',plan='team',credits=0,subscriptionPlan}={}) {
  let inserts=[],locks=[],reservations=[];
  const db={query:async(sql,args)=>{
@@ -19,7 +20,7 @@ function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active
  if(sql.startsWith('insert into private.subscription_usage_reservations')){reservations.push(args);return {rows:[],rowCount:1};}
  if(sql.startsWith('INSERT INTO private.envelope_usage')){inserts.push(args);sent++;spent+=args[4];}
  return {rows:[],rowCount:0};}};
- const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
+ const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits,planLimitsFor:policy.planLimitsFor,isV4CatalogVersion:policy.isV4CatalogVersion},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
  return {db,service,inserts,locks,reservations};
 }
 test('unlimited seat sentinel keeps an unlimited included pool without multiplying per-seat',async()=>{
@@ -69,4 +70,11 @@ test('free workspaces can spend referral envelope credits after the included poo
 test("new published Teams allowance remains a fixed snapshot instead of multiplying by seats",async()=>{
  const f=fixture({plan:"team",version:"release-11111111-1111-4111-8111-111111111111",allowance:42});
  const budget=await f.service.envelopeBudget("staff",f.db);assert.equal(budget.included,42);
+});
+
+test("v4 Free and Team envelope ceilings are catalog-aware pooled allowances",async()=>{
+ const free=fixture({plan:"free",version:"2026-11-v4",subscriptionPlan:"free",sent:0,enabled:false});
+ assert.equal((await free.service.envelopeBudget("staff",free.db)).included,0);
+ const team=fixture({plan:"business",version:"2026-11-v4",subscriptionPlan:"business",sent:0,enabled:false});
+ assert.equal((await team.service.envelopeBudget("staff",team.db)).included,50);
 });

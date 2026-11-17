@@ -601,7 +601,13 @@ export function AdminBillingCenter() {
                   duration,
                   durationInMonths: duration === "repeating" ? Number(f.get("months")) : undefined,
                   maxRedemptions: Number(f.get("limit")) || undefined,
-                  redeemBy: f.get("expires") || undefined,
+                  redeemBy: (() => {
+                    const raw = String(f.get("expires") || "").trim();
+                    if (!raw) return undefined;
+                    // datetime-local has no zone; convert the selected local instant to ISO with offset.
+                    const local = new Date(raw);
+                    return Number.isFinite(local.getTime()) ? local.toISOString() : raw;
+                  })(),
                   firstTimeTransaction: f.get("firstTime") === "on",
                   catalogTargets: targets.length ? targets : ["v3"],
                   reason: f.get("reason"),
@@ -610,7 +616,7 @@ export function AdminBillingCenter() {
             >
               <div className="bc-form-grid">
                 <Field label="Promotion code" htmlFor="bc-code">
-                  <input id="bc-code" name="code" className="bc-input" required pattern="[A-Za-z0-9_-]+" minLength={3} maxLength={40} />
+                  <input id="bc-code" name="code" className="bc-input" required pattern="[A-Za-z0-9-]+" minLength={3} maxLength={40} title="Letters, digits, and dashes only" />
                 </Field>
                 <Field label="Display name" htmlFor="bc-name">
                   <input id="bc-name" name="name" className="bc-input" maxLength={120} />
