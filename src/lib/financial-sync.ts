@@ -270,9 +270,10 @@ async function upsertInvoice(
       : null;
   const refund = await invoiceRefundInfo(stripe, row);
   const currency = row.currency || "usd";
-  // Consistent fallback: Stripe refund time, else paid_at/created — never invent now()
-  // on an unchanged cumulative total (repeat sync must not move the refund into this month).
-  const refundedAtFallback = refund.latestRefundAt || paidAt || new Date(row.created * 1000);
+  const createdAt = new Date(row.created * 1000);
+  // Stripe-sourced refund time only in $18. Insert falls back to paid_at/created when null.
+  // Updates prefer a later Stripe timestamp (repairs estimated dates) and never invent now().
+  const stripeRefundedAt = refund.latestRefundAt;
   const db = getPool();
   await db.query(
     `INSERT INTO private.financial_invoice_snapshots(
@@ -281,7 +282,9 @@ async function upsertInvoice(
        subtotal_cents,total_cents,subscription_id,paid,attempted,
        created_at,paid_at,refunded_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,now()
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+       CASE WHEN $10::int > 0 THEN COALESCE($18::timestamptz, $17::timestamptz, $16::timestamptz) ELSE NULL END,
+       $19,$20,$21,$22,now()
      )
      ON CONFLICT(stripe_invoice_id) DO UPDATE SET
        user_id=EXCLUDED.user_id,
@@ -299,10 +302,8 @@ async function upsertInvoice(
        paid_at=EXCLUDED.paid_at,
        refunded_at=CASE
          WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
-         WHEN EXCLUDED.refunded_at IS NOT NULL THEN EXCLUDED.refunded_at
-         WHEN private.financial_invoice_snapshots.refunded_at IS NOT NULL
-           THEN private.financial_invoice_snapshots.refunded_at
-         ELSE EXCLUDED.paid_at
+         WHEN $18::timestamptz IS NOT NULL THEN $18::timestamptz
+         ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.paid_at)
        END,
        period_start=EXCLUDED.period_start,
        period_end=EXCLUDED.period_end,
@@ -325,9 +326,9 @@ async function upsertInvoice(
       subscription,
       paid,
       Boolean(row.attempted),
-      new Date(row.created * 1000),
+      createdAt,
       paidAt,
-      refund.cents > 0 ? refundedAtFallback : null,
+      stripeRefundedAt,
       row.period_start ? new Date(row.period_start * 1000) : null,
       row.period_end ? new Date(row.period_end * 1000) : null,
       row.hosted_invoice_url || null,

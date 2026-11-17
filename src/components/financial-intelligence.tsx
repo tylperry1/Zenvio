@@ -222,9 +222,12 @@ export function FinancialIntelligence() {
   const [tenantStatus, setTenantStatus] = useState("all");
   const loadSeq = useRef(0);
   const displayedPeriod = useRef<(typeof PERIODS)[number][0]>("this_month");
+  // Latest user-selected period — post-save refresh must not snap back to a stale closure.
+  const requestedPeriod = useRef<(typeof PERIODS)[number][0]>("this_month");
 
-  async function load(nextPeriod = period) {
+  async function load(nextPeriod = requestedPeriod.current) {
     const seq = ++loadSeq.current;
+    requestedPeriod.current = nextPeriod;
     try {
       const r = await fetch(
         `/api/admin/financial-intelligence?period=${encodeURIComponent(nextPeriod)}`,
@@ -262,7 +265,7 @@ export function FinancialIntelligence() {
       const d = await r.json();
       if (!r.ok) throw Error(d.error || "Unable to save.");
       try {
-        await load();
+        await load(requestedPeriod.current);
         setMessage(
           payload.action?.toString().startsWith("reconcile")
             ? `Sync finished · processed ${d.result?.processed ?? 0}, failed ${d.result?.failed ?? 0}.`
@@ -330,6 +333,7 @@ export function FinancialIntelligence() {
                 value={period}
                 options={PERIODS}
                 onChange={(id) => {
+                  requestedPeriod.current = id;
                   setPeriod(id);
                   setBusy(true);
                   setError("");

@@ -298,6 +298,8 @@ test("UI never renders money(0) for null financial metrics", () => {
   assert.match(src, /Export CSV/);
   assert.match(src, /loadSeq/);
   assert.match(src, /displayedPeriod/);
+  assert.match(src, /requestedPeriod/);
+  assert.match(src, /load\(requestedPeriod\.current\)/);
   assert.match(src, /seq !== loadSeq\.current\) return/);
   assert.doesNotMatch(src, /money\(data\.overview\.planning\.costCents\)/);
 });
@@ -479,7 +481,8 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /refunded_at/);
   assert.match(sync, /refunds\.list/);
   assert.match(sync, /financial_invoice_refund_events/);
-  assert.match(sync, /ELSE EXCLUDED\.paid_at/);
+  assert.match(sync, /WHEN \$18::timestamptz IS NOT NULL THEN \$18::timestamptz/);
+  assert.match(sync, /COALESCE\(private\.financial_invoice_snapshots\.refunded_at, EXCLUDED\.paid_at\)/);
   assert.doesNotMatch(sync, /COALESCE\(EXCLUDED\.refunded_at, now\(\)\)/);
   assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
   const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
