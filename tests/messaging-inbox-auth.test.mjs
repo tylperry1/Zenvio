@@ -67,11 +67,28 @@ test("per-user read state does not clear shared message.read_at on open", () => 
   assert.match(messaging, /markThreadReadForUser/);
   assert.match(messaging, /markThreadUnreadForUser/);
   assert.match(messaging, /threadUnreadCountSql/);
+  assert.match(messaging, /readThroughAt/);
+  assert.match(messaging, /last_read_at < EXCLUDED\.last_read_at/);
   assert.match(inbox, /markThreadReadForUser/);
+  assert.match(inbox, /if \(advanced\)/);
   assert.doesNotMatch(
     inbox,
     /UPDATE private\.thread_messages\s+SET read_at=now\(\)\s+WHERE thread_id=\$1 AND direction='inbound'/,
   );
+});
+
+test("SMS send uses the same phone fallback as readiness", () => {
+  assert.match(messaging, /contactPhone\(db, t\.user_id, t\.contact_id\)\) \|\| t\.contact_phone \|\| ""/);
+});
+
+test("assign/status lock thread inside the mutation transaction", () => {
+  assert.match(inbox, /SELECT assigned_to FROM private\.message_threads WHERE id=\$1 FOR UPDATE/);
+  assert.match(inbox, /SELECT status, assigned_to FROM private\.message_threads WHERE id=\$1 FOR UPDATE/);
+});
+
+test("unread list total is counted after the unread filter", () => {
+  assert.match(inbox, /count\(\*\) OVER\(\)::int total FROM \(\s*SELECT t\.id/);
+  assert.match(inbox, /\) y \$\{filter === "unread" \? "WHERE unread>0" : ""\}/);
 });
 
 test("status changes can notify closed customers and pending staff", () => {
@@ -95,10 +112,31 @@ test("start with booking reuses existing booking thread", () => {
   );
 });
 
-test("list page size restored and assistant excludes soft-deleted messages", () => {
+test("list page size restored and assistant uses per-user unread", () => {
   assert.match(inbox, /pageSize = 100/);
   const tools = fs.readFileSync("src/lib/assistant/tools.ts", "utf8");
-  assert.match(tools, /list_conversations[\s\S]*?m\.deleted_at IS NULL[\s\S]*?m\.deleted_at IS NULL/);
+  assert.match(tools, /threadUnreadCountSql/);
+  assert.match(tools, /m\.deleted_at IS NULL/);
+  assert.doesNotMatch(tools, /m\.read_at IS NULL/);
+});
+
+test("SMS bridge does not reopen archived contact threads", () => {
+  assert.match(messaging, /reopen:\s*false/);
+  assert.match(messaging, /CASE WHEN \$4::boolean THEN 'open' ELSE private\.message_threads\.status END/);
+});
+
+test("notification keys are scoped per distinct transition", () => {
+  assert.match(messaging, /notify:thread-assign:\$\{transitionId\}/);
+  assert.match(messaging, /thread-closed:\$\{transitionId\}/);
+  assert.match(messaging, /thread-pending:\$\{transitionId\}/);
+  assert.doesNotMatch(messaging, /notify:thread-assign:\$\{input\.threadId\}:\$\{input\.assigneeId\}:\$\{day\}/);
+});
+
+test("load more tracks filter/search identity", () => {
+  const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
+  assert.match(ui, /listKey/);
+  assert.match(ui, /prev\.listKey !== identity/);
+  assert.match(ui, /list\.listKey === listKey/);
 });
 
 test("staff role is not in threadAccess; only owner/admin/assignee/host", () => {
@@ -137,9 +175,11 @@ test("mark unread leaves conversation instead of reloading thread", () => {
   );
 });
 
-test("live fingerprint uses per-user unread, not shared read_at", () => {
+test("live fingerprint uses per-user unread and edit/delete tokens", () => {
   const live = fs.readFileSync("src/lib/app-live.ts", "utf8");
   assert.match(live, /threadUnreadCountSql/);
   assert.match(live, /thread_user_state/);
+  assert.match(live, /max\(m\.edited_at\)/);
+  assert.match(live, /max\(m\.deleted_at\)/);
   assert.doesNotMatch(live, /m\.read_at IS NULL/);
 });

@@ -3,7 +3,14 @@ import { getPool } from "../db";
 import { ApiError } from "../server";
 import { zonedDate, inZone } from "../scheduling.mjs";
 import { googleBusyForHost } from "../google-calendar";
-import { bookingUrl, businessName, contactPhone, ensureContactThread, sendThreadMessage } from "../messaging";
+import {
+  bookingUrl,
+  businessName,
+  contactPhone,
+  ensureContactThread,
+  sendThreadMessage,
+  threadUnreadCountSql,
+} from "../messaging";
 import { smsReadiness } from "../sms";
 import { drainDeliveries } from "../lifecycle";
 import { afterBookingChange, hostCancelBooking, hostRescheduleBooking } from "../booking-actions";
@@ -465,8 +472,7 @@ const listConversations: ReadTool<{ unread: boolean }> = {
   async run(ctx, input) {
     const { rows } = await getPool().query(
       `SELECT t.id,t.contact_id,c.name,t.status,
-              (SELECT count(*) FROM private.thread_messages m
-                WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL)::int unread,
+              ${threadUnreadCountSql} unread,
               (SELECT body FROM private.thread_messages m
                 WHERE m.thread_id=t.id AND m.deleted_at IS NULL ORDER BY created_at DESC LIMIT 1) last
          FROM private.message_threads t LEFT JOIN public.contacts c ON c.id=t.contact_id

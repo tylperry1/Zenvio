@@ -20,11 +20,13 @@ export async function workspaceSignature(userId: string) {
                   WHERE ${threadAccess} AND ${threadUnreadCountSql} > 0
                )::text,'0') || ':' ||
                coalesce(max(m.created_at)::text,'') || ':' ||
+               coalesce(max(m.edited_at)::text,'') || ':' ||
+               coalesce(max(m.deleted_at)::text,'') || ':' ||
                coalesce(max(rs.last_read_at)::text,'')
           FROM private.thread_messages m
           JOIN private.message_threads t ON t.id=m.thread_id
           LEFT JOIN private.thread_user_state rs ON rs.thread_id=t.id AND rs.user_id=$1
-         WHERE ${threadAccess} AND m.deleted_at IS NULL) messages,
+         WHERE ${threadAccess}) messages,
        (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(created_at)::text,'') FROM public.contacts WHERE user_id=$1) contacts,
        (SELECT coalesce(max(updated_at)::text,'') || ':' || coalesce(count(*)::text,'0') FROM private.jobs WHERE user_id=$1) jobs,
        (SELECT coalesce(count(*)::text,'0') || ':' || coalesce(max(updated_at)::text,'') || ':' || coalesce(max(status),'') FROM private.estimates WHERE user_id=$1) estimates,

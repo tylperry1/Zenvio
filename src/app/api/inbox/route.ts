@@ -116,14 +116,25 @@ export async function GET(request: NextRequest) {
           [t.id],
         ),
       ]);
-      // Per-user read cursor — opening a thread must not clear teammates' unread.
-      await markThreadReadForUser(pool, { threadId: t.id, userId: user.id });
-      await recordThreadActivity(pool, {
-        threadId: t.id,
-        actorId: user.id,
-        action: "marked_read",
-        details: { scope: "user" },
-      }).catch(() => {});
+      // Advance cursor only through the returned snapshot, and only when it moves forward.
+      const readThroughAt = messages.rows.length
+        ? messages.rows[messages.rows.length - 1].created_at
+        : null;
+      const advanced = readThroughAt
+        ? await markThreadReadForUser(pool, {
+            threadId: t.id,
+            userId: user.id,
+            readThroughAt,
+          })
+        : false;
+      if (advanced) {
+        await recordThreadActivity(pool, {
+          threadId: t.id,
+          actorId: user.id,
+          action: "marked_read",
+          details: { scope: "user", readThroughAt },
+        }).catch(() => {});
+      }
       const sms = await smsReadiness(t.user_id, phone || t.contact_phone || "", "");
       const admin = await canAdministerThread(pool, user.id, t);
       return Response.json(
@@ -185,19 +196,20 @@ export async function GET(request: NextRequest) {
     const pageSize = 100;
     const { rows } = await pool.query(
       `SELECT * FROM (
-         SELECT t.id,t.subject,t.status,t.assigned_to,t.last_message_at,t.contact_id,t.booking_id,
-                c.name contact_name,c.email contact_email,a.name assigned_name,
-                ${threadUnreadCountSql} unread,
-                (SELECT jsonb_build_object('body',left(m.body,160),'direction',m.direction,'channel',m.channel)
-                   FROM private.thread_messages m
-                  WHERE m.thread_id=t.id AND m.deleted_at IS NULL
-                  ORDER BY m.created_at DESC LIMIT 1) last,
-                count(*) OVER()::int total
-           FROM private.message_threads t
-           LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id
-           LEFT JOIN public."user" a ON a.id=t.assigned_to
-          WHERE ${where.join(" AND ")}
-       ) x ${filter === "unread" ? "WHERE unread>0" : ""}
+         SELECT y.*, count(*) OVER()::int total FROM (
+           SELECT t.id,t.subject,t.status,t.assigned_to,t.last_message_at,t.contact_id,t.booking_id,
+                  c.name contact_name,c.email contact_email,a.name assigned_name,
+                  ${threadUnreadCountSql} unread,
+                  (SELECT jsonb_build_object('body',left(m.body,160),'direction',m.direction,'channel',m.channel)
+                     FROM private.thread_messages m
+                    WHERE m.thread_id=t.id AND m.deleted_at IS NULL
+                    ORDER BY m.created_at DESC LIMIT 1) last
+             FROM private.message_threads t
+             LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id
+             LEFT JOIN public."user" a ON a.id=t.assigned_to
+            WHERE ${where.join(" AND ")}
+         ) y ${filter === "unread" ? "WHERE unread>0" : ""}
+       ) x
         ORDER BY last_message_at DESC
         LIMIT ${pageSize} OFFSET ${page * pageSize}`,
       values,
@@ -392,10 +404,18 @@ export async function POST(request: NextRequest) {
           if (!ok.rowCount && assignee !== t.user_id)
             throw new ApiError("Assign conversations to members of this workspace.", 403);
         }
-        const previous = t.assigned_to as string | null;
         const db = await pool.connect();
+        let previous: string | null = null;
+        let notified = false;
         try {
           await db.query("BEGIN");
+          const locked = (
+            await db.query(
+              `SELECT assigned_to FROM private.message_threads WHERE id=$1 FOR UPDATE`,
+              [t.id],
+            )
+          ).rows[0];
+          previous = (locked?.assigned_to as string | null) ?? null;
           await db.query("UPDATE private.message_threads SET assigned_to=$2 WHERE id=$1", [t.id, assignee]);
           await recordThreadActivity(db, {
             threadId: t.id,
@@ -410,7 +430,10 @@ export async function POST(request: NextRequest) {
               assigneeId: assignee,
               actorId: user.id,
               contactName: t.contact_name,
+              previousAssigneeId: previous,
+              transitionId: `assign:${t.id}:${previous || "none"}->${assignee}:${Date.now()}`,
             });
+            notified = true;
           }
           await db.query("COMMIT");
         } catch (e) {
@@ -419,7 +442,7 @@ export async function POST(request: NextRequest) {
         } finally {
           db.release();
         }
-        if (assignee && assignee !== previous) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
+        if (notified) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
         return Response.json({ ok: true });
       }
       case "status": {
@@ -428,10 +451,17 @@ export async function POST(request: NextRequest) {
         if (!THREAD_STATUSES.includes(status)) throw new ApiError("Invalid status.");
         if (status === "archived" && !(await canAdministerThread(pool, user.id, t)))
           throw new ApiError("Only a workspace admin can archive conversations.", 403);
-        const previous = t.status as string;
         const db = await pool.connect();
+        let previous = "";
+        let changed = false;
         try {
           await db.query("BEGIN");
+          const locked = (
+            await db.query(`SELECT status, assigned_to FROM private.message_threads WHERE id=$1 FOR UPDATE`, [
+              t.id,
+            ])
+          ).rows[0];
+          previous = (locked?.status as string) || "";
           await db.query("UPDATE private.message_threads SET status=$2 WHERE id=$1", [t.id, status]);
           await recordThreadActivity(db, {
             threadId: t.id,
@@ -440,6 +470,7 @@ export async function POST(request: NextRequest) {
             details: { from: previous, to: status },
           });
           if (previous !== status) {
+            changed = true;
             await notifyThreadStatusChange(db, {
               workspaceId: t.user_id,
               threadId: t.id,
@@ -448,7 +479,8 @@ export async function POST(request: NextRequest) {
               to: status,
               contactName: t.contact_name,
               contactEmail: t.contact_email,
-              assigneeId: t.assigned_to,
+              assigneeId: (locked?.assigned_to as string | null) ?? t.assigned_to,
+              transitionId: `status:${t.id}:${previous}->${status}:${Date.now()}`,
             });
           }
           await db.query("COMMIT");
@@ -458,7 +490,7 @@ export async function POST(request: NextRequest) {
         } finally {
           db.release();
         }
-        if (previous !== status) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
+        if (changed) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
         return Response.json({ ok: true });
       }
       case "unread": {

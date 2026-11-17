@@ -13,6 +13,8 @@ test("workspace live stream is session-scoped and uses the cheap change fingerpr
   assert.match(lib, /threadAccess/);
   assert.match(lib, /threadUnreadCountSql/);
   assert.match(lib, /thread_user_state/);
+  assert.match(lib, /max\(m\.edited_at\)/);
+  assert.match(lib, /max\(m\.deleted_at\)/);
   assert.match(lib, /FROM public\.bookings WHERE user_id=\$1/);
   assert.match(lib, /private\.message_threads/);
   assert.match(lib, /t\.id::text\|\|t\.status\|\|coalesce\(t\.assigned_to::text/);

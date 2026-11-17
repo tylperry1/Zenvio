@@ -116,6 +116,7 @@ export function InboxCenter() {
       total: number;
       page: number;
       pageSize: number;
+      listKey: string;
       members: { id: string; name: string; email: string }[];
       templates: Template[];
       unread: number;
@@ -129,11 +130,13 @@ export function InboxCenter() {
     [shareLink, setShareLink] = useState(false),
     [loadingMore, setLoadingMore] = useState(false);
   const toast = useToast();
+  const listKey = `${filter}\0${query}`;
 
   const freshList = useFreshRequest();
   const freshThread = useFreshRequest();
   const loadList = useCallback(async (opts?: { page?: number; append?: boolean }) => {
     const nextPage = opts?.page ?? 0;
+    const identity = `${filter}\0${query}`;
     const still = freshList();
     try {
       if (opts?.append) setLoadingMore(true);
@@ -145,16 +148,20 @@ export function InboxCenter() {
       if (!still()) return;
       if (!r.ok) throw Error(d.error);
       setPage(nextPage);
-      setList((prev) =>
-        opts?.append && prev
-          ? {
-              ...d,
-              threads: [...prev.threads, ...d.threads],
-              members: d.members,
-              templates: d.templates,
-            }
-          : d,
-      );
+      setList((prev) => {
+        if (opts?.append) {
+          // Reject appends that would mix rows from a different filter/search.
+          if (!prev || prev.listKey !== identity) return prev;
+          return {
+            ...d,
+            listKey: identity,
+            threads: [...prev.threads, ...d.threads],
+            members: d.members,
+            templates: d.templates,
+          };
+        }
+        return { ...d, listKey: identity };
+      });
       setListError("");
     } catch (e) {
       if (!still()) return;
@@ -329,7 +336,7 @@ export function InboxCenter() {
               </li>
             ))}
           </ul>
-          {list && list.threads.length < list.total && (
+          {list && list.listKey === listKey && list.threads.length < list.total && (
             <div className="inbox-pad">
               <button
                 type="button"

@@ -60,17 +60,24 @@ export async function recordThreadActivity(
   );
 }
 
-export async function ensureContactThread(db: PoolClient, userId: string, contactId: string) {
+export async function ensureContactThread(
+  db: PoolClient,
+  userId: string,
+  contactId: string,
+  opts?: { reopen?: boolean },
+) {
   const contact = (
     await db.query("SELECT id,name FROM public.contacts WHERE id=$1 AND user_id=$2", [contactId, userId])
   ).rows[0];
   if (!contact) throw new ApiError("Client not found.", 404);
+  const reopen = opts?.reopen !== false;
   const { rows } = await db.query(
     `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject)
      VALUES($1,(SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),$2,$3)
      ON CONFLICT (user_id,contact_id) WHERE contact_id IS NOT NULL AND booking_id IS NULL
-     DO UPDATE SET status='open' RETURNING id`,
-    [userId, contactId, contact.name],
+     DO UPDATE SET status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END
+     RETURNING id`,
+    [userId, contactId, contact.name, reopen],
   );
   return rows[0].id as string;
 }
@@ -90,7 +97,8 @@ export async function bridgeProviderSmsToInbox(
     body: string;
   },
 ) {
-  const inboxId = await ensureContactThread(db, input.userId, input.contactId);
+  // Do not reopen archived threads — inbound SMS must not yank them out of Archived.
+  const inboxId = await ensureContactThread(db, input.userId, input.contactId, { reopen: false });
   await db.query(
     `INSERT INTO private.thread_messages(id,thread_id,direction,channel,author_name,body,status)
      VALUES($1,$2,'inbound','sms',$3,$4,'received')
@@ -142,7 +150,9 @@ export async function sendThreadMessage(
   await accessibleThread(db, input.actor.id, input.threadId);
   const t = (
     await db.query(
-      `SELECT t.*,c.email,c.name FROM private.message_threads t LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id WHERE t.id=$1 FOR UPDATE OF t`,
+      `SELECT t.*,c.email,c.name,c.phone contact_phone FROM private.message_threads t
+         LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id
+        WHERE t.id=$1 FOR UPDATE OF t`,
       [input.threadId],
     )
   ).rows[0];
@@ -177,7 +187,8 @@ export async function sendThreadMessage(
     job = (await db.query("SELECT id FROM private.delivery_jobs WHERE dedupe_key=$1", [key])).rows[0]?.id || null;
     status = "queued";
   } else if (input.channel === "sms") {
-    const phone = await contactPhone(db, t.user_id, t.contact_id);
+    // Same fallback as GET thread readiness: booking guest_phone, then contacts.phone.
+    const phone = (await contactPhone(db, t.user_id, t.contact_id)) || t.contact_phone || "";
     const ready = await smsReadiness(t.user_id, phone, body);
     if (!ready.ok) throw new ApiError(ready.detail, 409);
     const result = await smsTransport().send({
@@ -331,18 +342,26 @@ export async function softDeleteThreadMessage(
   return { ok: true };
 }
 
-/** Mark the thread read for one user only (does not clear teammates' unread). */
+/**
+ * Advance the per-user read cursor through the latest message in the returned snapshot.
+ * Writes only when `readThroughAt` is newer than the stored cursor — avoids live refresh loops.
+ * Returns true when the cursor moved.
+ */
 export async function markThreadReadForUser(
   db: PoolClient | ReturnType<typeof getPool>,
-  input: { threadId: string; userId: string },
-) {
-  await db.query(
+  input: { threadId: string; userId: string; readThroughAt: string | Date },
+): Promise<boolean> {
+  const through = new Date(input.readThroughAt).toISOString();
+  const { rowCount } = await db.query(
     `INSERT INTO private.thread_user_state(thread_id, user_id, last_read_at, updated_at)
-     VALUES ($1,$2,now(),now())
+     VALUES ($1,$2,$3::timestamptz,now())
      ON CONFLICT (thread_id, user_id) DO UPDATE
-       SET last_read_at=EXCLUDED.last_read_at, updated_at=now()`,
-    [input.threadId, input.userId],
+       SET last_read_at=EXCLUDED.last_read_at, updated_at=now()
+     WHERE private.thread_user_state.last_read_at < EXCLUDED.last_read_at
+     RETURNING thread_id`,
+    [input.threadId, input.userId, through],
   );
+  return (rowCount ?? 0) > 0;
 }
 
 /** Soft-unread for the current user by rewinding their last_read cursor. */
@@ -384,6 +403,8 @@ export async function notifyThreadAssignment(
     assigneeId: string;
     actorId: string;
     contactName?: string | null;
+    previousAssigneeId?: string | null;
+    transitionId?: string;
   },
 ) {
   if (!input.assigneeId || input.assigneeId === input.actorId) return;
@@ -392,12 +413,13 @@ export async function notifyThreadAssignment(
   ).rows[0];
   if (!assignee?.email) return;
   const label = (input.contactName || "a client").slice(0, 120);
-  const key = `thread-assign:${input.threadId}:${input.assigneeId}:${Date.now()}`;
-  // Idempotency uses thread+assignee+day so rapid reassigns still notify, but retries don't duplicate.
-  const day = new Date().toISOString().slice(0, 10);
+  // One stable id per distinct transition (retries reuse it; A→B→A same day still notifies).
+  const transitionId =
+    input.transitionId ||
+    `assign:${input.threadId}:${input.previousAssigneeId || "none"}->${input.assigneeId}:${Date.now()}`;
   await enqueueNotification(db, {
     workspaceId: input.workspaceId,
-    idempotencyKey: `notify:thread-assign:${input.threadId}:${input.assigneeId}:${day}`,
+    idempotencyKey: `notify:thread-assign:${transitionId}`,
     category: "other",
     templateId: "conversation_assigned",
     channels: ["email"],
@@ -405,7 +427,7 @@ export async function notifyThreadAssignment(
     recipientUserId: assignee.id,
     email: {
       kind: "customer_message",
-      key,
+      key: `thread-assign:${transitionId}`,
       to: assignee.email,
       subject: `Conversation assigned: ${label}`,
       text:
@@ -426,14 +448,16 @@ export async function notifyThreadStatusChange(
     contactName?: string | null;
     contactEmail?: string | null;
     assigneeId?: string | null;
+    transitionId?: string;
   },
 ) {
   const label = (input.contactName || "your conversation").slice(0, 120);
-  const day = new Date().toISOString().slice(0, 10);
   const inboxUrl = `${appOrigin()}/app/inbox?thread=${input.threadId}`;
+  const transitionId =
+    input.transitionId || `status:${input.threadId}:${input.from}->${input.to}:${Date.now()}`;
 
   if (input.to === "closed" && input.contactEmail) {
-    const key = `thread-closed:${input.threadId}:${day}`;
+    const key = `thread-closed:${transitionId}`;
     await enqueueNotification(db, {
       workspaceId: input.workspaceId,
       idempotencyKey: `notify:${key}:${input.contactEmail}`,
@@ -461,7 +485,7 @@ export async function notifyThreadStatusChange(
     for (const userId of targets) {
       const u = (await db.query(`SELECT id, email FROM public."user" WHERE id=$1`, [userId])).rows[0];
       if (!u?.email) continue;
-      const key = `thread-pending:${input.threadId}:${userId}:${day}`;
+      const key = `thread-pending:${transitionId}:${userId}`;
       await enqueueNotification(db, {
         workspaceId: input.workspaceId,
         idempotencyKey: `notify:${key}`,
