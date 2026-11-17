@@ -61,7 +61,9 @@ test("platform social links normalize https urls and optional labels", () => {
   assert.equal(links[1].label, undefined);
 });
 
-test("platform social links reject website, duplicates, and oversized lists", () => {
+test("platform social links reject non-array input, website, duplicates, and oversized lists", () => {
+  assert.throws(() => parsePlatformSocialLinks({}), /must be a list/);
+  assert.deepEqual(parsePlatformSocialLinks([]), []);
   assert.throws(
     () => parsePlatformSocialLinks([{ network: "website", url: "https://gozenvio.com" }]),
     ApiError,
@@ -93,6 +95,7 @@ test("master admin social API and launch UI are wired for platform social links"
   const home = fs.readFileSync("src/app/page.tsx", "utf8");
   const contact = fs.readFileSync("src/app/contact/page.tsx", "utf8");
   assert.match(route, /adminSession\(\)/);
+  assert.match(route, /platformSocialLinksStrict/);
   assert.match(route, /platform_social_links/);
   assert.match(route, /platform_social_links_updated/);
   assert.match(launch, /PlatformSocialAdmin/);

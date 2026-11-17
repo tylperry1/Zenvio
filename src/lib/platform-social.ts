@@ -22,7 +22,8 @@ export const platformSocialLabels: Record<(typeof platformSocialNetworks)[number
 };
 
 export function parsePlatformSocialLinks(input: unknown): PlatformSocialLink[] {
-  const links = Array.isArray(input) ? input : [];
+  if (!Array.isArray(input)) throw new ApiError("Social links must be a list.");
+  const links = input;
   if (links.length > 8) throw new ApiError("Add up to eight social links.");
   const seen = new Set<string>();
   return links.map((raw) => {
@@ -41,16 +42,27 @@ export function parsePlatformSocialLinks(input: unknown): PlatformSocialLink[] {
   });
 }
 
-export async function platformSocialLinks(): Promise<PlatformSocialLink[]> {
+async function readPlatformSocialLinks(): Promise<PlatformSocialLink[]> {
   if (!databaseConfigured()) return [];
+  const row = (
+    await getPool().query(
+      "SELECT value FROM private.platform_settings WHERE key='platform_social_links'",
+    )
+  ).rows[0]?.value;
+  const raw = row?.links ?? row ?? [];
+  return parsePlatformSocialLinks(Array.isArray(raw) ? raw : []);
+}
+
+/** Public surfaces: never fail the page if settings are unavailable. */
+export async function platformSocialLinks(): Promise<PlatformSocialLink[]> {
   try {
-    const row = (
-      await getPool().query(
-        "SELECT value FROM private.platform_settings WHERE key='platform_social_links'",
-      )
-    ).rows[0]?.value;
-    return parsePlatformSocialLinks(row?.links ?? row ?? []);
+    return await readPlatformSocialLinks();
   } catch {
     return [];
   }
+}
+
+/** Admin console: propagate database/read errors so operators see failures. */
+export async function platformSocialLinksStrict(): Promise<PlatformSocialLink[]> {
+  return readPlatformSocialLinks();
 }

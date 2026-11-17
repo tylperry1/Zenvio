@@ -42,6 +42,15 @@ test("signup reserves aliases and retries with another suffix", () => {
   assert.match(sql, /handle_new_user/);
 });
 
+test("slug claim lock serializes aliases and identifies UUID fallback exactly", () => {
+  const sql = fs.readFileSync("postgres/migrations/085_booking_slug_claim_lock.sql", "utf8");
+  assert.match(sql, /pg_advisory_xact_lock\(hashtextextended\('booking_slug:' \|\| NEW\.slug/);
+  assert.match(sql, /pg_advisory_xact_lock\(hashtextextended\('booking_slug:' \|\| OLD\.slug/);
+  assert.match(sql, /uuid_fallback := 'host-' \|\| replace\(new\.id::text/);
+  assert.match(sql, /IF candidate = uuid_fallback THEN/);
+  assert.doesNotMatch(sql, /IF candidate LIKE 'host-%' THEN/);
+});
+
 test("book pages redirect legacy hosts to the live slug and keep query params", () => {
   const host = fs.readFileSync("src/app/book/[host]/page.tsx", "utf8");
   const event = fs.readFileSync("src/app/book/[host]/[event]/page.tsx", "utf8");

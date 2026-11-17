@@ -1606,7 +1606,8 @@ function EventEditor({
         />
         <small>
           Appears after your booking address as /book/your-name/{slug || "service"}.
-          Use lowercase letters, numbers, and hyphens.
+          Use lowercase letters, numbers, and hyphens. Changing this path replaces the
+          current address and breaks previously shared booking links to the old path.
         </small>
       </label>
       <label>

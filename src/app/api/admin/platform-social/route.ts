@@ -4,7 +4,7 @@ import { getPool } from "@/lib/db";
 import {
   parsePlatformSocialLinks,
   platformSocialLabels,
-  platformSocialLinks,
+  platformSocialLinksStrict,
   platformSocialNetworks,
 } from "@/lib/platform-social";
 import { ApiError, body, failure, sameOrigin, string } from "@/lib/server";
@@ -16,7 +16,7 @@ export async function GET() {
     await adminSession(); // master admin only
     return Response.json(
       {
-        links: await platformSocialLinks(),
+        links: await platformSocialLinksStrict(),
         networks: platformSocialNetworks.map((id) => ({
           id,
           label: platformSocialLabels[id],

@@ -40,7 +40,7 @@ export function AdminUserActions({
     );
   }
   return (
-    <section className="aad-admin-actions" aria-label="Account administration">
+    <section className="aad-admin-actions" aria-label="Manage user">
       <div className="aad-admin-buttons">
         <button
           type="button"
