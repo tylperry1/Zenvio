@@ -169,7 +169,7 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: #667698;
+  color: var(--text-muted);
 }
 .billing-page .billing-current {
   display: flex;
@@ -190,7 +190,7 @@
   display: inline-block;
   border-radius: 20px;
   background: var(--surface-subtle);
-  color: #425278;
+  color: var(--text-secondary);
   padding: 5px 10px;
   font-size: 12px;
   text-transform: capitalize;
@@ -222,12 +222,12 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #7b859b;
+  color: var(--text-muted);
   background: var(--surface-hover);
 }
 .billing-cell-detail {
   display: block;
-  color: #7b859b;
+  color: var(--text-muted);
   font-size: 12px;
   margin-top: 5px;
 }
@@ -242,7 +242,7 @@
 }
 .billing-metrics article {
   background: var(--surface-card);
-  border: 1px solid #e1e7f3;
+  border: 1px solid var(--border);
   padding: 20px;
   border-radius: 14px;
   display: grid;
@@ -250,11 +250,11 @@
 }
 .billing-metrics span {
   font-size: 12px;
-  color: #73809b;
+  color: var(--text-muted);
 }
 .billing-metrics b {
   font-size: 30px;
-  color: #151b38;
+  color: var(--text-primary);
 }
 .billing-filters {
   display: flex;

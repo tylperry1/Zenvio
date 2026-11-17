@@ -102,7 +102,7 @@
 .studio-text { white-space: nowrap; line-height: 1; padding: 0 1px; }
 .studio-hint { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; text-align: center; font-size: 14px; color: #5b6280; pointer-events: none; }
 .studio-disclaimer { display: flex; align-items: center; gap: 6px; margin: 10px 2px 0; font-size: 12.5px; color: #5b6280; }
-.studio-panel { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: #fff; border: 1px solid #e6e9f2; position: sticky; top: 16px; }
+.studio-panel { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: var(--surface-card); border: 1px solid var(--border); position: sticky; top: 16px; color: var(--text-primary); }
 .studio-panel .shop-swatches { margin: 0; }
 .studio-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .studio-tools .shop-btn { padding: 0 10px; font-size: 13px; }
@@ -126,14 +126,14 @@
 .studio-approved ul { margin: 0; padding-left: 18px; }
 .studio-approved label { display: grid; gap: 4px; font-size: 13px; color: #3c4466; }
 .studio-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: #151b3866; }
-.studio-modal-card { width: min(480px, 100%); padding: 24px; border-radius: 18px; background: #fff; box-shadow: 0 24px 60px #151b3840; }
+.studio-modal-card { width: min(480px, 100%); padding: 24px; border-radius: 18px; background: var(--surface-elevated, var(--surface-card)); color: var(--text-primary); box-shadow: 0 24px 60px var(--shadow-color, #151b3840); }
 .studio-modal-card h2 { margin: 0 0 8px; }
 .studio-modal-list { margin: 12px 0; padding-left: 18px; color: #3c4466; font-size: 14px; line-height: 1.6; }
 .studio-confirm { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 18px; font-weight: 600; font-size: 14px; }
 @media (max-width: 960px) { .studio-layout { grid-template-columns: 1fr; } .studio-panel { position: static; } .studio-product { min-height: 0; } }
 
 /* ---------- Orders ---------- */
-.order-extras { display: grid; gap: 14px; margin: 12px 0 20px; padding: 18px; border-radius: 16px; background: #fff; border: 1px solid #e6e9f2; }
+.order-extras { display: grid; gap: 14px; margin: 12px 0 20px; padding: 18px; border-radius: 16px; background: var(--surface-card); border: 1px solid var(--border); color: var(--text-primary); }
 .order-extras-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .order-extras-head small { display: block; font-size: 12px; color: #7a8099; }
 .order-extras-head b { font-size: 18px; }
@@ -166,19 +166,19 @@
 .shop-lookup label { display: grid; gap: 4px; font-size: 13px; }
 
 /* ---------- Opt out of broad platform.css defaults (.platform-page button/label) ---------- */
-.platform-page .shop-btn { margin: 0; min-height: 42px; padding: 0 16px; border: 1px solid #d6dbe8; background: #fff; color: var(--brand-midnight); font-size: 14px; }
-.platform-page .shop-btn.primary { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: #fff; }
-.platform-page .shop-btn.primary:hover:not(:disabled) { background: #2748e6; border-color: #2748e6; }
-.platform-page .shop-btn.ghost { background: transparent; color: var(--brand-midnight); }
+.platform-page .shop-btn { margin: 0; min-height: 42px; padding: 0 16px; border: 1px solid var(--border); background: var(--surface-card); color: var(--text-primary); font-size: 14px; }
+.platform-page .shop-btn.primary { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: var(--text-on-accent, #fff); }
+.platform-page .shop-btn.primary:hover:not(:disabled) { background: var(--action-hover, #2748e6); border-color: var(--action-hover, #2748e6); }
+.platform-page .shop-btn.ghost { background: transparent; color: var(--text-primary); }
 .platform-page .shop-btn.wide { min-height: 48px; }
 .platform-page label.shop-btn { display: inline-flex; line-height: 1; margin: 0; }
-.platform-page .shop-chip { margin: 0; min-height: 34px; padding: 0 12px; border: 1px solid #d6dbe8; border-radius: 999px; background: #fff; color: #2b3150; font-size: 13px; }
-.platform-page .shop-chip[aria-pressed="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: #fff; }
-.platform-page .shop-chip.danger { background: #fff; color: #b42318; border-color: #f3c7c2; }
-.platform-page .studio-tabs button, .platform-page .shop-collections button { margin: 0; min-height: 36px; padding: 0 14px; border: 1px solid #d6dbe8; border-radius: 999px; background: #fff; color: #2b3150; font-size: 13px; }
-.platform-page .studio-tabs button[aria-selected="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: #fff; }
-.platform-page .shop-collections button[aria-pressed="true"] { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: #fff; }
-.platform-page .shop-sizes button { margin: 0; min-height: 40px; min-width: 48px; padding: 0 12px; border: 1px solid #d6dbe8; border-radius: 10px; background: #fff; color: var(--brand-midnight); }
+.platform-page .shop-chip { margin: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-card); color: var(--text-primary); font-size: 13px; }
+.platform-page .shop-chip[aria-pressed="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: var(--text-on-accent, #fff); }
+.platform-page .shop-chip.danger { background: var(--surface-card); color: var(--error, #b42318); border-color: var(--error-border, #f3c7c2); }
+.platform-page .studio-tabs button, .platform-page .shop-collections button { margin: 0; min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-card); color: var(--text-primary); font-size: 13px; }
+.platform-page .studio-tabs button[aria-selected="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: var(--text-on-accent, #fff); }
+.platform-page .shop-collections button[aria-pressed="true"] { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: var(--text-on-accent, #fff); }
+.platform-page .shop-sizes button { margin: 0; min-height: 40px; min-width: 48px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-card); color: var(--text-primary); }
 .platform-page .shop-sizes button[aria-pressed="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: #fff; }
 .platform-page .shop-swatches button { margin: 0; min-height: 0; width: 34px; height: 34px; padding: 0; border: 1px solid #c9cfdd; border-radius: 50%; }
 .platform-page .shop-swatches button[aria-pressed="true"] { border: 2px solid var(--brand-cobalt); }

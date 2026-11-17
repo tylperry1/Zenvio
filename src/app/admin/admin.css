@@ -374,7 +374,7 @@
 .admin-v3.acx .acx-workspace:hover{color:var(--action-primary)}
 
 @media(max-width:760px){
-.admin-v3.admin-v3.admin-v3.acx{background:var(--surface-page)}
+.admin-v3.admin-v3.admin-v3.acx{background:var(--surface-page);overflow-x:clip}
 .admin-v3.acx .acx-sidebar{position:sticky!important;top:0;width:100%;height:auto;max-height:100svh;z-index:40;border-right:0}
 .admin-v3.acx .acx-brand-row{height:58px;padding:0 16px}
 .admin-v3.acx .acx-menu-toggle{display:inline-flex}
@@ -382,10 +382,19 @@
 .admin-v3.acx .acx-sidebar[data-open=true] .acx-drawer{display:flex;max-height:calc(100svh - 58px)}
 .admin-v3.acx .acx-group-toggle{min-height:40px}
 .admin-v3.acx .acx-sidebar nav>a,.admin-v3.acx .acx-sidebar nav>button{min-height:44px}
-.admin-v3.acx .acx-topbar{position:static}
+.admin-v3.acx .av-body{min-width:0;max-width:100%}
+.admin-v3.acx .acx-topbar{position:static;flex-wrap:wrap;gap:10px 14px;min-height:0;padding:12px 14px}
+.admin-v3.acx .acx-crumbs{flex:1 1 auto;min-width:0}
+.admin-v3.acx .acx-crumbs a,.admin-v3.acx .acx-crumbs b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.admin-v3.acx .acx-topbar-actions{flex:1 1 auto;justify-content:flex-end;gap:8px;min-width:0}
 .admin-v3.acx .acx-workspace{display:none}
-.admin-v3.acx .acx-crumbs a{white-space:nowrap}
+.admin-v3.acx .acx-role{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.admin-v3.acx .av-frame-content{min-width:0;max-width:100%;overflow-x:clip}
 .admin-v3.acx .cx-search{flex:1 1 100%}
+}
+@media(max-width:480px){
+.admin-v3.acx .acx-role{display:none}
+.admin-v3.acx .acx-console-tag{display:none}
 }
 
 /* ---------- Page heading and status messages inside operations ---------- */
@@ -659,6 +668,8 @@
 .ent-target small{display:block;font-size:12px;color:var(--text-muted)}
 .ent-lookup{position:relative;font-weight:400}
 .ds-root.ds-root .ent-lookup input{height:38px;min-height:0;width:100%;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;margin:0}
+.ds-root.ds-root .ent-lookup input[aria-invalid="true"]{border-color:var(--danger,#b42318)}
+.ent-lookup-error{margin:6px 0 0;font-size:12px;color:var(--danger,#b42318);font-weight:500}
 .ent-lookup ul{position:absolute;z-index:5;left:0;right:0;top:42px;margin:0;padding:4px;list-style:none;background: var(--surface-card);border:1px solid var(--ds-line);border-radius:10px;box-shadow:var(--ds-elev-2)}
 .ds-root.ds-root .ent-lookup ul button{display:block;width:100%;min-height:0;height:auto;margin:0;padding:8px 10px;text-align:left;border:0;border-radius:7px;background: var(--surface-card);color:var(--text-primary)}
 .ds-root.ds-root .ent-lookup ul button:hover,.ds-root.ds-root .ent-lookup ul button:focus-visible{background:var(--surface-hover)}
@@ -784,3 +795,96 @@
 .supplier-views a {display:inline-flex;align-items:center;min-height:38px;padding:8px 14px;border-radius:7px;font-size:13px;font-weight:600;color:#536078;text-decoration:none}
 .supplier-views a[aria-current="page"] {background: var(--surface-card);color:var(--text-primary);box-shadow:0 1px 3px #151b3814}
 .supplier-views a:focus-visible {outline:2px solid #365cff;outline-offset:2px}
+
+/* ---------- Billing & revenue (.bc) ---------- */
+.admin-v3 .av-frame-content{min-width:0;max-width:100%}
+.bc{display:grid;gap:16px;max-width:var(--ds-content);width:100%;min-width:0;margin:0 auto}
+.bc .ds-kpis,.bc .ds-grid-2,.bc .ds-stack{margin-bottom:0}
+.bc-nav{display:flex;flex-wrap:wrap;gap:10px;min-width:0;max-width:100%}
+.bc-nav .ds-segmented{display:flex;width:max-content;max-width:100%;min-width:0}
+.bc-packages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.bc-package{display:grid;gap:14px;align-content:start;padding:20px;background:var(--surface-card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--ds-elev-1);min-width:0}
+.bc-package.featured{border-color:color-mix(in srgb,var(--action-primary) 35%,var(--border));background:linear-gradient(180deg,var(--surface-subtle),var(--surface-card) 42%)}
+.bc-package.edit{background:var(--surface-subtle)}
+.bc-package header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.bc-package h3{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;color:var(--text-primary)}
+.bc-package header p{margin:4px 0 0;font-size:13px;color:var(--text-muted);line-height:1.45}
+.bc-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.bc-price strong{font-size:32px;font-weight:700;letter-spacing:-.03em;color:var(--text-primary);font-variant-numeric:tabular-nums}
+.bc-price span{font-size:13px;color:var(--text-muted)}
+.bc-form{display:grid;gap:16px}
+.bc-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.bc-allowance-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.bc-allowance-head h3{margin:0;font-size:16px;font-weight:650;color:var(--text-primary)}
+.bc-allowance-head p{margin:4px 0 0;font-size:13px;color:var(--text-muted);max-width:56ch}
+.bc-allowance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bc-allowance-card{display:grid;gap:12px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-card);min-width:0}
+.bc-allowance-card h4{margin:0;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.ds-root.ds-root .bc-input,.ds-root.ds-root select.bc-input{width:100%;max-width:100%;height:38px;min-height:0;display:block;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface-inset);color:var(--text-primary);font-size:var(--ds-text-md)}
+.ds-root.ds-root select.bc-input{padding-right:30px}
+.bc-muted{margin:0;font-size:12.5px;color:var(--text-muted);line-height:1.5}
+.bc-versions{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.bc-versions li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--ds-line-soft)}
+.bc-versions li:last-child{border-bottom:0}
+.bc-versions li>div{flex:1;min-width:180px;display:grid;gap:3px}
+.bc-versions b{font-size:13.5px;color:var(--text-primary)}
+.bc-versions small{font-size:12px;color:var(--text-muted);overflow-wrap:anywhere}
+.bc-versions code,.bc .ds-dl code{font-size:12px;background:var(--surface-inset);padding:2px 6px;border-radius:5px}
+.bc-preview{display:grid;gap:14px}
+.bc-preview p{margin:0;font-size:14px;color:var(--text-secondary);line-height:1.55}
+.bc-safeguards{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.bc-safeguards li{display:flex;gap:12px;align-items:flex-start}
+.bc-safeguards svg{flex-shrink:0;margin-top:2px;color:var(--action-primary)}
+.bc-safeguards b{display:block;font-size:13.5px;color:var(--text-primary)}
+.bc-safeguards p{margin:3px 0 0;font-size:13px;color:var(--text-muted);line-height:1.5}
+@media(max-width:980px){.bc-packages{grid-template-columns:1fr 1fr}.bc-allowance-grid{grid-template-columns:1fr}}
+@media(max-width:680px){.bc-packages,.bc-form-grid{grid-template-columns:1fr}.bc-package{padding:16px}.bc-price strong{font-size:28px}}
+@media(max-width:420px){.bc .ds-kpis{grid-template-columns:1fr}}
+
+/* ---------- Subscriptions (.as) ---------- */
+.as{display:grid;gap:16px;max-width:var(--ds-content);margin:0 auto}
+.as .ds-kpis,.as .ds-notice{margin:0}
+.as-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--ds-line-soft)}
+.as-search{display:flex;flex:1 1 280px;align-items:center;gap:8px;min-width:0}
+.as-search .ds-search{flex:1;min-width:0}
+.as-loading{padding:18px}
+.as-table td{vertical-align:top}
+.as-strong{display:block;font-weight:600;color:var(--text-primary)}
+.as-detail{display:block;margin-top:3px;font-size:12px;color:var(--text-muted);line-height:1.4}
+.as-team-parent td{border-bottom-color:transparent}
+.as-team-child td{background:var(--surface-subtle)}
+.as-indent{display:block;padding-left:18px;border-left:2px solid #c9d5ff}
+.as-dialog{width:min(640px,100vw)}
+.as-identity{display:flex;align-items:center;gap:12px;padding:4px 0 14px}
+.as-avatar{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--surface-subtle);color:var(--action-primary);font-weight:700;flex-shrink:0}
+.as-identity h3{margin:0;font-size:16px;font-weight:650}
+.as-identity p{margin:2px 0 0;font-size:13px;color:var(--text-muted)}
+.as-identity .ds-badge{margin-left:auto}
+.as-nav{display:flex;gap:4px;padding:4px;margin:0 0 14px;border-radius:10px;background:var(--surface-inset)}
+.ds-root.ds-root .as-nav button{flex:1;min-height:0;height:34px;margin:0;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:600}
+.ds-root.ds-root .as-nav button[aria-pressed=true]{background:var(--surface-card);color:var(--text-primary);box-shadow:0 1px 3px #151b3814}
+.as-body{display:grid;gap:14px}
+.as-link-row{margin:0}
+.as-link-row a{font-size:13px;font-weight:600;color:var(--action-primary)}
+.as-detail-grid{margin:0}
+.as-team{display:grid;gap:8px;padding:14px;border:1px solid var(--ds-line-soft);border-radius:12px;background:var(--surface-subtle)}
+.as-team h3{margin:0;font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
+.as-team h3 span{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--surface-card);font-size:12px;color:var(--text-muted)}
+.as-team p{margin:0;font-size:12.5px;color:var(--text-muted)}
+.as-team ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.as-team li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;background:var(--surface-card);border:1px solid var(--ds-line-soft)}
+.as-team b{display:block;font-size:13px}
+.as-team small{display:block;font-size:12px;color:var(--text-muted)}
+.as-renewal,.as-access,.as-invoices{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--ds-surface-muted)}
+.as-renewal h3,.as-access h3,.as-invoices h3{margin:0;font-size:14px;font-weight:650}
+.as-renewal p,.as-access p,.as-invoices p{margin:0;font-size:13px;color:var(--text-secondary);line-height:1.5}
+.as-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.as-presets{display:flex;flex-wrap:wrap;gap:6px}
+.as-muted{margin:0;font-size:13px;color:var(--text-muted);line-height:1.5}
+.as-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ds-line-soft);font-size:12px;color:var(--text-muted)}
+.ds-root.ds-root .as-renewal textarea,.ds-root.ds-root .as-access input,.ds-root.ds-root .as-access select{width:100%;max-width:100%}
+.cx.ds-root{display:grid;gap:16px}
+.cx.ds-root .ds-kpis{margin:0}
+.cx.ds-root .cx-toolbar{align-items:center}
+.cx.ds-root .ds-search{min-width:min(260px,100%)}
+@media(max-width:720px){.as-toolbar{flex-direction:column;align-items:stretch}.as-access-grid{grid-template-columns:1fr}.as-footer{flex-wrap:wrap}}

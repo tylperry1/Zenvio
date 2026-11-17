@@ -1,7 +1,7 @@
 "use client";
 // Zenvio design system primitives. Styles live in src/app/design-system.css;
 // usage and rules are documented in DESIGN_SYSTEM.md.
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 
 export function PageHeader({
@@ -289,6 +289,145 @@ export function Notice({ tone = "info", children }: { tone?: Tone; children: Rea
     <div className={`ds-notice ${tone}`} role={tone === "danger" ? "alert" : "status"}>
       <Icon name={tone === "success" ? "check" : tone === "danger" || tone === "warning" ? "shield" : "bell"} size={15} />
       <div>{children}</div>
+    </div>
+  );
+}
+
+export function Field({
+  label,
+  hint,
+  children,
+  htmlFor,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  htmlFor?: string;
+}) {
+  return (
+    <label className="ds-field" htmlFor={htmlFor}>
+      <span>{label}</span>
+      {children}
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+
+function centsToDollarsText(cents: number) {
+  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : "";
+}
+
+function parseDollarsToCents(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+/** Dollar-facing currency input; stores whole cents via onCentsChange on blur/commit. */
+export function CurrencyField({
+  id,
+  label,
+  hint,
+  cents,
+  onCentsChange,
+  minCents = 1,
+  maxCents = 1_000_000,
+  required,
+}: {
+  id?: string;
+  label: ReactNode;
+  hint?: ReactNode;
+  cents: number;
+  onCentsChange: (cents: number) => void;
+  minCents?: number;
+  maxCents?: number;
+  required?: boolean;
+}) {
+  const [text, setText] = useState(() => centsToDollarsText(cents));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setText(centsToDollarsText(cents));
+  }, [cents, focused]);
+
+  const commit = (raw: string, reformat: boolean) => {
+    const next = parseDollarsToCents(raw);
+    if (next === null) {
+      if (reformat) setText(centsToDollarsText(cents));
+      return;
+    }
+    if (next !== cents) onCentsChange(next);
+    if (reformat) setText(centsToDollarsText(next));
+  };
+
+  const invalid =
+    !Number.isFinite(cents) || cents < minCents || cents > maxCents || !Number.isSafeInteger(cents);
+  return (
+    <label className="ds-field" htmlFor={id}>
+      <span>{label}</span>
+      <span className={`ds-money${invalid ? " invalid" : ""}`}>
+        <span aria-hidden="true">$</span>
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min={(minCents / 100).toFixed(2)}
+          max={(maxCents / 100).toFixed(2)}
+          required={required}
+          value={text}
+          onFocus={() => setFocused(true)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setText(raw);
+            // Sync cents while typing without reformatting the field text.
+            commit(raw, false);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            commit(e.target.value, true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          aria-invalid={invalid || undefined}
+        />
+      </span>
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+
+export function FormActions({ children }: { children: ReactNode }) {
+  return <div className="ds-form-actions">{children}</div>;
+}
+
+export function MeterBar({
+  label,
+  value,
+  max,
+  detail,
+}: {
+  label: ReactNode;
+  value: number;
+  max: number;
+  detail?: ReactNode;
+}) {
+  const safeMax = Math.max(1, max);
+  const pct = Math.min(100, Math.round((Math.max(0, value) / safeMax) * 100));
+  return (
+    <div className="ds-meter">
+      <div className="ds-meter-head">
+        <span>{label}</span>
+        {detail && <small>{detail}</small>}
+      </div>
+      <div className="ds-meter-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={typeof label === "string" ? label : undefined}>
+        <i style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

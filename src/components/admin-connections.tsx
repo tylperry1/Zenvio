@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Badge, EmptyState, Kpi, SearchField, Segmented } from "./ds";
 import { Icon } from "./icons";
 
 export type IntegrationField = {
@@ -247,66 +248,56 @@ export function AdminConnections({
   }
 
   return (
-    <div className="cx">
-      <div className="cx-summary">
-        <article>
-          <span className="cx-summary-icon"><Icon name="plug" size={17} /></span>
-          <div>
-            <small>Services connected</small>
-            <b>
-              {connected}<span> / {all.length}</span>
-            </b>
-            <div className="cx-meter" aria-hidden="true">
-              <i style={{ width: `${(connected / Math.max(1, all.length)) * 100}%` }} />
-            </div>
-          </div>
-        </article>
-        <article>
-          <span className="cx-summary-icon"><Icon name="mail" size={17} /></span>
-          <div>
-            <small>Booking email</small>
-            <b>{emailDelivery.sent.toLocaleString()}<span> sent</span></b>
-            <p>
-              {emailDelivery.pending} pending ·{" "}
-              <em className={emailDelivery.failed ? "bad" : ""}>{emailDelivery.failed} exhausted</em>
-            </p>
-          </div>
-        </article>
-        <article>
-          <span className={`cx-summary-icon ${encryptionReady ? "ok" : "bad"}`}><Icon name="shield" size={17} /></span>
-          <div>
-            <small>Secret vault</small>
-            <b>{encryptionReady ? "Encrypted" : "Locked"}</b>
-            <p>{encryptionReady ? "AES-256-GCM at rest · write-only" : "Set INTEGRATION_ENCRYPTION_KEY to save"}</p>
-          </div>
-        </article>
+    <div className="ds-root cx">
+      <div className="ds-kpis">
+        <Kpi
+          label="Services connected"
+          icon="plug"
+          value={`${connected} / ${all.length}`}
+          detail={connected === all.length ? "All integrations ready" : `${all.length - connected} still need setup`}
+          tone={connected === all.length ? "success" : connected ? "info" : "warning"}
+        />
+        <Kpi
+          label="Booking email"
+          icon="mail"
+          value={emailDelivery.sent.toLocaleString()}
+          detail={`${emailDelivery.pending} pending · ${emailDelivery.failed} exhausted`}
+          tone={emailDelivery.failed ? "danger" : undefined}
+        />
+        <Kpi
+          label="Secret vault"
+          icon="shield"
+          value={encryptionReady ? "Encrypted" : "Locked"}
+          detail={encryptionReady ? "AES-256-GCM at rest · write-only" : "Set INTEGRATION_ENCRYPTION_KEY to save"}
+          tone={encryptionReady ? "success" : "danger"}
+        />
       </div>
 
       <div className="cx-toolbar">
-        <div className="cx-filters" role="group" aria-label="Filter connections">
-          {(
-            [
-              ["all", `All (${all.length})`],
-              ["connected", `Connected (${connected})`],
-              ["attention", `Needs setup (${all.length - connected})`],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="cx-search">
-          <Icon name="search" size={15} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search services" aria-label="Search services" />
-        </label>
+        <Segmented
+          label="Filter connections"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            ["all", `All (${all.length})`],
+            ["connected", `Connected (${connected})`],
+            ["attention", `Needs setup (${all.length - connected})`],
+          ]}
+        />
+        <SearchField value={query} onChange={setQuery} placeholder="Search services" label="Search services" />
       </div>
 
       <div className="cx-grid">
+        {!shown.length && (
+          <EmptyState icon="search" title="No matching services">
+            Try another search or connection filter.
+          </EmptyState>
+        )}
         {shown.map((p) => {
           const status = statuses.get(p.id)!;
           const expanded = open === p.id;
           const count = p.fields.filter((f) => byKey.get(f.key)?.configured).length;
+          const badgeTone = status === "connected" ? "success" : status === "partial" ? "warning" : "neutral";
           return (
             <section key={p.id} className={`cx-card ${expanded ? "open" : ""}`} data-status={status}>
               <button
@@ -321,10 +312,9 @@ export function AdminConnections({
                   <b>{p.name}</b>
                   <small>{p.category}</small>
                 </span>
-                <span className={`cx-status ${status}`}>
-                  <i />
+                <Badge tone={badgeTone} dot>
                   {statusText[status]}
-                </span>
+                </Badge>
               </button>
               <p className="cx-card-desc">{p.description}</p>
               <div className="cx-card-meta">

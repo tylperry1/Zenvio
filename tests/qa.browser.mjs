@@ -18,7 +18,7 @@ try {
   const groups=[
     [pages[0],["/","/pricing","/early-access","/sign-in","/sign-up","/sign-up?ref=qa-partner","/privacy","/terms","/book/demo/discovery-call","/shop/not-a-business","/gift-card","/purchase/complete","/class-cancel","/waitlist-offer"]],
     [pages[1],["/app","/app/calendar","/app/clients","/app/documents","/app/templates","/app/automation","/app/team","/app/payments","/app/billing","/app/referrals","/app/connections","/app/assistant","/app/inbox","/app/jobs","/app/feedback","/app/growth","/app/growth/overview","/app/business-profile","/app/business-profile?section=details","/app/business-profile?section=branding","/app/business-profile?section=digital-card","/app/notifications","/app/support","/app/marketing","/app/smart-cards","/app?view=availability","/app?view=event-types","/app?view=bookings"]],
-    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
+    [pages[2],["/admin","/admin?view=accounts","/admin/operations","/admin/operations?section=users","/admin/operations?section=pricing","/admin/operations?section=integrations","/admin/operations?section=health","/admin/operations?section=marketplace","/admin/billing","/admin/assistant","/admin/early-access","/admin/entitlements","/admin/economics","/admin/feedback","/admin/marketplace-tools","/admin/team","/admin/support","/admin/email-preview","/admin/suppliers","/admin/suppliers?view=integrations"]],
   ];
   for(const width of [375,390,768,1024,1440,1920]) {
     for(const [page,routes] of groups) {
@@ -116,11 +116,16 @@ try {
         results.push({route,width,status:response.status(),overflow,timing});
         assert(overflow<=1,`${route} at ${width}px overflows ${overflow}px`);
         assert.equal(await page.getByText("Application error",{exact:true}).count(),0,route);
+        if(route==="/admin/billing"){
+          await page.getByRole("heading",{name:"Billing & revenue",exact:true}).waitFor();
+          await page.getByRole("button",{name:"Save draft",exact:true}).waitFor();
+          assert.ok(await page.getByLabel(/Professional plan/i).count(),"Billing draft should expose dollar plan inputs");
+        }
         if(route === "/app/clients" && width <= 640) {
           const clientOverflow=await page.locator(".client-table-wrap").evaluate(n=>n.scrollWidth-n.clientWidth);
           assert(clientOverflow <= 1, "mobile client records must fit without sideways scrolling");
         }
-        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/app/billing","/app/clients","/app/connections","/app/smart-cards","/app/growth","/app?view=availability","/app?view=event-types"].includes(route))
+        if(["/pricing","/admin?view=accounts","/admin/operations?section=users","/admin/operations?section=pricing","/admin/billing","/app/billing","/app/clients","/app/connections","/app/smart-cards","/app/growth","/app?view=availability","/app?view=event-types"].includes(route))
           await page.screenshot({path:`test-results/qa-${route.replace(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
       }
     }
@@ -133,8 +138,8 @@ try {
     await polishPage.goto(origin+"/app/billing");
     await polishPage.locator(".subscription-account-card").waitFor();
     for(const label of ["Overview","Plans","Usage & credits","Invoices"]) {
-      const tab=polishPage.getByRole("tab",{name:label,exact:true});
-      await tab.click();assert.equal(await tab.getAttribute("aria-selected"),"true");
+      const tab=polishPage.getByRole("group",{name:"Billing sections"}).getByRole("button",{name:label,exact:true});
+      await tab.click();assert.equal(await tab.getAttribute("aria-pressed"),"true");
       assert.ok(await polishPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
       await polishPage.screenshot({path:`test-results/billing-${label.replaceAll(/[^a-z0-9]/gi,"-")}-${width}.png`,fullPage:true});
     }

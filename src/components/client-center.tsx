@@ -3,11 +3,18 @@ import { useEffect, useRef, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { SuiteShell } from "./suite-shell";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
-import { Alert, Badge, Card, CopyField, EmptyState, Field, Tabs, formatDateTime } from "./ui";
+import { Badge, Card, CopyField, Field, Tabs, formatDateTime } from "./ui";
+import {
+  EmptyState,
+  Kpi,
+  Notice,
+  PageHeader,
+  Panel,
+  SearchField,
+} from "./ds";
 import { AskZenvio } from "./assistant";
 import { IntakeAnswers } from "./intake-answers";
 import { SendBookingLinkDialog } from "./send-booking-link";
@@ -157,140 +164,160 @@ export function ClientCenter() {
       ].sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
     : [];
   return (
-    <SuiteShell
-      title={detail ? detail.contact.name : "Clients"}
-      description={
-        detail
-          ? "Client record"
-          : "Everyone who has booked with you or that you’ve added, with their appointments, documents, payments, and notes."
-      }
-      actions={
-        detail ? (
-          <>
-            <button className="ui-btn ui-btn-ghost" onClick={() => { wanted.current = null; setDetail(null); }}>
-              <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
-            </button>
-            <AskZenvio
-              className="ui-btn ui-btn-ghost"
-              context={{ type: "client", id: detail.contact.id, label: detail.contact.name }}
-            />
-            <button className="ui-btn ui-btn-ghost" disabled={busy} onClick={() => void portalLink()}>
-              <Icon name="globe" size={14} /> Portal link
-            </button>
-            <Link className="ui-btn ui-btn-secondary" href={`/app/inbox?contact=${detail.contact.id}`}>
-              <Icon name="message" size={14} /> Message
-            </Link>
-            <button className="ui-btn ui-btn-primary" onClick={() => setShareLink(true)}>
-              <Icon name="link" size={14} /> Send booking link
-            </button>
-          </>
-        ) : (
-          <>
-            <a className="billing-secondary" href="/api/clients?export=csv">
-              <Icon name="download" size={15} /> Export CSV
-            </a>
-            <button onClick={() => setAdding(true)}>+ Add client</button>
-          </>
-        )
-      }
-    >
-      {error && <Alert tone="danger">{error}</Alert>}
-      {message && <Alert tone="success">{message}</Alert>}
-      {!detail ? (
-        <section className="client-list">
-          <div className="client-list-toolbar">
-            <label className="client-search">
-              <Icon name="search" size={16} />
-              <input
+    <div className="platform-page suite-page ds-root cc">
+      <main>
+        <PageHeader
+          eyebrow="Workspace"
+          title={detail ? detail.contact.name : "Clients"}
+          description={
+            detail
+              ? detail.contact.email || "Client record"
+              : "Everyone who has booked with you or that you’ve added, with their appointments, documents, payments, and notes."
+          }
+          actions={
+            detail ? (
+              <>
+                <button
+                  type="button"
+                  className="ds-btn ghost"
+                  onClick={() => {
+                    wanted.current = null;
+                    setDetail(null);
+                  }}
+                >
+                  <Icon name="arrow" size={14} style={{ transform: "rotate(180deg)" }} /> All clients
+                </button>
+                <AskZenvio
+                  className="ds-btn ghost"
+                  context={{ type: "client", id: detail.contact.id, label: detail.contact.name }}
+                />
+                <button type="button" className="ds-btn" disabled={busy} onClick={() => void portalLink()}>
+                  <Icon name="globe" size={14} /> Portal link
+                </button>
+                <Link className="ds-btn" href={`/app/inbox?contact=${detail.contact.id}`}>
+                  <Icon name="message" size={14} /> Message
+                </Link>
+                <button type="button" className="ds-btn primary" onClick={() => setShareLink(true)}>
+                  <Icon name="link" size={14} /> Send booking link
+                </button>
+              </>
+            ) : (
+              <>
+                <a className="ds-btn" href="/api/clients?export=csv">
+                  <Icon name="download" size={15} /> Export CSV
+                </a>
+                <button type="button" className="ds-btn primary" onClick={() => setAdding(true)}>
+                  + Add client
+                </button>
+              </>
+            )
+          }
+        />
+        {error && <Notice tone="danger">{error}</Notice>}
+        {message && <Notice tone="success">{message}</Notice>}
+        {!detail ? (
+          <Panel
+            flush
+            title="Directory"
+            description={`${total} ${total === 1 ? "client" : "clients"}`}
+            actions={
+              <SearchField
                 value={query}
-                aria-label="Search clients"
-                onChange={(e) => {
-                  setQuery(e.target.value);
+                onChange={(v) => {
+                  setQuery(v);
                   setPage(0);
                 }}
                 placeholder="Search by name, email, or company"
+                label="Search clients"
               />
-            </label>
-            <span>
-              {total} {total === 1 ? "client" : "clients"}
-            </span>
-          </div>
-          {clients.length ? (
-            <div className="client-table-wrap">
-              <table className="client-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Company</th>
-                    <th>Appointments</th>
-                    <th>Last appointment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clients.map((c) => (
-                    <tr
-                      key={c.id}
-                      tabIndex={0}
-                      onClick={() => open(c.id).catch((e) => setError(e.message))}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && open(c.id).catch((err) => setError(err.message))
-                      }
-                    >
-                      <td>
-                        <span className="client-name">
-                          <span className="client-avatar">
-                            {c.name
-                              .split(/\s+/)
-                              .map((w: string) => w[0])
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase()}
-                          </span>
-                          {c.name}
-                        </span>
-                      </td>
-                      <td data-label="Email">{c.email}</td>
-                      <td data-label="Company">{c.company || "—"}</td>
-                      <td data-label="Appointments">{c.appointments}</td>
-                      <td data-label="Last appointment">{c.last_appointment ? shortDate(c.last_appointment) : "—"}</td>
+            }
+          >
+            {clients.length ? (
+              <div className="client-table-wrap">
+                <table className="client-table ds-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Company</th>
+                      <th>Appointments</th>
+                      <th>Last appointment</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            loaded && (
-              <div className="client-empty">
-                <Icon name="users" size={24} />
-                <h3>{query ? "No matching clients" : "No clients yet"}</h3>
-                <p>
+                  </thead>
+                  <tbody>
+                    {clients.map((c) => (
+                      <tr
+                        key={c.id}
+                        tabIndex={0}
+                        className="clickable"
+                        onClick={() => open(c.id).catch((e) => setError(e.message))}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && open(c.id).catch((err) => setError(err.message))
+                        }
+                      >
+                        <td>
+                          <span className="client-name">
+                            <span className="client-avatar">
+                              {c.name
+                                .split(/\s+/)
+                                .map((w: string) => w[0])
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase()}
+                            </span>
+                            {c.name}
+                          </span>
+                        </td>
+                        <td data-label="Email">{c.email}</td>
+                        <td data-label="Company">{c.company || "—"}</td>
+                        <td data-label="Appointments">{c.appointments}</td>
+                        <td data-label="Last appointment">
+                          {c.last_appointment ? shortDate(c.last_appointment) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              loaded && (
+                <EmptyState
+                  icon="users"
+                  title={query ? "No matching clients" : "No clients yet"}
+                  action={
+                    !query ? (
+                      <button type="button" className="ds-btn primary sm" onClick={() => setAdding(true)}>
+                        Add client
+                      </button>
+                    ) : undefined
+                  }
+                >
                   {query
                     ? "Try another name, email, or company."
                     : "Guests are added automatically when they book. You can also add someone yourself."}
-                </p>
+                </EmptyState>
+              )
+            )}
+            {total > 50 && (
+              <div className="client-pagination">
+                <span>
+                  Page {page + 1} of {Math.ceil(total / 50)}
+                </span>
+                <button type="button" className="ds-btn sm" disabled={!page} onClick={() => setPage(page - 1)}>
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  disabled={(page + 1) * 50 >= total}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </button>
               </div>
-            )
-          )}
-          {total > 50 && (
-            <div className="client-pagination">
-              <span>
-                Page {page + 1} of {Math.ceil(total / 50)}
-              </span>
-              <button className="billing-secondary" disabled={!page} onClick={() => setPage(page - 1)}>
-                Previous
-              </button>
-              <button
-                className="billing-secondary"
-                disabled={(page + 1) * 50 >= total}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </section>
-      ) : (
+            )}
+          </Panel>
+        ) : (
         <ClientDetail
           detail={detail}
           timeline={timeline}
@@ -386,7 +413,8 @@ export function ClientCenter() {
           }}
         />
       )}
-    </SuiteShell>
+      </main>
+    </div>
   );
 }
 
@@ -415,19 +443,26 @@ function ClientDetail({
   return (
     <div className="ui-split client-detail">
       <div>
-        <div className="client-stats">
-          {[
-            ["Appointments", detail.bookings.length, upcoming ? `${upcoming} upcoming` : "None upcoming"],
-            ["Documents", docs, `${detail.envelopes.filter((e: any) => e.status === "completed").length} completed`],
-            ["Paid", (paid / 100).toLocaleString("en-US", { style: "currency", currency: "USD" }), `${detail.payments.length} payments`],
-            ["Open tasks", openTasks, `${detail.tasks.length} total`],
-          ].map(([label, value, note]) => (
-            <div key={String(label)}>
-              <span>{label}</span>
-              <b>{value}</b>
-              <small>{note}</small>
-            </div>
-          ))}
+        <div className="ds-kpis cc-kpis">
+          <Kpi
+            label="Appointments"
+            value={detail.bookings.length}
+            detail={upcoming ? `${upcoming} upcoming` : "None upcoming"}
+            icon="calendar"
+          />
+          <Kpi
+            label="Documents"
+            value={docs}
+            detail={`${detail.envelopes.filter((e: any) => e.status === "completed").length} completed`}
+            icon="file"
+          />
+          <Kpi
+            label="Paid"
+            value={(paid / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}
+            detail={`${detail.payments.length} payments`}
+            icon="card"
+          />
+          <Kpi label="Open tasks" value={openTasks} detail={`${detail.tasks.length} total`} icon="check" />
         </div>
         <Tabs
           label="Client sections"

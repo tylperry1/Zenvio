@@ -50,8 +50,18 @@ Status tones use the existing semantic tokens (`--success`, `--warning`, `--erro
 6. **Mobile:** no horizontal page scroll at 390px. Tables scroll inside `.ds-table-wrap`. Toolbars wrap. Drawers become full width.
 7. **Opting out of legacy CSS.** `platform.css` applies broad element styles inside `.platform-page`. Wrap new screens in `.ds-root`, which neutralizes those rules for design-system components.
 
+## Additional primitives
+
+| Component | Purpose |
+| --- | --- |
+| `Field` | Label + control + optional hint. |
+| `CurrencyField` | Dollar-facing input that keeps typed text locally and emits whole cents on change/blur (formats on blur). |
+| `FormActions` | Right-aligned save/cancel action row. |
+| `MeterBar` | Compact usage/progress bar with accessible progress semantics. |
+
 ## Adopted by
 
-- Admin → Pricing (`admin-pricing.tsx`), Users & activity (`admin-users-activity.tsx`), System health (`admin-health.tsx`), Plans & entitlements (`entitlement-admin.tsx`), Early access (`early-access-admin.tsx`)
+- Admin → Billing & revenue (`admin-billing-center.tsx`, `.bc`), Subscriptions (`admin-subscriptions.tsx`, `.as`), Pricing (`admin-pricing.tsx`), Users & activity (`admin-users-activity.tsx`), System health (`admin-health.tsx`), Plans & entitlements (`entitlement-admin.tsx`, `.ent`), Connections (`admin-connections.tsx`, `.cx`), Early access (`early-access-admin.tsx`), Suppliers (`admin-suppliers.tsx`)
 - Public → team invitation (`team-booking.tsx`, `.tb-*`), legal contents (`legal-toc.tsx`), PWA install card (`pwa.tsx`)
-- The console chrome (`admin-navigation.tsx`), Connections and Team & access follow the same tokens and will migrate to the shared components as they are touched.
+- App → Marketing (`marketing-center.tsx`), Smart cards, Support, Plan & billing (`billing.tsx`, `.bp`), Payments (`payment-center.tsx`, `.payc`), Clients (`client-center.tsx`, `.cc`)
+- The console chrome (`admin-navigation.tsx`) and Team & access follow the same tokens and will migrate to the shared components as they are touched.
