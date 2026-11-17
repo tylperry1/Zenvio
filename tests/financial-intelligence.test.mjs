@@ -487,6 +487,9 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /status !== "succeeded"/);
   assert.match(sync, /eventsComplete/);
   assert.match(sync, /chargeLookupFailures/);
+  assert.match(sync, /paymentDiscoveryFailures/);
+  assert.match(sync, /starting_after: startingAfter/);
+  assert.match(sync, /payments\.has_more/);
   assert.match(sync, /cents: number \| null/);
   assert.match(sync, /WHEN \$10::int IS NULL THEN private\.financial_invoice_snapshots\.amount_refunded_cents/);
   assert.match(sync, /refundEventsIncomplete: !refund\.eventsComplete \|\| refund\.cents == null/);
@@ -495,6 +498,7 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /DELETE FROM private\.financial_invoice_refund_events/);
   assert.doesNotMatch(sync, /COALESCE\(EXCLUDED\.refunded_at, now\(\)\)/);
   assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
+  assert.doesNotMatch(sync, /invoicePayments\.list\(\{ invoice: invoice\.id, limit: 20 \}\)/);
   const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
   assert.match(pe, /created_at >= \$1::timestamptz/);
   assert.match(pe, /period >= \$1::date/);
@@ -506,4 +510,11 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(overviewSrc, /refundQueryOk && invoiceQueryOk/);
   assert.match(overviewSrc, /ok: true as const/);
   assert.match(overviewSrc, /ok: false as const/);
+  const migration090 = fs.readFileSync(
+    "postgres/migrations/090_financial_invoice_refunded_at.sql",
+    "utf8",
+  );
+  assert.match(migration090, /financial_invoice_refund_events/);
+  assert.match(migration090, /completeCoverage/);
+  assert.match(migration090, /financial_sync_runs/);
 });

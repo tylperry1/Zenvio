@@ -57,6 +57,8 @@ async function invoiceRefundInfo(
   let fromCharges = 0;
   let listFailures = 0;
   let chargeLookupFailures = 0;
+  // invoicePayments.list failure/incomplete pages ≠ confirmed empty (Basil dropped legacy PI).
+  let paymentDiscoveryFailures = 0;
   const events: InvoiceRefundEvent[] = [];
   const invalidateIds: string[] = [];
   const seen = new Set<string>();
@@ -66,15 +68,25 @@ async function invoiceRefundInfo(
   else if (legacyPi && typeof legacyPi === "object" && legacyPi.id) paymentIntentIds.add(legacyPi.id);
 
   try {
-    const payments = await stripe.invoicePayments.list({ invoice: invoice.id, limit: 20 });
-    for (const payment of payments.data) {
-      const pi = (payment as { payment?: { payment_intent?: string | { id: string } | null } | null })
-        .payment?.payment_intent;
-      if (typeof pi === "string") paymentIntentIds.add(pi);
-      else if (pi && typeof pi === "object" && pi.id) paymentIntentIds.add(pi.id);
+    let startingAfter: string | undefined;
+    for (;;) {
+      const payments = await stripe.invoicePayments.list({
+        invoice: invoice.id,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      for (const payment of payments.data) {
+        const pi = (payment as { payment?: { payment_intent?: string | { id: string } | null } | null })
+          .payment?.payment_intent;
+        if (typeof pi === "string") paymentIntentIds.add(pi);
+        else if (pi && typeof pi === "object" && pi.id) paymentIntentIds.add(pi.id);
+      }
+      if (!payments.has_more || !payments.data.length) break;
+      startingAfter = payments.data[payments.data.length - 1].id;
     }
   } catch {
-    // invoicePayments may be unavailable on older accounts; fall through to PI / credit notes.
+    // Rejected / truncated discovery — do not treat as confirmed empty.
+    paymentDiscoveryFailures += 1;
   }
 
   for (const intentId of paymentIntentIds) {
@@ -118,6 +130,7 @@ async function invoiceRefundInfo(
 
   const eventCents = events.reduce((n, e) => n + e.amountCents, 0);
   const eventsComplete =
+    paymentDiscoveryFailures === 0 &&
     listFailures === 0 &&
     chargeLookupFailures === 0 &&
     (fromCharges === 0 || eventCents >= fromCharges || paymentIntentIds.size === 0);
@@ -132,8 +145,8 @@ async function invoiceRefundInfo(
     });
     cents = creditNotes;
   }
-  // Any PI/charge retrieve failure makes the cumulative total untrusted — preserve stored cents.
-  if (chargeLookupFailures > 0) {
+  // Discovery / PI / charge failures make the cumulative total untrusted — preserve stored cents.
+  if (paymentDiscoveryFailures > 0 || chargeLookupFailures > 0) {
     cents = null;
   }
 
