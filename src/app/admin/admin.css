@@ -399,9 +399,7 @@
 
 /* ---------- Page heading and status messages inside operations ---------- */
 .admin-v3.acx.operations-page .av-content>p[role=status]{display:flex;align-items:center;gap:8px;margin:0 0 18px;padding:11px 14px;border-radius:10px;background:var(--surface-subtle);border:1px solid #dbe3ff;color:var(--action-hover);font-size:13px;font-weight:500}
-.admin-v3.acx.operations-page .operations-tabs{gap:4px;border:0;margin:0 0 22px;padding:4px;background: var(--surface-inset);border-radius:11px;width:max-content;max-width:100%;overflow-x:auto}
-.admin-v3.acx.operations-page .operations-tabs button{min-height:34px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:500;white-space:nowrap}
-.admin-v3.acx.operations-page .operations-tabs button[aria-pressed=true]{background: var(--surface-card);color:var(--text-primary);font-weight:600;box-shadow:0 1px 2px #151b3814,0 1px 6px #151b380d}
+.admin-v3.acx.operations-page .av-page-heading{margin-bottom:28px}
 
 /* ---------- Connections center ---------- */
 .admin-v3.acx .cx{display:grid;gap:18px}

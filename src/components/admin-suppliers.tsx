@@ -123,7 +123,7 @@ export function AdminSuppliers() {
           </>
         }
       />
-      <Segmented label="Supplier sections" value={tab} onChange={setTab} options={[["pipeline", "Acquisition pipeline"], ["pricing", "Pricing rules"], ["economics", "Economics"]] as const} />
+      <Segmented label="Supplier sections" value={tab} onChange={setTab} options={[["pipeline", "Acquisition pipeline"], ["pricing", "Pricing rules"], ["economics", "Supplier economics"]] as const} />
       {notice && <Notice tone="success">{notice}</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
       {!data ? (

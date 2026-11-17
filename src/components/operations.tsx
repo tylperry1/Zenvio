@@ -8,8 +8,6 @@ import { AdminConnections } from "./admin-connections";
 import { AdminPricing } from "./admin-pricing";
 import { AdminHealth } from "./admin-health";
 import { AdminUsersActivity } from "./admin-users-activity";
-import { useCan } from "./admin-access";
-import { Icon } from "./icons";
 type Plan = {
   id: string;
   name: string;
@@ -55,29 +53,48 @@ type Data = {
   }[];
   activity: { action: string; created_at: string }[];
 };
-const tabs = [
-  ["subscriptions", "Subscriptions", "subscriptions"],
-  ["marketplace", "Marketplace", "marketplace"],
-  ["users", "Users & activity", "accounts"],
-  ["integrations", "Connections", "integrations"],
-  ["pricing", "Pricing", "pricing"],
-  ["health", "Health", "health"],
-] as const;
+const titles: Record<string, { heading: string; blurb: string; topbar: string }> = {
+  marketplace: {
+    heading: "Marketplace",
+    blurb: "Manage products, orders, product suppliers, and storefront settings.",
+    topbar: "Marketplace",
+  },
+  subscriptions: {
+    heading: "Subscription management",
+    blurb: "Review customers, renewals, and billing activity.",
+    topbar: "Subscriptions",
+  },
+  health: {
+    heading: "System health",
+    blurb: "Monitor platform availability, delivery, and service configuration.",
+    topbar: "System health",
+  },
+  integrations: {
+    heading: "Connections",
+    blurb: "Every third-party service Zenvio runs on, with encrypted, write-only credentials.",
+    topbar: "Connections",
+  },
+  pricing: {
+    heading: "Checkout pricing",
+    blurb: "Published packages, Stripe synchronization, usage allowances and legacy rates in one place.",
+    topbar: "Checkout pricing",
+  },
+  users: {
+    heading: "Platform users",
+    blurb: "Who uses Zenvio, how actively, on which plan, and every administrative change.",
+    topbar: "Platform users",
+  },
+};
 export function Operations({ initialView }: { initialView?: string }) {
-  const can = useCan();
-  const [view, setView] = useState(
+  // Section comes from the URL via the server page — sidebar is the only destination switcher.
+  const view =
     initialView &&
-      [
-        "subscriptions",
-        "marketplace",
-        "users",
-        "integrations",
-        "pricing",
-        "health",
-      ].includes(initialView)
+    ["subscriptions", "marketplace", "users", "integrations", "pricing", "health"].includes(
+      initialView,
+    )
       ? initialView
-      : "subscriptions",
-  );
+      : "subscriptions";
+  const copy = titles[view] || titles.subscriptions;
   const [data, setData] = useState<Data | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -113,74 +130,27 @@ export function Operations({ initialView }: { initialView?: string }) {
   }
   return (
     <div className="admin-v3 acx platform-page operations-page">
-      <AdminNavigation view={view} />
+      <AdminNavigation />
       <div className="av-body">
-        <AdminTopbar
-          current={
-            view === "marketplace"
-              ? "Marketplace"
-              : view === "integrations"
-                ? "Connections"
-                : view === "users"
-                  ? "Users & activity"
-                  : view.charAt(0).toUpperCase() + view.slice(1)
-          }
-        />
+        <AdminTopbar current={copy.topbar} />
         <main className="av-content">
           <div className="av-page-heading">
             <div>
               <p className="av-eyebrow">PLATFORM OPERATIONS</p>
-              <h1>
-                {view === "marketplace"
-                  ? "Marketplace & suppliers"
-                  : view === "subscriptions"
-                    ? "Subscription management"
-                    : view === "health"
-                      ? "System health"
-                      : view === "integrations"
-                        ? "Connections"
-                        : view === "pricing"
-                          ? "Pricing"
-                          : "Users & activity"}
-              </h1>
-              <p>
-                {view === "pricing"
-                  ? "Published packages, Stripe synchronization, usage allowances and legacy rates in one place."
-                  : view === "integrations"
-                    ? "Every third-party service Zenvio runs on, with encrypted, write-only credentials."
-                    : view === "health"
-                      ? "Monitor platform availability, delivery, and service configuration."
-                      : view === "users"
-                        ? "Who uses Zenvio, how actively, on which plan, and every administrative change."
-                        : view === "subscriptions"
-                          ? "Review customers, renewals, and billing activity."
-                          : "Manage products, suppliers, orders, and fulfillment."}
-              </p>
+              <h1>{copy.heading}</h1>
+              <p>{copy.blurb}</p>
             </div>
-            <Link
-              href="/marketplace"
-              className="admin-outline-link"
-              target="_blank"
-            >
-              View storefront ↗
-            </Link>
-          </div>
-          <nav className="operations-tabs" aria-label="Platform sections">
-            {tabs
-              .filter(([, , permission]) => can(permission))
-              .map(([id, label]) => (
-              <button
-                key={id}
-                aria-pressed={view === id}
-                onClick={() => {
-                  setView(id);
-                  setMessage("");
-                }}
+            {view === "marketplace" && (
+              <Link
+                href="/marketplace"
+                className="admin-outline-link"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                {label}
-              </button>
-            ))}
-          </nav>
+                View storefront ↗
+              </Link>
+            )}
+          </div>
           {message && <p role="status">{message}</p>}
           {!data ? (
             <p>Loading platform settings…</p>

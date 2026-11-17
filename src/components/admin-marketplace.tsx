@@ -143,19 +143,26 @@ export function AdminMarketplace() {
           </Link>
         </div>
         <div className="market-admin-tabs" aria-label="Marketplace views">
-          {["products", "orders", "suppliers", "settings"].map((t) => (
+          {(
+            [
+              ["products", "Products"],
+              ["orders", "Orders"],
+              ["suppliers", "Product suppliers"],
+              ["settings", "Settings"],
+            ] as const
+          ).map(([id, label]) => (
             <button
-              key={t}
-              aria-pressed={tab === t}
+              key={id}
+              aria-pressed={tab === id}
               onClick={() => {
-                setTab(t);
+                setTab(id);
                 setPage(0);
                 setQuery("");
                 setSearch("");
                 setError("");
               }}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {label}
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon, Logo } from "./icons";
 import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
@@ -153,13 +154,15 @@ export function AdminCenter({
 }) {
   const can = useCan();
   const access = useAdminAccess();
+  const router = useRouter();
   // Employees only load the areas the master admin delegated to them.
   const canAccounts = can("accounts"),
     canAudit = can("audit"),
     canHealth = can("health"),
     isMaster = access?.role === "master_admin";
-  const [view, setView] = useState<AdminView>(initialView),
-    [page, setPage] = useState(0),
+  // View is owned by the URL (/admin, ?view=accounts|audit); sidebar Links navigate.
+  const view = initialView;
+  const [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
     [query, setQuery] = useState(""),
     [revision, setRevision] = useState(0);
@@ -185,11 +188,17 @@ export function AdminCenter({
     [saving, setSaving] = useState(false),
     [message, setMessage] = useState("");
   function navigate(next: AdminView) {
-    setView(next);
     setPage(0);
     setQuery("");
     setSearch("");
     setMessage("");
+    const href =
+      next === "accounts"
+        ? "/admin?view=accounts"
+        : next === "audit"
+          ? "/admin?view=audit"
+          : "/admin";
+    router.push(href);
   }
   useEffect(() => {
     const controller = new AbortController();
@@ -497,11 +506,7 @@ export function AdminCenter({
   };
   return (
     <div className="admin-v3 acx">
-      <AdminNavigation
-        view={view}
-        onNavigate={(id) => navigate(id as AdminView)}
-        onSignOut={() => void signOut()}
-      />
+      <AdminNavigation onSignOut={() => void signOut()} />
       <div className="av-body">
         <AdminTopbar
           trail="Administration"
