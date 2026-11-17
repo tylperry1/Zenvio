@@ -159,6 +159,7 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
             provider: "openai",
             estimated_micros: "5000000",
             actual_micros: "100000000", // 10,000 cents
+            unreconciled: 0,
           },
         ],
         revenue: [{ currency: "usd", mrr_cents: 4997, incomplete: 1 }],
@@ -176,7 +177,14 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
       planningCostCents: { individual: 850, team: 1600, team_extra: 350 },
     },
     "./financial-period": load("src/lib/financial-period.ts"),
-    "./financial-sync": { latestFinancialSyncRuns: async () => [] },
+    "./financial-sync": {
+      latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: false,
+        lastAt: null,
+        status: null,
+      }),
+    },
   });
   const overview = await fi.financialIntelligenceOverview();
   const openai = overview.providers.find((p) => p.provider === "openai");

@@ -9,20 +9,13 @@ export type SyncKind = "stripe_subscriptions" | "stripe_invoices" | "full";
 /** Stripe Invoice shape varies across API versions; read optional fields safely. */
 type InvoiceCompat = Stripe.Invoice & {
   paid?: boolean | null;
-  charge?: string | Stripe.Charge | null;
   subscription?: string | { id: string } | null;
+  post_payment_credit_notes_amount?: number | null;
+  payment_intent?: string | { id: string } | null;
   parent?: {
     subscription_details?: { subscription?: string | { id: string } | null } | null;
   } | null;
 };
-
-function invoiceRefundedCents(invoice: InvoiceCompat) {
-  const charge = invoice.charge;
-  if (charge && typeof charge !== "string" && typeof charge.amount_refunded === "number") {
-    return charge.amount_refunded;
-  }
-  return 0;
-}
 
 function invoiceSubscriptionId(invoice: InvoiceCompat) {
   const direct = invoice.subscription;
@@ -38,10 +31,51 @@ function invoicePaid(invoice: InvoiceCompat) {
   return Boolean(invoice.paid || invoice.status === "paid");
 }
 
-function classifyInvoice(invoice: InvoiceCompat): string {
+/** Resolve refunded cents via invoice payments → PaymentIntent → Charge (Stripe 23+). */
+async function invoiceRefundedCents(
+  stripe: Stripe,
+  invoice: InvoiceCompat,
+): Promise<number> {
+  const creditNotes = Number(invoice.post_payment_credit_notes_amount || 0);
+  let fromCharges = 0;
+  const paymentIntentIds = new Set<string>();
+  const legacyPi = invoice.payment_intent;
+  if (typeof legacyPi === "string") paymentIntentIds.add(legacyPi);
+  else if (legacyPi && typeof legacyPi === "object" && legacyPi.id) paymentIntentIds.add(legacyPi.id);
+
+  try {
+    const payments = await stripe.invoicePayments.list({ invoice: invoice.id, limit: 20 });
+    for (const payment of payments.data) {
+      const pi = (payment as { payment?: { payment_intent?: string | { id: string } | null } | null })
+        .payment?.payment_intent;
+      if (typeof pi === "string") paymentIntentIds.add(pi);
+      else if (pi && typeof pi === "object" && pi.id) paymentIntentIds.add(pi.id);
+    }
+  } catch {
+    // invoicePayments may be unavailable on older accounts; fall through to PI / credit notes.
+  }
+
+  for (const intentId of paymentIntentIds) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(intentId);
+      const chargeId =
+        typeof intent.latest_charge === "string"
+          ? intent.latest_charge
+          : intent.latest_charge?.id;
+      if (!chargeId) continue;
+      const charge = await stripe.charges.retrieve(chargeId);
+      fromCharges += Number(charge.amount_refunded || 0);
+    } catch {
+      // Keep aggregating remaining payment intents.
+    }
+  }
+  return Math.max(creditNotes, fromCharges);
+}
+
+function classifyInvoice(invoice: InvoiceCompat, refundedCents: number): string {
   if (invoice.status === "void") return "void";
   if (invoice.status === "uncollectible") return "uncollectible";
-  if (invoiceRefundedCents(invoice) > 0 && invoicePaid(invoice)) return "refunded";
+  if (refundedCents > 0 && invoicePaid(invoice)) return "refunded";
   if (invoicePaid(invoice)) return "cash";
   if (invoice.status === "open") return "open";
   if (invoice.status === "draft") return "unknown";
@@ -74,6 +108,8 @@ async function finishRun(
   );
 }
 
+const PAGE = 200;
+
 /** Reconcile local subscription + revenue snapshots from live Stripe subscription objects. */
 export async function reconcileStripeSubscriptions(actorId: string | null) {
   const stripe = await stripeClient();
@@ -81,46 +117,59 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
   const db = getPool();
   let processed = 0;
   let failed = 0;
+  let pages = 0;
   const errors: string[] = [];
   try {
-    const { rows } = await db.query(
-      `SELECT user_id, subscription_id, customer_id
-       FROM private.subscriptions
-       WHERE subscription_id IS NOT NULL
-       ORDER BY updated_at DESC NULLS LAST
-       LIMIT 500`,
-    );
-    for (const row of rows) {
-      const client = await db.connect();
-      try {
-        await client.query("BEGIN");
-        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
-          `subscription:${row.subscription_id}`,
-        ]);
-        const subscription = await stripe.subscriptions.retrieve(row.subscription_id, {
-          expand: ["discounts"],
-        });
-        const customer =
-          typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer.id;
-        if (customer !== row.customer_id) {
-          throw new Error("Customer mismatch for subscription " + row.subscription_id);
+    // Stable keyset by user_id so saveSubscription's updated_at bump cannot starve older rows.
+    type SubRow = { user_id: string; subscription_id: string; customer_id: string };
+    let afterUserId: string | null = null;
+    for (;;) {
+      const cursor = afterUserId;
+      const pageResult = await db.query(
+        `SELECT user_id, subscription_id, customer_id
+         FROM private.subscriptions
+         WHERE subscription_id IS NOT NULL
+           AND ($1::uuid IS NULL OR user_id > $1::uuid)
+         ORDER BY user_id ASC
+         LIMIT $2`,
+        [cursor, PAGE],
+      );
+      const rows = pageResult.rows as SubRow[];
+      if (!rows.length) break;
+      pages += 1;
+      for (const row of rows) {
+        afterUserId = row.user_id;
+        const client = await db.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+            `subscription:${row.subscription_id}`,
+          ]);
+          const subscription = await stripe.subscriptions.retrieve(row.subscription_id, {
+            expand: ["discounts"],
+          });
+          const customer =
+            typeof subscription.customer === "string"
+              ? subscription.customer
+              : subscription.customer.id;
+          if (customer !== row.customer_id) {
+            throw new Error("Customer mismatch for subscription " + row.subscription_id);
+          }
+          await saveSubscription(client, subscription, row.user_id);
+          await client.query("COMMIT");
+          processed += 1;
+        } catch (e) {
+          await client.query("ROLLBACK");
+          failed += 1;
+          errors.push(
+            `${row.subscription_id}: ${e instanceof Error ? e.message : "reconcile failed"}`,
+          );
+        } finally {
+          client.release();
         }
-        await saveSubscription(client, subscription, row.user_id);
-        await client.query("COMMIT");
-        processed += 1;
-      } catch (e) {
-        await client.query("ROLLBACK");
-        failed += 1;
-        errors.push(
-          `${row.subscription_id}: ${e instanceof Error ? e.message : "reconcile failed"}`,
-        );
-      } finally {
-        client.release();
       }
+      if (rows.length < PAGE) break;
     }
-    // Mark Stripe provider sync state.
     await db.query(
       `INSERT INTO private.provider_cost_sync_state(provider, connection_status, last_sync_at, last_error, updated_at)
        VALUES('stripe','connected',now(),$1,now())
@@ -129,11 +178,14 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
       [failed ? `${failed} subscription reconcile error(s)` : null],
     );
     const status = failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
-    await finishRun(runId, status, processed, failed, {
+    const details = {
       kind: "stripe_subscriptions",
+      pages,
+      completeCoverage: failed === 0,
       errors: errors.slice(0, 25),
-    }, failed ? errors[0] : undefined);
-    return { runId, processed, failed, status, errors: errors.slice(0, 25) };
+    };
+    await finishRun(runId, status, processed, failed, details, failed ? errors[0] : undefined);
+    return { runId, processed, failed, status, errors: errors.slice(0, 25), details };
   } catch (e) {
     await finishRun(
       runId,
@@ -148,6 +200,7 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
 }
 
 async function upsertInvoice(
+  stripe: Stripe,
   invoice: Stripe.Invoice,
   userId: string | null,
 ) {
@@ -164,7 +217,7 @@ async function upsertInvoice(
     : paid && row.created
       ? new Date(row.created * 1000)
       : null;
-  const refunded = invoiceRefundedCents(row);
+  const refunded = await invoiceRefundedCents(stripe, row);
   await getPool().query(
     `INSERT INTO private.financial_invoice_snapshots(
        stripe_invoice_id,user_id,customer_id,status,billing_reason,currency,
@@ -214,45 +267,68 @@ async function upsertInvoice(
       row.period_start ? new Date(row.period_start * 1000) : null,
       row.period_end ? new Date(row.period_end * 1000) : null,
       row.hosted_invoice_url || null,
-      classifyInvoice(row),
+      classifyInvoice(row, refunded),
     ],
   );
 }
 
-/** Pull recent Stripe invoices for known customers into local cash snapshots. */
+/** Pull Stripe invoices for known customers into local cash snapshots (paginated). */
 export async function reconcileStripeInvoices(actorId: string | null) {
   const stripe = await stripeClient();
   const runId = await startRun("stripe_invoices", actorId);
   const db = getPool();
   let processed = 0;
   let failed = 0;
+  let customersTotal = 0;
+  let customersSynced = 0;
+  let truncated = false;
   const errors: string[] = [];
   try {
-    const { rows } = await db.query(
-      `SELECT user_id, customer_id
-       FROM private.subscriptions
-       WHERE customer_id IS NOT NULL
-       ORDER BY updated_at DESC NULLS LAST
-       LIMIT 400`,
-    );
-    for (const row of rows) {
-      try {
-        const page = await stripe.invoices.list({
-          customer: row.customer_id,
-          limit: 24,
-          expand: ["data.charge"],
-        });
-        for (const invoice of page.data) {
-          await upsertInvoice(invoice, row.user_id);
-          processed += 1;
+    type CustRow = { user_id: string; customer_id: string };
+    let afterUserId: string | null = null;
+    for (;;) {
+      const cursor = afterUserId;
+      const pageResult = await db.query(
+        `SELECT user_id, customer_id
+         FROM private.subscriptions
+         WHERE customer_id IS NOT NULL
+           AND ($1::uuid IS NULL OR user_id > $1::uuid)
+         ORDER BY user_id ASC
+         LIMIT $2`,
+        [cursor, PAGE],
+      );
+      const rows = pageResult.rows as CustRow[];
+      if (!rows.length) break;
+      customersTotal += rows.length;
+      for (const row of rows) {
+        afterUserId = row.user_id;
+        try {
+          let startingAfter: string | undefined;
+          for (;;) {
+            const page = await stripe.invoices.list({
+              customer: row.customer_id,
+              limit: 100,
+              ...(startingAfter ? { starting_after: startingAfter } : {}),
+            });
+            for (const invoice of page.data) {
+              await upsertInvoice(stripe, invoice, row.user_id);
+              processed += 1;
+            }
+            if (!page.has_more || !page.data.length) break;
+            startingAfter = page.data[page.data.length - 1].id;
+          }
+          customersSynced += 1;
+        } catch (e) {
+          failed += 1;
+          truncated = true;
+          errors.push(
+            `${row.customer_id}: ${e instanceof Error ? e.message : "invoice sync failed"}`,
+          );
         }
-      } catch (e) {
-        failed += 1;
-        errors.push(
-          `${row.customer_id}: ${e instanceof Error ? e.message : "invoice sync failed"}`,
-        );
       }
+      if (rows.length < PAGE) break;
     }
+    const completeCoverage = failed === 0 && !truncated && customersTotal === customersSynced;
     await db.query(
       `INSERT INTO private.provider_cost_sync_state(provider, connection_status, last_sync_at, last_error, updated_at)
        VALUES('stripe','connected',now(),$1,now())
@@ -261,18 +337,23 @@ export async function reconcileStripeInvoices(actorId: string | null) {
       [failed ? `${failed} invoice customer error(s)` : null],
     );
     const status = failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
-    await finishRun(runId, status, processed, failed, {
+    const details = {
       kind: "stripe_invoices",
+      customersTotal,
+      customersSynced,
+      truncated,
+      completeCoverage,
       errors: errors.slice(0, 25),
-    }, failed ? errors[0] : undefined);
-    return { runId, processed, failed, status, errors: errors.slice(0, 25) };
+    };
+    await finishRun(runId, status, processed, failed, details, failed ? errors[0] : undefined);
+    return { runId, processed, failed, status, errors: errors.slice(0, 25), details };
   } catch (e) {
     await finishRun(
       runId,
       "failed",
       processed,
       failed,
-      { kind: "stripe_invoices" },
+      { kind: "stripe_invoices", completeCoverage: false },
       e instanceof Error ? e.message : "Invoice sync failed",
     );
     throw e;
@@ -291,10 +372,14 @@ export async function runFinancialSync(kind: SyncKind, actorId: string | null) {
       const processed = subs.processed + invoices.processed;
       const status =
         failed === 0 ? "succeeded" : processed > 0 ? "partial" : "failed";
-      await finishRun(runId, status, processed, failed, {
-        subscriptions: subs,
-        invoices,
-      });
+      const details = {
+        subscriptions: subs.details,
+        invoices: invoices.details,
+        completeCoverage: Boolean(
+          subs.details?.completeCoverage && invoices.details?.completeCoverage,
+        ),
+      };
+      await finishRun(runId, status, processed, failed, details);
       return {
         runId,
         processed,
@@ -303,6 +388,7 @@ export async function runFinancialSync(kind: SyncKind, actorId: string | null) {
         errors: [...subs.errors, ...invoices.errors].slice(0, 40),
         subscriptions: subs,
         invoices,
+        details,
       };
     } catch (e) {
       await finishRun(
@@ -310,7 +396,7 @@ export async function runFinancialSync(kind: SyncKind, actorId: string | null) {
         "failed",
         0,
         1,
-        {},
+        { completeCoverage: false },
         e instanceof Error ? e.message : "Full sync failed",
       );
       throw e;
@@ -328,4 +414,28 @@ export async function latestFinancialSyncRuns(limit = 8) {
     [limit],
   );
   return rows;
+}
+
+/** Latest invoice sync coverage flag used for cash verification. */
+export async function latestInvoiceSyncCoverage() {
+  const { rows } = await getPool().query(
+    `SELECT status, details, finished_at, started_at
+     FROM private.financial_sync_runs
+     WHERE kind IN ('stripe_invoices','full')
+     ORDER BY started_at DESC
+     LIMIT 1`,
+  );
+  const row = rows[0];
+  if (!row) return { completeCoverage: false, lastAt: null as string | null, status: null as string | null };
+  const details = (row.details || {}) as Record<string, unknown>;
+  const nested = details.invoices as { completeCoverage?: boolean } | undefined;
+  const completeCoverage = Boolean(
+    row.status === "succeeded" &&
+      (details.completeCoverage === true || nested?.completeCoverage === true),
+  );
+  return {
+    completeCoverage,
+    lastAt: (row.finished_at || row.started_at) as string | null,
+    status: row.status as string,
+  };
 }

@@ -60,6 +60,8 @@ Missing provider invoices remain **Unknown**, never `$0.00`.
 
 Idempotent on Stripe object identity. Webhooks continue to update subscriptions via `/api/billing/webhook`.
 
+Sync pages by stable `user_id` keyset (not `updated_at`) so older subscriptions are never starved. Invoice sync paginates Stripe `has_more` and records `completeCoverage` in `financial_sync_runs.details`. Cash KPIs are **verified** only when that coverage flag is true; otherwise **partial** or **unavailable**. Refunds resolve through `invoicePayments` → PaymentIntent → Charge (Stripe 23 removed `Invoice.charge`). Provider economics accept the selected reporting period. Manual expenses use inclusive UTC calendar-day overlap so today’s entries appear immediately. KPIs are USD-only — non-USD currencies are alerted, never relabeled as dollars.
+
 ## Security
 
 - Page: `requireAdminPage()` (master admin)

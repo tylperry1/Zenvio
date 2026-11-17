@@ -209,6 +209,7 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
             provider: "openai",
             estimated_micros: "5000000",
             actual_micros: "100000000",
+            unreconciled: 0,
           },
         ],
         revenue: [{ currency: "usd", mrr_cents: 4997, incomplete: 2 }],
@@ -227,6 +228,11 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
     "./financial-period": load("src/lib/financial-period.ts"),
     "./financial-sync": {
       latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: false,
+        lastAt: null,
+        status: null,
+      }),
     },
   });
 
@@ -271,4 +277,114 @@ test("UI never renders money(0) for null financial metrics", () => {
   assert.match(src, /not verified profit/);
   assert.match(src, /Export CSV/);
   assert.doesNotMatch(src, /money\(data\.overview\.planning\.costCents\)/);
+});
+
+test("cash stays partial without complete invoice coverage and ignores non-USD", async () => {
+  const fi = load("src/lib/financial-intelligence.ts", {
+    "./db": {
+      databaseConfigured: () => true,
+      getPool: () => ({
+        query: async (sql) => {
+          if (sql.includes("paying_accounts"))
+            return {
+              rows: [
+                {
+                  currency: "usd",
+                  mrr_cents: 1000,
+                  paying_accounts: 1,
+                  complete_snapshots: 1,
+                  incomplete: 0,
+                  snapshots: 1,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+                {
+                  currency: "eur",
+                  mrr_cents: 5000,
+                  paying_accounts: 2,
+                  complete_snapshots: 2,
+                  incomplete: 0,
+                  snapshots: 2,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+              ],
+            };
+          if (sql.includes("financial_invoice_snapshots"))
+            return {
+              rows: [
+                {
+                  currency: "usd",
+                  collected_cents: 2500,
+                  refunded_cents: 0,
+                  outstanding_cents: 0,
+                  open_invoices: 0,
+                  failed_or_open_attempts: 0,
+                  invoices: 2,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+                {
+                  currency: "eur",
+                  collected_cents: 9900,
+                  refunded_cents: 0,
+                  outstanding_cents: 0,
+                  open_invoices: 0,
+                  failed_or_open_attempts: 0,
+                  invoices: 3,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+              ],
+            };
+          if (sql.includes("FROM private.subscriptions s")) return { rows: [] };
+          if (sql.includes("subscription_addon_orders"))
+            return { rows: [{ addon_paid_cents: 0, addon_refunded_cents: 0, paid_orders: 0, refunded_orders: 0 }] };
+          if (sql.includes("NOT EXISTS")) return { rows: [{ n: 0 }] };
+          return { rows: [] };
+        },
+      }),
+    },
+    "./provider-economics": {
+      providerEconomics: async () => ({
+        period: "fixture",
+        providerReservations: [],
+        otherProviderEvents: [
+          { provider: "resend", estimated_micros: "10000", actual_micros: "10000", unreconciled: 2 },
+        ],
+        revenue: [],
+        accountsByPlan: [],
+        anomalies: [],
+        planning: { costCents: 100, source: "planning" },
+        coverage: "fixture",
+      }),
+    },
+    "./pricing-v4-catalog.mjs": catalog,
+    "./subscription-offers.mjs": offers,
+    "./financial-period": load("src/lib/financial-period.ts"),
+    "./financial-sync": {
+      latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: false,
+        lastAt: "2026-11-16T00:00:00Z",
+        status: "partial",
+      }),
+    },
+  });
+  const overview = await fi.financialIntelligenceOverview({ periodId: "this_month" });
+  assert.equal(overview.kpis.mrr.valueCents, 1000);
+  assert.equal(overview.kpis.collected.valueCents, 2500);
+  assert.equal(overview.kpis.collected.classification, "partial");
+  assert.ok(overview.alerts.some((a) => a.id === "cash-partial"));
+  assert.ok(overview.alerts.some((a) => a.id === "non-usd"));
+  const resend = overview.providers.find((p) => p.provider === "resend");
+  assert.equal(resend.classification.actual, "partial");
+  assert.equal(overview.kpis.operatingCosts.classification, "partial");
+});
+
+test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
+  const sync = fs.readFileSync("src/lib/financial-sync.ts", "utf8");
+  assert.match(sync, /invoicePayments\.list/);
+  assert.match(sync, /ORDER BY user_id ASC/);
+  assert.match(sync, /completeCoverage/);
+  assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
+  const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
+  assert.match(pe, /created_at >= \$1::timestamptz/);
+  assert.match(pe, /period >= \$1::date/);
 });

@@ -1,17 +1,46 @@
 import { getPool } from "./db";
 import { planningCostCents } from "./subscription-offers.mjs";
+
+export type ProviderEconomicsPeriod = {
+  start: Date;
+  end: Date;
+};
+
 /** Existing reservations remain the source of truth; no second AI spend ledger. */
-export async function providerEconomics(){
- const [reservations,other,revenue,accounts,anomalies]=await Promise.all([
- getPool().query(`select coalesce(model,provider) provider,count(*)::int events,
+export async function providerEconomics(period?: ProviderEconomicsPeriod) {
+  const start = period?.start ?? new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+  const end = period?.end ?? new Date();
+  const startIso = start.toISOString();
+  const endIso = end.toISOString();
+  const startDate = startIso.slice(0, 10);
+  const endDateInclusive = new Date(end.getTime() - 1).toISOString().slice(0, 10);
+
+  const [reservations, other, revenue, accounts, anomalies] = await Promise.all([
+    getPool().query(
+      `select coalesce(model,provider) provider,count(*)::int events,
  coalesce(sum(case when state='settled' then actual_micros else reserved_micros end),0)::text estimated_micros,
  count(*) filter(where state in ('reserved','uncertain'))::int pending
- from private.provider_usage_reservations where state<>'released' and created_at>=date_trunc('month',now()) group by coalesce(model,provider) order by 1`),
- getPool().query(`select provider,count(*)::int events,sum(estimated_micros)::text estimated_micros,sum(actual_micros)::text actual_micros,
- count(*) filter(where actual_micros is null)::int unreconciled from private.provider_economic_events where period=date_trunc('month',now())::date group by provider order by provider`),
- getPool().query("select currency,sum(mrr_cents)::text mrr_cents,count(*) filter(where not complete)::int incomplete from private.subscription_revenue_snapshots group by currency"),
- getPool().query("select plan,count(*)::int accounts,coalesce(sum(greatest(seats-3,0)),0)::int additional_seats from private.subscriptions where status='active' and subscription_id is not null group by plan"),
- getPool().query(`
+ from private.provider_usage_reservations
+ where state<>'released' and created_at >= $1::timestamptz and created_at < $2::timestamptz
+ group by coalesce(model,provider) order by 1`,
+      [startIso, endIso],
+    ),
+    getPool().query(
+      `select provider,count(*)::int events,sum(estimated_micros)::text estimated_micros,sum(actual_micros)::text actual_micros,
+ count(*) filter(where actual_micros is null)::int unreconciled
+ from private.provider_economic_events
+ where period >= $1::date and period <= $2::date
+ group by provider order by provider`,
+      [startDate, endDateInclusive],
+    ),
+    getPool().query(
+      "select currency,sum(mrr_cents)::text mrr_cents,count(*) filter(where not complete)::int incomplete from private.subscription_revenue_snapshots group by currency",
+    ),
+    getPool().query(
+      "select plan,count(*)::int accounts,coalesce(sum(greatest(seats-3,0)),0)::int additional_seats from private.subscriptions where status='active' and subscription_id is not null group by plan",
+    ),
+    getPool().query(
+      `
    with boundary as (
      select date_trunc('day',now() at time zone 'UTC') at time zone 'UTC' as today
    ), daily as (
@@ -34,14 +63,39 @@ export async function providerEconomics(){
      and daily.spend >= baseline.mean_spend * 3
      and daily.spend - baseline.mean_spend >= 1000000
    order by daily.spend - baseline.mean_spend desc
-   limit 20`)
- ]);
- const planned=accounts.rows.reduce((n,r)=>n+Number(r.accounts)*(planningCostCents[r.plan as keyof typeof planningCostCents]||0)+(r.plan==='team'?Number(r.additional_seats)*planningCostCents.team_extra:0),0);
- const mrr=revenue.rows.find(r=>r.currency==='usd');
- const covered=Boolean(mrr)&&Number(mrr.incomplete)===0;
- const mrrCents=covered?Number(mrr.mrr_cents):null;
- return {period:"current UTC calendar month", anomalies:anomalies.rows,providerReservations:reservations.rows,otherProviderEvents:other.rows,revenue:revenue.rows,accountsByPlan:accounts.rows,
- planning:{costCents:planned,source:"Preliminary planning budgets, not provider invoices",budgets:planningCostCents,targetContributionMargin:0.6,
- estimatedContributionMargin:mrrCents&&mrrCents>0?(mrrCents-planned)/mrrCents:null},
- complete:false,coverage:"Reservation estimates include uncertain spend. Non-reservation costs require invoice/event ingestion; missing data is unknown, not zero. Do not add overlapping provider sources. No verified total operating expense or actual contribution margin is claimed."};
+   limit 20`,
+    ),
+  ]);
+  const planned = accounts.rows.reduce(
+    (n, r) =>
+      n +
+      Number(r.accounts) * (planningCostCents[r.plan as keyof typeof planningCostCents] || 0) +
+      (r.plan === "team" ? Number(r.additional_seats) * planningCostCents.team_extra : 0),
+    0,
+  );
+  const mrr = revenue.rows.find((r) => r.currency === "usd");
+  const covered = Boolean(mrr) && Number(mrr.incomplete) === 0;
+  const mrrCents = covered ? Number(mrr.mrr_cents) : null;
+  return {
+    period: period
+      ? `${startIso} → ${endIso}`
+      : "current UTC calendar month",
+    periodMeta: { start: startIso, end: endIso },
+    anomalies: anomalies.rows,
+    providerReservations: reservations.rows,
+    otherProviderEvents: other.rows,
+    revenue: revenue.rows,
+    accountsByPlan: accounts.rows,
+    planning: {
+      costCents: planned,
+      source: "Preliminary planning budgets, not provider invoices",
+      budgets: planningCostCents,
+      targetContributionMargin: 0.6,
+      estimatedContributionMargin:
+        mrrCents && mrrCents > 0 ? (mrrCents - planned) / mrrCents : null,
+    },
+    complete: false,
+    coverage:
+      "Reservation estimates include uncertain spend. Non-reservation costs require invoice/event ingestion; missing data is unknown, not zero. Do not add overlapping provider sources. No verified total operating expense or actual contribution margin is claimed.",
+  };
 }

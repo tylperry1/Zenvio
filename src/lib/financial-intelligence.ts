@@ -17,7 +17,7 @@ import {
   type FinancialPeriod,
   type FinancialPeriodId,
 } from "./financial-period";
-import { latestFinancialSyncRuns } from "./financial-sync";
+import { latestFinancialSyncRuns, latestInvoiceSyncCoverage } from "./financial-sync";
 
 export type CostClassification =
   | "actual"
@@ -44,6 +44,7 @@ export type ProviderCostRow = {
   lastSyncAt: string | null;
   lastError: string | null;
   lastRecordedExpenseAt: string | null;
+  unreconciledEvents: number;
   classification: {
     actual: CostClassification;
     running: CostClassification;
@@ -198,9 +199,9 @@ export async function financialIntelligenceOverview(input?: {
     };
   }
 
-  const economics = await providerEconomics();
+  const economics = await providerEconomics({ start: period.start, end: period.end });
   const db = getPool();
-  const [budgets, sync, manual, tenants, revenueAgg, invoiceAgg, addonAgg, statusCounts, priceMaps, missingSnapshots, lastExpense, syncRuns] =
+  const [budgets, sync, manual, tenants, revenueAgg, invoiceAgg, addonAgg, statusCounts, priceMaps, missingSnapshots, lastExpense, syncRuns, invoiceCoverage] =
     await Promise.all([
       db.query("SELECT provider, monthly_budget_cents FROM private.provider_cost_budgets"),
       db.query(
@@ -210,10 +211,10 @@ export async function financialIntelligenceOverview(input?: {
         `SELECT provider, coalesce(sum(amount_cents),0)::int cents
          FROM private.provider_cost_manual_expenses
          WHERE voided_at IS NULL
-           AND period_start < $2::date
-           AND period_end >= $1::date
+           AND period_start <= (($2::timestamptz AT TIME ZONE 'UTC')::date)
+           AND period_end >= (($1::timestamptz AT TIME ZONE 'UTC')::date)
          GROUP BY provider`,
-        [period.start.toISOString().slice(0, 10), period.end.toISOString().slice(0, 10)],
+        [period.start.toISOString(), period.end.toISOString()],
       ),
       db.query(
         `SELECT s.user_id, s.plan, s.status, s.seats, s.catalog_version, s.monthly_amount_cents,
@@ -294,6 +295,11 @@ export async function financialIntelligenceOverview(input?: {
          GROUP BY provider`,
       ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
       latestFinancialSyncRuns(6).catch(() => []),
+      latestInvoiceSyncCoverage().catch(() => ({
+        completeCoverage: false,
+        lastAt: null as string | null,
+        status: null as string | null,
+      })),
     ]);
 
   const budgetMap = new Map(budgets.rows.map((r) => [r.provider as string, Number(r.monthly_budget_cents)]));
@@ -326,6 +332,7 @@ export async function financialIntelligenceOverview(input?: {
       {
         estimated: microsToCents(r.estimated_micros),
         actual: microsToCents(r.actual_micros),
+        unreconciled: Number(r.unreconciled || 0),
       },
     ]),
   );
@@ -347,6 +354,7 @@ export async function financialIntelligenceOverview(input?: {
     const reserved = reservationMap.get(provider) ?? null;
     const manualCents = manualMap.get(provider) ?? 0;
     const meteredActual = events?.actual ?? null;
+    const unreconciled = events?.unreconciled ?? 0;
     const actual =
       meteredActual != null
         ? meteredActual + manualCents
@@ -370,6 +378,16 @@ export async function financialIntelligenceOverview(input?: {
           ? manualCents
           : null;
     const budget = budgetMap.has(provider) ? budgetMap.get(provider)! : null;
+    const actualClass: CostClassification =
+      actual == null
+        ? "unknown"
+        : unreconciled > 0
+          ? "partial"
+          : meteredActual != null && manualCents > 0
+            ? "mixed"
+            : meteredActual != null
+              ? "actual"
+              : "manual";
     return {
       provider,
       category: PROVIDER_CATEGORIES[provider] || "Other",
@@ -384,15 +402,9 @@ export async function financialIntelligenceOverview(input?: {
       lastSyncAt: syncRow?.last_sync_at || null,
       lastError: syncRow?.last_error || null,
       lastRecordedExpenseAt: lastExpenseMap.get(provider) || null,
+      unreconciledEvents: unreconciled,
       classification: {
-        actual:
-          meteredActual != null && manualCents > 0
-            ? "mixed"
-            : meteredActual != null
-              ? "actual"
-              : manualCents > 0
-                ? "manual"
-                : "unknown",
+        actual: actualClass,
         running: running == null ? "unknown" : "estimated",
         forecast: forecast == null ? "unknown" : "forecast",
       },
@@ -401,7 +413,10 @@ export async function financialIntelligenceOverview(input?: {
     };
   });
 
-  const usdRevenue = revenueAgg.rows.find((r) => r.currency === "usd") || revenueAgg.rows[0];
+  const nonUsdRevenue = revenueAgg.rows.filter(
+    (r) => String(r.currency || "").toLowerCase() !== "usd",
+  );
+  const usdRevenue = revenueAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
   const incomplete = usdRevenue ? Number(usdRevenue.incomplete) : 0;
   const completeSnapshots = usdRevenue ? Number(usdRevenue.complete_snapshots) : 0;
   const missingActive = Number(missingSnapshots.rows[0]?.n || 0);
@@ -418,13 +433,21 @@ export async function financialIntelligenceOverview(input?: {
   const mrrCents = reconciledMrr;
   const arrCents = mrrCents == null ? null : mrrCents * 12;
 
-  const usdCash = invoiceAgg.rows.find((r) => r.currency === "usd") || invoiceAgg.rows[0];
+  const nonUsdCash = invoiceAgg.rows.filter(
+    (r) => String(r.currency || "").toLowerCase() !== "usd",
+  );
+  const usdCash = invoiceAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
   const invoiceCount = usdCash ? Number(usdCash.invoices) : 0;
   const collectedCents = usdCash && invoiceCount > 0 ? Number(usdCash.collected_cents) : null;
   const refundedCents = usdCash && invoiceCount > 0 ? Number(usdCash.refunded_cents) : null;
   const outstandingCents = usdCash && invoiceCount > 0 ? Number(usdCash.outstanding_cents) : null;
+  const cashCoverageComplete = Boolean(invoiceCoverage.completeCoverage);
   const cashClassification: CostClassification =
-    invoiceCount === 0 ? "unavailable" : "verified";
+    invoiceCount === 0
+      ? "unavailable"
+      : cashCoverageComplete
+        ? "verified"
+        : "partial";
 
   const addonPaid = Number(addonAgg.rows[0]?.addon_paid_cents || 0);
   const addonRefunded = Number(addonAgg.rows[0]?.addon_refunded_cents || 0);
@@ -434,24 +457,22 @@ export async function financialIntelligenceOverview(input?: {
     statusCounts.rows.map((r) => [String(r.status), Number(r.accounts)]),
   ) as Record<string, number>;
 
+  const unreconciledProviders = providers.filter((p) => p.unreconciledEvents > 0).length;
   const verifiedOperatingCents = providers.reduce((n, p) => {
     if (p.actualBilledCents == null) return n;
-    if (p.classification.actual === "unknown") return n;
+    if (p.classification.actual === "unknown" || p.classification.actual === "partial") return n;
     return n + p.actualBilledCents;
   }, 0);
   const providersWithActual = providers.filter((p) => p.actualBilledCents != null).length;
   const providersUnknown = providers.filter((p) => p.actualBilledCents == null).length;
   const estimatedOperatingCents = providers.reduce((n, p) => n + (p.runningEstimateCents || 0), 0);
-  const operatingVerified =
-    providersWithActual > 0 && providersUnknown === 0
-      ? verifiedOperatingCents
-      : providersWithActual > 0
-        ? verifiedOperatingCents
-        : null;
+  const operatingFullyVerified =
+    providersWithActual > 0 && providersUnknown === 0 && unreconciledProviders === 0;
+  const operatingVerified = providersWithActual > 0 ? verifiedOperatingCents : null;
   const operatingClassification: CostClassification =
     providersWithActual === 0
       ? "unavailable"
-      : providersUnknown > 0
+      : !operatingFullyVerified
         ? "partial"
         : "verified";
 
@@ -612,6 +633,32 @@ export async function financialIntelligenceOverview(input?: {
       detail: "No invoice snapshots for this period. Collected revenue stays Unavailable until Stripe invoice sync runs.",
       href: "/admin/financial-intelligence",
     });
+  } else if (!cashCoverageComplete) {
+    alerts.push({
+      id: "cash-partial",
+      severity: "warning",
+      title: "Cash totals are partial",
+      detail: "Invoice snapshots exist, but the latest Stripe invoice sync did not report complete customer coverage. Collected revenue is labeled partial, not verified.",
+      href: "/admin/financial-intelligence",
+    });
+  }
+  if (nonUsdRevenue.length || nonUsdCash.length) {
+    alerts.push({
+      id: "non-usd",
+      severity: "warning",
+      title: "Non-USD amounts excluded from USD totals",
+      detail: "Dashboard KPIs use USD only. Other currencies remain separate and are not converted or displayed as dollars.",
+      href: "/admin/financial-intelligence",
+    });
+  }
+  if (unreconciledProviders > 0) {
+    alerts.push({
+      id: "unreconciled-costs",
+      severity: "warning",
+      title: "Provider costs have unreconciled events",
+      detail: `${unreconciledProviders} provider(s) still have usage events without actual_micros. Operating costs stay partial until those events reconcile.`,
+      href: "/admin/economics",
+    });
   }
   if (providersUnknown > 0) {
     alerts.push({
@@ -697,7 +744,9 @@ export async function financialIntelligenceOverview(input?: {
           refundedCents,
           outstandingCents,
           invoiceCount,
-          lastReconciledAt: usdCash?.last_reconciled_at || null,
+          lastReconciledAt: usdCash?.last_reconciled_at || invoiceCoverage.lastAt || null,
+          completeCoverage: cashCoverageComplete,
+          syncStatus: invoiceCoverage.status,
         },
       ),
       operatingCosts: metric(
@@ -708,6 +757,7 @@ export async function financialIntelligenceOverview(input?: {
           estimatedRunningCents: estimatedOperatingCents > 0 ? estimatedOperatingCents : null,
           providersWithActual,
           providersUnknown,
+          unreconciledProviders,
         },
       ),
       estimatedContribution: metric(
