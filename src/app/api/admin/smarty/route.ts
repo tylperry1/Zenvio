@@ -15,19 +15,11 @@ import { ApiError, body, failure, integer, sameOrigin } from "@/lib/server";
 export const dynamic = "force-dynamic";
 const noStore = { headers: { "Cache-Control": "no-store" } };
 
-function connectionStatus(
-  configured: boolean,
-  enabled: boolean,
-  health: string,
-  lastSuccessfulAt: string | null,
-  lastCheckedAt: string | null,
-) {
+function connectionStatus(configured: boolean, enabled: boolean, health: string, lastSuccessfulAt: string | null) {
   if (!configured) return { label: "Not configured", tone: "neutral" as const, connected: false };
   if (!enabled) return { label: "Ready · disabled", tone: "warning" as const, connected: false };
-  const successAt = lastSuccessfulAt ? +new Date(lastSuccessfulAt) : 0;
-  const checkedAt = lastCheckedAt ? +new Date(lastCheckedAt) : 0;
-  // Connected only when the latest check was itself a success — never revive from a stale lastSuccessfulAt.
-  if (successAt > 0 && successAt >= checkedAt)
+  // Connected only while health is healthy after a successful test — never from timestamps alone after re-enable.
+  if (health === "healthy" && lastSuccessfulAt)
     return { label: "Connected", tone: "success" as const, connected: true };
   if (health === "action_required")
     return { label: "Action required", tone: "danger" as const, connected: false };
@@ -60,7 +52,6 @@ async function dashboard() {
       config.enabled,
       config.health,
       config.lastSuccessfulAt,
-      config.lastCheckedAt,
     ),
     usage: {
       ...usage,
