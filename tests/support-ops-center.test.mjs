@@ -70,6 +70,17 @@ test("CodeRabbit majors: attachment inbox gate, merge lock, stale queue, closed 
   assert.match(ui, /Drop superseded responses when filters change mid-flight/);
 });
 
+test("popout root clears AdminFrame sidebar gradient and opens on queue", () => {
+  const css = read("src/app/admin/admin.css");
+  const ui = read("src/components/support-ops-center.tsx");
+  const layout = read("src/app/admin/support-ops/popout/layout.tsx");
+  assert.match(layout, /soc-popout-root/);
+  assert.match(css, /\.admin-v3\.admin-v3\.admin-v3\.acx\.soc-popout-root/);
+  assert.match(css, /--av-sidebar-width:0px/);
+  assert.match(css, /Popout has no Master Admin sidebar/);
+  assert.match(ui, /popout \? "queue" : "dashboard"/);
+});
+
 test("CodeRabbit follow-ups: feedback after awaits push; SW register propagates", () => {
   const feedback = read("src/app/api/feedback/route.ts");
   const bell = read("src/components/admin-alert-bell.tsx");

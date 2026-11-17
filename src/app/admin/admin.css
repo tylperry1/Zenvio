@@ -402,8 +402,31 @@
 .admin-v3.acx .soc-privacy{font-size:12px;color:var(--text-muted);margin-top:12px}
 .admin-v3.acx .soc-kb-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .admin-v3.acx .soc-kb-list li{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-card)}
-.admin-v3.acx .soc-popout-root .av-frame-content,.admin-v3.acx.soc-popout-root{min-height:100vh;background:var(--surface-page)}
-.admin-v3.acx .soc-popout{max-width:none}
+/* Popout has no Master Admin sidebar — beat the .admin-v3.acx navy stripe
+   gradient (4-class selector) so content is not painted over a fake rail. */
+.admin-v3.admin-v3.admin-v3.acx.soc-popout-root{
+  display:block;
+  min-height:100vh;
+  --av-sidebar-width:0px;
+  background:var(--surface-page);
+}
+.admin-v3.acx.soc-popout-root .soc-popout-shell{
+  min-height:100vh;
+  width:100%;
+  max-width:none;
+}
+.admin-v3.acx .soc-popout{
+  max-width:none;
+  margin:0;
+  width:100%;
+}
+.admin-v3.acx .soc-popout .sp-console{
+  min-height:max(18rem,calc(100vh - 220px));
+}
+.admin-v3.acx .soc-popout .sp-queue .sp-list{
+  /* Keep a usable list when the window is short or zoomed; never clamp to 0. */
+  max-height:max(12rem,calc(100vh - 280px));
+}
 @media(max-width:900px){.admin-v3.acx .soc-grid{grid-template-columns:1fr}}
 .admin-v3.acx .acx-role{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--action-hover);background:var(--surface-subtle);border:1px solid #dbe3ff;padding:5px 10px;border-radius:999px;white-space:nowrap}
 .admin-v3.acx .acx-role.staff{color:#5b3fc4;background:var(--surface-subtle);border-color:#e2d9ff}
