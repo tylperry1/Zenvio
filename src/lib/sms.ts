@@ -29,6 +29,8 @@ export interface SmsTransport {
     reference: string;
     bookingId?: string;
     bookingRevision?: number;
+    /** Optional open transaction from scheduleBooking / notification dispatch. */
+    db?: import("pg").PoolClient;
   }): Promise<SmsSendResult>;
 }
 

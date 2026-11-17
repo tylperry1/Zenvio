@@ -16,7 +16,9 @@ import type {
 
 export { syncNotificationAttemptFromDeliveryJob };
 
-const terminalSuccess = new Set<NotificationStatus>(["accepted", "delivered", "queued", "scheduled", "processing"]);
+// `scheduled` is intentionally omitted: due SMS must be re-dispatched once scheduled_at passes
+// (SMS outbox has no run_at; email waits on delivery_jobs.run_at instead).
+const terminalSuccess = new Set<NotificationStatus>(["accepted", "delivered", "queued", "processing"]);
 const retryableFailures = new Set<FailureClass | undefined>(["transient", undefined]);
 
 function rollupStatus(results: ChannelAttemptResult[]): NotificationStatus {

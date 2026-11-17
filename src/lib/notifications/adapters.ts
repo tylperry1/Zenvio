@@ -37,6 +37,61 @@ export async function dispatchEmailAttempt(
     booking: input.bookingId,
     revision: input.bookingRevision,
   });
+  // ON CONFLICT DO NOTHING can leave a prior failed/uncertain job untouched.
+  // Reconcile before claiming the attempt is queued again.
+  const job = (
+    await db.query(
+      `SELECT id, status, attempts, run_at FROM private.delivery_jobs WHERE dedupe_key=$1`,
+      [email.key],
+    )
+  ).rows[0] as { id: string; status: string; attempts: number; run_at: Date } | undefined;
+  if (!job) {
+    return {
+      channel: "email",
+      status: "failed",
+      failureClass: "transient",
+      failureReason: "Email delivery job was not created.",
+      deliveryJobKey: email.key,
+    };
+  }
+  if (job.status === "sent") {
+    return {
+      channel: "email",
+      status: "accepted",
+      provider: "resend",
+      deliveryJobKey: email.key,
+    };
+  }
+  if (job.status === "uncertain") {
+    return {
+      channel: "email",
+      status: "failed",
+      provider: "resend",
+      failureClass: "transient",
+      failureReason:
+        "Prior email send is uncertain and needs provider reconciliation before retry.",
+      deliveryJobKey: email.key,
+    };
+  }
+  if (job.status === "failed" || job.status === "cancelled") {
+    if (job.attempts >= 5) {
+      return {
+        channel: "email",
+        status: "failed",
+        provider: "resend",
+        failureClass: "permanent",
+        failureReason: "Email delivery exhausted its retry budget.",
+        deliveryJobKey: email.key,
+      };
+    }
+    const at = email.at || input.scheduledAt || new Date();
+    await db.query(
+      `UPDATE private.delivery_jobs
+          SET status='queued', run_at=$2, last_error=NULL, provider_status=NULL
+        WHERE id=$1 AND status IN ('failed','cancelled') AND attempts<5`,
+      [job.id, at],
+    );
+  }
   const scheduled =
     (email.at || input.scheduledAt) &&
     (email.at || input.scheduledAt)!.getTime() > Date.now() + 1000;
@@ -57,7 +112,6 @@ export async function dispatchSmsAttempt(
   input: EnqueueNotificationInput,
   sms: SmsChannelPayload,
 ): Promise<ChannelAttemptResult> {
-  void db;
   if (process.env.TELNYX_MESSAGING_ENABLED !== "true") {
     return {
       channel: "sms",
@@ -75,6 +129,16 @@ export async function dispatchSmsAttempt(
       status: "failed",
       failureClass: "invalid_recipient",
       failureReason: "Invalid SMS recipient.",
+    };
+  }
+  // Reminders schedule email via delivery_jobs.run_at; SMS outbox has no run_at.
+  // Defer enqueue until due so booking-linked SMS cannot send on the next drain.
+  if (input.scheduledAt && input.scheduledAt.getTime() > Date.now() + 1000) {
+    return {
+      channel: "sms",
+      status: "scheduled",
+      provider: "telnyx",
+      smsReference: sms.reference,
     };
   }
   try {
@@ -104,6 +168,7 @@ export async function dispatchSmsAttempt(
       to,
       body: sms.body,
       reference: sms.reference,
+      db,
       ...(bookingId
         ? { bookingId, bookingRevision: bookingRevision ?? 0 }
         : {}),

@@ -217,7 +217,8 @@ export async function materializeReminders(user?: string) {
     await db.query("BEGIN");
     // Exclude bookings whose reminder envelopes already exist (including intentionally
     // suppressed ones) so LIMIT 500 is not starved by missing delivery_jobs rows.
-    // Failed envelopes stay eligible so scheduleBooking can retry recoverable channels.
+    // Failed envelopes stay eligible; envelopes with a retryable failed SMS also stay
+    // eligible even when the email delivery_job already exists.
     const { rows } = await db.query(
       `SELECT b.id FROM public.bookings b
          JOIN public.event_types e ON e.id=b.event_id
@@ -228,15 +229,31 @@ export async function materializeReminders(user?: string) {
           AND EXISTS(
             SELECT 1 FROM unnest(e.reminder_minutes) m
              WHERE b.starts_at-make_interval(mins=>m)>now()
-               AND NOT EXISTS(
-                 SELECT 1 FROM private.delivery_jobs j
-                  WHERE j.dedupe_key='reminder:'||b.id||':'||b.revision||':'||m
-               )
-               AND NOT EXISTS(
-                 SELECT 1 FROM private.notifications n
-                  WHERE n.workspace_id=b.user_id
-                    AND n.idempotency_key='notify:reminder:'||b.id||':'||b.revision||':'||m
-                    AND n.status IN ('queued','scheduled','processing','accepted','delivered','suppressed','canceled')
+               AND (
+                 (
+                   NOT EXISTS(
+                     SELECT 1 FROM private.delivery_jobs j
+                      WHERE j.dedupe_key='reminder:'||b.id||':'||b.revision||':'||m
+                   )
+                   AND NOT EXISTS(
+                     SELECT 1 FROM private.notifications n
+                      WHERE n.workspace_id=b.user_id
+                        AND n.idempotency_key='notify:reminder:'||b.id||':'||b.revision||':'||m
+                        AND n.status IN ('queued','scheduled','processing','accepted','delivered','suppressed','canceled')
+                   )
+                 )
+                 OR EXISTS(
+                   SELECT 1
+                     FROM private.notifications n
+                     JOIN private.notification_attempts a ON a.notification_id=n.id
+                    WHERE n.workspace_id=b.user_id
+                      AND n.idempotency_key='notify:reminder:'||b.id||':'||b.revision||':'||m
+                      AND a.channel='sms'
+                      AND (
+                        (a.status='failed' AND (a.failure_class IS NULL OR a.failure_class='transient'))
+                        OR (a.status='scheduled' AND n.scheduled_at<=now())
+                      )
+                 )
                )
           )
         ORDER BY b.starts_at
@@ -480,24 +497,16 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
                 "Email delivery could not be confirmed. A retry uses the same provider key.",
                 true,
               );
-        await db.query(
-          "UPDATE private.delivery_jobs SET status=CASE WHEN $2='idempotency_conflict' THEN 'uncertain' WHEN NOT $4 OR attempts>=5 THEN 'failed' ELSE 'queued' END,run_at=now()+interval '5 minutes',provider_status=$2,last_error=$3 WHERE id=$1",
+        const failed = await db.query(
+          "UPDATE private.delivery_jobs SET status=CASE WHEN $2='idempotency_conflict' THEN 'uncertain' WHEN NOT $4 OR attempts>=5 THEN 'failed' ELSE 'queued' END,run_at=now()+interval '5 minutes',provider_status=$2,last_error=$3 WHERE id=$1 RETURNING status",
           [j.id, failure.code, failure.message, failure.retryable],
         );
-        {
-          const next =
-            failure.code === "idempotency_conflict"
-              ? "uncertain"
-              : !failure.retryable || j.attempts + 1 >= 5
-                ? "failed"
-                : "queued";
-          await syncNotificationAttemptFromDeliveryJob(db, {
-            id: j.id,
-            notification_attempt_id: j.notification_attempt_id,
-            status: next,
-            last_error: failure.message,
-          });
-        }
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: j.id,
+          notification_attempt_id: j.notification_attempt_id,
+          status: failed.rows[0]?.status || "failed",
+          last_error: failure.message,
+        });
       }
       await db.query("COMMIT");
     } catch (e) {

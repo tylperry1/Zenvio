@@ -107,6 +107,7 @@ test("SMS adapter passes bookingId through the transport for appointment texts",
   process.env.TELNYX_MESSAGING_ENABLED = "true";
   try {
     let sent;
+    const db = { query: async () => ({ rows: [] }) };
     const adapters = load("src/lib/notifications/adapters.ts", {
       "../sms": {
         normalizePhone: (v) => v,
@@ -121,7 +122,7 @@ test("SMS adapter passes bookingId through the transport for appointment texts",
     });
     const bookingId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     await adapters.dispatchSmsAttempt(
-      {},
+      db,
       { workspaceId: "ws", channels: ["sms"], bookingId, bookingRevision: 2 },
       {
         to: "+15551234567",
@@ -134,10 +135,92 @@ test("SMS adapter passes bookingId through the transport for appointment texts",
     assert.equal(sent.bookingId, bookingId);
     assert.equal(sent.bookingRevision, 2);
     assert.equal(sent.reference, `confirm:${bookingId}:2`);
+    assert.equal(sent.db, db);
   } finally {
     if (previous === undefined) delete process.env.TELNYX_MESSAGING_ENABLED;
     else process.env.TELNYX_MESSAGING_ENABLED = previous;
   }
+});
+
+test("SMS adapter defers enqueue until scheduledAt is due", async () => {
+  const previous = process.env.TELNYX_MESSAGING_ENABLED;
+  process.env.TELNYX_MESSAGING_ENABLED = "true";
+  try {
+    let sent = 0;
+    const adapters = load("src/lib/notifications/adapters.ts", {
+      "../sms": {
+        normalizePhone: (v) => v,
+        smsReadiness: async () => ({ ok: true, sender: "+15550001111", preview: "ok" }),
+        smsTransport: () => ({
+          send: async () => {
+            sent += 1;
+            return { status: "queued", providerId: null };
+          },
+        }),
+      },
+    });
+    const result = await adapters.dispatchSmsAttempt(
+      {},
+      {
+        workspaceId: "ws",
+        channels: ["sms"],
+        scheduledAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+      {
+        to: "+15551234567",
+        body: "Reminder",
+        reference: "reminder:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:0:60",
+      },
+    );
+    assert.equal(result.status, "scheduled");
+    assert.equal(sent, 0);
+  } finally {
+    if (previous === undefined) delete process.env.TELNYX_MESSAGING_ENABLED;
+    else process.env.TELNYX_MESSAGING_ENABLED = previous;
+  }
+});
+
+test("email adapter requeues failed delivery jobs instead of recording a false queued state", async () => {
+  const jobs = new Map([
+    ["reminder:b1:0:60", { id: "j1", status: "failed", attempts: 1, run_at: new Date() }],
+  ]);
+  const db = {
+    query: async (sql, args = []) => {
+      if (sql.includes("FROM private.delivery_jobs WHERE dedupe_key")) {
+        return { rows: jobs.has(args[0]) ? [jobs.get(args[0])] : [] };
+      }
+      if (sql.includes("UPDATE private.delivery_jobs") && sql.includes("status='queued'")) {
+        const row = jobs.get("reminder:b1:0:60");
+        row.status = "queued";
+        row.run_at = args[1];
+        return { rows: [row] };
+      }
+      return { rows: [] };
+    },
+  };
+  const adapters = load("src/lib/notifications/adapters.ts", {
+    "../sms": {
+      normalizePhone: () => null,
+      smsReadiness: async () => ({ ok: false }),
+      smsTransport: () => ({ send: async () => ({ status: "failed", providerId: null }) }),
+    },
+    "../lifecycle": {
+      queueDelivery: async () => {},
+    },
+  });
+  const result = await adapters.dispatchEmailAttempt(
+    db,
+    { workspaceId: "ws", channels: ["email"] },
+    {
+      kind: "booking_reminder",
+      key: "reminder:b1:0:60",
+      to: "guest@example.com",
+      subject: "Reminder",
+      text: "Soon",
+    },
+  );
+  assert.equal(result.status, "queued");
+  assert.equal(jobs.get("reminder:b1:0:60").status, "queued");
 });
 
 test("push adapter is stubbed as not_implemented without claiming delivery", async () => {
