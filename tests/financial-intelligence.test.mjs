@@ -44,7 +44,7 @@ test("financial period helpers resolve UTC ranges", () => {
 
 test("FI migration wires invoice snapshots and sync runs", () => {
   const sql = fs.readFileSync("postgres/migrations/089_financial_intelligence_sync.sql", "utf8");
-  const refundSql = fs.readFileSync("postgres/migrations/090_financial_invoice_refunded_at.sql", "utf8");
+  const refundSql = fs.readFileSync("postgres/migrations/091_financial_invoice_refunded_at.sql", "utf8");
   const docs = fs.readFileSync("docs/FINANCIAL_INTELLIGENCE.md", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
@@ -512,11 +512,11 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(overviewSrc, /refundQueryOk && invoiceQueryOk/);
   assert.match(overviewSrc, /ok: true as const/);
   assert.match(overviewSrc, /ok: false as const/);
-  const migration090 = fs.readFileSync(
-    "postgres/migrations/090_financial_invoice_refunded_at.sql",
+  const migration091 = fs.readFileSync(
+    "postgres/migrations/091_financial_invoice_refunded_at.sql",
     "utf8",
   );
-  assert.match(migration090, /financial_invoice_refund_events/);
-  assert.match(migration090, /completeCoverage/);
-  assert.match(migration090, /financial_sync_runs/);
+  assert.match(migration091, /financial_invoice_refund_events/);
+  assert.match(migration091, /completeCoverage/);
+  assert.match(migration091, /financial_sync_runs/);
 });
