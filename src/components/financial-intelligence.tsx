@@ -15,6 +15,11 @@ type ProviderRow = {
   remainingBudgetCents: number | null;
   lastSyncAt: string | null;
   lastError: string | null;
+  classification: {
+    actual: string;
+    running: string;
+    forecast: string;
+  };
   notes: string;
 };
 
@@ -42,7 +47,7 @@ type Data = {
       subscriptionRevenueCents: number | null;
       estimatedOperatingCostCents: number;
       estimatedContributionCents: number | null;
-      catalogVersion: string;
+      catalogVersion: string | null;
     }[];
     proposedPlans: { id: string; name: string; monthly: number | null; annual: number | null; recommended?: boolean; custom?: boolean }[];
   };
