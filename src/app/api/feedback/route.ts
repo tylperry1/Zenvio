@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import sharp from "sharp";
 import { getPool } from "@/lib/db";
-import { createPlatformAlertsForStaff } from "@/lib/platform-alerts";
+import { createPlatformAlert, staffRecipients } from "@/lib/platform-alerts";
 import { ApiError, body, failure, sameOrigin, session, string, uuid } from "@/lib/server";
 import { allowRequest } from "@/lib/booking-protection";
 import { readUpload } from "@/lib/uploads";
+import { deliverWebPushToUser } from "@/lib/web-push";
 export const dynamic = "force-dynamic";
 const categories = ["bug", "idea", "question", "praise", "other"];
 
@@ -58,15 +59,35 @@ export async function POST(request: NextRequest) {
       [user.id, category, message, string(input.page ?? "", "page", 300, 0)],
     );
     const id = rows[0].id as string;
-    await createPlatformAlertsForStaff(getPool(), ["feedback"], {
-      kind: "feedback_new",
-      title: `New ${category} suggestion`,
-      body: message.slice(0, 180),
-      href: `/admin/feedback`,
-      dedupeKey: `feedback:new:${id}`,
-      payload: { feedback: id, category },
-      push: true,
-    }).catch(() => ({ created: 0 }));
+    const title = `New ${category} suggestion`;
+    const bodyText = message.slice(0, 180);
+    const href = `/admin/feedback`;
+    // Persist bell alerts without awaiting device push; deliver after the response.
+    const recipients = await staffRecipients(getPool(), ["feedback"]).catch(() => [] as string[]);
+    const pushTargets: string[] = [];
+    for (const userId of recipients) {
+      const alert = await createPlatformAlert(getPool(), {
+        recipientUserId: userId,
+        kind: "feedback_new",
+        title,
+        body: bodyText,
+        href,
+        dedupeKey: `feedback:new:${id}:${userId}`,
+        payload: { feedback: id, category },
+        push: false,
+      }).catch(() => ({ created: false as const, id: null }));
+      if (alert.created) pushTargets.push(userId);
+    }
+    after(() => {
+      for (const userId of pushTargets) {
+        void deliverWebPushToUser(getPool(), userId, {
+          title,
+          body: bodyText,
+          url: href,
+          tag: "feedback_new",
+        }).catch(() => null);
+      }
+    });
     return Response.json({ id }, { status: 201 });
   } catch (e) {
     return failure(e);

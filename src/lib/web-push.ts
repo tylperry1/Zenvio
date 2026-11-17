@@ -1,8 +1,34 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import { getPool } from "./db";
 import { sealSecret, unsealSecret } from "./platform-settings";
+
+/** Browser push services only — blocks SSRF via crafted subscription endpoints. */
+const PUSH_SERVICE_DOMAINS = [
+  "fcm.googleapis.com",
+  "android.googleapis.com",
+  "updates.push.services.mozilla.com",
+  "push.services.mozilla.com",
+  "web.push.apple.com",
+  "push.apple.com",
+  "notify.windows.com",
+  "wns.windows.com",
+];
+
+export function assertPushServiceEndpoint(endpoint: string) {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new Error("Invalid push subscription.");
+  }
+  const host = url.hostname.toLowerCase();
+  const allowed =
+    url.protocol === "https:" &&
+    PUSH_SERVICE_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  if (!allowed) throw new Error("Invalid push subscription.");
+}
 
 type DB = Pick<PoolClient, "query">;
 
@@ -95,6 +121,7 @@ export async function savePushSubscription(
   const p256dh = String(subscription.keys?.p256dh || "").slice(0, 200);
   const auth = String(subscription.keys?.auth || "").slice(0, 200);
   if (!endpoint || !p256dh || !auth) throw new Error("Invalid push subscription.");
+  assertPushServiceEndpoint(endpoint);
   await getPool().query(
     `INSERT INTO private.push_subscriptions(user_id,endpoint,p256dh,auth,user_agent,last_seen_at)
      VALUES($1,$2,$3,$4,$5,now())
@@ -137,10 +164,16 @@ export async function deliverWebPushToUser(db: DB, userId: string, payload: WebP
   let failed = 0;
   for (const row of rows) {
     try {
+      try {
+        assertPushServiceEndpoint(row.endpoint);
+      } catch {
+        await db.query("DELETE FROM private.push_subscriptions WHERE id=$1", [row.id]);
+        continue;
+      }
       await webpush.sendNotification(
         { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
         body,
-        { TTL: 3600, urgency: "high" },
+        { TTL: 3600, urgency: "high", timeout: 10_000 },
       );
       await db.query(
         "UPDATE private.push_subscriptions SET last_seen_at=now(), last_error=NULL WHERE id=$1",

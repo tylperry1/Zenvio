@@ -37,6 +37,17 @@ async function resolveMergeTarget(db: Q, ticketId: string) {
 const AGENT_ONLINE_MINUTES = 3;
 type Q = { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
 
+/** Best-effort side writes must not abort the surrounding transaction. */
+async function bestEffort(db: Q, run: () => Promise<unknown>) {
+  await db.query("SAVEPOINT support_best_effort");
+  try {
+    await run();
+    await db.query("RELEASE SAVEPOINT support_best_effort");
+  } catch {
+    await db.query("ROLLBACK TO SAVEPOINT support_best_effort");
+  }
+}
+
 /** Whether any employee is marked available and active in the last few minutes. */
 export async function supportOnline(db: Q = getPool()) {
   const { rows } = await db.query(
@@ -184,10 +195,13 @@ export async function supportGet(request: NextRequest, staff: boolean) {
   const status =
     rawStatus === "pending"
       ? "waiting_customer"
-      : rawStatus === "active" || rawStatus === ""
-        ? rawStatus
-        : normalizeSupportStatus(rawStatus) || "";
-  if (rawStatus && rawStatus !== "active" && rawStatus !== "pending" && !status) throw new ApiError("Invalid status.");
+      : rawStatus === "needs_reply"
+        ? "needs_reply"
+        : rawStatus === "active" || rawStatus === ""
+          ? rawStatus
+          : normalizeSupportStatus(rawStatus) || "";
+  if (rawStatus && rawStatus !== "active" && rawStatus !== "pending" && rawStatus !== "needs_reply" && !status)
+    throw new ApiError("Invalid status.");
   const q = string(params.get("q") ?? "", "search", 100, 0);
   const page = Number(params.get("page") ?? 0);
   if (!Number.isSafeInteger(page) || page < 0 || page > 10000) throw new ApiError("Invalid page.");
@@ -203,7 +217,8 @@ export async function supportGet(request: NextRequest, staff: boolean) {
         AND m.staff<>$1 AND m.id>CASE WHEN $1 THEN t.staff_read ELSE t.customer_read END) unread
        FROM private.support_tickets t LEFT JOIN public."user" u ON u.id=t.user_id LEFT JOIN public."user" a ON a.id=t.assigned_to
        WHERE ($1::boolean OR t.user_id=$2) AND coalesce(t.merged_into::text,'')=''
-       AND ($3='' OR t.status=$3 OR ($3='active' AND t.status NOT IN ('resolved','closed')))
+       AND ($3='' OR t.status=$3 OR ($3='active' AND t.status NOT IN ('resolved','closed'))
+            OR ($3='needs_reply' AND t.status IN ('new','open','in_progress','escalated')))
        AND ($4='' OR strpos(lower(t.subject),lower($4))>0 OR ($1 AND (strpos(lower(coalesce(u.email,t.visitor_email)),lower($4))>0 OR strpos(lower(coalesce(u.name,t.visitor_name,'')),lower($4))>0)))
        AND ($6='' OR ($6='mine' AND t.assigned_to=$2) OR ($6='unassigned' AND t.assigned_to IS NULL) OR ($6='visitors' AND t.user_id IS NULL) OR ($6='escalated' AND t.status='escalated') OR ($6='sla' AND (t.sla_first_breached OR t.sla_resolve_breached)))
        AND ($7='' OR t.category=$7)
@@ -303,11 +318,13 @@ export async function supportPost(request: NextRequest, staff: boolean) {
         [current.token, string(input.subject, "subject", 150), isSupportCategory(input.category) ? input.category : "other",
          typeof input.page === "string" ? input.page.slice(0, 300) : ""],
       )).rows[0].id;
-      await db.query(
-        "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'created',$3::jsonb)",
-        [id, current.token, JSON.stringify({ subject: string(input.subject, "subject", 150) })],
-      ).catch(() => null);
-      await applySlaDeadlines(db, id, "normal").catch(() => null);
+      await bestEffort(db, () =>
+        db.query(
+          "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'created',$3::jsonb)",
+          [id, current.token, JSON.stringify({ subject: string(input.subject, "subject", 150) })],
+        ),
+      );
+      await bestEffort(db, () => applySlaDeadlines(db, id, "normal"));
     } else {
       id = uuid(input.ticket);
       const target = await resolveMergeTarget(db, id);
@@ -346,7 +363,8 @@ export async function supportPost(request: NextRequest, staff: boolean) {
                 : null;
         await db.query(
           `UPDATE private.support_tickets SET updated_at=now(),
-             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text WHEN $3 THEN 'open' ELSE 'open' END,
+             status=CASE WHEN $2 THEN status WHEN $4::text IS NOT NULL THEN $4::text WHEN $3 THEN 'open'
+                         WHEN status IN ('escalated','in_progress','waiting_internal') THEN status ELSE 'open' END,
              resolved_at=CASE WHEN $2 THEN resolved_at WHEN $4::text='resolved' THEN coalesce(resolved_at,now()) ELSE NULL END,
              first_response_at=CASE WHEN $3 AND NOT $2 THEN coalesce(first_response_at,now()) ELSE first_response_at END,
              last_staff_at=CASE WHEN $3 AND NOT $2 THEN now() ELSE last_staff_at END,
@@ -365,15 +383,21 @@ export async function supportPost(request: NextRequest, staff: boolean) {
           const alert = await queueStaffAlert(db, id, input.action === "create" ? "staff_new_ticket" : "staff_customer_reply");
           pendingPushes.push(...(alert?.pushes || []));
         }
-        await db.query(
-          "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,$3,$4::jsonb)",
-          [id, current.token, internal ? "internal_note" : staff ? "staff_message" : "customer_message", JSON.stringify({ reference })],
-        ).catch(() => null);
+        await bestEffort(db, () =>
+          db.query(
+            "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,$3,$4::jsonb)",
+            [id, current.token, internal ? "internal_note" : staff ? "staff_message" : "customer_message", JSON.stringify({ reference })],
+          ),
+        );
       }
     } else if (input.action === "update") {
       if (staff) requireCap(caps, "assign");
       const status = normalizeSupportStatus(input.status ?? ticket.status);
       if (!status) throw new ApiError("Invalid status.");
+      // Customers may only resolve or reopen — staff-only lifecycle states stay staff-controlled.
+      if (!staff && status !== ticket.status && status !== "resolved" && status !== "open") {
+        throw new ApiError("You can only resolve or reopen your own conversation.", 403);
+      }
       let assigned = ticket.assigned_to;
       if (staff && input.assigned !== undefined) {
         assigned = input.assigned === "self" ? current.token : input.assigned ? uuid(input.assigned) : null;
@@ -396,14 +420,21 @@ export async function supportPost(request: NextRequest, staff: boolean) {
            reopened_at=CASE WHEN $2 NOT IN ('resolved','closed') AND status IN ('resolved','closed') THEN now() ELSE reopened_at END
          WHERE id=$1`,
         [id, status, assigned, priority, resolutionNotes]);
-      await db.query(
-        "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'updated',$3::jsonb)",
-        [id, current.token, JSON.stringify({ status, assigned, priority })],
-      ).catch(() => null);
+      if (staff && priority !== ticket.priority) {
+        await applySlaDeadlines(db, id, priority, new Date(ticket.created_at));
+      }
+      await bestEffort(db, () =>
+        db.query(
+          "INSERT INTO private.support_ticket_events(ticket_id,actor_id,kind,details) VALUES($1,$2,'updated',$3::jsonb)",
+          [id, current.token, JSON.stringify({ status, assigned, priority })],
+        ),
+      );
     } else if (!staff && input.action === "rate") {
       const rating = Number(input.rating);
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError("Choose a rating from 1 to 5.");
-      if (ticket.status !== "resolved") throw new ApiError("You can rate a conversation once it’s resolved.", 409);
+      if (ticket.status !== "resolved" && ticket.status !== "closed") {
+        throw new ApiError("You can rate a conversation once it’s resolved.", 409);
+      }
       await db.query("UPDATE private.support_tickets SET rating=$2 WHERE id=$1", [id, rating]);
     } else throw new ApiError("Unknown action.");
     if (staff) await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'support_updated',$2)",

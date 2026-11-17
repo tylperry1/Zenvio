@@ -10,12 +10,6 @@ declare module "web-push" {
   export function sendNotification(
     subscription: PushSubscription,
     payload?: string | Buffer,
-    options?: { TTL?: number; urgency?: string; topic?: string },
+    options?: { TTL?: number; urgency?: string; topic?: string; timeout?: number },
   ): Promise<SendResult>;
-  const webpush: {
-    setVapidDetails: typeof setVapidDetails;
-    generateVAPIDKeys: typeof generateVAPIDKeys;
-    sendNotification: typeof sendNotification;
-  };
-  export default webpush;
 }

@@ -13,7 +13,7 @@ import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, SearchField, Segment
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 
-type Status = SupportStatus | "pending";
+type Status = SupportStatus | "pending" | "needs_reply";
 type Ticket = {
   id: string;
   subject: string;
@@ -973,7 +973,8 @@ function SupportConsole() {
             <div className="sp-filter-row">
               <select aria-label="Status" value={status} onChange={(e) => filter(setStatus)(e.target.value as typeof status)}>
                 <option value="active">Active</option>
-                <option value="open">Needs reply</option>
+                <option value="needs_reply">Needs reply</option>
+                <option value="open">Open</option>
                 <option value="waiting_customer">Waiting on customer</option>
                 <option value="resolved">Resolved</option>
                 <option value="closed">Closed</option>

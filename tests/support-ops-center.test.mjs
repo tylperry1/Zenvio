@@ -48,6 +48,26 @@ test("Greptile P1 guards: ticket-before-dashboard, merge safety, empty caps, pus
   assert.match(bell, /Permission alone is not registration/);
 });
 
+test("CodeRabbit majors: masking, customer status lock, push allowlist, SW ready", () => {
+  const ops = read("src/lib/support-ops.ts");
+  const lib = read("src/lib/support.ts");
+  const push = read("src/lib/web-push.ts");
+  const bell = read("src/components/admin-alert-bell.tsx");
+  const feedback = read("src/app/api/feedback/route.ts");
+  assert.match(ops, /visitor_token_sealed/);
+  assert.match(ops, /delete next\.visitor_token_sealed/);
+  assert.match(ops, /applySlaDeadlines\(db, id, priority, new Date\(updated\.rows\[0\]\.created_at\)\)/);
+  assert.match(lib, /You can only resolve or reopen your own conversation/);
+  assert.match(lib, /WHEN status IN \('escalated','in_progress','waiting_internal'\) THEN status/);
+  assert.match(lib, /SAVEPOINT support_best_effort/);
+  assert.match(push, /assertPushServiceEndpoint/);
+  assert.match(push, /import \* as webpush/);
+  assert.match(push, /timeout: 10_000/);
+  assert.match(bell, /serviceWorker\.ready/);
+  assert.match(feedback, /push: false/);
+  assert.match(feedback, /after\(/);
+});
+
 test("support ops denies impersonation secrets and gates capabilities", () => {
   const ops = read("src/lib/support-ops.ts");
   assert.match(ops, /requireCap\(caps, "escalate"\)/);

@@ -34,12 +34,17 @@ export function requireCap(caps: SupportCapability[], need: SupportCapability) {
 }
 
 function redactTicketContact<T extends Record<string, unknown>>(ticket: T, caps: SupportCapability[]): T {
-  if (caps.includes("customer_contact")) return ticket;
-  const next = { ...ticket };
-  for (const key of ["customer_name", "customer_email", "email", "name", "visitor_name", "visitor_email"]) {
-    if (key in next) (next as Record<string, unknown>)[key] = null;
+  const next = { ...ticket } as Record<string, unknown>;
+  // Never expose visitor reply-link secrets to the browser.
+  delete next.visitor_token_sealed;
+  delete next.visitor_token_hash;
+  if (!caps.includes("customer_contact")) {
+    for (const key of ["customer_name", "customer_email", "email", "name", "visitor_name", "visitor_email"]) {
+      if (key in next) next[key] = null;
+    }
   }
-  return next;
+  if (!caps.includes("customer_account") && "customer_since" in next) next.customer_since = null;
+  return next as T;
 }
 
 async function recordEvent(db: Q, ticketId: string, actorId: string, kind: string, details: Record<string, unknown> = {}) {
@@ -167,7 +172,12 @@ export async function supportOpsGet(request: NextRequest) {
     const id = uuid(ticketParam);
     const found = (
       await db.query(
-        `SELECT t.*, coalesce(u.name,t.visitor_name) customer_name, coalesce(u.email,t.visitor_email) customer_email,
+        `SELECT t.id, t.subject, t.status, t.category, t.subcategory, t.priority, t.tags, t.assigned_to, t.team_id,
+                t.user_id, t.page, t.rating, t.resolution_notes, t.escalation_level, t.escalation_reason,
+                t.created_at, t.updated_at, t.first_response_at, t.resolved_at, t.closed_at, t.reopened_at,
+                t.sla_first_due_at, t.sla_resolve_due_at, t.sla_first_breached, t.sla_resolve_breached,
+                t.merged_into, t.duplicate_of, (t.user_id IS NULL) visitor,
+                coalesce(u.name,t.visitor_name) customer_name, coalesce(u.email,t.visitor_email) customer_email,
                 u."createdAt" customer_since, a.name assignee_name, tm.name team_name
            FROM private.support_tickets t
            LEFT JOIN public."user" u ON u.id=t.user_id
@@ -347,12 +357,12 @@ export async function supportOpsPost(request: NextRequest) {
             SET status='escalated', priority=$2, escalation_level=least(escalation_level+1,5),
                 escalated_at=coalesce(escalated_at,now()), escalated_by=$3, escalation_reason=$4, updated_at=now()
           WHERE id=$1 AND merged_into IS NULL
-          RETURNING id, subject, escalation_level`,
+          RETURNING id, subject, escalation_level, created_at`,
         [id, priority, current.token, reason],
       );
       if (!updated.rowCount) throw new ApiError("Ticket not found.", 404);
       const level = Number(updated.rows[0].escalation_level || 1);
-      await applySlaDeadlines(db, id, priority);
+      await applySlaDeadlines(db, id, priority, new Date(updated.rows[0].created_at));
       await recordEvent(db, id, current.token, "escalated", { reason, priority, level });
       const recipients = await staffRecipients(db, ["support"]);
       const pushJobs: Array<{ userId: string; title: string; body: string; url: string }> = [];

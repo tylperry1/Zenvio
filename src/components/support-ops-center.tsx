@@ -131,10 +131,16 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
     setTickets((prev) => (append ? [...prev, ...(d.tickets || [])] : d.tickets || []));
   }, [view, status, q]);
 
-  const loadTicket = useCallback(async (id: string) => {
-    const r = await fetch(`/api/admin/support-ops?ticket=${id}`, { cache: "no-store" });
+  const loadTicket = useCallback(async (id: string, signal?: AbortSignal) => {
+    const r = await fetch(`/api/admin/support-ops?ticket=${encodeURIComponent(id)}`, {
+      cache: "no-store",
+      signal,
+    });
     const d = await r.json().catch(() => ({}));
+    if (signal?.aborted) return;
     if (!r.ok) throw new Error(d.error || "Ticket unavailable.");
+    // Ignore stale responses from an earlier selection.
+    if (d.ticket?.id && d.ticket.id !== id) return;
     setDetail(d);
   }, []);
 
@@ -157,8 +163,17 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
   }, [tab, loadQueue, q]);
 
   useEffect(() => {
-    if (!active) return setDetail(null);
-    void loadTicket(active).catch((e) => setError(e.message));
+    if (!active) {
+      setDetail(null);
+      return;
+    }
+    setDetail(null);
+    const controller = new AbortController();
+    void loadTicket(active, controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
+      setError(e instanceof Error ? e.message : String(e));
+    });
+    return () => controller.abort();
   }, [active, loadTicket]);
 
   useEffect(() => {
@@ -513,7 +528,7 @@ function TicketWorkspace({
                   {String(intel.email || "")}
                 </p>
               )}
-              {can("subscription_view") && intel.subscription && (
+              {can("subscription_view") && Boolean(intel.subscription) && (
                 <p>
                   Plan: <b>{String((intel.subscription as { plan?: string }).plan || "none")}</b>
                   {(intel.subscription as { status?: string }).status != null && (
@@ -524,7 +539,7 @@ function TicketWorkspace({
                   )}
                 </p>
               )}
-              {can("customer_account") && intel.account_admin_href && (
+              {can("customer_account") && Boolean(intel.account_admin_href) && (
                 <p>
                   <Link href={String(intel.account_admin_href)}>Open account admin</Link>
                 </p>

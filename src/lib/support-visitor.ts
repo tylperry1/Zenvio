@@ -178,7 +178,9 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
     } else if (input.action === "rate") {
       const rating = Number(input.rating);
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError("Choose a rating from 1 to 5.");
-      if (ticket.status !== "resolved") throw new ApiError("You can rate a conversation once it’s resolved.", 409);
+      if (ticket.status !== "resolved" && ticket.status !== "closed") {
+        throw new ApiError("You can rate a conversation once it’s resolved.", 409);
+      }
       await db.query("UPDATE private.support_tickets SET rating=$2 WHERE id=$1", [ticket.id, rating]);
     } else throw new ApiError("Unknown action.");
     await db.query("COMMIT");

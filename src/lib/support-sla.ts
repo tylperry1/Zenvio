@@ -262,20 +262,28 @@ export async function applySlaDeadlines(db: DB, ticketId: string, priority: stri
  */
 export async function refreshSlaBreaches(db: DB = getPool()) {
   await db.query(
-    `UPDATE private.support_tickets
-        SET sla_first_breached = CASE
-              WHEN sla_first_due_at IS NULL THEN NULL
-              WHEN first_response_at IS NOT NULL THEN first_response_at > sla_first_due_at
-              ELSE now() > sla_first_due_at
-            END,
-            sla_resolve_breached = CASE
-              WHEN sla_resolve_due_at IS NULL THEN NULL
-              WHEN resolved_at IS NOT NULL THEN resolved_at > sla_resolve_due_at
-              WHEN status IN ('resolved','closed') THEN NULL
-              ELSE now() > sla_resolve_due_at
-            END
-      WHERE merged_into IS NULL
-        AND status NOT IN ('closed')
-        AND (sla_first_due_at IS NOT NULL OR sla_resolve_due_at IS NOT NULL)`,
+    `UPDATE private.support_tickets t
+        SET sla_first_breached = v.first_breached,
+            sla_resolve_breached = v.resolve_breached
+       FROM (
+         SELECT id,
+                CASE
+                  WHEN sla_first_due_at IS NULL THEN NULL
+                  WHEN first_response_at IS NOT NULL THEN first_response_at > sla_first_due_at
+                  ELSE now() > sla_first_due_at
+                END AS first_breached,
+                CASE
+                  WHEN sla_resolve_due_at IS NULL THEN NULL
+                  WHEN resolved_at IS NOT NULL THEN resolved_at > sla_resolve_due_at
+                  WHEN status IN ('resolved','closed') THEN NULL
+                  ELSE now() > sla_resolve_due_at
+                END AS resolve_breached
+           FROM private.support_tickets
+          WHERE merged_into IS NULL
+            AND status NOT IN ('resolved','closed')
+            AND (sla_first_due_at IS NOT NULL OR sla_resolve_due_at IS NOT NULL)
+       ) v
+      WHERE t.id = v.id
+        AND (t.sla_first_breached, t.sla_resolve_breached) IS DISTINCT FROM (v.first_breached, v.resolve_breached)`,
   );
 }
