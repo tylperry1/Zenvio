@@ -169,27 +169,234 @@ html[data-theme="dark"] .marketing-v3 .mk-product-hunt .mk-product-hunt-dark{dis
 .mk-envelope-cta{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:8px;background:var(--mk-cobalt);color:#fff;font-weight:600;font-size:12px}
 
 /* Smart Cards */
-.mk-smart{background:#365cff;color:#fff;padding:72px 0}
-.mk-smart .mk-container{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:48px;align-items:center}
-.mk-smart .mk-eyebrow{color:#dce5ff}
-.mk-smart h2{margin:12px 0 14px;font-size:clamp(28px,3vw,40px);line-height:1.12;letter-spacing:-.04em}
-.mk-smart-copy>p{margin:0 0 24px;max-width:420px;font-size:15px;line-height:1.65;color:#e7ecff}
-.mk-smart-visual{position:relative;min-height:320px;display:grid;place-items:center}
-.mk-digital-card,.mk-nfc-card{background:#fff;color:var(--mk-ink);border-radius:16px;box-shadow:0 18px 40px #10236b33}
-.mk-digital-card{width:min(280px,100%);padding:0 0 16px;overflow:hidden;transform:rotate(-2deg)}
-.mk-digital-card-top{display:flex;gap:12px;align-items:center;padding:18px;background:linear-gradient(135deg,#2948d6,#365cff);color:#fff}
-.mk-digital-card-top strong{display:block;font-size:14px}
-.mk-digital-card-top small{font-size:11px;color:#dce5ff}
-.mk-digital-cta{display:block;width:calc(100% - 32px);margin:16px 16px 12px;min-height:40px;border:0;border-radius:9px;background:var(--mk-cobalt);color:#fff;font:600 13px var(--font-family);pointer-events:none}
-.mk-digital-links{display:flex;justify-content:space-between;gap:8px;padding:0 16px;font-size:11px;color:var(--mk-muted)}
+.mk-smart{
+  --mk-smart-blue:#5278FF;
+  --mk-smart-mid:#668BFF;
+  --mk-smart-soft:#8CA5FF;
+  --mk-smart-deep:#365CF5;
+  --mk-smart-navy:#111B3D;
+  /* Dark ink on the soft blue gradient clears WCAG AA (~4.5:1+) across all stops. */
+  --mk-smart-ink:#0B1228;
+  --mk-smart-copy:#0B1228;
+  --mk-smart-eyebrow:#0B1228;
+  --mk-smart-cta-bg:#FFFFFF;
+  --mk-smart-cta-ink:#111B3D;
+  --mk-smart-pill-bg:linear-gradient(180deg,#fffffff5,#f4f7ffef);
+  --mk-smart-pill-border:#ffffffcc;
+  --mk-smart-pill-ink:#0B1228;
+  --mk-smart-grad:linear-gradient(120deg,#5278FF 0%,#668BFF 55%,#7B96FF 100%);
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  padding:88px 0;
+  color:var(--mk-smart-ink);
+  background:var(--mk-smart-grad);
+}
+.mk-smart-atmosphere{position:absolute;inset:0;pointer-events:none;z-index:0}
+.mk-smart-wave{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid #ffffff28;
+  background:radial-gradient(circle at 30% 30%,#ffffff24,transparent 62%);
+}
+.mk-smart-wave-a{width:min(720px,90vw);height:min(720px,90vw);left:-18%;bottom:-42%}
+.mk-smart-wave-b{width:min(520px,70vw);height:min(520px,70vw);right:-12%;top:-28%;border-color:#ffffff18;background:radial-gradient(circle at 60% 40%,#dfe8ff33,transparent 68%)}
+.mk-smart-glow{
+  position:absolute;
+  width:min(560px,70vw);
+  height:min(420px,55vw);
+  right:4%;
+  top:18%;
+  border-radius:50%;
+  background:radial-gradient(ellipse at center,#ffffff55 0%,#b9c8ff33 42%,transparent 72%);
+  filter:blur(8px);
+}
+.mk-smart-arc{
+  position:absolute;
+  left:-6%;
+  bottom:-18%;
+  width:min(480px,70vw);
+  height:min(280px,40vw);
+  border-radius:50%;
+  border:2px solid #ffffff1f;
+  transform:rotate(-12deg);
+}
+.mk-smart-layout{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);
+  gap:56px;
+  align-items:center;
+}
+.mk-smart .mk-eyebrow{color:var(--mk-smart-eyebrow);letter-spacing:.14em}
+.mk-smart h2{
+  margin:14px 0 16px;
+  max-width:520px;
+  font-size:clamp(30px,3.4vw,44px);
+  line-height:1.1;
+  letter-spacing:-.045em;
+  color:var(--mk-smart-navy);
+  font-weight:750;
+}
+.mk-smart-copy>p{
+  margin:0 0 28px;
+  max-width:520px;
+  font-size:16px;
+  line-height:1.7;
+  color:var(--mk-smart-copy);
+  font-weight:500;
+}
+.mk-smart-cta{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  min-height:48px;
+  padding:0 20px;
+  border-radius:12px;
+  background:var(--mk-smart-cta-bg);
+  color:var(--mk-smart-cta-ink);
+  font:600 14px var(--font-family);
+  box-shadow:0 10px 28px #1a2f8a22;
+  transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.mk-smart-cta:hover{transform:translateY(-1px);box-shadow:0 14px 32px #1a2f8a33;background:#fff}
+.mk-smart-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.mk-smart-stage{display:grid;gap:22px;justify-items:center;min-width:0}
+.mk-smart-visual{
+  position:relative;
+  width:min(100%,460px);
+  min-height:360px;
+  display:grid;
+  place-items:center;
+}
+.mk-digital-card,.mk-nfc-card{
+  background:#fff;
+  color:var(--mk-ink);
+  border-radius:18px;
+  box-shadow:0 22px 50px #10236b40,0 2px 0 #ffffffaa inset;
+  transition:transform .25s ease,box-shadow .25s ease;
+}
+.mk-digital-card{
+  width:min(300px,86%);
+  overflow:hidden;
+  transform:rotate(-3.5deg) translate(-18px,8px);
+  animation:mk-smart-float 6.5s ease-in-out infinite;
+}
+.mk-digital-card-top{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:20px;
+  background:linear-gradient(135deg,#1f3fd0 0%,var(--mk-smart-deep) 55%,#5278FF 100%);
+  color:#fff;
+}
+.mk-digital-card-top strong{display:block;font-size:15px;letter-spacing:-.02em}
+.mk-digital-card-top small{font-size:12px;color:#dce5ff}
+.mk-digital-card-body{padding:16px 16px 18px}
+.mk-digital-cta{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-height:42px;
+  border-radius:10px;
+  background:var(--mk-smart-deep);
+  color:#fff;
+  font:600 13px var(--font-family);
+}
+.mk-digital-links{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:14px;
+  font-size:11px;
+  font-weight:600;
+  color:#4b5878;
+}
 .mk-digital-links span{display:inline-flex;align-items:center;gap:5px}
-.mk-nfc-card{position:absolute;right:0;bottom:8px;width:min(210px,48%);padding:18px;transform:rotate(3deg)}
-.mk-qr{display:grid;place-items:center;width:112px;height:112px;margin:0 auto 12px;border:1px solid #dbe3f5;border-radius:12px;background:repeating-linear-gradient(0deg,#111 0 2px,transparent 2px 5px),repeating-linear-gradient(90deg,#111 0 2px,transparent 2px 5px);background-size:10px 10px;background-color:#fff}
-.mk-qr .logo-compact{background:#fff;border-radius:6px;padding:4px}
-.mk-nfc-card strong{display:block;text-align:center;font-size:14px;margin-bottom:10px}
-.mk-nfc-tags{display:flex;justify-content:center;gap:8px;margin-bottom:10px}
-.mk-nfc-tags span{padding:4px 8px;border-radius:999px;background:#eef2ff;color:var(--mk-cobalt);font-size:11px;font-weight:600}
-.mk-nfc-card>small{display:block;text-align:center;font-size:10px;color:var(--mk-faint);line-height:1.4}
+.mk-nfc-card{
+  position:absolute;
+  right:0;
+  bottom:10px;
+  width:min(228px,56%);
+  padding:18px 16px 16px;
+  transform:rotate(4deg) translate(8px,0);
+  animation:mk-smart-float 7.2s ease-in-out infinite reverse;
+  z-index:2;
+}
+.mk-smart-visual:hover .mk-digital-card{transform:rotate(-2.5deg) translate(-14px,2px);box-shadow:0 28px 56px #10236b4d}
+.mk-smart-visual:hover .mk-nfc-card{transform:rotate(3deg) translate(4px,-4px);box-shadow:0 28px 56px #10236b4d}
+.mk-qr{
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:132px;
+  height:132px;
+  margin:0 auto 12px;
+  border:1px solid #dbe3f5;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden;
+}
+.mk-qr-svg{width:100%;height:100%}
+.mk-qr-svg svg{display:block;width:100%;height:100%}
+.mk-qr-mark{
+  position:absolute;
+  inset:50% auto auto 50%;
+  transform:translate(-50%,-50%);
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 0 0 3px #fff;
+}
+.mk-qr-mark .logo-compact{display:grid}
+.mk-nfc-card strong{display:block;text-align:center;font-size:15px;margin-bottom:10px;color:#151b38;letter-spacing:-.02em}
+.mk-nfc-tags{display:flex;justify-content:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.mk-nfc-tags span{
+  padding:5px 10px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:var(--mk-smart-deep);
+  font-size:11px;
+  font-weight:700;
+}
+.mk-nfc-card>small{display:block;text-align:center;font-size:10px;color:#7a869f;line-height:1.45}
+.mk-smart-pills{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  width:100%;
+  max-width:520px;
+}
+.mk-smart-pills li{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:36px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid var(--mk-smart-pill-border);
+  background:var(--mk-smart-pill-bg);
+  backdrop-filter:blur(10px);
+  color:var(--mk-smart-pill-ink);
+  font-size:12.5px;
+  font-weight:600;
+  box-shadow:0 8px 18px #1a2f8a14;
+}
+.mk-smart-pills svg{flex-shrink:0;opacity:.9;color:var(--mk-smart-pill-ink)}
+.mk-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@keyframes mk-smart-float{
+  0%,100%{translate:0 0}
+  50%{translate:0 -6px}
+}
 
 /* Pricing / FAQ */
 .mk-pricing{padding:72px 0 24px}
@@ -270,7 +477,7 @@ html[data-theme="dark"] .marketing-v3 .mk-product-hunt .mk-product-hunt-dark{dis
   .mk-showcase-shell{grid-template-columns:128px minmax(0,1fr)}
   .mk-showcase-grid{grid-template-columns:1fr}
   .mk-profile-card{width:min(220px,54%)}
-  .mk-workflow,.mk-signing,.mk-smart .mk-container{gap:32px}
+  .mk-workflow,.mk-signing,.mk-smart-layout{gap:32px}
 }
 
 @media(max-width:900px){
@@ -283,7 +490,10 @@ html[data-theme="dark"] .marketing-v3 .mk-product-hunt .mk-product-hunt-dark{dis
   .mk-hero-showcase{padding:0}
   .mk-value-strip ol{grid-template-columns:1fr;gap:16px}
   .mk-value-connector{display:none}
-  .mk-workflow,.mk-signing,.mk-smart .mk-container,.mk-faq{grid-template-columns:1fr}
+  .mk-workflow,.mk-signing,.mk-smart-layout,.mk-faq{grid-template-columns:1fr}
+  .mk-smart{padding:64px 0}
+  .mk-smart-copy{text-align:left}
+  .mk-smart-visual{min-height:320px}
   .mk-section-heading{flex-direction:column;align-items:flex-start;gap:12px}
   .mk-final{flex-direction:column;align-items:flex-start}
 }
@@ -312,15 +522,43 @@ html[data-theme="dark"] .marketing-v3 .mk-product-hunt .mk-product-hunt-dark{dis
   .mk-showcase-nav,.mk-booking-shell>aside{display:none}
   .mk-workflow,.mk-signing,.mk-pricing{padding-block:48px}
   .mk-smart{padding:48px 0}
-  .mk-smart-visual{min-height:0;display:grid;gap:14px}
-  .mk-digital-card,.mk-nfc-card{position:relative;right:auto;bottom:auto;width:100%;transform:none}
-  .mk-nfc-card{order:-1}
+  .mk-smart-layout{gap:28px}
+  /* Stack the mockups so the share card never covers profile text on phones. */
+  .mk-smart-visual{
+    min-height:0;
+    width:100%;
+    display:grid;
+    gap:14px;
+    place-items:stretch;
+  }
+  .mk-digital-card,.mk-nfc-card{
+    position:relative;
+    right:auto;
+    bottom:auto;
+    width:min(100%,320px);
+    margin-inline:auto;
+    transform:none;
+    animation:none;
+  }
+  .mk-nfc-card{order:1;padding:16px 14px 14px}
+  .mk-digital-card{order:0}
+  .mk-smart-visual:hover .mk-digital-card,
+  .mk-smart-visual:hover .mk-nfc-card{transform:none}
+  .mk-digital-card-top{padding:16px}
+  .mk-digital-card-body{padding:14px}
+  .mk-qr{width:118px;height:118px}
+  .mk-smart-pills{gap:8px}
+  .mk-smart-pills li{padding:0 12px;font-size:12px}
   .mk-faq{padding-bottom:48px}
   .mk-final{padding:28px 22px;width:100%}
   .mk-final-actions,.mk-final-actions .button{width:100%}
   .mk-final-actions .button{justify-content:center}
   .mk-footer{flex-wrap:wrap;align-items:flex-start;padding-block:28px;margin-top:28px}
   .mk-footer>div{width:100%}
+}
+@media(max-width:360px){
+  .mk-digital-card,.mk-nfc-card{width:100%}
+  .mk-smart-cta{width:100%;justify-content:center}
 }
 
 @media(max-width:480px){
@@ -329,7 +567,8 @@ html[data-theme="dark"] .marketing-v3 .mk-product-hunt .mk-product-hunt-dark{dis
 }
 
 @media(prefers-reduced-motion:reduce){
-  .mk-hero-copy,.mk-hero-product{animation:none!important}
+  .mk-hero-copy,.mk-hero-product,.mk-digital-card,.mk-nfc-card{animation:none!important}
+  .mk-smart-cta,.mk-digital-card,.mk-nfc-card{transition:none!important}
   .marketing-v3 *{scroll-behavior:auto!important;transition:none!important}
 }
 
@@ -371,17 +610,33 @@ html[data-theme="dark"] .mk-showcase-main,
 html[data-theme="dark"] .mk-booking-shell>div,
 html[data-theme="dark"] .mk-showcase-agenda,
 html[data-theme="dark"] .mk-showcase-client,
-html[data-theme="dark"] .mk-envelope-shell,
-html[data-theme="dark"] .mk-digital-card,
-html[data-theme="dark"] .mk-nfc-card{background:var(--mk-card)}
+html[data-theme="dark"] .mk-envelope-shell{background:var(--mk-card)}
 html[data-theme="dark"] .mk-envelope-shell>header,
 html[data-theme="dark"] .mk-envelope-shell>footer{background:var(--mk-panel-wash)}
 html[data-theme="dark"] .mk-value-icon,
 html[data-theme="dark"] .mk-sample-badge,
-html[data-theme="dark"] .mk-envelope-status,
-html[data-theme="dark"] .mk-nfc-tags span{background:var(--mk-badge-bg);border-color:var(--mk-line)}
-html[data-theme="dark"] .mk-digital-card{color:var(--mk-ink)}
-html[data-theme="dark"] .mk-qr{border-color:var(--mk-line);background-color:#fff}
+html[data-theme="dark"] .mk-envelope-status{background:var(--mk-badge-bg);border-color:var(--mk-line)}
+html[data-theme="dark"] .mk-smart{
+  /* Deeper stops so light copy stays ≥4.5:1 across the band. */
+  --mk-smart-grad:linear-gradient(120deg,#2F4FD6 0%,#365CF5 52%,#4568F0 100%);
+  --mk-smart-navy:#F7F9FF;
+  --mk-smart-ink:#FFFFFF;
+  --mk-smart-copy:#FFFFFF;
+  --mk-smart-eyebrow:#FFFFFF;
+  --mk-smart-cta-bg:#F7F9FF;
+  --mk-smart-cta-ink:#111B3D;
+  --mk-smart-pill-bg:linear-gradient(180deg,#fffffff2,#f4f7ffeb);
+  --mk-smart-pill-border:#ffffffb8;
+  --mk-smart-pill-ink:#0B1228;
+}
+html[data-theme="dark"] .marketing-v3 .mk-smart .mk-eyebrow{color:var(--mk-smart-eyebrow)}
+html[data-theme="dark"] .mk-digital-card,
+html[data-theme="dark"] .mk-nfc-card{background:#fff;color:#151b38;box-shadow:0 22px 50px #00000055}
+html[data-theme="dark"] .mk-digital-card{color:#151b38}
+html[data-theme="dark"] .mk-nfc-card strong{color:#151b38}
+html[data-theme="dark"] .mk-digital-links{color:#4b5878}
+html[data-theme="dark"] .mk-nfc-tags span{background:#eef2ff;color:var(--mk-smart-deep);border-color:transparent}
+html[data-theme="dark"] .mk-qr{border-color:#dbe3f5;background-color:#fff}
 /* Keep the compact mark dark on the intentional white QR chip (globals dark logo swap). */
 html[data-theme="dark"] .mk-qr .logo:not(.logo-light) img[src$="zenvio-symbol.svg"],
 html[data-theme="dark"] .mk-qr .logo:not(.logo-light) img[src$="zenvio-primary.svg"]{content:normal}

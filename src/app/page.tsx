@@ -3,11 +3,21 @@ import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
 import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
 import { PlatformSocialLinks } from "@/components/platform-social-links";
+import { appOrigin } from "@/lib/lifecycle";
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
 import { AccountNotice } from "@/components/account-notice";
+import QRCode from "qrcode";
 import "./marketing.css";
+
+const smartCardFeatures = [
+  ["qr", "QR Codes"],
+  ["nfc", "NFC Tap"],
+  ["contact", "Digital Profile"],
+  ["calendar", "Online Booking"],
+  ["share", "Easy Sharing"],
+] as const;
 
 function joinDestination(controls: Awaited<ReturnType<typeof launchControls>>) {
   if (publicRegistrationOpen(controls)) {
@@ -61,11 +71,18 @@ const faqs = [
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [promotionEnabled, controls, catalog, socialLinks] = await Promise.all([
+  const qrTarget = `${appOrigin()}/demo`;
+  const [promotionEnabled, controls, catalog, socialLinks, smartCardQr] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
     (await import("@/lib/billing-catalog")).currentCatalog(),
     platformSocialLinks(),
+    QRCode.toString(qrTarget, {
+      type: "svg",
+      margin: 1,
+      errorCorrectionLevel: "H",
+      color: { dark: "#151b38", light: "#ffffff" },
+    }),
   ]);
   const join = joinDestination(controls);
 
@@ -318,55 +335,85 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="mk-smart" id="solutions">
-          <div className="mk-container">
+        <section className="mk-smart" id="solutions" aria-labelledby="mk-smart-heading">
+          <div className="mk-smart-atmosphere" aria-hidden="true">
+            <span className="mk-smart-wave mk-smart-wave-a" />
+            <span className="mk-smart-wave mk-smart-wave-b" />
+            <span className="mk-smart-glow" />
+            <span className="mk-smart-arc" />
+          </div>
+          <div className="mk-container mk-smart-layout">
             <div className="mk-smart-copy">
               <p className="mk-eyebrow">SMART CARDS</p>
-              <h2>One profile. Every connection.</h2>
+              <h2 id="mk-smart-heading">One profile. Every connection.</h2>
               <p>
-                Publish a digital business profile with a QR code and manage programmable NFC products in your
-                workspace. Choose whether a tap opens your profile, booking page, review page, or another HTTPS site.
-                Physical products and encoding are managed separately.
+                Share your business with a single tap or scan. Create your digital business profile, connect customers
+                to your booking page, and manage QR codes and programmable NFC products—all from Zenvio.
               </p>
-              <Link href="/help" className="button on-dark">
-                Learn about Smart Cards <Icon name="arrow" size={17} />
+              <Link href="/help" className="mk-smart-cta">
+                Explore Smart Cards <Icon name="arrow" size={17} />
               </Link>
             </div>
-            <div className="mk-smart-visual" aria-label="Illustrative digital profile and NFC share options">
-              <div className="mk-digital-card">
-                <div className="mk-digital-card-top">
-                  <span className="mk-showcase-avatar light">JD</span>
-                  <div>
-                    <strong>Jamie Davis</strong>
-                    <small>Independent consultant</small>
+            <div className="mk-smart-stage">
+              <div className="mk-smart-visual" aria-label="Sample digital profile and share card">
+                <div className="mk-digital-card">
+                  <div className="mk-digital-card-top">
+                    <span className="mk-showcase-avatar light" aria-hidden="true">
+                      JD
+                    </span>
+                    <div>
+                      <strong>Jamie Davis</strong>
+                      <small>Independent consultant</small>
+                    </div>
+                  </div>
+                  <div className="mk-digital-card-body">
+                    <span className="mk-digital-cta" aria-hidden="true">
+                      Book a consultation
+                    </span>
+                    <div className="mk-digital-links" aria-hidden="true">
+                      <span>
+                        <Icon name="message" size={14} /> Message
+                      </span>
+                      <span>
+                        <Icon name="link" size={14} /> Website
+                      </span>
+                      <span>
+                        <Icon name="mail" size={14} />
+                        <span className="mk-sr-only">Email</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button type="button" tabIndex={-1} className="mk-digital-cta">
-                  Book a consultation
-                </button>
-                <div className="mk-digital-links">
-                  <span>
-                    <Icon name="message" size={14} /> Message
-                  </span>
-                  <span>
-                    <Icon name="link" size={14} /> Website
-                  </span>
-                  <span>
-                    <Icon name="mail" size={14} /> Email
-                  </span>
+                <div className="mk-nfc-card">
+                  <div className="mk-qr">
+                    <div
+                      className="mk-qr-svg"
+                      role="img"
+                      aria-label={`Sample QR code linking to the Zenvio demo at ${qrTarget}`}
+                      dangerouslySetInnerHTML={{ __html: smartCardQr }}
+                    />
+                    <span className="mk-qr-mark" aria-hidden="true">
+                      <Logo compact />
+                    </span>
+                  </div>
+                  <strong>Share your profile</strong>
+                  <div className="mk-nfc-tags" aria-hidden="true">
+                    <span>QR code</span>
+                    <span>NFC tap</span>
+                  </div>
+                  <small>
+                    Sample QR opens the public demo · NFC products are encoded separately with a compatible app
+                  </small>
                 </div>
               </div>
-              <div className="mk-nfc-card">
-                <div className="mk-qr" aria-hidden="true">
-                  <Logo compact />
-                </div>
-                <strong>Share your profile</strong>
-                <div className="mk-nfc-tags">
-                  <span>QR code</span>
-                  <span>NFC tap</span>
-                </div>
-                <small>Illustrative · write tap links with a compatible NFC app</small>
-              </div>
+              <ul className="mk-smart-pills">
+                {smartCardFeatures.map(([icon, label]) => (
+                  <li key={label}>
+                    <Icon name={icon} size={15} />
+                    <span>{label}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
