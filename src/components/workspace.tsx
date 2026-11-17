@@ -1555,6 +1555,14 @@ function EventEditor({
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
+        const allowed = (
+          ["at_business", "at_customer", "virtual", "custom"] as const
+        ).filter((mode) => f.get(`allow_${mode}`) === "on");
+        const location_mode = String(f.get("location_mode") || "custom") as
+          | "at_business"
+          | "at_customer"
+          | "virtual"
+          | "custom";
         onSave({
           id: event?.id,
           title: title.trim(),
@@ -1563,6 +1571,10 @@ function EventEditor({
           duration: Number(f.get("duration")),
           buffer: Number(f.get("buffer")),
           location: String(f.get("location")),
+          location_mode,
+          allowed_location_modes: allowed.length ? [...allowed] : [location_mode],
+          virtual_instructions: String(f.get("virtual_instructions") || ""),
+          custom_location_prompt: String(f.get("custom_location_prompt") || ""),
           color,
           active: event?.active ?? true,
         });
@@ -1641,7 +1653,7 @@ function EventEditor({
         </label>
       </div>
       <label>
-        Meeting location
+        Default meeting location label
         <input
           name="location"
           required
@@ -1650,9 +1662,56 @@ function EventEditor({
           placeholder="Phone call, address, or video meeting URL"
         />
         <small>
-          Video meeting links aren’t generated automatically. Add your own link
-          or arrange it with your guest.
+          Shown on your public page. Configure location options below for booking forms.
         </small>
+      </label>
+      <label>
+        Primary location mode
+        <select name="location_mode" defaultValue={event?.location_mode || "custom"}>
+          <option value="at_business">At business</option>
+          <option value="at_customer">At customer location</option>
+          <option value="virtual">Virtual</option>
+          <option value="custom">Custom location</option>
+        </select>
+      </label>
+      <fieldset>
+        <legend>Allowed booking location options</legend>
+        {(
+          [
+            ["at_business", "At business"],
+            ["at_customer", "At customer location"],
+            ["virtual", "Virtual"],
+            ["custom", "Custom location"],
+          ] as const
+        ).map(([value, label]) => (
+          <label key={value} className="checkbox-row">
+            <input
+              type="checkbox"
+              name={`allow_${value}`}
+              defaultChecked={(event?.allowed_location_modes || [event?.location_mode || "custom"]).includes(value)}
+            />
+            {label}
+          </label>
+        ))}
+      </fieldset>
+      <label>
+        Virtual meeting instructions
+        <textarea
+          name="virtual_instructions"
+          defaultValue={event?.virtual_instructions || ""}
+          maxLength={2000}
+          rows={2}
+          placeholder="Zoom link arrives by email, or join instructions…"
+        />
+      </label>
+      <label>
+        Custom location prompt
+        <input
+          name="custom_location_prompt"
+          defaultValue={event?.custom_location_prompt || ""}
+          maxLength={500}
+          placeholder="Where should we meet?"
+        />
       </label>
       <fieldset className="color-picker">
         <legend>A personal touch</legend>

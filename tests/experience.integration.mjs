@@ -235,6 +235,7 @@ try {
   assert.equal(intake.status, 200, intake.text);
   const missingConsent = await request("/api/book", {
     host: aliceSlug, event: event.slug, starts_at: new Date(Date.now() + 864e5).toISOString(), name: "Guest", email: "g@example.com",
+    phone: "+15551234567",
     answers: { svc: "Leak", terms: false },
   });
   assert.equal(missingConsent.status, 400);

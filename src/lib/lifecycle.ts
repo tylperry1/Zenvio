@@ -39,14 +39,33 @@ export async function queueDelivery(
   let text = input.text;
   if (input.booking && ["booking_confirmation", "booking_changed", "booking_reminder"].includes(input.kind)) {
     const b = (await db.query(
-      "SELECT b.*,e.title,coalesce(b.location,e.location) AS location,e.description FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.id=$1 AND b.user_id=$2",
+      `SELECT b.*,e.title,coalesce(b.location,e.location) AS location,e.description,
+              b.location_mode,b.service_address,b.access_instructions,b.guest_phone
+         FROM public.bookings b
+         JOIN public.event_types e ON e.id=b.event_id
+        WHERE b.id=$1 AND b.user_id=$2`,
       [input.booking, input.user],
     )).rows[0];
     if (b && (input.revision === undefined || b.revision === input.revision)) {
       const title = bookingCalendarTitle(b.title, b.guest_name);
       const description = bookingCalendarDescription(b.description, b.intake_snapshot);
+      // Calendar attachments stay location-only; phone is never exported to ICS.
       calendar = sealSecret(icsContent({...b, title, location: b.location || "", description}));
-      text += `\n\nAppointment: ${title}\nLocation: ${b.location || "Not specified"}${description ? "\n" + description : ""}`;
+      const service =
+        b.service_address && typeof b.service_address === "object"
+          ? String((b.service_address as { formatted?: string }).formatted || "")
+          : "";
+      const details = [
+        `Appointment: ${title}`,
+        `Location: ${b.location || "Not specified"}`,
+        service && service !== b.location ? `Service address: ${service}` : "",
+        b.access_instructions ? `Access: ${b.access_instructions}` : "",
+        b.guest_phone ? `Telephone: ${b.guest_phone}` : "",
+        description || "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      text += `\n\n${details}`;
     }
   }
   await db.query(

@@ -4,6 +4,7 @@ import { captureAttribution, readAttribution } from "@/lib/attribution-client";
 import { Captcha, useCaptchaSiteKey } from "./captcha";
 import { PublicPhoto } from "./profile-photo";
 import { FilePicker, useGuestUploads } from "./service-request";
+import { AddressAutocomplete } from "./address-autocomplete";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Logo } from "./icons";
@@ -11,6 +12,7 @@ import type { Booking, PublicEvent } from "@/lib/types";
 import { DEMO_KEY, readDemo } from "@/lib/demo";
 import { calendarDownload, initials, timezones } from "@/lib/client";
 import { dateKey, slotsForDay, inZone } from "@/lib/scheduling.mjs";
+import { emptyAddress, type LocationMode, type StructuredAddress } from "@/lib/addresses";
 type Confirmation = Pick<Booking, "id" | "starts_at" | "ends_at"> & {
   cancel_token: string;
   title: string;
@@ -47,9 +49,14 @@ export function BookingPage({
     [copied, setCopied] = useState(false),
     [captcha, setCaptcha] = useState(""),
     [attempts, setAttempts] = useState(0),
-    [files, setFiles] = useState<Record<string, { id: string; filename: string }[]>>({});
+    [files, setFiles] = useState<Record<string, { id: string; filename: string }[]>>({}),
+    [locationMode, setLocationMode] = useState<LocationMode>("custom"),
+    [serviceAddress, setServiceAddress] = useState<StructuredAddress>(emptyAddress());
   const captchaSiteKey = useCaptchaSiteKey();
   const uploads = useGuestUploads(host);
+  const allowedModes = (event?.allowed_location_modes?.length
+    ? event.allowed_location_modes
+    : [event?.location_mode || "custom"]) as LocationMode[];
   useEffect(() => {
     setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     const controller = new AbortController();
@@ -84,6 +91,12 @@ export function BookingPage({
           const d = await r.json();
           if (!r.ok) throw new Error(d.error);
           setEvent({ ...d.event, payment: d.payment, instructions: d.instructions });
+          const modes = (d.event.allowed_location_modes?.length
+            ? d.event.allowed_location_modes
+            : [d.event.location_mode || "custom"]) as LocationMode[];
+          setLocationMode(
+            (modes.includes(d.event.location_mode) ? d.event.location_mode : modes[0]) as LocationMode,
+          );
         }
       } catch (e) {
         if (!controller.signal.aborted)
@@ -222,6 +235,15 @@ export function BookingPage({
             company: f.get("company"),
             purpose: f.get("purpose"),
             website: f.get("website"),
+            locationMode,
+            serviceAddress:
+              locationMode === "at_customer" || locationMode === "custom"
+                ? serviceAddress
+                : undefined,
+            accessInstructions:
+              locationMode === "at_customer" || locationMode === "custom"
+                ? serviceAddress.accessInstructions || ""
+                : "",
             captcha,
             attribution: readAttribution(host),
             uploadKey: uploads.key,
@@ -535,15 +557,19 @@ export function BookingPage({
                 </label>
                 <div className="booking-extra-fields">
                   <label>
-                    Phone number <span className="optional">optional</span>
+                    Telephone number
                     <input
                       name="phone"
                       type="tel"
                       autoComplete="tel"
+                      required
                       maxLength={40}
                       defaultValue={guestDraft.phone || ""}
-                      placeholder="(555) 123-4567"
+                      placeholder="+1 (555) 123-4567"
                     />
+                    <small className="booking-field-help">
+                      Include country code (for example +1 for the US). Required for every booking.
+                    </small>
                   </label>
                   <label>
                     Company or organization{" "}
@@ -557,6 +583,52 @@ export function BookingPage({
                     />
                   </label>
                 </div>
+                {allowedModes.length > 1 && (
+                  <fieldset className="booking-location-modes">
+                    <legend>Meeting location</legend>
+                    {allowedModes.map((mode) => (
+                      <label key={mode} className="checkbox-row">
+                        <input
+                          type="radio"
+                          name="locationMode"
+                          checked={locationMode === mode}
+                          onChange={() => setLocationMode(mode)}
+                        />
+                        {mode === "at_business"
+                          ? "At business"
+                          : mode === "at_customer"
+                            ? "At my location"
+                            : mode === "virtual"
+                              ? "Virtual"
+                              : "Custom location"}
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
+                {locationMode === "at_business" && (
+                  <p className="premium-note">
+                    {event?.business_address?.formatted || event?.location || "At the business location"}
+                  </p>
+                )}
+                {locationMode === "virtual" && (
+                  <p className="premium-note">
+                    {event?.virtual_instructions || event?.location || "Virtual meeting details will be confirmed by the host."}
+                  </p>
+                )}
+                {(locationMode === "at_customer" || locationMode === "custom") && (
+                  <>
+                    {locationMode === "custom" && event?.custom_location_prompt && (
+                      <p className="premium-note">{event.custom_location_prompt}</p>
+                    )}
+                    <AddressAutocomplete
+                      host={host}
+                      value={serviceAddress}
+                      onChange={setServiceAddress}
+                      required={locationMode === "at_customer"}
+                      label={locationMode === "at_customer" ? "Service address" : "Meeting address"}
+                    />
+                  </>
+                )}
                 <label>
                   What would you like to discuss?{" "}
                   <span className="optional">optional</span>
