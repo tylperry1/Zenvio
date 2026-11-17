@@ -632,25 +632,30 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           />
           {view === "Overview" && (
             <div className="workspace-overview">
-              <div className="overview-brief">
-                <div>
-                  <span className="brief-label">YOUR SCHEDULE</span>
-                  <h2>Ready for what’s next.</h2>
-                  <p>{upcoming.length ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.` : "Set your availability and share a booking link to get started."}</p>
-                  <button type="button" className="button small" onClick={() => navigate("Bookings")}>Open schedule <Icon name="arrow" size={16} /></button>
-                </div>
-                <div className="brief-date">
-                  <Icon name="calendar" size={24} />
-                  <strong>{now.toLocaleDateString("en-US", { day: "numeric", timeZone: displayZone })}</strong>
-                  <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: displayZone })}</span>
-                </div>
-              </div>
+              <Panel
+                title="Ready for what’s next"
+                description={
+                  upcoming.length
+                    ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.`
+                    : "Set your availability and share a booking link to get started."
+                }
+                actions={
+                  <>
+                    <span className="ds-eyebrow" style={{ margin: 0 }}>
+                      Your schedule · {now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: displayZone })}
+                    </span>
+                    <button type="button" className="ds-btn primary sm" onClick={() => navigate("Bookings")}>
+                      Open schedule <Icon name="arrow" size={16} />
+                    </button>
+                  </>
+                }
+              />
               <SetupChecklist
                 data={data}
                 demo={demo}
                 base={demo ? "/demo" : "/app"}
                 onChooseLink={linkPrompt.show}
-                onCopyLink={sharePageControl("Share link", "button secondary small")}
+                onCopyLink={sharePageControl("Share link", "ds-btn sm")}
               />
               <div className="ds-kpis">
                 <Kpi
@@ -716,33 +721,32 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   </button>
                 </div>
               </Panel>
-              <div className="workspace-tip">
-                <span>✳</span>
-                <div>
-                  <b>
-                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? "Choose a short booking address."
-                      : "Make your booking page easy to find."}
-                  </b>
-                  <p>
-                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? "Replace the temporary host link with something clients can remember, then share it in your email signature."
-                      : "Share your booking link in your email signature. Your next client can book a time without the back-and-forth."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="ds-btn sm"
-                  onClick={() =>
-                    data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? linkPrompt.show()
-                      : navigate("Event types")
-                  }
-                >
-                  {data?.profile.slug && hasGeneratedLink(data.profile.slug) ? "Choose link" : "Get your link"}{" "}
-                  <Icon name="arrow" size={15} />
-                </button>
-              </div>
+              <Panel
+                title={
+                  data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                    ? "Choose a short booking address"
+                    : "Make your booking page easy to find"
+                }
+                description={
+                  data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                    ? "Replace the temporary host link with something clients can remember, then share it in your email signature."
+                    : "Share your booking link in your email signature. Your next client can book a time without the back-and-forth."
+                }
+                actions={
+                  <button
+                    type="button"
+                    className="ds-btn sm"
+                    onClick={() =>
+                      data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                        ? linkPrompt.show()
+                        : navigate("Event types")
+                    }
+                  >
+                    {data?.profile.slug && hasGeneratedLink(data.profile.slug) ? "Choose link" : "Get your link"}{" "}
+                    <Icon name="arrow" size={15} />
+                  </button>
+                }
+              />
             </div>
           )}
           {view === "Event types" && (

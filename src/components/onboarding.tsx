@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
+import { Badge, MeterBar, Panel } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { industries } from "@/lib/contractor";
@@ -224,19 +225,13 @@ export function SetupChecklist({
   const complete = steps.filter((s) => s.done).length;
   if (dismissed || complete === steps.length) return null;
   return (
-    <section className="setup-checklist" aria-label="Getting started">
-      <header>
-        <div>
-          <h2>Get set up</h2>
-          <p>
-            {complete} of {steps.length} done
-          </p>
-        </div>
-        <div className="setup-progress" aria-hidden="true">
-          <span style={{ width: `${(complete / steps.length) * 100}%` }} />
-        </div>
+    <Panel
+      title="Get set up"
+      description={`${complete} of ${steps.length} done`}
+      actions={
         <button
-          className="setup-dismiss"
+          type="button"
+          className="ds-btn ghost sm"
           aria-label="Hide setup checklist"
           onClick={() => {
             store(DISMISSED_KEY);
@@ -245,8 +240,10 @@ export function SetupChecklist({
         >
           <Icon name="close" size={16} />
         </button>
-      </header>
-      <ol>
+      }
+    >
+      <MeterBar label="Setup progress" value={complete} max={steps.length} detail={`${complete}/${steps.length}`} />
+      <ol className="setup-checklist-list">
         {steps.map((step) => (
           <li key={step.id} className={step.done ? "done" : ""}>
             <span className="setup-check" aria-hidden="true">
@@ -257,21 +254,21 @@ export function SetupChecklist({
               <small>{step.detail}</small>
             </div>
             {step.done ? (
-              <span className="setup-done-label">Done</span>
+              <Badge tone="success">Done</Badge>
             ) : step.action.node ? (
               step.action.node
             ) : step.action.href ? (
-              <Link className="button secondary small" href={step.action.href}>
+              <Link className="ds-btn ghost sm" href={step.action.href}>
                 {step.action.label}
               </Link>
             ) : (
-              <button className="button secondary small" onClick={step.action.onClick}>
+              <button type="button" className="ds-btn ghost sm" onClick={step.action.onClick}>
                 {step.action.label}
               </button>
             )}
           </li>
         ))}
       </ol>
-    </section>
+    </Panel>
   );
 }

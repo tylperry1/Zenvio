@@ -7,7 +7,7 @@ import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminUserActions } from "./admin-user-actions";
 import { useAdminAccess, useCan } from "./admin-access";
-import { Kpi, Notice, PageHeader, Panel } from "./ds";
+import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Timeline } from "./ds";
 import { money } from "@/lib/billing-types";
 type Account = {
   id: string;
@@ -749,22 +749,18 @@ export function AdminCenter({
                             }
                           >
                             <div className="av-chart-controls">
-                              <div className="av-metric-tabs">
-                                {(["bookings", "accounts"] as const).map(
-                                  (m) => (
-                                    <button
-                                      key={m}
-                                      aria-pressed={metric === m}
-                                      onClick={() => setMetric(m)}
-                                    >
-                                      {m === "bookings"
-                                        ? "Bookings created"
-                                        : "Accounts created"}
-                                    </button>
-                                  ),
-                                )}
-                              </div>
-                              <span>
+                              <Segmented
+                                label="Activity metric"
+                                value={metric}
+                                onChange={setMetric}
+                                options={
+                                  [
+                                    ["bookings", "Bookings created"],
+                                    ["accounts", "Accounts created"],
+                                  ] as const
+                                }
+                              />
+                              <span className="ds-muted" style={{ margin: 0 }}>
                                 <b>{number(chartTotal)}</b> in this period
                               </span>
                             </div>
@@ -802,10 +798,9 @@ export function AdminCenter({
                               ))}
                             </div>
                             {chartTotal === 0 && (
-                              <p className="av-chart-empty">
-                                No new {metric} in this period. Activity will
-                                appear as people use Zenvio.
-                              </p>
+                              <EmptyState icon="calendar" title={`No new ${metric} in this period`}>
+                                Activity will appear as people use Zenvio.
+                              </EmptyState>
                             )}
                             <details className="av-chart-data">
                               <summary>View daily figures</summary>
@@ -857,24 +852,20 @@ export function AdminCenter({
                               <div className="av-service" key={String(title)}>
                                 <span
                                   className={`av-service-dot ${ready ? "ready" : "pending"}`}
+                                  aria-hidden="true"
                                 />
                                 <div>
                                   <b>{title}</b>
                                   <p>{copy}</p>
                                 </div>
-                                <small className={ready ? "ready" : "pending"}>
-                                  {ready ? "Ready" : "Setup needed"}
-                                </small>
+                                <Badge tone={ready ? "success" : "warning"}>{ready ? "Ready" : "Setup needed"}</Badge>
                               </div>
                             ))}
-                            <div className="av-status-footnote">
-                              <Icon name="shield" size={16} />
-                              <p>
-                                {insights.services.account_email
-                                  ? "Sender configuration does not confirm email delivery. Test recovery before relying on it."
-                                  : "Accounts work today. Password recovery and verification emails need a connected sender."}
-                              </p>
-                            </div>
+                            <Notice tone="info">
+                              {insights.services.account_email
+                                ? "Sender configuration does not confirm email delivery. Test recovery before relying on it."
+                                : "Accounts work today. Password recovery and verification emails need a connected sender."}
+                            </Notice>
                           </Panel>
                         </div>
                         <div className="av-overview-grid av-lower-grid">
@@ -915,13 +906,9 @@ export function AdminCenter({
                                 ))}
                               </div>
                             ) : (
-                              <div className="av-empty">
-                                <Icon name="users" size={26} />
-                                <h3>Your first accounts will appear here.</h3>
-                                <p>
-                                  New registrations are added automatically.
-                                </p>
-                              </div>
+                              <EmptyState icon="users" title="Your first accounts will appear here">
+                                New registrations are added automatically.
+                              </EmptyState>
                             )}
                           </Panel>
                           <Panel
@@ -936,62 +923,32 @@ export function AdminCenter({
                             }
                           >
                             {audit?.entries.length ? (
-                              <ol className="av-timeline">
-                                {audit.entries.slice(0, 4).map((a) => (
-                                  <li key={a.id}>
-                                    <span className="av-timeline-icon">
-                                      <Icon
-                                        name={
-                                          a.action === "event_paused"
-                                            ? "clock"
-                                            : "shield"
-                                        }
-                                        size={14}
-                                      />
-                                    </span>
-                                    <div>
-                                      <b>{a.action.replaceAll("_", " ")}</b>
-                                      <p>
-                                        {a.details.title ||
-                                          a.account_name ||
-                                          "Platform setup"}
-                                      </p>
-                                      <time dateTime={a.created_at}>
-                                        {date(a.created_at)}
-                                      </time>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ol>
+                              <Timeline
+                                items={audit.entries.slice(0, 4).map((a) => ({
+                                  id: a.id,
+                                  title: a.action.replaceAll("_", " "),
+                                  detail: a.details.title || a.account_name || "Platform setup",
+                                  meta: date(a.created_at),
+                                  icon: a.action === "event_paused" ? "clock" : "shield",
+                                  tone: a.action === "event_paused" ? "warning" : "info",
+                                }))}
+                              />
                             ) : (
-                              <div className="av-empty">
-                                <Icon name="shield" size={26} />
-                                <h3>A clear slate.</h3>
-                                <p>Administrative actions will appear here.</p>
-                              </div>
+                              <EmptyState icon="shield" title="A clear slate">
+                                Administrative actions will appear here.
+                              </EmptyState>
                             )}
                           </Panel>
                         </div>
-                        <section className="av-summary-strip">
-                          <div>
-                            <span className="av-summary-icon">
-                              <Icon name="shield" size={20} />
-                            </span>
-                            <div>
-                              <b>Every workspace has its own boundaries.</b>
-                              <p>
-                                Review accounts, pause booking links, and keep
-                                the reason on record.
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            className="button secondary small"
-                            onClick={() => navigate("accounts")}
-                          >
-                            Manage accounts <Icon name="arrow" size={15} />
-                          </button>
-                        </section>
+                        <Panel
+                          title="Every workspace has its own boundaries"
+                          description="Review accounts, pause booking links, and keep the reason on record."
+                          actions={
+                            <button className="ds-btn" onClick={() => navigate("accounts")}>
+                              Manage accounts <Icon name="arrow" size={15} />
+                            </button>
+                          }
+                        />
                       </>
                     ) : (
                       <>
