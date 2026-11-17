@@ -167,7 +167,8 @@ try{
  const packs=await call('/api/billing/addons',null,a.cookie);
  assert.equal(packs.status,200);
  assert.equal(packs.data.enabled,false);
- assert.deepEqual(packs.data.offers.map(offer=>offer.id),['ai_100','ai_500','envelopes_10','envelope_1','video_1000']);
+ // Durable catalog lists one-time packs by amount (envelope_1=$1 first), excluding SMS/seats/storage.
+ assert.deepEqual(packs.data.offers.map(offer=>offer.id),['envelope_1','ai_100','ai_500','envelopes_10','video_1000']);
  assert.ok(packs.data.offers.every(offer=>offer.available===false));
  assert.equal((await call('/api/billing/addons',null)).status,401);
  const billing=await call('/api/billing',null,a.cookie);assert.equal(billing.status,200);assert.equal(billing.data.meteredUsage.meters.find(m=>m.meter==='aiCredits').remaining,0);assert.equal(billing.data.usage.envelope.included,30);
