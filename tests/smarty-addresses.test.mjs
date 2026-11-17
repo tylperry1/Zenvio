@@ -254,3 +254,16 @@ test("CodeRabbit Major guards: enhanced_match none and usage connection release"
   assert.ok(!fs.existsSync("postgres/migrations/095_smarty_addresses.sql"));
   assert.ok(fs.existsSync("postgres/migrations/097_smarty_addresses.sql"));
 });
+
+test("workspace backend allows Smarty event_types columns", () => {
+  const backend = fs.readFileSync("src/lib/postgres-backend.ts", "utf8");
+  assert.match(backend, /"location_mode"/);
+  assert.match(backend, /"allowed_location_modes"/);
+  assert.match(backend, /"virtual_instructions"/);
+  assert.match(backend, /"custom_location_prompt"/);
+  const resolver = fs.readFileSync("src/lib/booking-address.ts", "utf8");
+  assert.match(
+    resolver,
+    /guestAccessInstructions \|\|[\s\S]*serviceAddress\.accessInstructions/,
+  );
+});

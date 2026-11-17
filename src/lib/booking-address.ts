@@ -91,17 +91,19 @@ export function resolveBookingLocation(input: {
       serviceAddress.formatted ||
       input.event.location ||
       locationLabel(requested);
+    const accessInstructions =
+      guestAccessInstructions ||
+      String(serviceAddress.accessInstructions || "")
+        .replace(/[\x00-\x1f\x7f]/g, " ")
+        .trim()
+        .slice(0, 1000);
     return {
       locationMode: requested,
       locationText: locationText.slice(0, 500),
       serviceAddress: addressHasStreet(serviceAddress)
-        ? {
-            ...serviceAddress,
-            accessInstructions:
-              guestAccessInstructions || serviceAddress.accessInstructions,
-          }
+        ? { ...serviceAddress, accessInstructions }
         : null,
-      accessInstructions: guestAccessInstructions,
+      accessInstructions,
     };
   }
   return {
