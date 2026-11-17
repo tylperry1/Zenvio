@@ -20,8 +20,69 @@ import {
   persistBookingAddress,
   resolveBookingLocation,
 } from "@/lib/booking-address";
+import { isLocationMode, type LocationMode } from "@/lib/addresses";
 import { normalizeBookingPhone } from "@/lib/phone";
 export const dynamic = "force-dynamic";
+
+/** Modes every staff personal event allows — GET and POST must share this policy. */
+function teamLocationPolicy(
+  staffRows: Array<{
+    location_mode?: string | null;
+    allowed_location_modes?: string[] | null;
+    event_location?: string | null;
+    virtual_instructions?: string | null;
+  }>,
+): {
+  location_mode: LocationMode;
+  allowed_location_modes: LocationMode[];
+  location: string;
+  virtual_instructions: string;
+} {
+  if (!staffRows.length) {
+    return {
+      location_mode: "custom",
+      allowed_location_modes: ["custom"],
+      location: "",
+      virtual_instructions: "",
+    };
+  }
+  const modeSets = staffRows.map((s) => {
+    const raw = (
+      Array.isArray(s.allowed_location_modes) && s.allowed_location_modes.length
+        ? s.allowed_location_modes
+        : [s.location_mode || "custom"]
+    ).filter(isLocationMode) as LocationMode[];
+    return new Set(raw.length ? raw : (["custom"] as LocationMode[]));
+  });
+  let intersection = [...modeSets[0]];
+  for (const set of modeSets.slice(1)) {
+    intersection = intersection.filter((m) => set.has(m));
+  }
+  if (!intersection.length) intersection = ["custom"];
+  const defaults = staffRows.map((s) =>
+    isLocationMode(s.location_mode) ? s.location_mode : null,
+  );
+  const sharedDefault =
+    defaults[0] && defaults.every((d) => d === defaults[0]) ? defaults[0] : null;
+  const location_mode =
+    sharedDefault && intersection.includes(sharedDefault)
+      ? sharedDefault
+      : intersection[0];
+  const sharedVirtual = staffRows.every(
+    (s) =>
+      String(s.virtual_instructions || "") ===
+      String(staffRows[0].virtual_instructions || ""),
+  );
+  return {
+    location_mode,
+    allowed_location_modes: intersection,
+    location: String(staffRows[0].event_location || ""),
+    virtual_instructions: sharedVirtual
+      ? String(staffRows[0].virtual_instructions || "")
+      : "",
+  };
+}
+
 async function staff(organization: string, event: string) {
   const e = (
     await getPool().query(
@@ -78,7 +139,7 @@ export async function GET(r: NextRequest) {
         /* An unavailable staff calendar is never offered. */
       }
     }
-    const sample = d.staff[0];
+    const policy = teamLocationPolicy(d.staff);
     const ownerSlug = (
       await getPool().query("SELECT slug FROM public.profiles WHERE id=$1", [
         d.event.owner_id,
@@ -90,14 +151,12 @@ export async function GET(r: NextRequest) {
           title: d.event.title,
           organization: d.event.organization_name,
           duration: d.event.duration,
-          location_mode: sample?.location_mode || "custom",
-          allowed_location_modes: sample?.allowed_location_modes || [
-            sample?.location_mode || "custom",
-          ],
-          virtual_instructions: sample?.virtual_instructions || "",
-          location: sample?.event_location || "",
+          location_mode: policy.location_mode,
+          allowed_location_modes: policy.allowed_location_modes,
+          virtual_instructions: policy.virtual_instructions,
+          location: policy.location,
         },
-        host: ownerSlug || sample?.host_slug || "",
+        host: ownerSlug || d.staff[0]?.host_slug || "",
         slots: [...slots].sort(),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -118,6 +177,10 @@ export async function POST(req: NextRequest) {
     const guestPhone = normalizeBookingPhone(String(v.phone ?? ""), true);
     const guestEmail = email(v.email);
     const guestName = string(v.name, "name", 100, 2);
+    const policy = teamLocationPolicy(d.staff);
+    const requestedMode = isLocationMode(v.locationMode)
+      ? v.locationMode
+      : policy.location_mode;
     const candidates = [];
     for (const s of d.staff) {
       try {
@@ -169,14 +232,15 @@ export async function POST(req: NextRequest) {
           try {
             const location = resolveBookingLocation({
               event: {
-                location: s.event_location || "",
-                location_mode: s.location_mode,
-                allowed_location_modes: s.allowed_location_modes,
-                virtual_instructions: s.virtual_instructions || "",
+                location: s.event_location || policy.location || "",
+                location_mode: policy.location_mode,
+                allowed_location_modes: policy.allowed_location_modes,
+                virtual_instructions:
+                  s.virtual_instructions || policy.virtual_instructions || "",
               },
               businessAddress: await businessAddressForWorkspace(db, s.user_id),
               guest: {
-                locationMode: v.locationMode,
+                locationMode: requestedMode,
                 serviceAddress: v.serviceAddress,
                 accessInstructions: v.accessInstructions,
               },
@@ -196,6 +260,8 @@ export async function POST(req: NextRequest) {
             await db.query("ROLLBACK TO SAVEPOINT enrichment");
             // Missing/invalid guest address must fail confirmation (rolls back reservation via candidate).
             if (enrichmentError instanceof ApiError) throw enrichmentError;
+            // Required at_customer snapshot cannot be dropped; roll back reservation.
+            if (requestedMode === "at_customer") throw enrichmentError;
             // Unexpected enrichment failure: keep reservation, restore phone + location text.
             await db.query(
               "UPDATE public.bookings SET guest_phone=$2, location=CASE WHEN $3<>'' THEN $3 ELSE location END WHERE id=$1 AND user_id=$4",

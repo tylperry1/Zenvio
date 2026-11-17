@@ -211,7 +211,14 @@ export async function POST(request: NextRequest) {
           try {
             db = await getPool().connect();
           } catch {
-            // Reservation already committed; pool outage must not report booking failure.
+            if (location.locationMode === "at_customer") {
+              // Required service address exists only in-memory; surface the same as persist failure.
+              throw new ApiError(
+                "Appointment was reserved, but the service address could not be saved. Open the appointment to add the address.",
+                502,
+              );
+            }
+            // Non-required modes: reservation stands without enrichment.
             return Response.json(
               {
                 ok: true,

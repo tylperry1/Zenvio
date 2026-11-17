@@ -20,7 +20,7 @@ try{
  const eventId=(await db.query("INSERT INTO public.event_types(user_id,title,slug,duration,buffer,location,color,active) VALUES($1,'Manual test','manual-test',30,0,'Test','#365CFF',true) RETURNING id",[memberWorkspace.profile.id])).rows[0].id;
  let slot;
  for(let i=1;i<8;i++){const day=new Date(Date.now()+i*86400000).toISOString().slice(0,10);const slots=await request('/api/book?'+new URLSearchParams({host:memberWorkspace.profile.slug,event:'manual-test',date:day}));if(slots.data.slots?.length){slot=slots.data.slots[0];break;}}
- assert(slot);const manual={action:'create-appointment',event_id:eventId,starts_at:slot,name:'Manual Client',email:'manual-client@example.com',phone:'123',purpose:'Manual appointment test'};
+ assert(slot);const manual={action:'create-appointment',event_id:eventId,starts_at:slot,name:'Manual Client',email:'manual-client@example.com',phone:'+15551234567',purpose:'Manual appointment test'};
  assert.equal((await request('/api/workspace',{cookie:owner.cookie,data:manual})).status,404);
  const made=await request('/api/workspace',{cookie:member.cookie,data:manual});assert.equal(made.status,201,JSON.stringify(made.data));
  assert.equal((await request('/api/workspace',{cookie:member.cookie,data:manual})).status,409);

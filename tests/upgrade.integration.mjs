@@ -619,6 +619,7 @@ try {
       teamSlots.data.slots.at(-1),
     name: "Team Guest",
     email: "teamguest@example.com",
+    phone: "+15551234567",
   });
   assert.equal(teamBook.status, 201, JSON.stringify(teamBook.data));
   const assigned = (
@@ -963,7 +964,7 @@ try {
   // Private manual override bypasses published hours, never identity or conflicts.
   const manualEvent=(await db.query("INSERT INTO public.event_types(user_id,title,slug,duration,buffer) VALUES($1,'After hours','after-hours',30,15) RETURNING id",[aid])).rows[0];
   const manualDate=new Date(Date.now()+25*86400000);manualDate.setUTCHours(3,7,0,0);
-  const manual={action:"create-appointment",event_id:manualEvent.id,starts_at:manualDate.toISOString(),name:"After Hours Client",email:"after-hours@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true,overrideReason:"Client requested an evening appointment",location:"After-hours meeting room"};
+  const manual={action:"create-appointment",event_id:manualEvent.id,starts_at:manualDate.toISOString(),name:"After Hours Client",email:"after-hours@example.com",phone:"+15551234567",answers:{},overrideAvailability:true,overrideConfirmed:true,overrideReason:"Client requested an evening appointment",location:"After-hours meeting room"};
   assert.equal((await request("/api/workspace",manual)).status,401);
   assert.equal((await request("/api/workspace",manual,bob.cookie)).status,404);
   assert.equal((await request("/api/workspace",{...manual,overrideConfirmed:false},alice.cookie)).status,400);
@@ -993,7 +994,7 @@ try {
   assert.equal((await customizedSlots()).length,0,"Date closure overrides weekly hours");
   assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,exceptions:[{date:customDay,periods:[{start:"19:00",end:"20:00"}]}]}},alice.cookie)).status,200);
   customSlots=await customizedSlots();assert.equal(customSlots.length,2);
-  const normalLocation=await request("/api/workspace",{action:"create-appointment",event_id:manualEvent.id,starts_at:new Date(customSlots[0].starts_at).toISOString(),name:"Location Guest",email:"location-fixture@example.com",location:"120 Main Street, Suite 5",answers:{}},alice.cookie);
+  const normalLocation=await request("/api/workspace",{action:"create-appointment",event_id:manualEvent.id,starts_at:new Date(customSlots[0].starts_at).toISOString(),name:"Location Guest",email:"location-fixture@example.com",phone:"+15551234567",location:"120 Main Street, Suite 5",answers:{}},alice.cookie);
   assert.equal(normalLocation.status,201,JSON.stringify(normalLocation.data));
   const locationBooking=(await db.query("SELECT id,location FROM public.bookings WHERE user_id=$1 AND guest_email='location-fixture@example.com'",[aid])).rows[0];
   assert.equal(locationBooking.location,"120 Main Street, Suite 5");

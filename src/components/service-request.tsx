@@ -159,6 +159,14 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 try {
                   const site = jobSiteSubmission(jobAddress);
                   const description = String(f.get("description") || "").trim();
+                  const accessSuffix = site.accessNote
+                    ? `${description ? "\n\n" : ""}Access: ${site.accessNote}`
+                    : "";
+                  if (description.length + accessSuffix.length > 4000) {
+                    throw new Error(
+                      "Shorten the description so access instructions still fit (4,000 character limit).",
+                    );
+                  }
                   const r = await fetch("/api/service-requests", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -169,9 +177,7 @@ export function ServiceRequestForm({ host }: { host: string }) {
                       phone: f.get("phone"),
                       address: site.address,
                       category: f.get("category"),
-                      description: site.accessNote
-                        ? `${description}\n\nAccess: ${site.accessNote}`.slice(0, 4000)
-                        : description,
+                      description: description + accessSuffix,
                       preferredTime: f.get("preferredTime"),
                       website: f.get("website"),
                       photos: files.map((x) => x.id),
