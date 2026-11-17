@@ -76,13 +76,21 @@ export function AddressAutocomplete({
   async function choose(s: Suggestion) {
     if (s.entries > 1) {
       const selected = suggestionLabel(s).replace(/\s\(\d+ units\)$/, "");
-      onChange({
+      // Multi-entry follow-up needs the suggestion's city/state/ZIP; drop any prior unit.
+      const next = {
         ...value,
         street: s.streetLine,
-        formatted: formatAddress({ ...value, street: s.streetLine }),
+        street2: "",
+        city: s.city || "",
+        state: s.state || "",
+        postalCode: s.zipcode || "",
+        country: "US",
         validated: false,
-        source: "manual",
-      });
+        source: "manual" as const,
+        smartyKey: "",
+      };
+      next.formatted = formatAddress(next);
+      onChange(next);
       latestStreet.current = s.streetLine;
       scheduleSearch(s.streetLine, selected);
       return;

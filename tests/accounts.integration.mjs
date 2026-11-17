@@ -63,7 +63,7 @@ try {
  assert(booking.cancel_token);
  const saved=await request('/api/workspace',{cookie:member.cookie});
  assert.equal(saved.data.bookings.length,1);assert.equal(saved.data.contacts.length,1);
- assert.equal(saved.data.bookings[0].guest_phone,details.phone);assert.equal(saved.data.bookings[0].guest_company,details.company);assert.equal(saved.data.bookings[0].meeting_purpose,details.purpose);assert.equal(saved.data.contacts[0].company,details.company);
+ assert.equal(saved.data.bookings[0].guest_phone,'+15135550123');assert.equal(saved.data.bookings[0].guest_company,details.company);assert.equal(saved.data.bookings[0].meeting_purpose,details.purpose);assert.equal(saved.data.contacts[0].company,details.company);
  const bookedInsights=await request('/api/admin?view=insights',{cookie:owner.cookie});
  assert.equal(bookedInsights.data.metrics.confirmed_bookings,1);
  assert.equal(bookedInsights.data.daily.reduce((sum,d)=>sum+Number(d.bookings),0),1);

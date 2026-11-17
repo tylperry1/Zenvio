@@ -42,20 +42,19 @@ export function resolveBookingLocation(input: {
     : (input.event.location_mode as LocationMode) || allowed[0] || "custom";
   if (!allowed.includes(requested))
     throw new ApiError("That meeting location option is not available for this appointment type.");
-  const accessInstructions = String(input.guest.accessInstructions || "")
+  const guestAccessInstructions = String(input.guest.accessInstructions || "")
     .replace(/[\x00-\x1f\x7f]/g, " ")
     .trim()
     .slice(0, 1000);
   if (requested === "virtual") {
-    const instructions =
-      accessInstructions ||
-      String(input.event.virtual_instructions || "")
-        .replace(/[\x00-\x1f\x7f]/g, " ")
-        .trim()
-        .slice(0, 1000);
+    // Guest service-address notes must not replace host virtual join details.
+    // bookings.access_instructions is capped at 1000; event virtual_instructions may be longer in the editor.
+    const instructions = String(input.event.virtual_instructions || "")
+      .replace(/[\x00-\x1f\x7f]/g, " ")
+      .trim()
+      .slice(0, 1000);
     return {
       locationMode: "virtual",
-      // Keep location ≤500 chars for bookings.location / paid checkout; full copy stays in accessInstructions.
       locationText: (input.event.location || "Virtual meeting").slice(0, 500),
       serviceAddress: null,
       accessInstructions: instructions,
@@ -67,12 +66,11 @@ export function resolveBookingLocation(input: {
       business?.formatted ||
       input.event.location ||
       locationLabel("at_business");
-    const entry =
-      accessInstructions ||
-      String(business?.accessInstructions || "")
-        .replace(/[\x00-\x1f\x7f]/g, " ")
-        .trim()
-        .slice(0, 1000);
+    // Guest notes from customer-location UI must not overwrite business entry instructions.
+    const entry = String(business?.accessInstructions || "")
+      .replace(/[\x00-\x1f\x7f]/g, " ")
+      .trim()
+      .slice(0, 1000);
     return {
       locationMode: "at_business",
       locationText: text.slice(0, 500),
@@ -97,16 +95,20 @@ export function resolveBookingLocation(input: {
       locationMode: requested,
       locationText: locationText.slice(0, 500),
       serviceAddress: addressHasStreet(serviceAddress)
-        ? { ...serviceAddress, accessInstructions: accessInstructions || serviceAddress.accessInstructions }
+        ? {
+            ...serviceAddress,
+            accessInstructions:
+              guestAccessInstructions || serviceAddress.accessInstructions,
+          }
         : null,
-      accessInstructions,
+      accessInstructions: guestAccessInstructions,
     };
   }
   return {
     locationMode: "custom",
     locationText: input.event.location,
     serviceAddress: null,
-    accessInstructions,
+    accessInstructions: guestAccessInstructions,
   };
 }
 

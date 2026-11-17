@@ -122,6 +122,47 @@ test("virtual bookings skip physical address and keep instructions", () => {
   assert.match(resolved.accessInstructions, /Zoom/);
 });
 
+test("guest access notes do not leak into virtual or at_business modes", () => {
+  const virtual = bookingAddress.resolveBookingLocation({
+    event: {
+      location: "Video call",
+      location_mode: "virtual",
+      allowed_location_modes: ["virtual"],
+      virtual_instructions: "Join Zoom five minutes early",
+    },
+    guest: {
+      locationMode: "virtual",
+      accessInstructions: "Gate code from a prior customer-location booking",
+    },
+  });
+  assert.match(virtual.accessInstructions, /Zoom/);
+  assert.doesNotMatch(virtual.accessInstructions, /Gate code/);
+
+  const business = bookingAddress.resolveBookingLocation({
+    event: {
+      location: "Studio",
+      location_mode: "at_business",
+      allowed_location_modes: ["at_business"],
+    },
+    businessAddress: {
+      street: "100 Main St",
+      street2: "",
+      city: "Austin",
+      state: "TX",
+      postalCode: "78701",
+      country: "US",
+      formatted: "100 Main St · Austin, TX, 78701",
+      accessInstructions: "Ring suite B",
+    },
+    guest: {
+      locationMode: "at_business",
+      accessInstructions: "Guest leftover note",
+    },
+  });
+  assert.equal(business.accessInstructions, "Ring suite B");
+  assert.equal(business.serviceAddress?.accessInstructions, "");
+});
+
 test("at-business uses business address without requiring guest re-entry", () => {
   const resolved = bookingAddress.resolveBookingLocation({
     event: {
@@ -171,10 +212,13 @@ test("booking form requires telephone and keeps Smarty failure soft", () => {
   assert.match(page, /Telephone number/);
   assert.match(page, /AddressAutocomplete/);
   assert.doesNotMatch(page, /saveAsResidential/);
+  assert.match(page, /locationMode === "at_customer" \|\| locationMode === "custom"/);
   const autocomplete = fs.readFileSync("src/components/address-autocomplete.tsx", "utf8");
   assert.match(autocomplete, /Enter the address manually/);
   assert.match(autocomplete, /validateSeq/);
   assert.match(autocomplete, /address-line1/);
+  assert.match(autocomplete, /street2: ""/);
+  assert.match(autocomplete, /city: s\.city/);
 });
 
 test("Greptile P1 guards: migration order, browser origin, health merge, confirmation location", () => {

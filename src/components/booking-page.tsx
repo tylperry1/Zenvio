@@ -236,8 +236,14 @@ export function BookingPage({
             purpose: f.get("purpose"),
             website: f.get("website"),
             locationMode,
-            serviceAddress,
-            accessInstructions: serviceAddress.accessInstructions || "",
+            serviceAddress:
+              locationMode === "at_customer" || locationMode === "custom"
+                ? serviceAddress
+                : undefined,
+            accessInstructions:
+              locationMode === "at_customer" || locationMode === "custom"
+                ? serviceAddress.accessInstructions || ""
+                : "",
             captcha,
             attribution: readAttribution(host),
             uploadKey: uploads.key,
