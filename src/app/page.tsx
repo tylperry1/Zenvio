@@ -1,6 +1,8 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
+import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
+import { PlatformSocialLinks } from "@/components/platform-social-links";
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
@@ -59,10 +61,11 @@ const faqs = [
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [promotionEnabled, controls, catalog] = await Promise.all([
+  const [promotionEnabled, controls, catalog, socialLinks] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
     (await import("@/lib/billing-catalog")).currentCatalog(),
+    platformSocialLinks(),
   ]);
   const join = joinDestination(controls);
 
@@ -419,6 +422,7 @@ export default async function Home() {
             <Logo light />
           </Link>
           <p>Good things, on the calendar.</p>
+          <PlatformSocialLinks links={socialLinks} className="mk-social" />
         </div>
         <nav aria-label="Footer">
           <a href="#product">Product</a>

@@ -12,19 +12,25 @@ export async function GET(request: NextRequest) {
     });
     if (!profile)
       throw new ApiError("This booking profile is unavailable.", 404);
+    const liveSlug = String(profile.profile?.slug || host);
     const extra = (
       await getPool().query(
         `SELECT p.id,website,location,social_links,booking_instructions,
                 EXISTS(SELECT 1 FROM private.profile_images i WHERE i.user_id=p.id AND i.kind='cover') has_cover,
                 EXISTS(SELECT 1 FROM private.profile_images i WHERE i.user_id=p.id AND i.kind='logo') has_logo
            FROM public.profiles p WHERE p.slug=$1`,
-        [host],
+        [liveSlug],
       )
     ).rows[0];
     const design=extra?await publishedProfileDesign(extra.id,"booking",extra.id):null;
     const {id: _privateId,...publicExtra}=extra||{};
     return Response.json(
-      { ...profile, design, profile: { ...profile.profile, ...publicExtra } },
+      {
+        ...profile,
+        design,
+        profile: { ...profile.profile, ...publicExtra },
+        redirect_to: liveSlug !== host ? liveSlug : undefined,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

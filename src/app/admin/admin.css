@@ -126,10 +126,10 @@
 .av-empty p,.av-loading p{font-size:13px;color:var(--text-secondary);margin:0}
 .av-content>.notice{font-size:14px;margin-bottom:20px}
 .av-content>.notice p{font-size:13px;margin:8px 0 0}
-.av-body .modal{max-width:min(660px,calc(100vw - 32px))}
+.av-body .modal{max-width:min(720px,calc(100vw - 32px))}
 .admin-v3 .admin-event-row{flex-wrap:wrap}
 .admin-v3 .admin-account-detail{font-size:15px}
-.admin-v3 .admin-event-row .inline-link{font-size:13px;display:flex;align-items:center;gap:5px}
+.admin-v3 .admin-event-row .inline-link,.admin-v3 .admin-event-row .button{font-size:13px;display:flex;align-items:center;gap:5px}
 @media(min-width:1600px){.av-content{padding-top:44px}
 .av-stat{padding:25px}
 .av-panel-heading{padding-top:27px}
