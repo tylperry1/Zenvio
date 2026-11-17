@@ -247,38 +247,41 @@ export async function financialIntelligenceOverview(input?: {
          FROM private.subscription_revenue_snapshots
          GROUP BY currency`,
       ),
-      db.query(
-        `SELECT
-           currency,
-           coalesce(sum(amount_paid_cents) FILTER (
-             WHERE paid AND classification IN ('cash','refunded')
-               AND coalesce(paid_at, created_at) >= $1
-               AND coalesce(paid_at, created_at) < $2
-           ), 0)::int AS collected_cents,
-           coalesce(sum(amount_remaining_cents) FILTER (
-             WHERE status = 'open'
-               AND coalesce(paid_at, created_at) >= $1
-               AND coalesce(paid_at, created_at) < $2
-           ), 0)::int AS outstanding_cents,
-           count(*) FILTER (
-             WHERE status = 'open'
-               AND coalesce(paid_at, created_at) >= $1
-               AND coalesce(paid_at, created_at) < $2
-           )::int AS open_invoices,
-           count(*) FILTER (
-             WHERE (classification = 'failed' OR (attempted AND status = 'open' AND amount_remaining_cents > 0))
-               AND coalesce(paid_at, created_at) >= $1
-               AND coalesce(paid_at, created_at) < $2
-           )::int AS failed_or_open_attempts,
-           count(*) FILTER (
-             WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
-           )::int AS invoices,
-           max(reconciled_at) AS last_reconciled_at
-         FROM private.financial_invoice_snapshots
-         WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
-         GROUP BY currency`,
-        [period.start.toISOString(), period.end.toISOString()],
-      ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
+      db
+        .query(
+          `SELECT
+             currency,
+             coalesce(sum(amount_paid_cents) FILTER (
+               WHERE paid AND classification IN ('cash','refunded')
+                 AND coalesce(paid_at, created_at) >= $1
+                 AND coalesce(paid_at, created_at) < $2
+             ), 0)::int AS collected_cents,
+             coalesce(sum(amount_remaining_cents) FILTER (
+               WHERE status = 'open'
+                 AND coalesce(paid_at, created_at) >= $1
+                 AND coalesce(paid_at, created_at) < $2
+             ), 0)::int AS outstanding_cents,
+             count(*) FILTER (
+               WHERE status = 'open'
+                 AND coalesce(paid_at, created_at) >= $1
+                 AND coalesce(paid_at, created_at) < $2
+             )::int AS open_invoices,
+             count(*) FILTER (
+               WHERE (classification = 'failed' OR (attempted AND status = 'open' AND amount_remaining_cents > 0))
+                 AND coalesce(paid_at, created_at) >= $1
+                 AND coalesce(paid_at, created_at) < $2
+             )::int AS failed_or_open_attempts,
+             count(*) FILTER (
+               WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
+             )::int AS invoices,
+             max(reconciled_at) AS last_reconciled_at
+           FROM private.financial_invoice_snapshots
+           WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
+           GROUP BY currency`,
+          [period.start.toISOString(), period.end.toISOString()],
+        )
+        .then((r) => ({ ok: true as const, rows: r.rows as Record<string, unknown>[] }))
+        .catch(() => ({ ok: false as const, rows: [] as Record<string, unknown>[] })),
       db
         .query(
           `SELECT
@@ -467,29 +470,38 @@ export async function financialIntelligenceOverview(input?: {
   const mrrCents = reconciledMrr;
   const arrCents = mrrCents == null ? null : mrrCents * 12;
 
-  const nonUsdCash = invoiceAgg.rows.filter(
-    (r) => String(r.currency || "").toLowerCase() !== "usd",
-  );
-  const usdCash = invoiceAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
+  const invoiceQueryOk = invoiceAgg.ok;
+  const nonUsdCash = invoiceQueryOk
+    ? invoiceAgg.rows.filter((r) => String(r.currency || "").toLowerCase() !== "usd")
+    : [];
+  const usdCash = invoiceQueryOk
+    ? invoiceAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd")
+    : undefined;
   const refundQueryOk = refundAgg.ok;
-  const usdRefunds = refundAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
+  const usdRefunds = refundQueryOk
+    ? refundAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd")
+    : undefined;
   const invoiceCount = usdCash ? Number(usdCash.invoices) : 0;
   const collectedCents = usdCash && invoiceCount > 0 ? Number(usdCash.collected_cents) : null;
   // Dated refund events — query failure stays unavailable (never a verified $0).
+  // Successful empty invoice query may still verify a refund-only / empty period.
   const refundedCents = !refundQueryOk
     ? null
     : usdRefunds
       ? Number(usdRefunds.refunded_cents)
-      : invoiceCount > 0
+      : invoiceQueryOk
         ? 0
         : null;
   const outstandingCents = usdCash && invoiceCount > 0 ? Number(usdCash.outstanding_cents) : null;
-  const cashCoverageComplete = Boolean(invoiceCoverage.completeCoverage) && refundQueryOk;
+  // Verified cash requires both invoice + refund queries to succeed (empty rows ≠ query failure).
+  const cashCoverageComplete =
+    Boolean(invoiceCoverage.completeCoverage) && refundQueryOk && invoiceQueryOk;
+  const hasRefundActivity = refundedCents != null && refundedCents > 0;
   const cashClassification: CostClassification =
     invoiceCount === 0 && refundedCents == null
       ? "unavailable"
       : !cashCoverageComplete
-        ? invoiceCount === 0
+        ? invoiceCount === 0 && !hasRefundActivity
           ? "unavailable"
           : "partial"
         : "verified";

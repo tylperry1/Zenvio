@@ -486,6 +486,10 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /COALESCE\(private\.financial_invoice_snapshots\.refunded_at, EXCLUDED\.paid_at\)/);
   assert.match(sync, /status !== "succeeded"/);
   assert.match(sync, /eventsComplete/);
+  assert.match(sync, /chargeLookupFailures/);
+  assert.match(sync, /cents: number \| null/);
+  assert.match(sync, /WHEN \$10::int IS NULL THEN private\.financial_invoice_snapshots\.amount_refunded_cents/);
+  assert.match(sync, /refundEventsIncomplete: !refund\.eventsComplete \|\| refund\.cents == null/);
   assert.match(sync, /incompleteRefundLookups/);
   assert.match(sync, /credit_note:\$\{row\.id\}/);
   assert.match(sync, /DELETE FROM private\.financial_invoice_refund_events/);
@@ -498,5 +502,8 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(overviewSrc, /financial_invoice_refund_events/);
   assert.match(overviewSrc, /status = 'active' AND subscription_id IS NOT NULL/);
   assert.match(overviewSrc, /refundQueryOk/);
+  assert.match(overviewSrc, /invoiceQueryOk/);
+  assert.match(overviewSrc, /refundQueryOk && invoiceQueryOk/);
   assert.match(overviewSrc, /ok: true as const/);
+  assert.match(overviewSrc, /ok: false as const/);
 });

@@ -38,10 +38,11 @@ type InvoiceRefundEvent = {
 };
 
 type InvoiceRefundInfo = {
-  cents: number;
+  /** null = amount unavailable; upsert must preserve the stored cumulative total. */
+  cents: number | null;
   latestRefundAt: Date | null;
   events: InvoiceRefundEvent[];
-  /** False when a refunds.list call failed or dated events under-count charge refunds. */
+  /** False when PI/charge/refund lookups failed or dated events under-count charge refunds. */
   eventsComplete: boolean;
   /** Refund ids observed as failed/canceled — drop any previously stored rows. */
   invalidateIds: string[];
@@ -55,6 +56,7 @@ async function invoiceRefundInfo(
   const creditNotes = Number(invoice.post_payment_credit_notes_amount || 0);
   let fromCharges = 0;
   let listFailures = 0;
+  let chargeLookupFailures = 0;
   const events: InvoiceRefundEvent[] = [];
   const invalidateIds: string[] = [];
   const seen = new Set<string>();
@@ -109,15 +111,18 @@ async function invoiceRefundInfo(
         listFailures += 1;
       }
     } catch {
-      // Keep aggregating remaining payment intents.
+      // PI/charge retrieve failed — amount is unavailable for this intent.
+      chargeLookupFailures += 1;
     }
   }
 
   const eventCents = events.reduce((n, e) => n + e.amountCents, 0);
   const eventsComplete =
-    listFailures === 0 && (fromCharges === 0 || eventCents >= fromCharges || paymentIntentIds.size === 0);
-  // Dated events are authoritative only when the list is complete; otherwise keep cumulative.
-  let cents = Math.max(creditNotes, fromCharges);
+    listFailures === 0 &&
+    chargeLookupFailures === 0 &&
+    (fromCharges === 0 || eventCents >= fromCharges || paymentIntentIds.size === 0);
+
+  let cents: number | null = Math.max(creditNotes, fromCharges);
   if (eventsComplete && eventCents > 0) cents = eventCents;
   if (eventsComplete && eventCents === 0 && creditNotes > fromCharges && creditNotes > 0) {
     events.push({
@@ -126,6 +131,10 @@ async function invoiceRefundInfo(
       refundedAt: new Date((invoice.status_transitions?.paid_at || invoice.created) * 1000),
     });
     cents = creditNotes;
+  }
+  // Any PI/charge retrieve failure makes the cumulative total untrusted — preserve stored cents.
+  if (chargeLookupFailures > 0) {
+    cents = null;
   }
 
   const latestRefundAt =
@@ -297,8 +306,8 @@ async function upsertInvoice(
          subtotal_cents,total_cents,subscription_id,paid,attempted,
          created_at,paid_at,refunded_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-         CASE WHEN $10::int > 0 THEN COALESCE($18::timestamptz, $17::timestamptz, $16::timestamptz) ELSE NULL END,
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::int, 0),$11,$12,$13,$14,$15,$16,$17,
+         CASE WHEN COALESCE($10::int, 0) > 0 THEN COALESCE($18::timestamptz, $17::timestamptz, $16::timestamptz) ELSE NULL END,
          $19,$20,$21,$22,now()
        )
        ON CONFLICT(stripe_invoice_id) DO UPDATE SET
@@ -308,7 +317,10 @@ async function upsertInvoice(
          amount_paid_cents=EXCLUDED.amount_paid_cents,
          amount_due_cents=EXCLUDED.amount_due_cents,
          amount_remaining_cents=EXCLUDED.amount_remaining_cents,
-         amount_refunded_cents=EXCLUDED.amount_refunded_cents,
+         amount_refunded_cents=CASE
+           WHEN $10::int IS NULL THEN private.financial_invoice_snapshots.amount_refunded_cents
+           ELSE EXCLUDED.amount_refunded_cents
+         END,
          subtotal_cents=EXCLUDED.subtotal_cents,
          total_cents=EXCLUDED.total_cents,
          subscription_id=EXCLUDED.subscription_id,
@@ -316,6 +328,7 @@ async function upsertInvoice(
          attempted=EXCLUDED.attempted,
          paid_at=EXCLUDED.paid_at,
          refunded_at=CASE
+           WHEN $10::int IS NULL THEN private.financial_invoice_snapshots.refunded_at
            WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
            WHEN $18::timestamptz IS NOT NULL THEN $18::timestamptz
            ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.paid_at)
@@ -323,7 +336,10 @@ async function upsertInvoice(
          period_start=EXCLUDED.period_start,
          period_end=EXCLUDED.period_end,
          hosted_invoice_url=EXCLUDED.hosted_invoice_url,
-         classification=EXCLUDED.classification,
+         classification=CASE
+           WHEN $10::int IS NULL THEN private.financial_invoice_snapshots.classification
+           ELSE EXCLUDED.classification
+         END,
          reconciled_at=now()`,
       [
         row.id,
@@ -347,7 +363,7 @@ async function upsertInvoice(
         row.period_start ? new Date(row.period_start * 1000) : null,
         row.period_end ? new Date(row.period_end * 1000) : null,
         row.hosted_invoice_url || null,
-        classifyInvoice(row, refund.cents),
+        classifyInvoice(row, refund.cents ?? 0),
       ],
     );
 
@@ -390,7 +406,7 @@ async function upsertInvoice(
   } finally {
     client.release();
   }
-  return { refundEventsIncomplete: !refund.eventsComplete };
+  return { refundEventsIncomplete: !refund.eventsComplete || refund.cents == null };
 }
 
 /** Pull Stripe invoices for known customers into local cash snapshots (paginated). */
