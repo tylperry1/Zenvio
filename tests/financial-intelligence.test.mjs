@@ -490,6 +490,8 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /paymentDiscoveryFailures/);
   assert.match(sync, /starting_after: startingAfter/);
   assert.match(sync, /payments\.has_more/);
+  assert.match(sync, /empty page while has_more=true/);
+  assert.match(sync, /pagination cursor did not advance/);
   assert.match(sync, /cents: number \| null/);
   assert.match(sync, /WHEN \$10::int IS NULL THEN private\.financial_invoice_snapshots\.amount_refunded_cents/);
   assert.match(sync, /refundEventsIncomplete: !refund\.eventsComplete \|\| refund\.cents == null/);

@@ -81,8 +81,16 @@ async function invoiceRefundInfo(
         if (typeof pi === "string") paymentIntentIds.add(pi);
         else if (pi && typeof pi === "object" && pi.id) paymentIntentIds.add(pi.id);
       }
-      if (!payments.has_more || !payments.data.length) break;
-      startingAfter = payments.data[payments.data.length - 1].id;
+      // Only has_more=false completes discovery; empty unfinished pages are failures.
+      if (!payments.has_more) break;
+      if (!payments.data.length) {
+        throw new Error("invoicePayments returned empty page while has_more=true");
+      }
+      const nextCursor = payments.data[payments.data.length - 1]?.id;
+      if (!nextCursor || nextCursor === startingAfter) {
+        throw new Error("invoicePayments pagination cursor did not advance");
+      }
+      startingAfter = nextCursor;
     }
   } catch {
     // Rejected / truncated discovery — do not treat as confirmed empty.
