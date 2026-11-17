@@ -135,6 +135,20 @@ export async function catalogSyncReport(): Promise<CatalogSyncReport> {
     for (const period of ["monthly", "annual"] as const) {
       const expectedCents = period === "monthly" ? offer.monthly : offer.annual;
       if (expectedCents == null) continue;
+      // Free ($0) is not provisioned in Stripe — never count as pending.
+      if (expectedCents === 0) {
+        proposedV4.push({
+          plan: offer.id,
+          period,
+          expectedCents,
+          productId: null,
+          stripePriceId: null,
+          mappedCatalogVersion: null,
+          status: "not_applicable",
+          note: "Free tier has no Stripe price; provision script skips zero-dollar amounts.",
+        });
+        continue;
+      }
       const row = rows.find((r) => r.plan === offer.id && r.period === period);
       if (!row || row.catalog_version !== pricingV4Version) {
         proposedV4.push({

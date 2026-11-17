@@ -1,7 +1,15 @@
 import { launchControls,sandboxAccepted } from "./launch-controls";
-import { getPool } from "./db";
+import { databaseConfigured, getPool } from "./db";
 import { integrationValue } from "./platform-settings";
 export async function billingReadiness() {
+  if (!databaseConfigured()) {
+    return {
+      connected: false,
+      pricesReady: false,
+      checkoutEnabled: false,
+      blockers: ["Database accounts are unavailable in this environment"],
+    };
+  }
   const catalog=await (await import("./billing-catalog")).currentCatalog();
   const [key, webhook, mappings] = await Promise.all([
     integrationValue("STRIPE_SECRET_KEY"), integrationValue("STRIPE_WEBHOOK_SECRET"),

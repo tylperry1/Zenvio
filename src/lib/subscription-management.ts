@@ -20,15 +20,21 @@ export async function saveSubscription(
     "SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[]) UNION SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_price_history WHERE stripe_price_id=ANY($1::text[])",
     [items.map((item) => item.price.id)],
   )).rows;
-  const packagedPlans = ["individual", "team", "starter", "professional", "business"];
+  const isV4Catalog = (catalogVersion: string | null | undefined) =>
+    Boolean(catalogVersion && (catalogVersion === "2026-11-v4" || catalogVersion.startsWith("2026-11-v4")));
+  /** v3 Individual/Teams plus v4 Starter/Professional/Business only — never legacy solo Business. */
+  const isPackagedMapping = (m: { plan: string; catalog_version?: string | null }) => {
+    if (["individual", "team"].includes(m.plan)) return true;
+    return ["starter", "professional", "business"].includes(m.plan) && isV4Catalog(m.catalog_version);
+  };
   const base = items.find((item) =>
-    mappings.some((m) => m.stripe_price_id === item.price.id && packagedPlans.includes(m.plan)),
+    mappings.some((m) => m.stripe_price_id === item.price.id && isPackagedMapping(m)),
   );
   const legacy = items[0];
   const mapping = mappings.find((m) => m.stripe_price_id === (base || legacy)?.price.id);
   const mappedPlan = String(mapping?.plan || subscription.metadata.plan || "");
   let seats = legacy?.quantity || 1;
-  if (packagedPlans.includes(mappedPlan)) {
+  if (mapping && isPackagedMapping(mapping)) {
     if (!base || base.quantity !== 1) throw new Error("Invalid base subscription quantity.");
     const extras = items.filter((item) => item !== base);
     const singleSeat = mappedPlan === "individual" || mappedPlan === "starter" || mappedPlan === "professional";
@@ -47,6 +53,10 @@ export async function saveSubscription(
       throw new Error("Invalid additional seat price or quantity.");
     }
     seats = mappedPlan === "team" || mappedPlan === "business" ? 3 + (extra?.quantity || 0) : 1;
+  } else if (["individual", "team", "starter", "professional"].includes(mappedPlan)) {
+    // Metadata cannot forge a packaged plan without a mapped Stripe base price.
+    // Legacy solo `business` (and other grandfathered ids) keep quantity-based seats.
+    throw new Error("Invalid base subscription quantity.");
   }
   const end = (base || legacy)?.current_period_end;
   const version = mapping?.catalog_version || "legacy";

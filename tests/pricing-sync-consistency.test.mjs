@@ -151,6 +151,34 @@ test("catalog sync report flags missing live mappings and pending v4 rows", asyn
   assert.equal(report.summary.liveMissing, 1);
   assert.ok(report.summary.v4Pending > 0);
   assert.ok(report.proposedV4.every((r) => r.status !== "synchronized" || r.mappedCatalogVersion === v4.pricingV4Version));
+  const freeRows = report.proposedV4.filter((r) => r.plan === "free");
+  assert.ok(freeRows.length >= 1);
+  assert.ok(freeRows.every((r) => r.status === "not_applicable"));
+  assert.ok(!freeRows.some((r) => r.status === "pending_provision"));
+});
+
+test("billing readiness fails closed without a database and does not call getPool", async () => {
+  let poolCalls = 0;
+  const readiness = load("src/lib/billing-readiness.ts", {
+    "./db": {
+      databaseConfigured: () => false,
+      getPool: () => {
+        poolCalls += 1;
+        throw new Error("should not open pool");
+      },
+    },
+    "./launch-controls": {
+      launchControls: async () => ({ checkoutEnabled: true }),
+      sandboxAccepted: async () => true,
+    },
+    "./platform-settings": {
+      integrationValue: async () => "secret",
+    },
+  });
+  const result = await readiness.billingReadiness();
+  assert.equal(result.checkoutEnabled, false);
+  assert.equal(result.pricesReady, false);
+  assert.equal(poolCalls, 0);
 });
 
 test("team capacity helper keeps legacy business single-seat until v4 catalog", () => {
