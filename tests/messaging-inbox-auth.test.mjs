@@ -5,7 +5,7 @@ import fs from "node:fs";
 const messaging = fs.readFileSync("src/lib/messaging.ts", "utf8");
 const inbox = fs.readFileSync("src/app/api/inbox/route.ts", "utf8");
 const portal = fs.readFileSync("src/app/api/portal/[token]/route.ts", "utf8");
-const migration = fs.readFileSync("postgres/migrations/098_messaging_inbox_repair.sql", "utf8");
+const migration = fs.readFileSync("postgres/migrations/099_messaging_inbox_repair.sql", "utf8");
 
 test("threadAccess scopes owner, assignee, and org admins only", () => {
   assert.match(messaging, /t\.user_id=\$1 OR t\.assigned_to=\$1/);
@@ -47,4 +47,16 @@ test("migration expands status and adds soft-delete/revision/activity tables", (
   assert.match(migration, /thread_message_revisions/);
   assert.match(migration, /thread_activity/);
   assert.match(migration, /deleted_at/);
+});
+
+test("assignment notifies assignee without leaking note bodies", () => {
+  assert.match(messaging, /notifyThreadAssignment/);
+  assert.match(messaging, /conversation_assigned/);
+  assert.match(messaging, /Conversation assigned/);
+  assert.doesNotMatch(messaging, /notifyThreadAssignment[\s\S]{0,800}note body/i);
+});
+
+test("inbox detail includes recent bookings for customer context", () => {
+  assert.match(inbox, /recentBookings/);
+  assert.match(inbox, /ORDER BY b\.starts_at DESC LIMIT 8/);
 });

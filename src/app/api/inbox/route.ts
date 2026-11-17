@@ -12,6 +12,7 @@ import {
   editThreadMessage,
   ensureContactThread,
   inboxMetrics,
+  notifyThreadAssignment,
   recordThreadActivity,
   sendThreadMessage,
   softDeleteThreadMessage,
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     const threadId = params.get("thread");
     if (threadId) {
       const t = await accessibleThread(pool, user.id, uuid(threadId));
-      const [messages, attachments, phone, booking, activity] = await Promise.all([
+      const [messages, attachments, phone, booking, recentBookings, activity] = await Promise.all([
         pool.query(
           `SELECT m.id,m.direction,m.channel,m.author_name,m.body,m.status,m.status_detail,m.created_at,m.read_at,
                   m.edited_at,m.edited_by,j.status job_status,j.last_error
@@ -93,6 +94,15 @@ export async function GET(request: NextRequest) {
                  FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id
                 WHERE b.id=$1 AND b.user_id=$2`,
               [t.booking_id, t.user_id],
+            )
+          : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+        t.contact_id
+          ? pool.query(
+              `SELECT b.id,b.starts_at,b.ends_at,b.status,b.location,e.title
+                 FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id
+                WHERE b.user_id=$1 AND b.contact_id=$2
+                ORDER BY b.starts_at DESC LIMIT 8`,
+              [t.user_id, t.contact_id],
             )
           : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
         pool.query(
@@ -137,6 +147,7 @@ export async function GET(request: NextRequest) {
                 }
               : null,
             booking: booking.rows[0] || null,
+            recentBookings: recentBookings.rows,
             owner: t.user_id === user.id,
             canAdminister: admin,
           },
@@ -342,13 +353,34 @@ export async function POST(request: NextRequest) {
           if (!ok.rowCount && assignee !== t.user_id)
             throw new ApiError("Assign conversations to members of this workspace.", 403);
         }
-        await pool.query("UPDATE private.message_threads SET assigned_to=$2 WHERE id=$1", [t.id, assignee]);
-        await recordThreadActivity(pool, {
-          threadId: t.id,
-          actorId: user.id,
-          action: "assigned",
-          details: { assignedTo: assignee },
-        });
+        const previous = t.assigned_to as string | null;
+        const db = await pool.connect();
+        try {
+          await db.query("BEGIN");
+          await db.query("UPDATE private.message_threads SET assigned_to=$2 WHERE id=$1", [t.id, assignee]);
+          await recordThreadActivity(db, {
+            threadId: t.id,
+            actorId: user.id,
+            action: "assigned",
+            details: { assignedTo: assignee, previous },
+          });
+          if (assignee && assignee !== previous) {
+            await notifyThreadAssignment(db, {
+              workspaceId: t.user_id,
+              threadId: t.id,
+              assigneeId: assignee,
+              actorId: user.id,
+              contactName: t.contact_name,
+            });
+          }
+          await db.query("COMMIT");
+        } catch (e) {
+          await db.query("ROLLBACK");
+          throw e;
+        } finally {
+          db.release();
+        }
+        if (assignee && assignee !== previous) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
         return Response.json({ ok: true });
       }
       case "status": {

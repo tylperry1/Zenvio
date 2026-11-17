@@ -55,6 +55,14 @@ type Detail = {
       location?: string;
       title?: string;
     } | null;
+    recentBookings?: {
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      status: string;
+      location?: string;
+      title?: string;
+    }[];
   };
   messages: Message[];
   sms: { ok: boolean; sender?: string; reason?: string; detail?: string };
@@ -359,6 +367,7 @@ function ThreadView({
   const { thread, messages, sms } = detail;
   const contact = thread.contact;
   const booking = thread.booking;
+  const recentBookings = thread.recentBookings || [];
   const scroller = useRef<HTMLDivElement>(null);
   const [shareLink, setShareLink] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -465,6 +474,38 @@ function ThreadView({
           </select>
         </div>
       </header>
+      {(contact || recentBookings.length > 0) && (
+        <aside className="inbox-context" aria-label="Customer context">
+          {contact && (
+            <div>
+              <b>{contact.name}</b>
+              <p className="ds-muted">
+                {contact.email}
+                {contact.phone ? ` · ${contact.phone}` : ""}
+              </p>
+              <Link className="ds-btn ghost sm" href={`/app/clients?client=${contact.id}`}>
+                Open customer record
+              </Link>
+            </div>
+          )}
+          {recentBookings.length > 0 && (
+            <div>
+              <small className="ds-eyebrow">Appointments</small>
+              <ul className="inbox-context-bookings">
+                {recentBookings.slice(0, 5).map((b) => (
+                  <li key={b.id}>
+                    <span>
+                      {b.title || "Service"} ·{" "}
+                      {new Date(b.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                    <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
+      )}
       <div className="inbox-messages" ref={scroller} role="log" aria-label="Messages">
         {!messages.length && <p className="inbox-empty-thread">No messages yet. Write the first one below.</p>}
         {messages.map((m) => (
@@ -595,8 +636,10 @@ function Composer({
     [busy, setBusy] = useState(false),
     [menu, setMenu] = useState<"" | "templates" | "links">(""),
     [links, setLinks] = useState<{ profile: string | null; links: { title: string; url: string }[] } | null>(null),
-    [saving, setSaving] = useState(false);
+    [saving, setSaving] = useState(false),
+    [draftSaved, setDraftSaved] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const sending = useRef(false);
   const draftKey = "zenvio-draft:" + thread;
   useEffect(() => {
     try {
@@ -605,8 +648,13 @@ function Composer({
   }, [draftKey]);
   useEffect(() => {
     try {
-      if (body) localStorage.setItem(draftKey, body);
-      else localStorage.removeItem(draftKey);
+      if (body) {
+        localStorage.setItem(draftKey, body);
+        setDraftSaved(true);
+      } else {
+        localStorage.removeItem(draftKey);
+        setDraftSaved(false);
+      }
     } catch {}
   }, [body, draftKey]);
   useEffect(() => {
@@ -636,6 +684,10 @@ function Composer({
     }
   }
   async function send() {
+    if (sending.current || busy) return;
+    if (!body.trim()) return notify("Write a message before sending.", true);
+    if (channel === "sms" && !sms.ok) return notify(sms.detail || "Text messaging isn’t connected.", true);
+    sending.current = true;
     setBusy(true);
     try {
       const d = await post({
@@ -648,11 +700,26 @@ function Composer({
       });
       setBody("");
       setFiles([]);
-      notify(channel === "note" ? "Note added." : d.status === "queued" ? "Message queued for delivery." : "Message sent.");
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {}
+      // Only claim queued/sent from provider-backed statuses returned by the API.
+      notify(
+        channel === "note"
+          ? "Note added."
+          : d.status === "queued"
+            ? "Message queued for delivery."
+            : d.status === "sent" || d.status === "delivered"
+              ? "Message accepted for delivery."
+              : d.status === "failed"
+                ? "Delivery failed."
+                : `Message status: ${d.status}.`,
+      );
       await onSent();
     } catch (e) {
       notify(e instanceof Error ? e.message : "The message couldn’t be sent.", true);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -682,11 +749,18 @@ function Composer({
           <Icon name="file" size={14} /> Internal note
         </button>
       </div>
-      {hasContact && !sms.ok && channel !== "note" && <p className="inbox-composer-hint">Text messages: {sms.detail}</p>}
+      {hasContact && !sms.ok && (
+        <Notice tone="warning">
+          Text messaging isn’t connected for this workspace yet. {sms.detail || "Send by email or through the client portal instead."}
+        </Notice>
+      )}
       {channel === "sms" && sms.ok && (
         <p className="inbox-composer-hint">
           Sends from {sms.sender}. Only text clients who agreed to receive texts; replies of STOP are honored automatically.
         </p>
+      )}
+      {channel === "note" && (
+        <Notice tone="info">Internal notes stay in Zenvio. They are never emailed, texted, or shown in the client portal.</Notice>
       )}
       <textarea
         className="ui-input"
@@ -700,6 +774,23 @@ function Composer({
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim() && !busy) void send();
         }}
       />
+      {draftSaved && body.trim() && (
+        <div className="inbox-draft-row">
+          <small className="ds-muted">Draft saved on this device</small>
+          <button
+            type="button"
+            className="ds-btn ghost sm"
+            onClick={() => {
+              setBody("");
+              try {
+                localStorage.removeItem(draftKey);
+              } catch {}
+            }}
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
       {files.length > 0 && (
         <ul className="inbox-files">
           {files.map((f) => (

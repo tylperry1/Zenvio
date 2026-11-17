@@ -2,6 +2,7 @@ import {threadReplyAddress} from "./launch/inbound-email";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { appOrigin, queueDelivery } from "./lifecycle";
+import { enqueueNotification } from "./notifications/engine";
 import { createPortalLink } from "./portal";
 import { smsReadiness, smsTransport, normalizePhone } from "./sms";
 import { ApiError } from "./server";
@@ -291,6 +292,46 @@ export async function softDeleteThreadMessage(
     details: { messageId: msg.id, channel: msg.channel, soft: true },
   });
   return { ok: true };
+}
+
+/** Notify a newly assigned teammate (email only; never includes internal note bodies). */
+export async function notifyThreadAssignment(
+  db: PoolClient,
+  input: {
+    workspaceId: string;
+    threadId: string;
+    assigneeId: string;
+    actorId: string;
+    contactName?: string | null;
+  },
+) {
+  if (!input.assigneeId || input.assigneeId === input.actorId) return;
+  const assignee = (
+    await db.query(`SELECT id, email, name FROM public."user" WHERE id=$1`, [input.assigneeId])
+  ).rows[0];
+  if (!assignee?.email) return;
+  const label = (input.contactName || "a client").slice(0, 120);
+  const key = `thread-assign:${input.threadId}:${input.assigneeId}:${Date.now()}`;
+  // Idempotency uses thread+assignee+day so rapid reassigns still notify, but retries don't duplicate.
+  const day = new Date().toISOString().slice(0, 10);
+  await enqueueNotification(db, {
+    workspaceId: input.workspaceId,
+    idempotencyKey: `notify:thread-assign:${input.threadId}:${input.assigneeId}:${day}`,
+    category: "other",
+    templateId: "conversation_assigned",
+    channels: ["email"],
+    recipientAddress: assignee.email,
+    recipientUserId: assignee.id,
+    email: {
+      kind: "customer_message",
+      key,
+      to: assignee.email,
+      subject: `Conversation assigned: ${label}`,
+      text:
+        `A conversation with ${label} was assigned to you in Zenvio.\n\n` +
+        `Open Inbox: ${appOrigin()}/app/inbox?thread=${input.threadId}\n`,
+    },
+  });
 }
 
 export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, userId: string) {
