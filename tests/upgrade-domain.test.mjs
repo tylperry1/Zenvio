@@ -34,6 +34,7 @@ function load(file, overrides = {}) {
       ? overrides[id]
       : id === "./booking-email" ? load("src/lib/booking-email.ts")
       : id === "./transactional-email" ? load("src/lib/transactional-email.ts")
+      : id === "./notifications/delivery-sync" ? load("src/lib/notifications/delivery-sync.ts")
       : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
       : id === "./microsoft-calendar" ? { filterMicrosoftSlots: async (_hostId, _email, slots) => slots }
       : id === "./resend-diagnostics"

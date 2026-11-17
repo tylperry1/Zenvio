@@ -45,8 +45,11 @@ CREATE TABLE private.notifications (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (workspace_id, idempotency_key),
+  -- Revision is required while a booking is linked. ON DELETE SET NULL may leave
+  -- booking_revision populated after the booking row is removed; that is intentional
+  -- audit history and must not fail the booking delete.
   CONSTRAINT notifications_booking_revision_pair CHECK (
-    (booking_id IS NULL) = (booking_revision IS NULL)
+    booking_id IS NULL OR booking_revision IS NOT NULL
   )
 );
 

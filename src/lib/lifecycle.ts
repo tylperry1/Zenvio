@@ -13,6 +13,7 @@ import {
 import { ApiError } from "./server";
 import { createHash } from "node:crypto";
 import { resolveAppOrigin } from "./transactional-email";
+import { syncNotificationAttemptFromDeliveryJob } from "./notifications/delivery-sync";
 /** Canonical public origin for portal/Stripe/lifecycle links. Preserves local CI loopback. */
 export const appOrigin = () => resolveAppOrigin();
 export async function queueDelivery(
@@ -75,7 +76,7 @@ export async function scheduleBooking(db: PoolClient, id: string) {
     [id],
   );
   const { rows } = await db.query(
-    `SELECT b.*,e.title,e.reminder_minutes,p.timezone,u.email host_email FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN public.profiles p ON p.id=b.user_id JOIN public."user" u ON u.id=b.user_id WHERE b.id=$1`,
+    `SELECT b.*,e.title,e.reminder_minutes,p.timezone,u.email host_email FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id JOIN public.profiles p ON p.id=b.user_id JOIN public."user" u ON u.id=b.user_id WHERE b.id=$1 FOR SHARE OF b`,
     [id],
   );
   const b = rows[0];
@@ -125,7 +126,7 @@ export async function scheduleBooking(db: PoolClient, id: string) {
       sms: phone
         ? {
             to: phone,
-            body: `Reminder: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule`,
+            body: `Reminder: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
             // Match launch SMS reminder refs; bookingId lets drainSmsOutbox skip message-UUID origin checks.
             reference: `reminder:${b.id}:${b.revision}:${minutes}`,
             bookingId: b.id,
@@ -169,7 +170,7 @@ export async function scheduleBooking(db: PoolClient, id: string) {
         sms: guestSms
           ? {
               to: phone,
-              body: `Rescheduled: ${b.title} is now ${when}. Manage: ${appOrigin()}/reschedule`,
+              body: `Rescheduled: ${b.title} is now ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
               reference: `changed:${b.id}:${b.revision}`,
               bookingId: b.id,
               bookingRevision: b.revision,
@@ -197,7 +198,7 @@ export async function scheduleBooking(db: PoolClient, id: string) {
       sms: phone
         ? {
             to: phone,
-            body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule`,
+            body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
             reference: `confirm:${b.id}:${b.revision}`,
             bookingId: b.id,
             bookingRevision: b.revision,
@@ -214,8 +215,32 @@ export async function materializeReminders(user?: string) {
   const db = await getPool().connect();
   try {
     await db.query("BEGIN");
+    // Exclude bookings whose reminder envelopes already exist (including intentionally
+    // suppressed ones) so LIMIT 500 is not starved by missing delivery_jobs rows.
+    // Failed envelopes stay eligible so scheduleBooking can retry recoverable channels.
     const { rows } = await db.query(
-      `SELECT b.id FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.status='confirmed' AND b.starts_at>now() AND b.starts_at<now()+interval '91 days' ${user ? "AND b.user_id=$1" : ""} AND EXISTS(SELECT 1 FROM unnest(e.reminder_minutes) m WHERE b.starts_at-make_interval(mins=>m)>now() AND NOT EXISTS(SELECT 1 FROM private.delivery_jobs j WHERE j.dedupe_key='reminder:'||b.id||':'||b.revision||':'||m)) ORDER BY b.starts_at LIMIT 500`,
+      `SELECT b.id FROM public.bookings b
+         JOIN public.event_types e ON e.id=b.event_id
+        WHERE b.status='confirmed'
+          AND b.starts_at>now()
+          AND b.starts_at<now()+interval '91 days'
+          ${user ? "AND b.user_id=$1" : ""}
+          AND EXISTS(
+            SELECT 1 FROM unnest(e.reminder_minutes) m
+             WHERE b.starts_at-make_interval(mins=>m)>now()
+               AND NOT EXISTS(
+                 SELECT 1 FROM private.delivery_jobs j
+                  WHERE j.dedupe_key='reminder:'||b.id||':'||b.revision||':'||m
+               )
+               AND NOT EXISTS(
+                 SELECT 1 FROM private.notifications n
+                  WHERE n.workspace_id=b.user_id
+                    AND n.idempotency_key='notify:reminder:'||b.id||':'||b.revision||':'||m
+                    AND n.status IN ('queued','scheduled','processing','accepted','delivered','suppressed','canceled')
+               )
+          )
+        ORDER BY b.starts_at
+        LIMIT 500`,
       user ? [user] : [],
     );
     for (const r of rows) await scheduleBooking(db, r.id);
@@ -351,15 +376,12 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "UPDATE private.delivery_jobs SET status='cancelled',payload_ciphertext=NULL,calendar_ciphertext=NULL WHERE id=$1",
           [j.id],
         );
-        {
-          const { syncNotificationAttemptFromDeliveryJob } = await import("./notifications/engine");
-          await syncNotificationAttemptFromDeliveryJob(db, {
-            id: j.id,
-            notification_attempt_id: j.notification_attempt_id,
-            status: "cancelled",
-            last_error: "Delivery cancelled because the source record is no longer valid.",
-          });
-        }
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: j.id,
+          notification_attempt_id: j.notification_attempt_id,
+          status: "cancelled",
+          last_error: "Delivery cancelled because the source record is no longer valid.",
+        });
         await db.query("COMMIT");
         continue;
       }
@@ -372,15 +394,12 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error='Email delivery is suppressed after a provider complaint or bounce.' WHERE id=$1",
           [j.id],
         );
-        {
-          const { syncNotificationAttemptFromDeliveryJob } = await import("./notifications/engine");
-          await syncNotificationAttemptFromDeliveryJob(db, {
-            id: j.id,
-            notification_attempt_id: j.notification_attempt_id,
-            status: "failed",
-            last_error: "Email delivery is suppressed after a provider complaint or bounce.",
-          });
-        }
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: j.id,
+          notification_attempt_id: j.notification_attempt_id,
+          status: "failed",
+          last_error: "Email delivery is suppressed after a provider complaint or bounce.",
+        });
         await db.query("COMMIT");
         continue;
       }
@@ -392,15 +411,12 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "UPDATE private.delivery_jobs SET status='uncertain',last_error='Provider idempotency window elapsed. Verify delivery before resending.' WHERE id=$1",
           [j.id],
         );
-        {
-          const { syncNotificationAttemptFromDeliveryJob } = await import("./notifications/engine");
-          await syncNotificationAttemptFromDeliveryJob(db, {
-            id: j.id,
-            notification_attempt_id: j.notification_attempt_id,
-            status: "uncertain",
-            last_error: "Provider idempotency window elapsed. Verify delivery before resending.",
-          });
-        }
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: j.id,
+          notification_attempt_id: j.notification_attempt_id,
+          status: "uncertain",
+          last_error: "Provider idempotency window elapsed. Verify delivery before resending.",
+        });
         await db.query("COMMIT");
         continue;
       }
@@ -445,15 +461,12 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           "UPDATE private.delivery_jobs SET status='sent',sent_at=now(),provider_id=$2,provider_status='accepted',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error=NULL WHERE id=$1",
           [j.id, data.id],
         );
-        {
-          const { syncNotificationAttemptFromDeliveryJob } = await import("./notifications/engine");
-          await syncNotificationAttemptFromDeliveryJob(db, {
-            id: j.id,
-            notification_attempt_id: j.notification_attempt_id,
-            status: "sent",
-            provider_id: data.id,
-          });
-        }
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: j.id,
+          notification_attempt_id: j.notification_attempt_id,
+          status: "sent",
+          provider_id: data.id,
+        });
         if(process.env.PRICING_V3_VALIDATED === "true"){
           const {acceptEmail}=await import("./email-usage");await acceptEmail(db,"delivery:"+j.id,data.id);
         }
@@ -478,7 +491,6 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
               : !failure.retryable || j.attempts + 1 >= 5
                 ? "failed"
                 : "queued";
-          const { syncNotificationAttemptFromDeliveryJob } = await import("./notifications/engine");
           await syncNotificationAttemptFromDeliveryJob(db, {
             id: j.id,
             notification_attempt_id: j.notification_attempt_id,
