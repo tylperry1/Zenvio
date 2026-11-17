@@ -40,6 +40,7 @@ export function EntitlementAdmin() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Found[]>([]);
+  const [lookupError, setLookupError] = useState("");
   const [target, setTarget] = useState<Found | null>(null);
 
   async function load() {
@@ -57,17 +58,26 @@ export function EntitlementAdmin() {
   useEffect(() => {
     if (target || query.trim().length < 2) {
       setResults([]);
+      setLookupError("");
       return;
     }
     const controller = new AbortController();
     const t = setTimeout(() => {
+      setLookupError("");
       fetch(`/api/admin/entitlements?lookup=${encodeURIComponent(query.trim())}`, {
         signal: controller.signal,
         cache: "no-store",
       })
-        .then((r) => r.json())
-        .then((d) => setResults(d.users || []))
-        .catch(() => {});
+        .then(async (r) => {
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) throw Error(d.error || "Account search failed.");
+          setResults(Array.isArray(d.users) ? d.users : []);
+        })
+        .catch((e) => {
+          if (controller.signal.aborted) return;
+          setResults([]);
+          setLookupError(e instanceof Error ? e.message : "Account search failed.");
+        });
     }, 250);
     return () => {
       clearTimeout(t);
@@ -303,7 +313,13 @@ export function EntitlementAdmin() {
                     role="combobox"
                     aria-expanded={results.length > 0}
                     aria-controls="ent-results"
+                    aria-invalid={lookupError ? true : undefined}
                   />
+                  {lookupError && (
+                    <p className="ent-lookup-error" role="alert">
+                      {lookupError}
+                    </p>
+                  )}
                   {results.length > 0 && (
                     <ul id="ent-results" role="listbox">
                       {results.map((u) => (

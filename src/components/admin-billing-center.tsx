@@ -132,7 +132,9 @@ export function AdminBillingCenter() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [last, setLast] = useState<Record<string, unknown> | null>(null);
   const [planTab, setPlanTab] = useState<"individual" | "team">("individual");
-  const [section, setSection] = useState<"pricing" | "coupons" | "seats" | "audit">("pricing");
+  const [section, setSection] = useState<"pricing" | "coupons" | "seats" | "audit">(
+    params.get("userId") ? "seats" : "pricing",
+  );
 
   async function load() {
     const r = await fetch("/api/admin/billing", { cache: "no-store" });
@@ -180,7 +182,7 @@ export function AdminBillingCenter() {
     () => data?.operations.filter((o) => o.action === "coupon" && o.state === "succeeded") || [],
     [data],
   );
-  const recentOps = useMemo(() => data?.operations.slice(0, 12) || [], [data]);
+  const recentOps = useMemo(() => data?.operations || [], [data]);
   const failedOps = useMemo(() => data?.operations.filter((o) => o.state === "failed").length || 0, [data]);
 
   if (error && !data) {
@@ -269,10 +271,10 @@ export function AdminBillingCenter() {
           detail={drafts.length ? "Ready to review and publish" : "Save a draft to start a change"}
         />
         <Kpi
-          label="Active promotions"
+          label="Promo creations"
           icon="spark"
           value={coupons.length}
-          detail="Platform-created promotion codes"
+          detail="Successful coupon-create operations (not live code status)"
         />
         <Kpi
           label="Failed operations"
@@ -411,7 +413,7 @@ export function AdminBillingCenter() {
                               className="bc-input"
                               type="number"
                               min={0}
-                              step={0.1}
+                              step="any"
                               required
                               value={storageGb(value)}
                               onChange={(e) => {

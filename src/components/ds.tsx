@@ -1,7 +1,7 @@
 "use client";
 // Zenvio design system primitives. Styles live in src/app/design-system.css;
 // usage and rules are documented in DESIGN_SYSTEM.md.
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 
 export function PageHeader({
@@ -313,7 +313,19 @@ export function Field({
   );
 }
 
-/** Dollar-facing currency input; stores whole cents via onCentsChange. */
+function centsToDollarsText(cents: number) {
+  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : "";
+}
+
+function parseDollarsToCents(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+/** Dollar-facing currency input; stores whole cents via onCentsChange on blur/commit. */
 export function CurrencyField({
   id,
   label,
@@ -333,7 +345,23 @@ export function CurrencyField({
   maxCents?: number;
   required?: boolean;
 }) {
-  const dollars = Number.isFinite(cents) ? (cents / 100).toFixed(2) : "";
+  const [text, setText] = useState(() => centsToDollarsText(cents));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setText(centsToDollarsText(cents));
+  }, [cents, focused]);
+
+  const commit = (raw: string, reformat: boolean) => {
+    const next = parseDollarsToCents(raw);
+    if (next === null) {
+      if (reformat) setText(centsToDollarsText(cents));
+      return;
+    }
+    if (next !== cents) onCentsChange(next);
+    if (reformat) setText(centsToDollarsText(next));
+  };
+
   const invalid =
     !Number.isFinite(cents) || cents < minCents || cents > maxCents || !Number.isSafeInteger(cents);
   return (
@@ -349,13 +377,22 @@ export function CurrencyField({
           min={(minCents / 100).toFixed(2)}
           max={(maxCents / 100).toFixed(2)}
           required={required}
-          value={dollars}
+          value={text}
+          onFocus={() => setFocused(true)}
           onChange={(e) => {
-            const raw = e.target.value.trim();
-            if (raw === "") return;
-            const n = Number(raw);
-            if (!Number.isFinite(n)) return;
-            onCentsChange(Math.round(n * 100));
+            const raw = e.target.value;
+            setText(raw);
+            // Sync cents while typing without reformatting the field text.
+            commit(raw, false);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            commit(e.target.value, true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
           }}
           aria-invalid={invalid || undefined}
         />

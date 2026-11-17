@@ -55,7 +55,7 @@ Status tones use the existing semantic tokens (`--success`, `--warning`, `--erro
 | Component | Purpose |
 | --- | --- |
 | `Field` | Label + control + optional hint. |
-| `CurrencyField` | Dollar-facing input that emits whole cents. |
+| `CurrencyField` | Dollar-facing input that keeps typed text locally and emits whole cents on change/blur (formats on blur). |
 | `FormActions` | Right-aligned save/cancel action row. |
 | `MeterBar` | Compact usage/progress bar with accessible progress semantics. |
 

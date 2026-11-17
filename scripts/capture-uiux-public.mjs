@@ -4,7 +4,14 @@ import { join } from "node:path";
 
 const origin = process.env.CAPTURE_ORIGIN || "https://gozenvio.com";
 const outDirs = ["test-results/ui-ux-2.0", "/opt/cursor/artifacts", "/cursor/stores/self/media/ui-ux-2.0"];
-for (const d of outDirs) mkdirSync(d, { recursive: true });
+mkdirSync(outDirs[0], { recursive: true });
+for (const d of outDirs.slice(1)) {
+  try {
+    mkdirSync(d, { recursive: true });
+  } catch {
+    // Cursor artifact/store paths are optional outside that environment.
+  }
+}
 
 const shots = [
   { path: "/", name: "prod-landing", width: 1440 },

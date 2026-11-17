@@ -659,6 +659,8 @@
 .ent-target small{display:block;font-size:12px;color:var(--text-muted)}
 .ent-lookup{position:relative;font-weight:400}
 .ds-root.ds-root .ent-lookup input{height:38px;min-height:0;width:100%;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;margin:0}
+.ds-root.ds-root .ent-lookup input[aria-invalid="true"]{border-color:var(--danger,#b42318)}
+.ent-lookup-error{margin:6px 0 0;font-size:12px;color:var(--danger,#b42318);font-weight:500}
 .ent-lookup ul{position:absolute;z-index:5;left:0;right:0;top:42px;margin:0;padding:4px;list-style:none;background: var(--surface-card);border:1px solid var(--ds-line);border-radius:10px;box-shadow:var(--ds-elev-2)}
 .ds-root.ds-root .ent-lookup ul button{display:block;width:100%;min-height:0;height:auto;margin:0;padding:8px 10px;text-align:left;border:0;border-radius:7px;background: var(--surface-card);color:var(--text-primary)}
 .ds-root.ds-root .ent-lookup ul button:hover,.ds-root.ds-root .ent-lookup ul button:focus-visible{background:var(--surface-hover)}
