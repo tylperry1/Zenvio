@@ -201,7 +201,7 @@ export async function financialIntelligenceOverview(input?: {
 
   const economics = await providerEconomics({ start: period.start, end: period.end });
   const db = getPool();
-  const [budgets, sync, manual, tenants, revenueAgg, invoiceAgg, addonAgg, statusCounts, priceMaps, missingSnapshots, lastExpense, syncRuns, invoiceCoverage] =
+  const [budgets, sync, manual, tenants, planningSubs, revenueAgg, invoiceAgg, refundAgg, addonAgg, statusCounts, priceMaps, missingSnapshots, lastExpense, syncRuns, invoiceCoverage] =
     await Promise.all([
       db.query("SELECT provider, monthly_budget_cents FROM private.provider_cost_budgets"),
       db.query(
@@ -229,6 +229,12 @@ export async function financialIntelligenceOverview(input?: {
          ORDER BY coalesce(r.mrr_cents, s.monthly_amount_cents, 0) DESC
          LIMIT 400`,
       ),
+      // Platform planning uses every active Stripe-bound subscription — not the 400-row table.
+      db.query(
+        `SELECT plan, seats, catalog_version
+         FROM private.subscriptions
+         WHERE status = 'active' AND subscription_id IS NOT NULL`,
+      ),
       db.query(
         `SELECT
            currency,
@@ -249,11 +255,6 @@ export async function financialIntelligenceOverview(input?: {
                AND coalesce(paid_at, created_at) >= $1
                AND coalesce(paid_at, created_at) < $2
            ), 0)::int AS collected_cents,
-           coalesce(sum(amount_refunded_cents) FILTER (
-             WHERE amount_refunded_cents > 0
-               AND coalesce(refunded_at, paid_at, created_at) >= $1
-               AND coalesce(refunded_at, paid_at, created_at) < $2
-           ), 0)::int AS refunded_cents,
            coalesce(sum(amount_remaining_cents) FILTER (
              WHERE status = 'open'
                AND coalesce(paid_at, created_at) >= $1
@@ -271,16 +272,19 @@ export async function financialIntelligenceOverview(input?: {
            )::int AS failed_or_open_attempts,
            count(*) FILTER (
              WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
-                OR (amount_refunded_cents > 0
-                    AND coalesce(refunded_at, paid_at, created_at) >= $1
-                    AND coalesce(refunded_at, paid_at, created_at) < $2)
            )::int AS invoices,
            max(reconciled_at) AS last_reconciled_at
          FROM private.financial_invoice_snapshots
-         WHERE (coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2)
-            OR (amount_refunded_cents > 0
-                AND coalesce(refunded_at, paid_at, created_at) >= $1
-                AND coalesce(refunded_at, paid_at, created_at) < $2)
+         WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
+         GROUP BY currency`,
+        [period.start.toISOString(), period.end.toISOString()],
+      ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
+      db.query(
+        `SELECT
+           currency,
+           coalesce(sum(amount_cents), 0)::int AS refunded_cents
+         FROM private.financial_invoice_refund_events
+         WHERE refunded_at >= $1 AND refunded_at < $2
          GROUP BY currency`,
         [period.start.toISOString(), period.end.toISOString()],
       ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
@@ -464,9 +468,11 @@ export async function financialIntelligenceOverview(input?: {
     (r) => String(r.currency || "").toLowerCase() !== "usd",
   );
   const usdCash = invoiceAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
+  const usdRefunds = refundAgg.rows.find((r) => String(r.currency || "").toLowerCase() === "usd");
   const invoiceCount = usdCash ? Number(usdCash.invoices) : 0;
   const collectedCents = usdCash && invoiceCount > 0 ? Number(usdCash.collected_cents) : null;
-  const refundedCents = usdCash && invoiceCount > 0 ? Number(usdCash.refunded_cents) : null;
+  // Dated refund events — each Stripe refund keeps its own period (not cumulative refunded_at).
+  const refundedCents = usdRefunds ? Number(usdRefunds.refunded_cents) : invoiceCount > 0 ? 0 : null;
   const outstandingCents = usdCash && invoiceCount > 0 ? Number(usdCash.outstanding_cents) : null;
   const cashCoverageComplete = Boolean(invoiceCoverage.completeCoverage);
   const cashClassification: CostClassification =
@@ -541,11 +547,17 @@ export async function financialIntelligenceOverview(input?: {
       },
     };
   });
+  // Full active Stripe-bound population (not the LIMIT 400 tenant table).
   let planningKnown = false;
-  const planningCost = tenantRows.reduce((n, t) => {
-    if (t.estimatedOperatingCostCents == null) return n;
+  const planningCost = planningSubs.rows.reduce((n, row) => {
+    const cost = planningCostForTenant(
+      String(row.plan),
+      Number(row.seats) || 1,
+      row.catalog_version == null ? null : String(row.catalog_version),
+    );
+    if (cost == null) return n;
     planningKnown = true;
-    return n + t.estimatedOperatingCostCents;
+    return n + cost;
   }, 0);
   const planningCostValue = planningKnown && planningCost > 0 ? planningCost : null;
   const contributionEstimate =

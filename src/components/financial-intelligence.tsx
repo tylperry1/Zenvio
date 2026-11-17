@@ -237,7 +237,9 @@ export function FinancialIntelligence() {
       setPeriod(nextPeriod);
       setData(d);
     } catch (e) {
-      if (seq === loadSeq.current) setPeriod(displayedPeriod.current);
+      // Ignore stale failures so an older error cannot overwrite a newer success.
+      if (seq !== loadSeq.current) return;
+      setPeriod(displayedPeriod.current);
       throw e;
     }
   }

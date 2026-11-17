@@ -31,16 +31,27 @@ function invoicePaid(invoice: InvoiceCompat) {
   return Boolean(invoice.paid || invoice.status === "paid");
 }
 
-type InvoiceRefundInfo = { cents: number; latestRefundAt: Date | null };
+type InvoiceRefundEvent = {
+  stripeRefundId: string;
+  amountCents: number;
+  refundedAt: Date;
+};
 
-/** Resolve refunded cents + latest refund time via invoice payments → PI → Charge (Stripe 23+). */
+type InvoiceRefundInfo = {
+  cents: number;
+  latestRefundAt: Date | null;
+  events: InvoiceRefundEvent[];
+};
+
+/** Resolve refunded cents + dated refund events via invoice payments → PI → Charge (Stripe 23+). */
 async function invoiceRefundInfo(
   stripe: Stripe,
   invoice: InvoiceCompat,
 ): Promise<InvoiceRefundInfo> {
   const creditNotes = Number(invoice.post_payment_credit_notes_amount || 0);
   let fromCharges = 0;
-  let latestRefundAt: Date | null = null;
+  const events: InvoiceRefundEvent[] = [];
+  const seen = new Set<string>();
   const paymentIntentIds = new Set<string>();
   const legacyPi = invoice.payment_intent;
   if (typeof legacyPi === "string") paymentIntentIds.add(legacyPi);
@@ -71,9 +82,15 @@ async function invoiceRefundInfo(
       try {
         const refunds = await stripe.refunds.list({ charge: chargeId, limit: 100 });
         for (const refund of refunds.data) {
-          if (!refund.created) continue;
-          const at = new Date(refund.created * 1000);
-          if (!latestRefundAt || at > latestRefundAt) latestRefundAt = at;
+          if (!refund.id || !refund.created) continue;
+          const amountCents = Number(refund.amount || 0);
+          if (amountCents <= 0 || seen.has(refund.id)) continue;
+          seen.add(refund.id);
+          events.push({
+            stripeRefundId: refund.id,
+            amountCents,
+            refundedAt: new Date(refund.created * 1000),
+          });
         }
       } catch {
         // Charge refund list is best-effort; cents still count.
@@ -82,8 +99,27 @@ async function invoiceRefundInfo(
       // Keep aggregating remaining payment intents.
     }
   }
-  const cents = Math.max(creditNotes, fromCharges);
-  return { cents, latestRefundAt: cents > 0 ? latestRefundAt : null };
+
+  const eventCents = events.reduce((n, e) => n + e.amountCents, 0);
+  // Prefer dated Stripe refund events; fall back to charge/credit totals when the list is empty.
+  let cents = eventCents > 0 ? eventCents : Math.max(creditNotes, fromCharges);
+  if (eventCents === 0 && creditNotes > fromCharges && creditNotes > 0) {
+    events.push({
+      stripeRefundId: `credit_note:${invoice.id}`,
+      amountCents: creditNotes,
+      refundedAt: new Date((invoice.status_transitions?.paid_at || invoice.created) * 1000),
+    });
+    cents = creditNotes;
+  } else if (eventCents === 0 && fromCharges > 0) {
+    // Refunds exist on the charge but listing failed — keep cumulative cents without inventing dates.
+    cents = fromCharges;
+  }
+
+  const latestRefundAt =
+    events.length > 0
+      ? events.reduce((latest, e) => (e.refundedAt > latest ? e.refundedAt : latest), events[0].refundedAt)
+      : null;
+  return { cents, latestRefundAt, events };
 }
 
 function classifyInvoice(invoice: InvoiceCompat, refundedCents: number): string {
@@ -233,7 +269,12 @@ async function upsertInvoice(
       ? new Date(row.created * 1000)
       : null;
   const refund = await invoiceRefundInfo(stripe, row);
-  await getPool().query(
+  const currency = row.currency || "usd";
+  // Consistent fallback: Stripe refund time, else paid_at/created — never invent now()
+  // on an unchanged cumulative total (repeat sync must not move the refund into this month).
+  const refundedAtFallback = refund.latestRefundAt || paidAt || new Date(row.created * 1000);
+  const db = getPool();
+  await db.query(
     `INSERT INTO private.financial_invoice_snapshots(
        stripe_invoice_id,user_id,customer_id,status,billing_reason,currency,
        amount_paid_cents,amount_due_cents,amount_remaining_cents,amount_refunded_cents,
@@ -258,9 +299,10 @@ async function upsertInvoice(
        paid_at=EXCLUDED.paid_at,
        refunded_at=CASE
          WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
-         WHEN EXCLUDED.amount_refunded_cents > private.financial_invoice_snapshots.amount_refunded_cents
-           THEN COALESCE(EXCLUDED.refunded_at, now())
-         ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.refunded_at, now())
+         WHEN EXCLUDED.refunded_at IS NOT NULL THEN EXCLUDED.refunded_at
+         WHEN private.financial_invoice_snapshots.refunded_at IS NOT NULL
+           THEN private.financial_invoice_snapshots.refunded_at
+         ELSE EXCLUDED.paid_at
        END,
        period_start=EXCLUDED.period_start,
        period_end=EXCLUDED.period_end,
@@ -273,7 +315,7 @@ async function upsertInvoice(
       customer,
       row.status,
       row.billing_reason || null,
-      row.currency || "usd",
+      currency,
       row.amount_paid || 0,
       row.amount_due || 0,
       row.amount_remaining || 0,
@@ -285,13 +327,27 @@ async function upsertInvoice(
       Boolean(row.attempted),
       new Date(row.created * 1000),
       paidAt,
-      refund.latestRefundAt,
+      refund.cents > 0 ? refundedAtFallback : null,
       row.period_start ? new Date(row.period_start * 1000) : null,
       row.period_end ? new Date(row.period_end * 1000) : null,
       row.hosted_invoice_url || null,
       classifyInvoice(row, refund.cents),
     ],
   );
+
+  for (const event of refund.events) {
+    await db.query(
+      `INSERT INTO private.financial_invoice_refund_events(
+         stripe_refund_id,stripe_invoice_id,currency,amount_cents,refunded_at,reconciled_at
+       ) VALUES ($1,$2,$3,$4,$5,now())
+       ON CONFLICT(stripe_refund_id) DO UPDATE SET
+         amount_cents=EXCLUDED.amount_cents,
+         refunded_at=EXCLUDED.refunded_at,
+         currency=EXCLUDED.currency,
+         reconciled_at=now()`,
+      [event.stripeRefundId, row.id, currency, event.amountCents, event.refundedAt],
+    );
+  }
 }
 
 /** Pull Stripe invoices for known customers into local cash snapshots (paginated). */
