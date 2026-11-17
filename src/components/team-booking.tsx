@@ -100,11 +100,21 @@ export function TeamBooking({
                 </label>
                 <label>
                   Your name
-                  <input name="name" required minLength={2} />
+                  <input name="name" required minLength={2} maxLength={100} />
                 </label>
                 <label>
                   Email
-                  <input name="email" type="email" required />
+                  <input name="email" type="email" required maxLength={254} />
+                </label>
+                <label>
+                  Telephone
+                  <input
+                    name="phone"
+                    type="tel"
+                    required
+                    maxLength={40}
+                    placeholder="+1 555 555 0100"
+                  />
                 </label>
                 <Captcha siteKey={captchaSiteKey} onToken={setCaptcha} resetKey={attempts} />
                 <button>Book appointment</button>

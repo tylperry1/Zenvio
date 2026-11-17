@@ -73,6 +73,7 @@ export type WorkspaceData = {
   availability: Availability[];
   bookings: Booking[];
   contacts: Contact[];
+  businessAddress?: import("./addresses").StructuredAddress | null;
   // Totals across the whole account; the arrays above are bounded.
   bookingCount?: number;
   contactCount?: number;
@@ -116,8 +117,8 @@ export type ProfileExtras = {
 export type PublicProfileData = {
   design?: import("./profile-design").ProfileDesign | null;
   profile: Omit<Profile, "id"> & ProfileExtras;
-  events: Pick<
+  events: (Pick<
     EventType,
     "slug" | "title" | "description" | "duration" | "location" | "color"
-  >[];
+  > & { location_mode?: import("./addresses").LocationMode | null })[];
 };

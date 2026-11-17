@@ -15,6 +15,12 @@ import { entitlementUsage } from "@/lib/entitlements";
 import { materializeReminders } from "@/lib/lifecycle";
 import { deliverBookingEmails } from "@/lib/mail";
 import { protectBooking } from "@/lib/booking-protection";
+import {
+  businessAddressForWorkspace,
+  persistBookingAddress,
+  resolveBookingLocation,
+} from "@/lib/booking-address";
+import { normalizeBookingPhone } from "@/lib/phone";
 export const dynamic = "force-dynamic";
 async function staff(organization: string, event: string) {
   const e = (
@@ -32,7 +38,14 @@ async function staff(organization: string, event: string) {
     );
   const rows = (
     await getPool().query(
-      "SELECT s.*,p.slug host_slug,t.slug event_slug FROM private.team_event_staff s JOIN private.memberships m ON m.user_id=s.user_id AND m.organization_id=$2 AND m.active JOIN public.profiles p ON p.id=s.user_id JOIN public.event_types t ON t.id=s.personal_event_id WHERE s.event_id=$1 AND t.active AND t.deleted_at IS NULL ORDER BY s.last_assigned_at NULLS FIRST,s.user_id",
+      `SELECT s.*,p.slug host_slug,t.slug event_slug,t.location event_location,t.location_mode,
+              t.allowed_location_modes,t.virtual_instructions
+         FROM private.team_event_staff s
+         JOIN private.memberships m ON m.user_id=s.user_id AND m.organization_id=$2 AND m.active
+         JOIN public.profiles p ON p.id=s.user_id
+         JOIN public.event_types t ON t.id=s.personal_event_id
+        WHERE s.event_id=$1 AND t.active AND t.deleted_at IS NULL
+        ORDER BY s.last_assigned_at NULLS FIRST,s.user_id`,
       [e.id, e.organization_id],
     )
   ).rows;
@@ -89,6 +102,9 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(Date.parse(start)))
       throw new ApiError("Choose a time.");
     await protectBooking(req, v.captcha);
+    const guestPhone = normalizeBookingPhone(String(v.phone ?? ""), true);
+    const guestEmail = email(v.email);
+    const guestName = string(v.name, "name", 100, 2);
     const candidates = [];
     for (const s of d.staff) {
       try {
@@ -126,15 +142,44 @@ export async function POST(req: NextRequest) {
                 s.host_slug,
                 s.event_slug,
                 start,
-                string(v.name, "name", 100, 2),
-                email(v.email),
+                guestName,
+                guestEmail,
                 "",
-                "",
+                guestPhone,
                 "",
                 "",
               ],
             )
           ).rows[0].result;
+          try {
+            const location = resolveBookingLocation({
+              event: {
+                location: s.event_location || "",
+                location_mode: s.location_mode,
+                allowed_location_modes: s.allowed_location_modes,
+                virtual_instructions: s.virtual_instructions || "",
+              },
+              businessAddress: await businessAddressForWorkspace(db, s.user_id),
+              guest: {},
+            });
+            await persistBookingAddress(db, {
+              workspaceId: s.user_id,
+              bookingId: booking.id,
+              guestEmail,
+              guestPhone,
+              locationMode: location.locationMode,
+              locationText: location.locationText,
+              serviceAddress: location.serviceAddress,
+              accessInstructions: location.accessInstructions,
+              saveAsResidential: false,
+            });
+          } catch {
+            // at_customer defaults still need a guest address; keep phone + location text.
+            await db.query(
+              "UPDATE public.bookings SET guest_phone=$2, location=CASE WHEN $3<>'' THEN $3 ELSE location END WHERE id=$1 AND user_id=$4",
+              [booking.id, guestPhone, String(s.event_location || "").slice(0, 500), s.user_id],
+            );
+          }
           await db.query(
             "UPDATE public.bookings SET organization_id=$2,team_event_id=$3 WHERE id=$1",
             [booking.id, d.event.organization_id, d.event.id],
@@ -168,4 +213,3 @@ export async function POST(req: NextRequest) {
     return failure(e);
   }
 }
-

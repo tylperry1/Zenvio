@@ -9,6 +9,7 @@ import { PublicPhoto } from "./profile-photo";
 import { networkLabel } from "./booking-design";
 import { readDemo } from "@/lib/demo";
 import type { PublicProfileData } from "@/lib/types";
+import { isLocationMode, locationLabel } from "@/lib/addresses";
 export function BookingProfile({ host }: { host: string }) {
   const [data, setData] = useState<PublicProfileData | null>(null);
   const [error, setError] = useState("");
@@ -79,7 +80,7 @@ export function BookingProfile({ host }: { host: string }) {
           </Link>
         </main>
       ) : data.design ? (
-        <main className="bp-designed"><ProfileExperience design={data.design} identity={{name:data.profile.company||data.profile.name,timezone:data.profile.timezone,bookingInstructions:data.profile.booking_instructions,tagline:data.profile.headline,bio:data.profile.bio,company:data.profile.company,website:data.profile.website,address:data.profile.location,links:data.profile.social_links?.map(l=>({label:networkLabel(l.network),url:l.url})),bookingUrl:data.design.sections.some(s=>s.id==='services'&&s.visible)?'#profile-services':data.events[0]?`/book/${host}/${data.events[0].slug}`:undefined,coverUrl:data.profile.has_cover?`/api/profile/images?host=${encodeURIComponent(host)}&kind=cover`:undefined,avatarUrl:data.profile.has_logo?`/api/profile/images?host=${encodeURIComponent(host)}&kind=logo`:undefined}} services={<div className="px-booking-services">{data.events.length?data.events.map(event=><Link key={event.slug} href={`/book/${host}/${event.slug}`} className="px-booking-service"><Icon name="calendar" size={22}/><h3>{event.title}</h3><p>{event.description}</p><span>{event.duration} minutes · {event.location}</span><b>Choose a time <Icon name="arrow" size={15}/></b></Link>):<p>No appointments are available right now.</p>}</div>} reviews={<PublicReviews host={host}/>}/></main>
+        <main className="bp-designed"><ProfileExperience design={data.design} identity={{name:data.profile.company||data.profile.name,timezone:data.profile.timezone,bookingInstructions:data.profile.booking_instructions,tagline:data.profile.headline,bio:data.profile.bio,company:data.profile.company,website:data.profile.website,address:data.profile.location,links:data.profile.social_links?.map(l=>({label:networkLabel(l.network),url:l.url})),bookingUrl:data.design.sections.some(s=>s.id==='services'&&s.visible)?'#profile-services':data.events[0]?`/book/${host}/${data.events[0].slug}`:undefined,coverUrl:data.profile.has_cover?`/api/profile/images?host=${encodeURIComponent(host)}&kind=cover`:undefined,avatarUrl:data.profile.has_logo?`/api/profile/images?host=${encodeURIComponent(host)}&kind=logo`:undefined}} services={<div className="px-booking-services">{data.events.length?data.events.map(event=><Link key={event.slug} href={`/book/${host}/${event.slug}`} className="px-booking-service"><Icon name="calendar" size={22}/><h3>{event.title}</h3><p>{event.description}</p><span>{event.duration} minutes · {isLocationMode(event.location_mode) ? locationLabel(event.location_mode, event.location) : event.location}</span><b>Choose a time <Icon name="arrow" size={15}/></b></Link>):<p>No appointments are available right now.</p>}</div>} reviews={<PublicReviews host={host}/>}/></main>
       ) : (
         <main
           className="bp-container"
@@ -185,7 +186,9 @@ export function BookingProfile({ host }: { host: string }) {
                     <div className="bp-event-icon">
                       <Icon
                         name={
-                          event.location.toLowerCase().includes("video")
+                          event.location_mode === "virtual" ||
+                          (!event.location_mode &&
+                            event.location.toLowerCase().includes("video"))
                             ? "video"
                             : "calendar"
                         }
@@ -205,11 +208,13 @@ export function BookingProfile({ host }: { host: string }) {
                         </span>
                         <span>
                           <Icon name="globe" size={14} />
-                          {event.location.toLowerCase().includes("video")
-                            ? "Video call"
-                            : event.location.toLowerCase().includes("phone")
-                              ? "Phone call"
-                              : "Custom location"}
+                          {isLocationMode(event.location_mode)
+                            ? locationLabel(event.location_mode, event.location)
+                            : event.location.toLowerCase().includes("video")
+                              ? "Video call"
+                              : event.location.toLowerCase().includes("phone")
+                                ? "Phone call"
+                                : "Custom location"}
                         </span>
                       </div>
                     </div>

@@ -24,9 +24,26 @@ export async function GET(request: NextRequest) {
     ).rows[0];
     const design=extra?await publishedProfileDesign(extra.id,"booking",extra.id):null;
     const {id: _privateId,...publicExtra}=extra||{};
+    const modeRows = extra
+      ? (
+          await getPool().query(
+            `SELECT slug, location_mode FROM public.event_types
+              WHERE user_id=$1 AND active AND deleted_at IS NULL`,
+            [extra.id],
+          )
+        ).rows
+      : [];
+    const modeBySlug = Object.fromEntries(modeRows.map((r) => [r.slug, r.location_mode]));
+    const events = Array.isArray(profile.events)
+      ? profile.events.map((e: { slug: string }) => ({
+          ...e,
+          location_mode: modeBySlug[e.slug] || null,
+        }))
+      : profile.events;
     return Response.json(
       {
         ...profile,
+        events,
         design,
         profile: { ...profile.profile, ...publicExtra },
         redirect_to: liveSlug !== host ? liveSlug : undefined,

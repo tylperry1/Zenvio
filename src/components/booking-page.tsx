@@ -12,11 +12,21 @@ import type { Booking, PublicEvent } from "@/lib/types";
 import { DEMO_KEY, readDemo } from "@/lib/demo";
 import { calendarDownload, initials, timezones } from "@/lib/client";
 import { dateKey, slotsForDay, inZone } from "@/lib/scheduling.mjs";
-import { emptyAddress, type LocationMode, type StructuredAddress } from "@/lib/addresses";
+import {
+  bookingLocationSummary,
+  emptyAddress,
+  type LocationMode,
+  type StructuredAddress,
+} from "@/lib/addresses";
+import { formatPhoneDisplay } from "@/lib/phone";
 type Confirmation = Pick<Booking, "id" | "starts_at" | "ends_at"> & {
   cancel_token: string;
   title: string;
   location: string;
+  location_mode?: LocationMode | null;
+  access_instructions?: string;
+  service_address?: StructuredAddress | null;
+  guest_phone?: string;
 };
 export function BookingPage({
   host,
@@ -218,7 +228,18 @@ export function BookingPage({
           starts_at: selectedTime,
           ends_at,
           title: type.title,
-          location: type.location,
+          location:
+            locationMode === "at_customer" || locationMode === "custom"
+              ? serviceAddress.formatted || type.location
+              : type.location,
+          location_mode: locationMode,
+          access_instructions:
+            locationMode === "at_customer" || locationMode === "custom"
+              ? serviceAddress.accessInstructions || ""
+              : "",
+          service_address:
+            locationMode === "at_customer" || locationMode === "custom" ? serviceAddress : null,
+          guest_phone: String(f.get("phone") || ""),
         };
       } else {
         const r = await fetch("/api/book", {
@@ -267,7 +288,15 @@ export function BookingPage({
           location.assign(d.url);
           return;
         }
-        result = d;
+        result = {
+          ...d,
+          guest_phone: String(f.get("phone") || d.guest_phone || ""),
+          service_address:
+            d.service_address ||
+            (locationMode === "at_customer" || locationMode === "custom" ? serviceAddress : null),
+          location_mode: d.location_mode || locationMode,
+          access_instructions: d.access_instructions || "",
+        };
       }
       setGuestName(name);
       setConfirmation(result);
@@ -379,10 +408,33 @@ export function BookingPage({
               {time(confirmation.starts_at)} – {time(confirmation.ends_at)}{" "}
               <small>{zone.replaceAll("_", " ")}</small>
             </p>
-            <p>
-              <Icon name="video" size={17} />
-              {confirmation.location}
-            </p>
+            {(() => {
+              const place = bookingLocationSummary({
+                locationMode: confirmation.location_mode,
+                location: confirmation.location,
+                serviceAddress: confirmation.service_address,
+                accessInstructions: confirmation.access_instructions,
+              });
+              return (
+                <>
+                  <p>
+                    <Icon name="video" size={17} />
+                    <span>
+                      <strong>{place.title}</strong>
+                      {place.body && place.body !== place.title ? (
+                        <span style={{ display: "block", whiteSpace: "pre-line" }}>{place.body}</span>
+                      ) : null}
+                    </span>
+                  </p>
+                  {place.access ? (
+                    <p style={{ whiteSpace: "pre-wrap" }}>Access: {place.access}</p>
+                  ) : null}
+                  {confirmation.guest_phone ? (
+                    <p>Phone: {formatPhoneDisplay(confirmation.guest_phone)}</p>
+                  ) : null}
+                </>
+              );
+            })()}
           </div>
           <button
             className="button primary full"

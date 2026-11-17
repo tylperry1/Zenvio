@@ -5,6 +5,8 @@ import { Icon, Logo } from "./icons";
 import { Alert, Badge, EmptyState, Field, LinkProblem, Skeleton, Tabs, formatDateTime } from "./ui";
 import { LiveControls, useFreshRequest, useLive } from "./platform-support";
 import { money } from "@/lib/contractor";
+import { bookingLocationSummary, type LocationMode, type StructuredAddress } from "@/lib/addresses";
+import { formatPhoneDisplay } from "@/lib/phone";
 
 type Estimate = {
   id: string;
@@ -26,7 +28,19 @@ type Estimate = {
 type Data = {
   host: { name: string; person: string; slug: string; accent: string; timezone: string };
   client: { name: string };
-  appointments: { id: string; title: string; starts_at: string; ends_at: string; status: string; location: string; manage_url: string | null }[];
+  appointments: {
+    id: string;
+    title: string;
+    starts_at: string;
+    ends_at: string;
+    status: string;
+    location: string;
+    location_mode?: LocationMode | null;
+    service_address?: StructuredAddress | null;
+    access_instructions?: string;
+    guest_phone?: string;
+    manage_url: string | null;
+  }[];
   messages: { id: string; direction: string; channel: string; body: string; created_at: string; author_name: string; attachments: { id: string; filename: string }[] }[];
   documents: {
     id: string;
@@ -194,25 +208,43 @@ export function ClientPortal({ token }: { token: string }) {
                     } />
                   ) : (
                     <ul className="portal-list">
-                      {upcoming.map((a) => (
-                        <li key={a.id}>
-                          <span className="portal-date">
-                            <b>{new Date(a.starts_at).toLocaleDateString([], { day: "numeric" })}</b>
-                            <small>{new Date(a.starts_at).toLocaleDateString([], { month: "short" })}</small>
-                          </span>
-                          <div>
-                            <b>{a.title}</b>
-                            <small>
-                              {formatDateTime(a.starts_at)} · {a.location}
-                            </small>
-                          </div>
-                          {a.manage_url && (
-                            <a className="ui-btn ui-btn-secondary ui-btn-sm" href={a.manage_url}>
-                              Reschedule or cancel
-                            </a>
-                          )}
-                        </li>
-                      ))}
+                      {upcoming.map((a) => {
+                        const place = bookingLocationSummary({
+                          locationMode: a.location_mode,
+                          location: a.location,
+                          serviceAddress: a.service_address,
+                          accessInstructions: a.access_instructions,
+                        });
+                        return (
+                          <li key={a.id}>
+                            <span className="portal-date">
+                              <b>{new Date(a.starts_at).toLocaleDateString([], { day: "numeric" })}</b>
+                              <small>{new Date(a.starts_at).toLocaleDateString([], { month: "short" })}</small>
+                            </span>
+                            <div>
+                              <b>{a.title}</b>
+                              <small>{formatDateTime(a.starts_at)}</small>
+                              <small style={{ display: "block", whiteSpace: "pre-line" }}>
+                                {place.title}
+                                {place.body && place.body !== place.title ? `\n${place.body}` : ""}
+                              </small>
+                              {place.access ? (
+                                <small style={{ display: "block" }}>Access: {place.access}</small>
+                              ) : null}
+                              {a.guest_phone ? (
+                                <small style={{ display: "block" }}>
+                                  Phone: {formatPhoneDisplay(a.guest_phone)}
+                                </small>
+                              ) : null}
+                            </div>
+                            {a.manage_url && (
+                              <a className="ui-btn ui-btn-secondary ui-btn-sm" href={a.manage_url}>
+                                Reschedule or cancel
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                   {past.length > 0 && (

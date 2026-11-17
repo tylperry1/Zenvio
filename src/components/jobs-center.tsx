@@ -8,6 +8,8 @@ import { AskZenvio } from "./assistant";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Alert, Badge, Card, CopyField, EmptyState, Field, Skeleton, Tabs, formatDateTime, useConfirm, useToast } from "./ui";
 import { estimateTotals, jobStatuses, money } from "@/lib/contractor";
+import { AddressAutocomplete } from "./address-autocomplete";
+import { emptyAddress, type StructuredAddress } from "@/lib/addresses";
 
 type JobRow = {
   id: string;
@@ -249,7 +251,8 @@ function NewJob({ categories, onClose, onCreated }: { categories: string[]; onCl
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [clients, setClients] = useState<{ id: string; name: string; email: string }[]>([]),
-    [mode, setMode] = useState<"existing" | "new">("existing");
+    [mode, setMode] = useState<"existing" | "new">("existing"),
+    [jobAddress, setJobAddress] = useState<StructuredAddress>(emptyAddress());
   useEffect(() => {
     fetch("/api/clients?q=", { cache: "no-store" })
       .then((r) => r.json())
@@ -270,7 +273,11 @@ function NewJob({ categories, onClose, onCreated }: { categories: string[]; onCl
               action: "create",
               title: f.get("title"),
               category: f.get("category") || "",
-              address: f.get("address"),
+              address:
+                jobAddress.formatted ||
+                [jobAddress.street, jobAddress.city, jobAddress.state, jobAddress.postalCode]
+                  .filter(Boolean)
+                  .join(", "),
               description: f.get("description"),
               ...(mode === "existing" ? { contactId: f.get("contactId") || undefined } : { clientName: f.get("clientName"), clientEmail: f.get("clientEmail") }),
             });
@@ -320,9 +327,12 @@ function NewJob({ categories, onClose, onCreated }: { categories: string[]; onCl
             </div>
           )}
         </Field>
-        <Field label="Job site address">
-          <input className="ui-input" name="address" maxLength={300} autoComplete="street-address" />
-        </Field>
+        <AddressAutocomplete
+          label="Job site address"
+          value={jobAddress}
+          onChange={setJobAddress}
+          disabled={busy}
+        />
         <Field label="Description">
           <textarea className="ui-input" name="description" rows={3} maxLength={4000} />
         </Field>
