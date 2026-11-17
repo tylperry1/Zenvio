@@ -96,7 +96,8 @@ function openPopOut(ticket?: string | null) {
 }
 
 export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
-  const [tab, setTab] = useState<"dashboard" | "queue" | "analytics" | "kb" | "config">("dashboard");
+  // Pop-out is a ticket workspace — land on the queue, not the KPI dashboard.
+  const [tab, setTab] = useState<"dashboard" | "queue" | "analytics" | "kb" | "config">(popout ? "queue" : "dashboard");
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [caps, setCaps] = useState<SupportCapability[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
