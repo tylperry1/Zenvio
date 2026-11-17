@@ -39,16 +39,20 @@ test("financial period helpers resolve UTC ranges", () => {
   const custom = resolveFinancialPeriod("custom", "2026-01-01", "2026-01-31", now);
   assert.equal(custom.end.toISOString(), "2026-02-01T00:00:00.000Z");
   assert.throws(() => resolveFinancialPeriod("custom", "2026-02-01", "2026-01-01", now));
+  assert.throws(() => resolveFinancialPeriod("custom", "2026-02-30", "2026-03-03", now));
 });
 
 test("FI migration wires invoice snapshots and sync runs", () => {
   const sql = fs.readFileSync("postgres/migrations/089_financial_intelligence_sync.sql", "utf8");
+  const refundSql = fs.readFileSync("postgres/migrations/091_financial_invoice_refunded_at.sql", "utf8");
   const docs = fs.readFileSync("docs/FINANCIAL_INTELLIGENCE.md", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
   const layout = fs.readFileSync("src/app/admin/financial-intelligence/layout.tsx", "utf8");
   assert.match(sql, /financial_invoice_snapshots/);
   assert.match(sql, /financial_sync_runs/);
+  assert.match(refundSql, /refunded_at/);
+  assert.match(refundSql, /financial_invoice_refund_events/);
   assert.match(docs, /ARR = MRR × 12/);
   assert.match(docs, /never \$0/);
   assert.match(route, /reconcile_stripe_full/);
@@ -89,6 +93,17 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
             return { rows: [{ provider: "openai", cents: 1200 }] };
           if (sql.includes("provider_cost_manual_expenses") && sql.includes("max(created_at)"))
             return { rows: [{ provider: "openai", last_at: "2026-11-10T00:00:00Z" }] };
+          if (sql.includes("NOT EXISTS")) return { rows: [{ n: 1 }] };
+          if (sql.includes("status = 'active' AND subscription_id IS NOT NULL"))
+            return {
+              rows: [
+                { plan: "individual", seats: 1, catalog_version: "2026-11-v3" },
+                { plan: "team", seats: 5, catalog_version: "2026-11-v3" },
+                { plan: "business", seats: 4, catalog_version: "2026-11-v4" },
+                // Canceled free row must not affect platform planning.
+                { plan: "free", seats: 1, catalog_version: "2026-11-v4" },
+              ].filter((r) => r.plan !== "free"),
+            };
           if (sql.includes("FROM private.subscriptions s"))
             return {
               rows: [
@@ -153,8 +168,8 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
                 },
               ],
             };
-          if (sql.includes("financial_invoice_snapshots"))
-            return { rows: [] };
+          if (sql.includes("financial_invoice_refund_events")) return { rows: [] };
+          if (sql.includes("financial_invoice_snapshots")) return { rows: [] };
           if (sql.includes("subscription_addon_orders"))
             return {
               rows: [
@@ -190,8 +205,6 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
                 },
               ],
             };
-          if (sql.includes("missing") || sql.includes("NOT EXISTS"))
-            return { rows: [{ n: 1 }] };
           if (sql.includes("financial_sync_runs")) return { rows: [] };
           return { rows: [] };
         },
@@ -243,8 +256,15 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
   assert.equal(overview.kpis.collected.valueCents, null);
   assert.equal(overview.kpis.collected.classification, "unavailable");
   assert.notEqual(overview.kpis.collected.valueCents, 0);
-  assert.equal(overview.planning.costCents, 2300);
+  // Catalog-aware: v3 individual + v3 team(5) + v4 business(4)
+  const expectedPlanning =
+    850 + (1600 + 2 * 350) + (catalog.pricingV4PlanningCostCents.business + catalog.pricingV4PlanningCostCents.business_extra);
+  assert.equal(overview.planning.costCents, expectedPlanning);
+  assert.match(overview.planning.source, /v3 \+ v4/);
+  assert.equal(overview.kpis.mrr.missingActiveSnapshots, 1);
   assert.ok(overview.kpis.estimatedContribution.valueCents != null);
+  assert.ok(queries.some((q) => q.sql.includes("status = 'active' AND subscription_id IS NOT NULL")));
+  assert.ok(queries.some((q) => q.sql.includes("financial_invoice_refund_events")));
 
   const openai = overview.providers.find((p) => p.provider === "openai");
   assert.equal(openai.actualBilledCents, 10000 + 1200);
@@ -276,7 +296,82 @@ test("UI never renders money(0) for null financial metrics", () => {
   assert.match(src, /Sync Stripe/);
   assert.match(src, /not verified profit/);
   assert.match(src, /Export CSV/);
+  assert.match(src, /loadSeq/);
+  assert.match(src, /displayedPeriod/);
+  assert.match(src, /requestedPeriod/);
+  assert.match(src, /load\(requestedPeriod\.current\)/);
+  assert.match(src, /requestedPeriod\.current = displayedPeriod\.current/);
+  assert.match(src, /seq !== loadSeq\.current\) return/);
   assert.doesNotMatch(src, /money\(data\.overview\.planning\.costCents\)/);
+});
+
+test("addon refunds stay visible when no paid orders remain", async () => {
+  const fi = load("src/lib/financial-intelligence.ts", {
+    "./db": {
+      databaseConfigured: () => true,
+      getPool: () => ({
+        query: async (sql) => {
+          if (sql.includes("paying_accounts"))
+            return {
+              rows: [
+                {
+                  currency: "usd",
+                  mrr_cents: 1000,
+                  paying_accounts: 1,
+                  complete_snapshots: 1,
+                  incomplete: 0,
+                  snapshots: 1,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+              ],
+            };
+          if (sql.includes("financial_invoice_refund_events")) return { rows: [] };
+          if (sql.includes("financial_invoice_snapshots")) return { rows: [] };
+          if (sql.includes("status = 'active' AND subscription_id IS NOT NULL")) return { rows: [] };
+          if (sql.includes("FROM private.subscriptions s")) return { rows: [] };
+          if (sql.includes("subscription_addon_orders"))
+            return {
+              rows: [
+                {
+                  addon_paid_cents: 0,
+                  addon_refunded_cents: 2500,
+                  paid_orders: 0,
+                  refunded_orders: 2,
+                },
+              ],
+            };
+          if (sql.includes("NOT EXISTS")) return { rows: [{ n: 0 }] };
+          return { rows: [] };
+        },
+      }),
+    },
+    "./provider-economics": {
+      providerEconomics: async () => ({
+        period: "fixture",
+        providerReservations: [],
+        otherProviderEvents: [],
+        revenue: [],
+        accountsByPlan: [],
+        anomalies: [],
+        planning: { costCents: 0, source: "planning" },
+        coverage: "fixture",
+      }),
+    },
+    "./pricing-v4-catalog.mjs": catalog,
+    "./subscription-offers.mjs": offers,
+    "./financial-period": load("src/lib/financial-period.ts"),
+    "./financial-sync": {
+      latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: true,
+        lastAt: "2026-11-16T00:00:00Z",
+        status: "succeeded",
+      }),
+    },
+  });
+  const overview = await fi.financialIntelligenceOverview({ periodId: "this_month" });
+  assert.equal(overview.cash.addonPaidOrders, 0);
+  assert.equal(overview.cash.addonRefundedCents, 2500);
 });
 
 test("cash stays partial without complete invoice coverage and ignores non-USD", async () => {
@@ -308,13 +403,14 @@ test("cash stays partial without complete invoice coverage and ignores non-USD",
                 },
               ],
             };
+          if (sql.includes("financial_invoice_refund_events"))
+            return { rows: [{ currency: "usd", refunded_cents: 0 }] };
           if (sql.includes("financial_invoice_snapshots"))
             return {
               rows: [
                 {
                   currency: "usd",
                   collected_cents: 2500,
-                  refunded_cents: 0,
                   outstanding_cents: 0,
                   open_invoices: 0,
                   failed_or_open_attempts: 0,
@@ -324,7 +420,6 @@ test("cash stays partial without complete invoice coverage and ignores non-USD",
                 {
                   currency: "eur",
                   collected_cents: 9900,
-                  refunded_cents: 0,
                   outstanding_cents: 0,
                   open_invoices: 0,
                   failed_or_open_attempts: 0,
@@ -333,6 +428,7 @@ test("cash stays partial without complete invoice coverage and ignores non-USD",
                 },
               ],
             };
+          if (sql.includes("status = 'active' AND subscription_id IS NOT NULL")) return { rows: [] };
           if (sql.includes("FROM private.subscriptions s")) return { rows: [] };
           if (sql.includes("subscription_addon_orders"))
             return { rows: [{ addon_paid_cents: 0, addon_refunded_cents: 0, paid_orders: 0, refunded_orders: 0 }] };
@@ -383,8 +479,44 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /invoicePayments\.list/);
   assert.match(sync, /ORDER BY user_id ASC/);
   assert.match(sync, /completeCoverage/);
+  assert.match(sync, /refunded_at/);
+  assert.match(sync, /refunds\.list/);
+  assert.match(sync, /financial_invoice_refund_events/);
+  assert.match(sync, /WHEN \$18::timestamptz IS NOT NULL THEN \$18::timestamptz/);
+  assert.match(sync, /COALESCE\(private\.financial_invoice_snapshots\.refunded_at, EXCLUDED\.paid_at\)/);
+  assert.match(sync, /status !== "succeeded"/);
+  assert.match(sync, /eventsComplete/);
+  assert.match(sync, /chargeLookupFailures/);
+  assert.match(sync, /paymentDiscoveryFailures/);
+  assert.match(sync, /starting_after: startingAfter/);
+  assert.match(sync, /payments\.has_more/);
+  assert.match(sync, /empty page while has_more=true/);
+  assert.match(sync, /pagination cursor did not advance/);
+  assert.match(sync, /cents: number \| null/);
+  assert.match(sync, /WHEN \$10::int IS NULL THEN private\.financial_invoice_snapshots\.amount_refunded_cents/);
+  assert.match(sync, /refundEventsIncomplete: !refund\.eventsComplete \|\| refund\.cents == null/);
+  assert.match(sync, /incompleteRefundLookups/);
+  assert.match(sync, /credit_note:\$\{row\.id\}/);
+  assert.match(sync, /DELETE FROM private\.financial_invoice_refund_events/);
+  assert.doesNotMatch(sync, /COALESCE\(EXCLUDED\.refunded_at, now\(\)\)/);
   assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
+  assert.doesNotMatch(sync, /invoicePayments\.list\(\{ invoice: invoice\.id, limit: 20 \}\)/);
   const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
   assert.match(pe, /created_at >= \$1::timestamptz/);
   assert.match(pe, /period >= \$1::date/);
+  const overviewSrc = fs.readFileSync("src/lib/financial-intelligence.ts", "utf8");
+  assert.match(overviewSrc, /financial_invoice_refund_events/);
+  assert.match(overviewSrc, /status = 'active' AND subscription_id IS NOT NULL/);
+  assert.match(overviewSrc, /refundQueryOk/);
+  assert.match(overviewSrc, /invoiceQueryOk/);
+  assert.match(overviewSrc, /refundQueryOk && invoiceQueryOk/);
+  assert.match(overviewSrc, /ok: true as const/);
+  assert.match(overviewSrc, /ok: false as const/);
+  const migration091 = fs.readFileSync(
+    "postgres/migrations/091_financial_invoice_refunded_at.sql",
+    "utf8",
+  );
+  assert.match(migration091, /financial_invoice_refund_events/);
+  assert.match(migration091, /completeCoverage/);
+  assert.match(migration091, /financial_sync_runs/);
 });

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -220,15 +220,32 @@ export function FinancialIntelligence() {
   const [tenantQuery, setTenantQuery] = useState("");
   const [tenantPlan, setTenantPlan] = useState("all");
   const [tenantStatus, setTenantStatus] = useState("all");
+  const loadSeq = useRef(0);
+  const displayedPeriod = useRef<(typeof PERIODS)[number][0]>("this_month");
+  // Latest user-selected period — post-save refresh must not snap back to a stale closure.
+  const requestedPeriod = useRef<(typeof PERIODS)[number][0]>("this_month");
 
-  async function load(nextPeriod = period) {
-    const r = await fetch(
-      `/api/admin/financial-intelligence?period=${encodeURIComponent(nextPeriod)}`,
-      { cache: "no-store" },
-    );
-    const d = await r.json();
-    if (!r.ok) throw Error(d.error || "Unable to load financial intelligence.");
-    setData(d);
+  async function load(nextPeriod = requestedPeriod.current) {
+    const seq = ++loadSeq.current;
+    requestedPeriod.current = nextPeriod;
+    try {
+      const r = await fetch(
+        `/api/admin/financial-intelligence?period=${encodeURIComponent(nextPeriod)}`,
+        { cache: "no-store" },
+      );
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error || "Unable to load financial intelligence.");
+      if (seq !== loadSeq.current) return;
+      displayedPeriod.current = nextPeriod;
+      setPeriod(nextPeriod);
+      setData(d);
+    } catch (e) {
+      // Ignore stale failures so an older error cannot overwrite a newer success.
+      if (seq !== loadSeq.current) return;
+      requestedPeriod.current = displayedPeriod.current;
+      setPeriod(displayedPeriod.current);
+      throw e;
+    }
   }
 
   useEffect(() => {
@@ -249,7 +266,7 @@ export function FinancialIntelligence() {
       const d = await r.json();
       if (!r.ok) throw Error(d.error || "Unable to save.");
       try {
-        await load();
+        await load(requestedPeriod.current);
         setMessage(
           payload.action?.toString().startsWith("reconcile")
             ? `Sync finished · processed ${d.result?.processed ?? 0}, failed ${d.result?.failed ?? 0}.`
@@ -317,8 +334,10 @@ export function FinancialIntelligence() {
                 value={period}
                 options={PERIODS}
                 onChange={(id) => {
+                  requestedPeriod.current = id;
                   setPeriod(id);
                   setBusy(true);
+                  setError("");
                   void load(id)
                     .catch((e) => setError(e instanceof Error ? e.message : "Unable to load."))
                     .finally(() => setBusy(false));
