@@ -219,7 +219,7 @@ export function Marketplace({ guest = false }: { guest?: boolean }) {
                       <h3>
                         <Link href={`/marketplace/p/${p.id}`}>{p.title}</Link>
                       </h3>
-                      {p.is_demo && <span className="market-demo-badge">Demo product · sample pricing</span>}
+                      {p.is_demo && <span className="market-demo-badge">Preview product · illustrative pricing</span>}
                       <p>{p.description}</p>
                       <b>
                         {p.customizable && <small className="shop-from">From </small>}
@@ -227,7 +227,7 @@ export function Marketplace({ guest = false }: { guest?: boolean }) {
                       </b>
                       <small className="billing-cell-detail">
                         {p.is_demo
-                          ? "Preview only · not available for purchase"
+                          ? "Browse-only example — not for purchase"
                           : p.customizable
                             ? "Printed on demand"
                             : p.stock === null
@@ -287,7 +287,7 @@ export function Marketplace({ guest = false }: { guest?: boolean }) {
                           </small>
                         </form>
                       ) : (
-                        <div className="market-demo-unavailable">Sample item · checkout disabled</div>
+                        <div className="market-demo-unavailable">Preview only — not for purchase</div>
                       )}
                     </div>
                   </article>

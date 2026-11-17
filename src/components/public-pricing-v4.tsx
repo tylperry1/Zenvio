@@ -39,7 +39,7 @@ export function PublicPricingV4({
     <div className={`subscription-offers subscription-offers-v4 subscription-offers-${variant}`}>
       <div className="subscription-offer-banner">
         <div className="sob-copy">
-          <span className="sob-badge">{canEnroll ? "Published pricing" : "Proposed pricing preview"}</span>
+          <span className="sob-badge">{canEnroll ? "Published pricing" : "Upcoming plans"}</span>
           <strong>{pricingV4Tagline}</strong>
           <p>{pricingV4Hero}</p>
         </div>
@@ -100,7 +100,7 @@ export function PublicPricingV4({
                 </p>
               ) : null}
               {!isFree && !canEnroll ? (
-                <p className="premium-note">Preview only — paid enrollment stays on the live catalog.</p>
+                <p className="premium-note">These plans aren’t open for paid signup yet. Current enrollments use today’s published pricing.</p>
               ) : null}
               <ul>
                 {pricingV4Features[offer.id as keyof typeof pricingV4Features].map((line) => (
@@ -179,16 +179,16 @@ export function PublicPricingV4({
             </div>
             <p className="premium-note">
               *Fair-use unlimited where listed. Essential transactional email is never blocked solely because a marketing
-              email allowance is exhausted. Proposed add-ons remain unpublished until billing acceptance.
+              email allowance is exhausted. Optional add-ons will be offered once billing for them is live.
             </p>
           </section>
           <section className="subscription-invoices">
-            <h2>Proposed add-ons</h2>
+            <h2>Optional add-ons</h2>
             <ul>
               {addons.map((addon) => (
                 <li key={addon.id}>
                   {addon.name} · {money(addon.amount)}
-                  {addon.recurring ? "/month" : ""} · not yet available for purchase
+                  {addon.recurring ? "/month" : ""} · Purchase opens with enrollment
                 </li>
               ))}
             </ul>

@@ -175,8 +175,7 @@ export async function GET(request: NextRequest) {
           messages: messages.rows.map((m) => ({
             ...m,
             status: deliveryStatus(m),
-            status_detail: m.job_status === "failed" ? m.last_error || "Delivery failed." : m.status_detail,
-            edited: !!m.edited_at,
+            status_detail: m.job_status === "failed" ? "Delivery failed." : m.status_detail,
             attachments: attachments.rows.filter((a) => a.message_id === m.id),
             job_status: undefined,
             last_error: undefined,

@@ -317,7 +317,7 @@ export function AdminCenter({
                   financeUnavailable(
                     typeof body.error === "string"
                       ? body.error
-                      : "Financial Intelligence request failed.",
+                      : "Couldn’t load Financial Intelligence.",
                   ),
                 );
                 return;
@@ -365,7 +365,7 @@ export function AdminCenter({
               if (controller.signal.aborted) return;
               setFinance(
                 financeUnavailable(
-                  e instanceof Error ? e.message : "Financial Intelligence request failed.",
+                  e instanceof Error ? e.message : "Couldn’t load Financial Intelligence.",
                 ),
               );
             }),
@@ -386,7 +386,7 @@ export function AdminCenter({
                   opsUnavailable(
                     typeof body.error === "string"
                       ? body.error
-                      : "Operations request failed.",
+                      : "Couldn’t load operations health.",
                   ),
                 );
                 return;
@@ -417,7 +417,7 @@ export function AdminCenter({
             .catch((e) => {
               if (controller.signal.aborted) return;
               setOps(
-                opsUnavailable(e instanceof Error ? e.message : "Operations request failed."),
+                opsUnavailable(e instanceof Error ? e.message : "Couldn’t load operations health."),
               );
             }),
         );

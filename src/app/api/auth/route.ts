@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
             response = await auth.api.signOut(common);
         else if (input.action === "recover") {
             if (!await mailReady())
-                throw new ApiError("We couldn’t send a password reset email right now. Please try again later or contact support.", 503);
+                throw new ApiError("We can’t send a password reset email right now. Please contact support.", 503);
             response = await auth.api.requestPasswordReset({ ...common, body: { email: email(input.email), redirectTo: `${request.nextUrl.origin}/reset-password` } });
         }
         else if (input.action === "reset") {
@@ -42,8 +42,19 @@ export async function POST(request: NextRequest) {
         const resultHeaders = new Headers({ "Cache-Control": "no-store" });
         for (const cookie of response.headers.getSetCookie())
             resultHeaders.append("Set-Cookie", cookie);
-        if (!response.ok)
-            return Response.json({ error: data.message || "Unable to complete this request." }, { status: response.status, headers: resultHeaders });
+        if (!response.ok) {
+            // Never forward Better Auth / provider prose to the browser.
+            const status = response.status;
+            const error =
+                status === 401 || status === 403
+                    ? "Email or password is incorrect."
+                    : status === 429
+                      ? "Too many attempts. Please wait a minute and try again."
+                      : status === 400
+                        ? "Check your details and try again."
+                        : "Unable to complete this request.";
+            return Response.json({ error }, { status, headers: resultHeaders });
+        }
         if (input.action === "sign-up" && data.user?.id && input.referralCode) {
             const { tryRedeemReferralOnSignup } = await import("@/lib/referrals");
             await tryRedeemReferralOnSignup(String(data.user.id), input.referralCode);

@@ -62,7 +62,7 @@ export async function POST(r: NextRequest) {
       if (!j?.provider_id)
         throw new ApiError("No provider delivery ID is available.", 409);
       const key = await integrationValue("RESEND_API_KEY");
-      if (!key) throw new ApiError("Email delivery is temporarily unavailable. Please try again later.", 503);
+      if (!key) throw new ApiError("Email delivery isn’t set up yet. Contact support if this continues.", 503);
       const r = await fetch(
         "https://api.resend.com/emails/" + encodeURIComponent(j.provider_id),
         {

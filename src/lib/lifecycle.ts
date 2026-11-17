@@ -444,14 +444,14 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       );
       if (suppressed.rowCount) {
         await db.query(
-          "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error='Email delivery is suppressed after a provider complaint or bounce.' WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='failed',provider_status='suppressed',payload_ciphertext=NULL,calendar_ciphertext=NULL,last_error='Email wasn’t sent because the address previously bounced or was marked as spam.' WHERE id=$1",
           [j.id],
         );
         await syncNotificationAttemptFromDeliveryJob(db, {
           id: j.id,
           notification_attempt_id: j.notification_attempt_id,
           status: "failed",
-          last_error: "Email delivery is suppressed after a provider complaint or bounce.",
+          last_error: "Email wasn’t sent because the address previously bounced or was marked as spam.",
         });
         await db.query("COMMIT");
         continue;
@@ -461,14 +461,14 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         Date.now() - new Date(j.claimed_at).getTime() > 23 * 3600000
       ) {
         await db.query(
-          "UPDATE private.delivery_jobs SET status='uncertain',last_error='Delivery confirmation timed out. Check whether the message arrived before sending again.' WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='uncertain',last_error='Delivery status couldn’t be confirmed. Check whether the message arrived before sending again.' WHERE id=$1",
           [j.id],
         );
         await syncNotificationAttemptFromDeliveryJob(db, {
           id: j.id,
           notification_attempt_id: j.notification_attempt_id,
           status: "uncertain",
-          last_error: "Delivery confirmation timed out. Check whether the message arrived before sending again.",
+          last_error: "Delivery status couldn’t be confirmed. Check whether the message arrived before sending again.",
         });
         await db.query("COMMIT");
         continue;

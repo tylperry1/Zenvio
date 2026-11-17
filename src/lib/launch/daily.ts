@@ -39,7 +39,7 @@ export async function dailyAccess(bookingId: string, scope: {
     let rateMicros: number | undefined;
     if (existing?.room_name !== initialName) {
         rateMicros = Number(process.env.DAILY_PARTICIPANT_MINUTE_MICROS || 0);
-        if (!Number.isSafeInteger(rateMicros) || rateMicros <= 0) throw new ApiError("Video pricing is not configured.",503);
+        if (!Number.isSafeInteger(rateMicros) || rateMicros <= 0) throw new ApiError("Video meeting pricing isn’t set up yet.",503);
         reservation = await reserveUsage({ userId: initial.user_id, provider: "daily", meter:"videoMinutes", quantity:Math.ceil((initialWindow.exp-initialWindow.nbf)/60)*2, micros: Math.ceil((initialWindow.exp - initialWindow.nbf) / 60) * 2 * rateMicros, platformCap: Number(process.env.DAILY_MONTHLY_CAP_MICROS || 0), workspaceCap: Number(process.env.DAILY_WORKSPACE_CAP_MICROS || 0) });
     }
     const db = await pool.connect();

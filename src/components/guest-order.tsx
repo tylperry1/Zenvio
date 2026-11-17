@@ -28,7 +28,7 @@ type Order = {
 const post = async (payload: Record<string, unknown>) => {
   const r = await fetch("/api/marketplace/orders/guest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const d = await r.json();
-  if (!r.ok) throw new Error(d.error || "Request failed.");
+  if (!r.ok) throw new Error(d.error || "We couldn’t complete that request. Please try again.");
   return d;
 };
 const steps = [

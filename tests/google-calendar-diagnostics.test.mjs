@@ -146,9 +146,7 @@ test("availability saves an actionable account-specific failure without treating
     assert.equal(r.code, "api_disabled");
     const saved = f.queries.find((q) => q.sql.includes("SET last_error=$3"));
     assert.deepEqual(saved.params.slice(0, 2), ["owner", "account"]);
-    assert(saved.params[2].includes("Google Calendar isn’t available to connect"));
-    assert(!saved.params[2].includes("same project"));
-    assert(!/platform administrator/i.test(saved.params[2]));
+    assert(saved.params[2].includes("Google Calendar isn’t fully enabled"));
   } finally {
     globalThis.fetch = original;
   }

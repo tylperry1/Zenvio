@@ -77,11 +77,11 @@ export function AssistantAdmin() {
         body: JSON.stringify(test ? { confirmation: "RUN_BILLABLE_MODEL_PROBE" } : { ai: provider, reason }),
       });
       const result = await response.json();
-      if (!response.ok) throw Error(result.error || "Provider request failed.");
+      if (!response.ok) throw Error(result.error || "The AI provider didn’t respond. Try again.");
       if (!test) { setReason(""); await load(); }
       toast.show(test ? "Connection test passed. Tool calling and token metering verified." : "Provider settings saved.");
     } catch (cause) {
-      toast.show(cause instanceof Error ? cause.message : "Provider request failed.", true);
+      toast.show(cause instanceof Error ? cause.message : "The AI provider didn’t respond. Try again.", true);
     } finally {
       if (test) await load();
       setProviderBusy(false);

@@ -48,7 +48,7 @@ export function BrandStudio({ productId, designId, variantId, guest }: { product
         const r = await fetch(`/api/marketplace/products?id=${encodeURIComponent(productId)}`, { cache: "no-store" });
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
-        if (!d.supplier || !d.product.customizable) throw Error("This product does not offer online customization.");
+        if (!d.supplier || !d.product.customizable) throw Error("Online design isn’t available for this product.");
         setProduct(d.product);
         setQuantity(d.product.minimum_quantity);
         setAreas(d.supplier.printAreas);
@@ -559,7 +559,7 @@ export function BrandStudio({ productId, designId, variantId, guest }: { product
                     </Link>
                   </div>
                 ) : (
-                  <p className="billing-note">{unavailable || "This product is not open for purchase yet. Your design is saved."}</p>
+                  <p className="billing-note">{unavailable || "Purchasing isn’t available for this product right now. Your design is saved."}</p>
                 )}
               </section>
             )}

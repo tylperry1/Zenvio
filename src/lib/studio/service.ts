@@ -91,7 +91,7 @@ export async function studioProduct(productId: string, options: { includeDrafts?
   } catch {
     areas = [];
   }
-  if (!row.studio_enabled || !areas.length) throw new ApiError("This product does not offer online customization yet.", 409);
+  if (!row.studio_enabled || !areas.length) throw new ApiError("Online design isn’t available for this product.", 409);
   return { ...row, areas };
 }
 

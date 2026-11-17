@@ -101,7 +101,7 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
 }
 /** Caller owns the transaction. Unknown outcomes keep credits reserved. */
 export async function reserveSubscriptionUnits(db:PoolClient,user:string,meter:Meter,quantity:number,reference:string) {
- if(!Number.isSafeInteger(quantity)||quantity<=0)throw new ApiError("That usage request isn’t valid. Please try again.",400);
+ if(!Number.isSafeInteger(quantity)||quantity<=0)throw new ApiError("That usage request couldn’t be started. Please try again.",400);
  const owner=await usageOwner(db,user);
  await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))",["subscription-usage:"+owner]);
  const state=await subscriptionUsage(user,db);
@@ -110,7 +110,7 @@ export async function reserveSubscriptionUnits(db:PoolClient,user:string,meter:M
  if(!state.enforced)return null;
  const existing=(await db.query("select id,reserved,state from private.subscription_usage_reservations where billing_owner=$1 and meter=$2 and reference=$3",[owner,meter,reference])).rows[0];
  if(existing){if(Number(existing.reserved)!==quantity||existing.state==='released')throw new ApiError("Usage reference conflict.",409);return existing.id as string;}
- if(state.creditDebt)throw new ApiError("Your usage credits need a billing review before optional usage can continue. Open Plan & billing or contact support.",409);
+ if(state.creditDebt)throw new ApiError("Some refunded credits were already used. Ask your billing owner to review Plan & billing before continuing.",409);
  const budget=state.meters.find(m=>m.meter===meter)!;
  if(budget.unlimited){
   return (await db.query(`insert into private.subscription_usage_reservations(billing_owner,user_id,meter,period,reference,reserved,included_quantity,purchased_quantity)
@@ -124,9 +124,9 @@ export async function reserveSubscriptionUnits(db:PoolClient,user:string,meter:M
 export async function settleSubscriptionUnits(db:PoolClient,id:string,quantity:number) {
  if(!Number.isSafeInteger(quantity)||quantity<0)throw new ApiError("Invalid actual usage.");
  const row=(await db.query("select * from private.subscription_usage_reservations where id=$1 for update",[id])).rows[0];
- if(!row)throw new ApiError("We couldn’t find that usage request. Please try again.",409);
+ if(!row)throw new ApiError("That usage request expired or wasn’t found. Please try again.",409);
  if(row.state==='settled'){if(Number(row.consumed)!==quantity)throw new ApiError("Usage settlement conflict.",409);return;}
- if(row.state==='released'||quantity>Number(row.reserved))throw new ApiError("Actual usage exceeds the reserved allowance; reconciliation required.",409);
+ if(row.state==='released'||quantity>Number(row.reserved))throw new ApiError("Usage went beyond what was reserved. Review Plan & billing, then try again.",409);
  const included=Math.min(quantity,Number(row.included_quantity));
  await db.query("update private.subscription_usage_reservations set state='settled',consumed=$2,included_quantity=$3,purchased_quantity=$4,settled_at=now() where id=$1",[id,quantity,included,quantity-included]);
 }

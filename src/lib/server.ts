@@ -11,7 +11,7 @@ export class ApiError extends Error {
 export const configured = databaseConfigured;
 export function configuration() {
     if (!configured())
-        throw new ApiError("We couldn’t reach account services right now. Please try again shortly.", 503);
+        throw new ApiError("Account services are temporarily unavailable. Please try again shortly.", 503);
 }
 export async function backend(path: string, options: RequestInit = {}, userId?: string, adminScope?: string): Promise<any> {
     configuration();
@@ -75,7 +75,7 @@ export function sameOriginBrowser(request: NextRequest) {
 }
 export async function body(request: NextRequest) {
     if (!request.headers.get("content-type")?.includes("application/json"))
-        throw new ApiError("Expected a JSON request.", 415);
+        throw new ApiError("This request couldn’t be understood. Please refresh and try again.", 415);
     const maxBytes = 16384;
     if (Number(request.headers.get("content-length")) > maxBytes)
         throw new ApiError("This request is too large.", 413);
@@ -151,7 +151,7 @@ export function integer(value: unknown, name: string, min: number, max: number) 
 export function uuid(value: unknown) {
     const result = string(value, "record ID", 36);
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(result))
-        throw new ApiError("Invalid record.");
+        throw new ApiError("We couldn’t find or update that item. Please refresh and try again.");
     return result;
 }
 export function failure(error: unknown) {

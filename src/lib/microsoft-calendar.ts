@@ -303,7 +303,7 @@ export async function microsoftExternalEvent(userId:string,accountId:string,even
  const {externalReference,externalEditingEnabled,calendarVersion,microsoftExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
  externalReference("microsoft",accountId,eventId);
  const enabled=externalEditingEnabled("microsoft");
- if(update&&!enabled)throw new ApiError("Microsoft external editing has not passed release validation.",503);
+ if(update&&!enabled)throw new ApiError("Editing Outlook/Microsoft Calendar events from Zenvio isn’t available yet.",503);
  const c=(await getPool().query("select scope,status from private.microsoft_calendar_connections where user_id=$1 and account_id=$2",[userId,accountId])).rows[0];
  if(!c)throw new ApiError("Microsoft account not found.",404);
  if(c.status!=="connected")throw new ApiError("Reconnect Microsoft Calendar.",409);
@@ -315,7 +315,7 @@ export async function microsoftExternalEvent(userId:string,accountId:string,even
  if(event.id!==eventId)throw new ApiError("Microsoft event reference could not be verified.",503);
  const linked=(await getPool().query("select 1 from private.microsoft_calendar_events where user_id=$1 and account_id=$2 and event_id=$3 limit 1",[userId,accountId,eventId])).rows.length>0;
  const reason=microsoftExternalReason(event,String(c.scope||""),linked),count=Array.isArray(event.attendees)?event.attendees.length:0;
- const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"microsoft",accountId,eventId,title:e.subject||"",location:e.location?.displayName||"",start:e.start||null,end:e.end||null,version:calendarVersion(e["@odata.etag"]),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Microsoft external editing has not passed release validation.":null)});
+ const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"microsoft",accountId,eventId,title:e.subject||"",location:e.location?.displayName||"",start:e.start||null,end:e.end||null,version:calendarVersion(e["@odata.etag"]),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Editing Outlook/Microsoft Calendar events from Zenvio isn’t available yet.":null)});
  if(!update)return snapshot(event);
  assertExternalUpdate(reason,calendarVersion(event["@odata.etag"]),count,update);
  if(event.subject===update.title && (event.location?.displayName||"")===update.location)return {...snapshot(event),unchanged:true};

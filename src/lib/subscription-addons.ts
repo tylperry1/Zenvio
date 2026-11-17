@@ -23,7 +23,7 @@ export async function refundAddon(db:PoolClient,charge:Stripe.Charge){
  if(!intent)return false;
  const order=(await db.query("select * from private.subscription_addon_orders where payment_intent_id=$1 for update",[intent])).rows[0];
  if(!order)return false;
- if(charge.currency!=='usd'||charge.amount!==order.amount_cents||charge.amount_refunded<0||charge.amount_refunded>order.amount_cents)throw new ApiError("Add-on refund requires reconciliation.",409);
+ if(charge.currency!=='usd'||charge.amount!==order.amount_cents||charge.amount_refunded<0||charge.amount_refunded>order.amount_cents)throw new ApiError("This add-on refund needs a billing review before it can finish.",409);
  await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))",["subscription-usage:"+order.billing_owner]);
  const refund=Math.max(order.refunded_cents,charge.amount_refunded),credits=Math.ceil(Number(order.quantity)*refund/order.amount_cents),delta=credits-Number(order.reversed_credits);
  if(delta>0)await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,stripe_transaction_id,reason) values($1,$2,$3,$4,$5,'Stripe refund credit recovery; consumed credit debt blocks further purchases or usage') on conflict(reference) do nothing",[order.billing_owner,order.meter,-delta,'addon-refund:'+order.id+':'+refund,intent]);

@@ -28,7 +28,7 @@ export async function videoStatus() {
     if (await p.configured().catch(() => false)) return { available: true as const, provider: p.id, name: p.name };
   return {
     available: false as const,
-    reason: "Built-in video meetings aren’t available yet. Add a meeting link as the appointment location instead.",
+    reason: "Automatic meeting links aren’t set up. Add a Zoom, Meet, or Teams URL in the appointment location for now.",
   };
 }
 

@@ -6,6 +6,6 @@ export function databaseConfigured() {
 }
 export function getPool() {
     if (!databaseConfigured())
-        throw new Error("Database accounts are unavailable in this environment.");
+        throw new Error("Account database isn’t available.");
     return pool ??= new Pool({ connectionString: postgresConnectionString(process.env.DATABASE_URL), max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 15000, statement_timeout: 15000 });
 }

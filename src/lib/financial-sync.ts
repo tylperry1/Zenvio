@@ -255,7 +255,7 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
           await client.query("ROLLBACK");
           failed += 1;
           errors.push(
-            `${row.subscription_id}: ${e instanceof Error ? e.message : "reconcile failed"}`,
+            `${row.subscription_id}: ${e instanceof Error && e.message.startsWith("Customer mismatch") ? "customer_mismatch" : "reconcile_failed"}`,
           );
         } finally {
           client.release();
@@ -287,7 +287,7 @@ export async function reconcileStripeSubscriptions(actorId: string | null) {
       processed,
       failed,
       { kind: "stripe_subscriptions" },
-      e instanceof Error ? e.message : "Subscription sync failed",
+      "subscription_sync_failed",
     );
     throw e;
   }
@@ -484,9 +484,7 @@ export async function reconcileStripeInvoices(actorId: string | null) {
         } catch (e) {
           failed += 1;
           truncated = true;
-          errors.push(
-            `${row.customer_id}: ${e instanceof Error ? e.message : "invoice sync failed"}`,
-          );
+          errors.push(`${row.customer_id}: invoice_sync_failed`);
         }
       }
       if (rows.length < PAGE) break;
@@ -536,7 +534,7 @@ export async function reconcileStripeInvoices(actorId: string | null) {
       processed,
       failed,
       { kind: "stripe_invoices", completeCoverage: false },
-      e instanceof Error ? e.message : "Invoice sync failed",
+      "invoice_sync_failed",
     );
     throw e;
   }
@@ -579,7 +577,7 @@ export async function runFinancialSync(kind: SyncKind, actorId: string | null) {
         0,
         1,
         { completeCoverage: false },
-        e instanceof Error ? e.message : "Full sync failed",
+        "full_sync_failed",
       );
       throw e;
     }

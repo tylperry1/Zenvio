@@ -93,7 +93,7 @@ export default async function PricingPage() {
             Explore the demo with sample data.
             {showV4
               ? surface.previewOnly
-                ? " Proposed v4 pricing is shown for preview only and is not yet open for paid enrollment."
+                ? " These new plans are shown for preview and aren’t open for paid enrollment yet."
                 : " Enrollment uses the synchronized Stripe catalog for these plans."
               : " See the current launch offer above when it is available."}{" "}
             No credit card required.

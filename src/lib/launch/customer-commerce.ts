@@ -20,7 +20,7 @@ export async function createGrowthCheckout(input: {
     coupon: string;
 }) {
     if (!await growthCheckoutReady())
-        throw new ApiError('Customer-product checkout has not passed release validation. No payment was taken.', 503);
+        throw new ApiError('Online purchases aren’t available from this storefront yet. No payment was taken.', 503);
     const pool = getPool(), stripe = await stripeClient();
     const offer = (await pool.query('select o.*,h.account_id,h.charges_enabled from private.growth_offers o join private.host_payment_accounts h on h.user_id=o.user_id and h.disconnected_at is null where o.id=$1 and o.active', [input.offerId])).rows[0];
     if (!offer || !offer.charges_enabled)

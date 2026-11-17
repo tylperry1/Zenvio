@@ -16,7 +16,7 @@ export function VideoMeetings() {
     <Card
       title="Video meetings"
       description="Add a meeting link to any appointment type’s location — Zoom, Google Meet, Teams and others work today."
-      actions={status && <Badge tone={status.available ? "success" : "neutral"}>{status.available ? "Connected" : "Not available yet"}</Badge>}
+      actions={status && <Badge tone={status.available ? "success" : "neutral"}>{status.available ? "Connected" : "Not connected"}</Badge>}
     >
       {!status ? (
         <Skeleton rows={1} />
@@ -25,7 +25,7 @@ export function VideoMeetings() {
           New appointments can include an automatically created meeting link.
         </Alert>
       ) : (
-        <Alert tone="info" title="Built-in video isn’t available yet">
+        <Alert tone="info" title="Automatic video links aren’t connected">
           {status.reason}
         </Alert>
       )}

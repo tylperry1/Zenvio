@@ -7,7 +7,7 @@ export async function billingReadiness() {
       connected: false,
       pricesReady: false,
       checkoutEnabled: false,
-      blockers: ["Database accounts are unavailable in this environment"],
+      blockers: ["Account database isn’t available"],
     };
   }
   const catalog=await (await import("./billing-catalog")).currentCatalog();
