@@ -238,7 +238,20 @@ export async function smartyValidateAddress(input: {
         message: "Address could not be verified. You can still continue with the entered address.",
       };
     }
-    const candidates = rows.map((row) => {
+    const matched = rows.filter((row) => {
+      const analysis = (row.analysis || {}) as Record<string, unknown>;
+      // match=enhanced can return a row with enhanced_match "none" for non-addresses.
+      return String(analysis.enhanced_match || "") !== "none";
+    });
+    if (!matched.length) {
+      return {
+        available: true,
+        validated: false,
+        address: draft,
+        message: "Address could not be verified. You can still continue with the entered address.",
+      };
+    }
+    const candidates = matched.map((row) => {
       const components = (row.components || {}) as Record<string, unknown>;
       const street = [
         components.primary_number,

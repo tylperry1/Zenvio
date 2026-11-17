@@ -23,7 +23,7 @@ Official endpoints used:
 - Autocomplete: `https://us-autocomplete-pro.api.smarty.com/lookup`
 - Validation: `https://us-street.api.smarty.com/street-address`
 
-## Database changes (`092_smarty_addresses.sql`)
+## Database changes (`095_smarty_addresses.sql`)
 
 - `private.addresses` — typed structured addresses
 - `public.event_types.location_mode`, `allowed_location_modes`, `virtual_instructions`, `custom_location_prompt`

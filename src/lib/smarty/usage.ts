@@ -14,6 +14,7 @@ export async function recordSmartyUsage(input: {
   // Zero-cost lookups still count toward dashboard volume.
   if (!input.workspaceId) throw new ApiError("Missing workspace for Smarty usage.", 503);
   const db = await getPool().connect();
+  let id: string;
   try {
     await db.query("BEGIN");
     await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["provider-spend:smarty"]);
@@ -36,15 +37,16 @@ export async function recordSmartyUsage(input: {
       [owner, input.operation, input.micros],
     );
     await db.query("COMMIT");
-    const id = inserted.rows[0].id as string;
-    await settleUsage(id, { micros: input.micros, units: 1 });
-    return id;
+    id = inserted.rows[0].id as string;
   } catch (e) {
     await db.query("ROLLBACK");
     throw e;
   } finally {
+    // Release before settleUsage so settlement can check out its own pool client.
     db.release();
   }
+  await settleUsage(id, { micros: input.micros, units: 1 });
+  return id;
 }
 
 export async function smartyUsageSummary() {

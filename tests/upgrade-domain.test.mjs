@@ -35,6 +35,7 @@ function load(file, overrides = {}) {
       : id === "./booking-email" ? load("src/lib/booking-email.ts")
       : id === "./transactional-email" ? load("src/lib/transactional-email.ts")
       : id === "./notifications/delivery-sync" ? load("src/lib/notifications/delivery-sync.ts")
+      : id === "./phone" ? load("src/lib/phone.ts", { "./server": helpers })
       : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
       : id === "./microsoft-calendar" ? { filterMicrosoftSlots: async (_hostId, _email, slots) => slots }
       : id === "./resend-diagnostics"
@@ -302,7 +303,12 @@ test("Connect checkout uses server prices, a connected account and no default co
       "host",
       "consultation",
       new Date(Date.now() + 86400000).toISOString(),
-      { name: "Fixture", email: "fixture@example.com", price_cents: 1 },
+      {
+        name: "Fixture",
+        email: "fixture@example.com",
+        phone: "+15551234567",
+        price_cents: 1,
+      },
     );
     assert.equal(created.input.line_items[0].price_data.unit_amount, 2500);
     assert.equal(created.options.stripeAccount, "acct_host");

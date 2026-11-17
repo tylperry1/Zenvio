@@ -19,6 +19,25 @@ const filename = path.resolve("src/app/api/book/route.ts"),
 m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
+const eventRow = () =>
+  missingEvent
+    ? []
+    : [
+        {
+          user_id: "owner",
+          location: "Office",
+          intake_questions: [],
+          payment_mode: "free",
+          location_mode: "custom",
+          allowed_location_modes: ["custom"],
+          virtual_instructions: "",
+          custom_location_prompt: "",
+        },
+      ];
+const dbClient = {
+  query: async () => ({ rows: [] }),
+  release() {},
+};
 const stubs = {
   "@/lib/marketing": {
     cleanAttribution: () => ({ source: "direct" }),
@@ -38,11 +57,28 @@ const stubs = {
     drainDeliveries: async () => {},
   },
   "@/lib/intake": { intakeAnswers: () => [] },
+  "@/lib/addresses": { fromDbAddress: (row) => row },
+  "@/lib/booking-address": {
+    businessAddressForWorkspace: async () => null,
+    persistBookingAddress: async () => {},
+    resolveBookingLocation: () => ({
+      locationMode: "custom",
+      locationText: "Office",
+      serviceAddress: null,
+      accessInstructions: "",
+    }),
+  },
+  "@/lib/phone": {
+    normalizeBookingPhone: (v) => {
+      const raw = String(v || "").trim();
+      if (!raw) throw new ApiError("Enter a telephone number for this booking.");
+      return raw.startsWith("+") ? raw : `+1${raw.replace(/\D/g, "")}`;
+    },
+  },
   "@/lib/db": {
     getPool: () => ({
-      query: async () => ({
-        rows: missingEvent ? [] : [{ intake_questions: [], payment_mode: "free" }],
-      }),
+      query: async () => ({ rows: eventRow() }),
+      connect: async () => dbClient,
     }),
   },
   "next/server": { after: () => {}, NextRequest: class {} },
@@ -101,6 +137,7 @@ const request = () =>
       starts_at: "2026-11-02T15:00:00Z",
       name: "Guest",
       email: "guest@example.com",
+      phone: "+15551234567",
     }),
   });
 beforeEach(() => {
