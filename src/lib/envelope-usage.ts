@@ -15,7 +15,17 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const plan = (row?.plan || "free") as Plan;
   const catalogVersion = (row?.catalog_version as string | null | undefined) || "legacy";
   const v4 = isV4CatalogVersion(catalogVersion);
-  const catalogLimits = planLimitsFor(plan, catalogVersion);
+  // v4 Team product is `business`. effective_plan may still surface as team/teams via
+  // roots/overrides — never fall back to legacy team 30 for v4 envelopes.
+  const limitsPlan: Plan =
+    v4 && (plan === "team" || plan === "teams")
+      ? row?.subscription_plan === "professional" ||
+        row?.subscription_plan === "starter" ||
+        row?.subscription_plan === "business"
+        ? (row.subscription_plan as Plan)
+        : ("business" as Plan)
+      : plan;
+  const catalogLimits = planLimitsFor(limitsPlan, catalogVersion);
   const perSeat = ["individual", "team"].includes(plan)
     ? row?.envelope_allowance ?? 20
     : catalogLimits.envelopes;

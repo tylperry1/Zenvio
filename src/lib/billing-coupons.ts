@@ -33,6 +33,50 @@ export function productsForTargets(targets: CatalogTarget[]) {
   return products;
 }
 
+/** True when a saved coupon row matches the normalized create request (targets/duration/eligibility). */
+export function couponDefinitionMatches(
+  row: {
+    discount_type?: string;
+    percent_off?: number | null;
+    amount_off_cents?: number | null;
+    duration?: string;
+    duration_in_months?: number | null;
+    max_redemptions?: number | null;
+    redeem_by?: string | Date | null;
+    first_time_transaction?: boolean;
+    catalog_targets?: string[] | null;
+    applies_to_products?: string[] | null;
+  },
+  input: BillingCouponInput,
+  products: string[],
+) {
+  const targets = [...(row.catalog_targets || [])].map(String).sort().join(",");
+  const wantTargets = [...(input.catalogTargets || [])].map(String).sort().join(",");
+  if (targets !== wantTargets) return false;
+  if (row.discount_type !== input.discountType) return false;
+  if (input.discountType === "percent") {
+    if (Number(row.percent_off) !== Number(input.percentOff)) return false;
+  } else if (Number(row.amount_off_cents) !== Number(input.amountOffCents)) {
+    return false;
+  }
+  if (row.duration !== input.duration) return false;
+  if (input.duration === "repeating") {
+    if (Number(row.duration_in_months) !== Number(input.durationInMonths)) return false;
+  } else if (row.duration_in_months != null) {
+    return false;
+  }
+  if (Boolean(row.first_time_transaction) !== Boolean(input.firstTimeTransaction)) return false;
+  const rowMax = row.max_redemptions == null ? null : Number(row.max_redemptions);
+  const wantMax = input.maxRedemptions == null ? null : Number(input.maxRedemptions);
+  if (rowMax !== wantMax) return false;
+  const rowRedeem = row.redeem_by ? new Date(row.redeem_by).toISOString() : null;
+  const wantRedeem = input.redeemBy ? new Date(input.redeemBy).toISOString() : null;
+  if (rowRedeem !== wantRedeem) return false;
+  const rowProducts = [...(row.applies_to_products || [])].map(String).sort().join(",");
+  const wantProducts = [...products].map(String).sort().join(",");
+  return rowProducts === wantProducts;
+}
+
 export function parseCouponInput(input: Record<string, unknown>): BillingCouponInput {
   const code = string(input.code, "promotion code", 40, 3);
   if (!/^[A-Za-z0-9-]+$/.test(code)) {

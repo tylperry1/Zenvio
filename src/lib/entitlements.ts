@@ -28,10 +28,27 @@ export async function entitlementUsage(
       [user],
     )
   ).rows[0];
-  const catalogVersion = r?.catalog_version as string | null | undefined;
+  const roots = (
+    await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])
+  ).rows;
+  let catalogVersion = r?.catalog_version as string | null | undefined;
   const plan = (r?.effective_plan ||
     r?.override_plan ||
     (["active", "trialing"].includes(r?.status) ? r?.plan : "free")) as Plan;
+  // Members inherit the owner's catalog with the inherited plan (v4 Team=business).
+  // Personal subscription catalog alone would leave isTeamCapacityPlan false → 1 seat / wrong limits.
+  if (
+    roots.length &&
+    ["team", "teams", "business"].includes(plan) &&
+    !isTeamCapacityPlan(plan, catalogVersion)
+  ) {
+    const root =
+      roots.find((row) => row.owner_id === user && row.catalog_version) ||
+      roots.find((row) => isTeamCapacityPlan(plan, row.catalog_version)) ||
+      roots.find((row) => row.catalog_version) ||
+      roots[0];
+    if (root?.catalog_version) catalogVersion = root.catalog_version;
+  }
   const effective: Plan =
     (Object.hasOwn(planLimits, plan) ||
       (isV4CatalogVersion(catalogVersion) &&
@@ -53,9 +70,6 @@ export async function entitlementUsage(
       [user],
     )
   ).rows[0];
-  const roots = (
-    await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])
-  ).rows;
   if (isTeamCapacityPlan(effective, catalogVersion) && roots.length)
     seats = roots.find((r) => r.owner_id === user)?.seats || roots[0].seats;
   const unlimitedSeats = roots.length > 0 && Boolean((await db.query(

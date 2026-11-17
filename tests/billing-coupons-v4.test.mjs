@@ -214,4 +214,6 @@ test("storage guard migration keeps release overlays and custom allowances", () 
   const roots = fs.readFileSync("postgres/migrations/093_v4_team_entitlement_roots.sql", "utf8");
   assert.match(roots, /s\.plan = 'business'/);
   assert.match(roots, /2026-11-v4/);
+  assert.match(roots, /catalog_version text/);
+  assert.match(roots, /s\.catalog_version/);
 });

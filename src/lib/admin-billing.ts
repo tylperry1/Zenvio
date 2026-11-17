@@ -6,6 +6,7 @@ import { sandboxAccepted } from "./launch-controls";
 import { validateCatalog, currentCatalog } from "./billing-catalog";
 import { saveSubscription } from "./subscription-management";
 import {
+  couponDefinitionMatches,
   insertLocalCoupon,
   listBillingCoupons,
   parseCouponInput,
@@ -184,9 +185,11 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               : input,
           );
           const products = productsForTargets(parsed.catalogTargets || ["v3"]);
-          // Reuse coupon from a prior failed attempt of this operation, or an existing code row.
+          // Reuse coupon from a prior failed attempt of this operation, or an existing code row
+          // whose normalized definition matches (targets/duration/eligibility). Else 409.
+          // Same-op reuse (failed or pending durable associate) keeps couponId on the operation.
           const priorCouponId =
-            prior.state === "failed" && prior.result && typeof prior.result === "object"
+            prior.result && typeof prior.result === "object"
               ? (prior.result as { couponId?: string }).couponId
               : null;
           if (priorCouponId) {
@@ -194,16 +197,35 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           } else {
             const existing = (
               await db.query(
-                "SELECT id FROM private.billing_coupons WHERE lower(code)=lower($1) LIMIT 1",
+                "SELECT * FROM private.billing_coupons WHERE lower(code)=lower($1) LIMIT 1",
                 [parsed.code],
               )
             ).rows[0];
             if (existing?.id) {
+              if (!couponDefinitionMatches(existing, parsed, products)) {
+                throw new ApiError(
+                  "A coupon with this code already exists with a different discount, duration, catalog target, or eligibility.",
+                  409,
+                );
+              }
               couponId = existing.id;
             } else {
-              const local = await insertLocalCoupon(db, actor, parsed, products);
+              // Insert on the pool so coupon identity survives outer rollback (operation_log failure).
+              const local = await insertLocalCoupon(pool, actor, parsed, products);
               couponId = local.id;
             }
+          }
+          // Durable op↔coupon association before Stripe so idempotency keys stay stable across retries.
+          await pool.query(
+            `UPDATE private.billing_admin_operations
+                SET result=$2,updated_at=now()
+              WHERE id=$1 AND state<>'succeeded'`,
+            [operation, JSON.stringify({ couponId, syncStatus: "pending" })],
+          );
+          if (prior.result == null || typeof prior.result !== "object") {
+            prior.result = { couponId, syncStatus: "pending" };
+          } else {
+            Object.assign(prior.result as object, { couponId, syncStatus: "pending" });
           }
         } else {
           couponId = uuid(input.couponId);

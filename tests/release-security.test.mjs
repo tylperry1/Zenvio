@@ -14,6 +14,7 @@ function fixture({accepted=false,mismatch=false,expired=false,recovery=false,pro
  if(sql.startsWith("SELECT * FROM private.billing_admin_operations"))return {rows:[records.get(args[0])]};
  if(sql.startsWith("UPDATE private.billing_admin_operations SET state='succeeded'")){Object.assign(records.get(args[0]),{state:"succeeded",result:JSON.parse(args[1])});}
  if(sql.startsWith("UPDATE private.billing_admin_operations SET state='failed'")){const row=records.get(args[0]);if(row)Object.assign(row,{state:"failed",error:args[1],...(sql.includes("result=$3")&&args[2]?{result:JSON.parse(args[2])}:{})});}
+ if(sql.startsWith("UPDATE private.billing_admin_operations")&&sql.includes("SET result=$2")&&!sql.includes("state=")){const row=records.get(args[0]);if(row&&row.state!=="succeeded")Object.assign(row,{result:JSON.parse(args[1])});}
  if(sql.startsWith("INSERT INTO private.billing_catalog_versions"))return {rows:[{id:"draft"}]};
  if(sql.startsWith("SELECT * FROM private.subscriptions"))return {rows:[{customer_id:"cus_own",subscription_id:"sub_own"}]};
  if(sql.startsWith("SELECT * FROM private.billing_change_dispatches"))return {rows:recovery?[{actor_id:"owner",user_id:"target",subscription_id:"sub_own",created_at:new Date().toISOString(),request:{items:[{id:"si_fixture",quantity:2}],payment_behavior:"pending_if_incomplete",proration_behavior:"always_invoice",proration_date:12345}}]:[]};
@@ -69,4 +70,15 @@ test("retry same failed coupon operation reuses the local row instead of re-inse
   assert.equal(f.coupons.size,1);
 });
 
-test("an interrupted Stripe mutation recovers with the original parameters and idempotency key",async()=>{const f=fixture({accepted:true,recovery:true});const result=await f.run({action:"change",userId:"target",previewId:"expired-preview",confirm:true,amountDue:100});assert.match(result.message,/reconciled/);assert.equal(f.updates,1);assert.equal(f.reads,2);assert.equal(f.writes[0].options.idempotencyKey,"operation");assert.equal(f.writes[0].data.proration_date,12345);assert.ok(!f.queries.some(q=>q.startsWith("SELECT result,actor_id")));});
+test("coupon code reuse with a different definition is rejected",async()=>{
+  const f=fixture({accepted:true});
+  await f.run({action:"coupon",percent:50,months:3,code:"LAUNCH",maxRedemptions:100});
+  assert.equal(f.coupons.size,1);
+  await assert.rejects(
+    f.run({operationId:"operation-conflict",action:"coupon",percent:10,months:3,code:"LAUNCH",maxRedemptions:100}),
+    (e)=>e.status===409&&/different discount|already exists/i.test(e.message),
+  );
+  assert.equal(f.coupons.size,1);
+});
+
+test("an interrupted Stripe mutation recovers with the original parameters and idempotency key",async()=>{const f=fixture({accepted:true,recovery:true});const result=await f.run({action:"change",userId:"target",previewId:"expired-preview",confirm:true,amountDue:100});assert.match(result.message,/reconciled/);assert.equal(f.updates,1);assert.equal(f.reads,2);assert.equal(f.writes[0].options.idempotencyKey,"operation");assert.equal(f.writes[0].data.proration_date,12345);assert.ok(!("targetSeats" in f.writes[0].data));assert.ok(!f.queries.some(q=>q.startsWith("SELECT result,actor_id")));});

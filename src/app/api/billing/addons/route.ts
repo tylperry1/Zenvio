@@ -10,6 +10,12 @@ import { appOrigin } from "@/lib/lifecycle";
 
 export const dynamic = "force-dynamic";
 
+/** Shape allowed for one-time credit-pack checkout (not recurring SMS/storage/seats). */
+function oneTimePack(offer: { recurring: boolean; unit: string }) {
+  return !offer.recurring && offer.unit !== "smsSegments" && offer.unit !== "seats";
+}
+
+/** Ready for customer purchase: local available + Stripe price mapped + env gate elsewhere. */
 function purchasable(offer: {
   recurring: boolean;
   unit: string;
@@ -17,14 +23,11 @@ function purchasable(offer: {
   sync_status: string;
   stripe_price_id: string | null;
 }) {
-  // Recurring storage/SMS and seat add-ons require separate acceptance paths.
   return (
+    oneTimePack(offer) &&
     offer.available === true &&
     offer.sync_status === "synced" &&
-    Boolean(offer.stripe_price_id) &&
-    !offer.recurring &&
-    offer.unit !== "smsSegments" &&
-    offer.unit !== "seats"
+    Boolean(offer.stripe_price_id)
   );
 }
 
@@ -53,18 +56,16 @@ export async function GET() {
       {
         orders: orders.rows,
         enabled,
-        offers: addons
-          .filter((offer) => purchasable(offer) || (!offer.recurring && offer.unit !== "smsSegments" && offer.unit !== "seats"))
-          .map((offer) => ({
-            id: offer.id,
-            name: offer.name,
-            amount: offer.amount_cents,
-            quantity: Number(offer.quantity),
-            unit: offer.unit,
-            recurring: offer.recurring,
-            available: enabled && purchasable(offer),
-            syncStatus: offer.sync_status,
-          })),
+        offers: addons.filter(oneTimePack).map((offer) => ({
+          id: offer.id,
+          name: offer.name,
+          amount: offer.amount_cents,
+          quantity: Number(offer.quantity),
+          unit: offer.unit,
+          recurring: offer.recurring,
+          available: enabled && purchasable(offer),
+          syncStatus: offer.sync_status,
+        })),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -85,11 +86,15 @@ export async function POST(req: NextRequest) {
       const offer = (
         await db.query("SELECT * FROM private.billing_addons WHERE id=$1 FOR UPDATE", [String(v.addon || "")])
       ).rows[0];
-      if (!offer || !purchasable(offer) || v.confirm !== true) {
+      // Shape check first; env/checkout gate returns 503 before availability 409 (launch fixtures).
+      if (!offer || !oneTimePack(offer) || v.confirm !== true) {
         throw new ApiError("This add-on is not available for purchase.", 409);
       }
       if (!(await checkoutReady())) {
         throw new ApiError("Add-on billing is being validated. No payment has been taken.", 503);
+      }
+      if (!purchasable(offer)) {
+        throw new ApiError("This add-on is not available for purchase.", 409);
       }
       const sub = (
         await db.query("select * from private.subscriptions where user_id=$1 for update", [token])

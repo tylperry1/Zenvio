@@ -77,4 +77,7 @@ test("v4 Free and Team envelope ceilings are catalog-aware pooled allowances",as
  assert.equal((await free.service.envelopeBudget("staff",free.db)).included,0);
  const team=fixture({plan:"business",version:"2026-11-v4",subscriptionPlan:"business",sent:0,enabled:false});
  assert.equal((await team.service.envelopeBudget("staff",team.db)).included,50);
+ // effective_plan team + owner business subscription must use v4 business 50, not legacy team 30.
+ const inherited=fixture({plan:"team",version:"2026-11-v4",subscriptionPlan:"business",sent:0,enabled:false});
+ assert.equal((await inherited.service.envelopeBudget("staff",inherited.db)).included,50);
 });
