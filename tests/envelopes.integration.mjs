@@ -62,7 +62,15 @@ async function create() {
     headers: { Cookie: a.cookie, Origin: origin },
     body: form,
   });
-  const d = await r.json();
+  const text = await r.text();
+  let d;
+  try {
+    d = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `envelope create returned non-JSON status ${r.status}: ${text.slice(0, 500)}`,
+    );
+  }
   assert.equal(r.status, 201, JSON.stringify(d));
   return d.id;
 }

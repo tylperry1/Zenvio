@@ -30,6 +30,8 @@ export async function queueSms(input: {
     reference: string;
     bookingId?: string;
     bookingRevision?: number;
+    /** When set, reuse the caller's transaction (avoids FOR SHARE deadlocks with scheduleBooking). */
+    db?: import("pg").PoolClient;
 }): Promise<SmsSendResult> {
     const to = normalizeE164(input.to), text = input.body.trim(), digest = smsDigest(to, text);
     if (!/^[A-Za-z0-9._:-]{16,120}$/.test(input.reference))
@@ -37,18 +39,20 @@ export async function queueSms(input: {
     const ready = await telnyxReadiness({ ...input, to, body: text });
     if (!ready.ok)
         throw new ApiError(ready.detail, 409);
-    const db = await getPool().connect();
+    const owned = !input.db;
+    const db = input.db || (await getPool().connect());
     try {
-        await db.query("begin");
+        if (owned) await db.query("begin");
         await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))", ["sms-queue:" + input.userId]);
         const existing = (await db.query("select * from private.sms_outbox where user_id=$1 and reference=$2", [input.userId, input.reference])).rows[0];
         if (existing) {
             if (existing.body_digest !== digest)
                 throw new ApiError("Message reference already used for different content.", 409);
-            await db.query("commit");
+            if (owned) await db.query("commit");
             return { status: existing.state === "delivered" ? "delivered" : ["failed", "suppressed", "uncertain"].includes(existing.state) ? "failed" : existing.state === "accepted" ? "sent" : "queued", providerId: existing.provider_message_id || null, detail: existing.last_error || undefined };
         }
         if (input.bookingId) {
+            // Same-connection FOR SHARE is compatible with the caller's booking UPDATE/SHARE lock.
             const booking = (await db.query("select id from public.bookings where id=$1 and user_id=$2 and revision=$3 and status='confirmed' and starts_at>now() and guest_phone=$4 for share", [input.bookingId,input.userId,input.bookingRevision,input.to])).rows[0];
             if (!booking) throw new ApiError("Appointment reminder is no longer current.",409);
         }
@@ -56,15 +60,15 @@ export async function queueSms(input: {
         if (n >= 60)
             throw new ApiError("SMS hourly limit reached.", 429);
         await db.query("insert into private.sms_outbox(user_id,reference,to_number,ciphertext,body_digest,provider,booking_id,booking_revision) values($1,$2,$3,$4,$5,'telnyx',$6,$7)", [input.userId, input.reference, to, sealSecret(text), digest,input.bookingId||null,input.bookingRevision??null]);
-        await db.query("commit");
+        if (owned) await db.query("commit");
         return { status: "queued", providerId: null };
     }
     catch (e) {
-        await db.query("rollback");
+        if (owned) await db.query("rollback");
         throw e;
     }
     finally {
-        db.release();
+        if (owned) db.release();
     }
 }
 function cap(name: string) { const n = Number(process.env[name] || 0); return Number.isSafeInteger(n) && n >= 0 ? n : 0; }

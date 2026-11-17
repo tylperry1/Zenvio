@@ -22,7 +22,16 @@ export type SmsSendResult = {
 };
 export interface SmsTransport {
   readiness(input: { userId: string; to: string; body: string }): Promise<SmsReadiness>;
-  send(input: { userId: string; to: string; body: string; reference: string }): Promise<SmsSendResult>;
+  send(input: {
+    userId: string;
+    to: string;
+    body: string;
+    reference: string;
+    bookingId?: string;
+    bookingRevision?: number;
+    /** Optional open transaction from scheduleBooking / notification dispatch. */
+    db?: import("pg").PoolClient;
+  }): Promise<SmsSendResult>;
 }
 
 export const smsBlockedCopy: Record<SmsBlockedReason, string> = {

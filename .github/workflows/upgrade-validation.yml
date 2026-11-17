@@ -56,7 +56,18 @@ jobs:
       - name: Start isolated application
         run: |
           npm start -- --hostname localhost --port 3100 > /tmp/zenvio-fixture-server.log 2>&1 &
-          for n in $(seq 1 30); do curl -fsS http://localhost:3100/sign-in > /dev/null && break; sleep 1; done
+          for n in $(seq 1 60); do
+            if curl -fsS http://localhost:3100/sign-in > /dev/null \
+              && code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/api/envelopes) \
+              && [ "$code" = "401" ]; then
+              echo "application ready after ${n}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "application failed to become ready" >&2
+          tail -n 200 /tmp/zenvio-fixture-server.log >&2 || true
+          exit 1
       - run: node tests/launch.integration.mjs
       - run: node tests/upgrade.integration.mjs
       - run: node tests/release.integration.mjs
@@ -119,7 +130,20 @@ jobs:
       - name: Start isolated application
         run: |
           npm start -- --hostname localhost --port 3100 > /tmp/zenvio-fixture-server.log 2>&1 &
-          for n in $(seq 1 30); do curl -fsS http://localhost:3100/sign-in > /dev/null && break; sleep 1; done
+          # Wait for both the HTML shell and a JSON API so multipart fixture routes
+          # are not hit while Next is still compiling the first dynamic handlers.
+          for n in $(seq 1 60); do
+            if curl -fsS http://localhost:3100/sign-in > /dev/null \
+              && code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/api/envelopes) \
+              && [ "$code" = "401" ]; then
+              echo "application ready after ${n}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "application failed to become ready" >&2
+          tail -n 200 /tmp/zenvio-fixture-server.log >&2 || true
+          exit 1
       - name: Legacy account fixture
         run: node tests/accounts.integration.mjs
       - name: Legacy document fixture
@@ -134,3 +158,10 @@ jobs:
       - name: Marketplace provider fixture
         if: ${{ !cancelled() }}
         run: node tests/marketplace.integration.mjs
+      - name: Upload fixture server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-fixture-server-log
+          path: /tmp/zenvio-fixture-server.log
+          if-no-files-found: ignore
