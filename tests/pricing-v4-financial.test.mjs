@@ -78,7 +78,7 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
           if (sql.includes("provider_cost_budgets"))
             return { rows: [{ provider: "openai", monthly_budget_cents: 50000 }] };
           if (sql.includes("provider_cost_sync_state")) return { rows: [] };
-          if (sql.includes("provider_cost_manual_expenses"))
+          if (sql.includes("provider_cost_manual_expenses") && sql.includes("sum(amount_cents)"))
             return { rows: [{ provider: "openai", cents: 1200 }] };
           if (sql.includes("FROM private.subscriptions"))
             return {
@@ -92,6 +92,11 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
                   monthly_amount_cents: null,
                   email: "a@example.com",
                   name: "A",
+                  snapshot_mrr_cents: null,
+                  snapshot_complete: false,
+                  snapshot_issue: "incomplete",
+                  snapshot_reconciled_at: null,
+                  snapshot_currency: null,
                 },
                 {
                   user_id: "u2",
@@ -102,6 +107,11 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
                   monthly_amount_cents: 4997,
                   email: "b@example.com",
                   name: "B",
+                  snapshot_mrr_cents: 4997,
+                  snapshot_complete: true,
+                  snapshot_issue: null,
+                  snapshot_reconciled_at: "2026-11-16T00:00:00Z",
+                  snapshot_currency: "usd",
                 },
                 {
                   user_id: "u3",
@@ -112,6 +122,25 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
                   monthly_amount_cents: null,
                   email: "c@example.com",
                   name: "C",
+                  snapshot_mrr_cents: null,
+                  snapshot_complete: null,
+                  snapshot_issue: null,
+                  snapshot_reconciled_at: null,
+                  snapshot_currency: null,
+                },
+              ],
+            };
+          if (sql.includes("paying_accounts"))
+            return {
+              rows: [
+                {
+                  currency: "usd",
+                  mrr_cents: 4997,
+                  paying_accounts: 1,
+                  complete_snapshots: 1,
+                  incomplete: 1,
+                  snapshots: 2,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
                 },
               ],
             };
@@ -131,18 +160,31 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
             provider: "openai",
             estimated_micros: "5000000",
             actual_micros: "100000000", // 10,000 cents
+            unreconciled: 0,
           },
         ],
-        revenue: [{ currency: "usd", mrr_cents: 1000, incomplete: 0 }],
+        revenue: [{ currency: "usd", mrr_cents: 4997, incomplete: 1 }],
         accountsByPlan: [],
         anomalies: [],
-        planning: { costCents: 0 },
+        planning: { costCents: 2300, source: "planning" },
         coverage: "fixture",
       }),
     },
     "./pricing-v4-catalog.mjs": catalog,
     "./subscription-offers.mjs": {
+      catalogVersion: "2026-11-v3",
+      currentOffers: [],
+      extraSeatOffer: { monthly: 999 },
       planningCostCents: { individual: 850, team: 1600, team_extra: 350 },
+    },
+    "./financial-period": load("src/lib/financial-period.ts"),
+    "./financial-sync": {
+      latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: false,
+        lastAt: null,
+        status: null,
+      }),
     },
   });
   const overview = await fi.financialIntelligenceOverview();
@@ -159,6 +201,9 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
   const business = overview.tenants.find((t) => t.userId === "u3");
   assert.equal(business.subscriptionRevenueCents, 3499 + 500); // base + one extra seat
   assert.equal(business.classification.revenue, "estimated");
+  assert.equal(overview.kpis.mrr.valueCents, 4997);
+  assert.equal(overview.kpis.mrr.classification, "partial");
+  assert.equal(overview.kpis.collected.classification, "unavailable");
 });
 
 test("annual pricing caption uses yearly total divided by twelve", () => {

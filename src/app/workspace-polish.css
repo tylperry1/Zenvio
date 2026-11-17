@@ -99,3 +99,36 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .release-billing .release-controls button{align-self:end}
 .release-billing>.page-header{margin-bottom:8px}
 @media(max-width:680px){.release-billing .release-controls{grid-template-columns:minmax(0,1fr)}}
+
+/* Financial Intelligence */
+.financial-intelligence.ds-root{display:grid;gap:0}
+.fi-shell{gap:20px}
+.fi-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}
+.fi-period{margin:0;font-size:13px;color:var(--text-secondary)}
+.fi-kpis{grid-template-columns:repeat(3,minmax(0,1fr));margin:0}
+.fi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.fi-stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:16px}
+.fi-stat-row>div{min-width:0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-hover)}
+.fi-stat-row span{display:block;font-size:11px;color:var(--text-muted);margin-bottom:6px}
+.fi-stat-row strong{font-size:16px;letter-spacing:-.02em;color:var(--text-primary);overflow-wrap:anywhere}
+.fi-note{margin:12px 0 0;font-size:12px;line-height:1.55;color:var(--text-muted)}
+.fi-links{display:grid;gap:8px;margin-top:14px}
+.fi-links a{color:var(--action-primary);font-size:13px;font-weight:600}
+.fi-forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:18px}
+.fi-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.fi-offer-list{margin:0;padding-left:18px;display:grid;gap:8px;font-size:14px;color:var(--text-primary)}
+.fi-alert-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.fi-alert{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface-hover)}
+.fi-alert strong{display:inline;margin-left:8px;color:var(--text-primary)}
+.fi-alert p{margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--text-secondary)}
+.fi-alert.danger{border-color:color-mix(in srgb,var(--error) 35%,var(--border))}
+.fi-alert.warning{border-color:color-mix(in srgb,#b45309 35%,var(--border))}
+.fi-sync-runs{margin-top:20px}
+.fi-sync-runs h3{margin:0 0 10px;font-size:14px}
+.fi-sync-runs ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px;color:var(--text-secondary)}
+.fi-message{display:grid;gap:10px;justify-items:start}
+@media(max-width:980px){
+  .fi-kpis,.fi-grid,.fi-forms,.fi-filters{grid-template-columns:minmax(0,1fr)}
+  .fi-actions{justify-content:stretch}
+  .fi-actions .ds-segmented{width:100%;overflow:auto}
+}
