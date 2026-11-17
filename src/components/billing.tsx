@@ -37,7 +37,7 @@ type Data = {
     period: string;
     meters: {
       meter: string;
-      included: number;
+      included: number | null;
       used: number;
       remaining: number;
       purchasedRemaining: number;
@@ -393,6 +393,25 @@ export function Billing() {
                   Online billing is not connected yet. Your current workspace remains available.
                 </Notice>
               )}
+              {data.connected && !data.checkoutEnabled && (
+                <Notice tone="info">
+                  Stripe is configured, but paid plan enrollment is paused until checkout readiness is
+                  complete.
+                  {managedByTeam
+                    ? " Your team owner manages billing."
+                    : sub.has_customer
+                      ? " You can still sync an existing subscription and open Payment details for invoices."
+                      : " You can still sync an existing subscription once one is linked."}{" "}
+                  {managedByTeam || data.usage.platformIncluded ? (
+                    <>
+                      Review the published catalog on the{" "}
+                      <Link href="/pricing">public pricing page</Link>.
+                    </>
+                  ) : (
+                    <>Use Compare plans to review the published catalog in this workspace.</>
+                  )}
+                </Notice>
+              )}
               {sub.promotion_ends_at && (
                 <Notice tone="info">
                   Your launch promotion ends {billingDate(sub.promotion_ends_at)}. Your normal base subscription price
@@ -429,7 +448,7 @@ export function Billing() {
                             value={allowanceValue(m.meter, m.used)}
                             detail={
                               enforced
-                                ? `${allowanceValue(m.meter, m.remaining)} remaining · ${allowanceValue(m.meter, m.included)} included · ${allowanceValue(m.meter, m.purchasedRemaining)} in extra credits`
+                                ? `${allowanceValue(m.meter, m.remaining)} remaining · ${m.included === null ? "Unlimited" : allowanceValue(m.meter, m.included)} included · ${allowanceValue(m.meter, m.purchasedRemaining)} in extra credits`
                                 : m.meter === "storageBytes"
                                   ? `${allowanceValue(m.meter, m.used)} stored`
                                   : "Included allowance follows your existing contract"

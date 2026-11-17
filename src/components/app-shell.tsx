@@ -96,6 +96,8 @@ function activeItem(pathname: string, view: string | null, demo: boolean, sectio
   if (pathname.startsWith("/app/marketing") || pathname.startsWith("/app/smart-cards") || pathname.startsWith("/app/growth/overview")) return all.find(i => i.id === "growth-suite");
   if (pathname.startsWith("/app/business-profile")) {
     if (section === "settings") return all.find((i) => i.id === "business-settings");
+    // Growth Suite digital-card tab embeds Business Profile; keep Growth highlighted.
+    if (section === "digital-card") return all.find((i) => i.id === "growth-suite") || all.find((i) => i.id === "business-profile");
     return all.find((i) => i.id === "business-profile");
   }
   if (pathname.startsWith("/app/notifications")) return all.find((i) => i.id === "notifications");

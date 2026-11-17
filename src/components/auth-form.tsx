@@ -304,7 +304,10 @@ export function AuthForm({
               </span>
               <div>
                 <strong>Partner invite applied</strong>
-                <p>We’ll credit the business that invited you when this account is created.</p>
+                <p>
+                  We’ll credit the business that invited you when you start a paid Individual or Teams
+                  plan. Creating this free workspace only records the invite.
+                </p>
               </div>
               <div className="auth-invite-code">
                 <code>{referralCode}</code>

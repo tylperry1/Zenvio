@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { ApiError } from "./server";
 import { monthlyAllowances, catalogVersion } from "./subscription-offers.mjs";
+import { pricingV4Allowances, pricingV4Version } from "./pricing-v4-catalog.mjs";
 export type Meter = "aiCredits" | "videoMinutes" | "emails" | "smsSegments" | "storageBytes" | "envelopes";
 type DB = Pick<PoolClient,"query">;
 export async function usageOwner(db:DB,user:string) {
@@ -12,10 +13,11 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  const owner=await usageOwner(db,user);
  const row=(await db.query("select s.plan,s.status,s.catalog_version,exists(select 1 from private.platform_roles where user_id=$1 and enabled) or exists(select 1 from private.entitlement_overrides where user_id=$1 and expires_at>now()) exempt from private.subscriptions s where s.user_id=$1",[owner])).rows[0];
  const custom=row?.catalog_version?.startsWith("release-")?(await db.query("SELECT catalog FROM private.billing_catalog_versions WHERE id=$1",[row.catalog_version.slice(8)])).rows[0]?.catalog:null;
- const versioned=(row?.catalog_version===catalogVersion||Boolean(custom)) && !row?.exempt;
+ const isV4 = row?.catalog_version === pricingV4Version;
+ const versioned=(row?.catalog_version===catalogVersion||isV4||Boolean(custom)) && !row?.exempt;
  // Legacy subscriptions may still store plan id "teams"; catalog keys use "team".
  const planKey = row?.plan === "teams" ? "team" : row?.plan;
- const allowanceTable = (custom?.allowances || monthlyAllowances) as Record<string, (typeof monthlyAllowances)["individual"]>;
+ const allowanceTable = (custom?.allowances || (isV4 ? pricingV4Allowances : monthlyAllowances)) as Record<string, Record<string, number | null>>;
  const allowances=versioned&&["active","trialing"].includes(row?.status) ? allowanceTable[planKey as string] || null : null;
  const totals=(await db.query(`select meter,sum(case when state='settled' then consumed else reserved end)::text used,
  sum(included_quantity)::text included_used from private.subscription_usage_reservations
@@ -28,9 +30,21 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  const storageOverride=(await db.query("select allowance from private.workspace_meter_overrides where billing_owner=$1 and meter='storageBytes' and expires_at>now()",[owner])).rows[0];
  const creditDebt=credits.some(r=>Number(r.remaining)<0);
  return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced:versioned,period:"UTC calendar month",meters:meters.map(meter=>{
-  const included=Number(allowances?.[meter as keyof typeof monthlyAllowances.individual]||0),used=Number(totals.find(r=>r.meter===meter)?.used||0),includedUsed=Number(totals.find(r=>r.meter===meter)?.included_used||0),purchased=Number(credits.find(r=>r.meter===meter)?.remaining||0);
-  if(meter==='storageBytes')return {meter,included:Number(storageOverride?.allowance??included),used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Math.max(0,Number(storageOverride?.allowance??included)-storage)};
-  return {meter,included,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Math.max(0,included-includedUsed)+Math.max(0,purchased)};
+  const raw = allowances ? allowances[meter] : undefined;
+  // Catalog null means unlimited / custom contract — never coerce to zero included.
+  const unlimited = Boolean(allowances) && raw === null;
+  const included = unlimited ? null : Number(raw || 0);
+  const used=Number(totals.find(r=>r.meter===meter)?.used||0),includedUsed=Number(totals.find(r=>r.meter===meter)?.included_used||0),purchased=Number(credits.find(r=>r.meter===meter)?.remaining||0);
+  if(meter==='storageBytes'){
+    if(storageOverride?.allowance!=null){
+      const capped=Number(storageOverride.allowance);
+      return {meter,included:capped,used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Math.max(0,capped-storage),unlimited:false};
+    }
+    if(unlimited) return {meter,included:null,used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
+    return {meter,included:included||0,used:storage,reservedIncluded:storage,purchasedRemaining:0,remaining:Math.max(0,(included||0)-storage),unlimited:false};
+  }
+  if(unlimited) return {meter,included:null,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Number.MAX_SAFE_INTEGER,unlimited:true};
+  return {meter,included:included||0,used,reservedIncluded:includedUsed,purchasedRemaining:Math.max(0,purchased),remaining:Math.max(0,(included||0)-includedUsed)+Math.max(0,purchased),unlimited:false};
  })};
 }
 /** Caller owns the transaction. Unknown outcomes keep credits reserved. */
@@ -46,8 +60,12 @@ export async function reserveSubscriptionUnits(db:PoolClient,user:string,meter:M
  if(existing){if(Number(existing.reserved)!==quantity||existing.state==='released')throw new ApiError("Usage reference conflict.",409);return existing.id as string;}
  if(state.creditDebt)throw new ApiError("Refunded credits were already consumed. Billing reconciliation is required before optional usage can continue.",409);
  const budget=state.meters.find(m=>m.meter===meter)!;
+ if(budget.unlimited){
+  return (await db.query(`insert into private.subscription_usage_reservations(billing_owner,user_id,meter,period,reference,reserved,included_quantity,purchased_quantity)
+ values($1,$2,$3,date_trunc('month',now() at time zone 'UTC')::date,$4,$5,$6,0) returning id`,[owner,user,meter,reference,quantity,quantity])).rows[0].id as string;
+ }
  if(quantity>budget.remaining)throw new ApiError("Your workspace usage allowance is reached. Review Plan & billing before continuing.",429);
- const included=Math.min(quantity,Math.max(0,budget.included-budget.reservedIncluded));
+ const included=Math.min(quantity,Math.max(0,Number(budget.included||0)-budget.reservedIncluded));
  return (await db.query(`insert into private.subscription_usage_reservations(billing_owner,user_id,meter,period,reference,reserved,included_quantity,purchased_quantity)
  values($1,$2,$3,date_trunc('month',now() at time zone 'UTC')::date,$4,$5,$6,$7) returning id`,[owner,user,meter,reference,quantity,included,quantity-included])).rows[0].id as string;
 }

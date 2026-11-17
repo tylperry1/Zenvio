@@ -2,7 +2,7 @@
    Uses the brand tokens from theme.css (cobalt / midnight); never redefines them. */
 
 /* ---------- Buttons and small pieces ---------- */
-.shop-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #d6dbe8; background: #fff; color: var(--brand-midnight); font: 600 14px/1 var(--font-family, inherit); text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.shop-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--border, #d6dbe8); background: var(--surface-card, #fff); color: var(--text-primary, var(--brand-midnight)); font: 600 14px/1 var(--font-family, inherit); text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
 .shop-btn:hover:not(:disabled):not([aria-disabled="true"]) { border-color: #aab3cc; }
 .shop-btn.primary { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: #fff; }
 .shop-btn.primary:hover:not(:disabled) { background: #2748e6; border-color: #2748e6; }
@@ -10,7 +10,7 @@
 .shop-btn.wide { width: 100%; min-height: 48px; font-size: 15px; }
 .shop-btn:disabled, .shop-btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 .shop-btn:focus-visible, .shop-chip:focus-visible, .shop-swatches button:focus-visible, .shop-sizes button:focus-visible, .shop-collections button:focus-visible { outline: 2px solid var(--brand-cobalt); outline-offset: 2px; }
-.shop-chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid #d6dbe8; background: #fff; font: 600 13px var(--font-family, inherit); color: #2b3150; cursor: pointer; }
+.shop-chip { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border, #d6dbe8); background: var(--surface-card, #fff); font: 600 13px var(--font-family, inherit); color: var(--text-primary, #2b3150); cursor: pointer; }
 .shop-chip[aria-pressed="true"] { background: var(--brand-midnight); border-color: var(--brand-midnight); color: #fff; }
 .shop-chip.danger { color: #b42318; border-color: #f3c7c2; }
 .shop-toast { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: #eef2ff; color: #22306b; font-size: 14px; }
@@ -27,7 +27,7 @@
 .shop-hero-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: #d7defc; }
 .shop-hero-steps b { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: #ffffff26; color: #fff; font-size: 11px; }
 .shop-collections { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
-.shop-collections button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #d6dbe8; background: #fff; font: 600 13px var(--font-family, inherit); color: #2b3150; cursor: pointer; }
+.shop-collections button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border, #d6dbe8); background: var(--surface-card, #fff); font: 600 13px var(--font-family, inherit); color: var(--text-primary, #2b3150); cursor: pointer; }
 .shop-collections button[aria-pressed="true"] { background: var(--brand-cobalt); border-color: var(--brand-cobalt); color: #fff; }
 .market-product-image { position: relative; text-decoration: none; }
 .market-product-content h3 a { color: inherit; text-decoration: none; }
@@ -66,7 +66,7 @@
 .shop-swatches legend, .shop-sizes legend { width: 100%; margin-bottom: 8px; font-size: 13px; color: #5b6280; }
 .shop-swatches button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #c9cfdd; cursor: pointer; box-shadow: inset 0 0 0 3px #fff; }
 .shop-swatches button[aria-pressed="true"] { border: 2px solid var(--brand-cobalt); }
-.shop-sizes button { min-width: 48px; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #d6dbe8; background: #fff; font: 600 14px var(--font-family, inherit); cursor: pointer; }
+.shop-sizes button { min-width: 48px; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border, #d6dbe8); background: var(--surface-card, #fff); font: 600 14px var(--font-family, inherit); cursor: pointer; }
 .shop-sizes button[aria-pressed="true"] { border-color: var(--brand-midnight); background: var(--brand-midnight); color: #fff; }
 .shop-sizes button:disabled { opacity: .4; text-decoration: line-through; cursor: not-allowed; }
 .shop-qty { display: grid; gap: 6px; width: 140px; margin: 16px 0; font-size: 13px; color: #5b6280; }
@@ -75,11 +75,11 @@
 .shop-tiers caption { text-align: left; font-size: 13px; color: #5b6280; margin-bottom: 6px; }
 .shop-tiers th, .shop-tiers td { padding: 6px 10px; border-bottom: 1px solid #eef0f6; text-align: left; }
 .shop-tiers tr[aria-current="true"] { background: #eef2ff; font-weight: 650; }
-.shop-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; padding: 16px; border-radius: 14px; background: #fff; border: 1px solid #e6e9f2; }
+.shop-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; padding: 16px; border-radius: 14px; background: var(--surface-card, #fff); border: 1px solid var(--border, #e6e9f2); }
 .shop-facts dt { font-size: 12px; color: #7a8099; }
-.shop-facts dd { margin: 3px 0 0; font-weight: 600; font-size: 14px; color: var(--brand-midnight); }
-.shop-spec { padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid #e6e9f2; font-size: 14px; color: #3c4466; }
-.shop-spec summary { font-weight: 650; cursor: pointer; color: var(--brand-midnight); }
+.shop-facts dd { margin: 3px 0 0; font-weight: 600; font-size: 14px; color: var(--text-primary, var(--brand-midnight)); }
+.shop-spec { padding: 14px 16px; border-radius: 14px; background: var(--surface-card, #fff); border: 1px solid var(--border, #e6e9f2); font-size: 14px; color: var(--text-secondary, #3c4466); }
+.shop-spec summary { font-weight: 650; cursor: pointer; color: var(--text-primary, var(--brand-midnight)); }
 .shop-spec ul { margin: 10px 0 0; padding-left: 18px; line-height: 1.55; }
 @media (max-width: 860px) { .shop-detail { grid-template-columns: 1fr; gap: 20px; } .shop-detail-media { position: static; } }
 
@@ -90,7 +90,7 @@
 .studio-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 .studio-stage { min-width: 0; }
 .studio-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-.studio-tabs button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #d6dbe8; background: #fff; font: 600 13px var(--font-family, inherit); cursor: pointer; }
+.studio-tabs button { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border, #d6dbe8); background: var(--surface-card, #fff); font: 600 13px var(--font-family, inherit); cursor: pointer; }
 .studio-tabs button[aria-selected="true"] { background: var(--brand-midnight); color: #fff; border-color: var(--brand-midnight); }
 .studio-product { display: grid; place-items: center; padding: clamp(24px, 6vw, 64px); border-radius: 20px; border: 1px solid #e6e9f2; box-shadow: inset 0 0 120px #0000000d; min-height: 360px; }
 .studio-area { position: relative; width: min(100%, 460px); max-height: 70vh; outline: 1.5px dashed #365cff99; background: #ffffff10; overflow: visible; touch-action: none; }
@@ -161,7 +161,7 @@
   .order-receipt td { padding: 6px 0; border-bottom: 1px solid #ddd; }
   .order-receipt td:last-child { text-align: right; }
 }
-.shop-lookup { max-width: 520px; padding: 22px; border-radius: 16px; background: #fff; border: 1px solid #e6e9f2; }
+.shop-lookup { max-width: 520px; padding: 22px; border-radius: 16px; background: var(--surface-card, #fff); border: 1px solid var(--border, #e6e9f2); }
 .shop-lookup form { display: grid; gap: 12px; margin-top: 12px; }
 .shop-lookup label { display: grid; gap: 4px; font-size: 13px; }
 

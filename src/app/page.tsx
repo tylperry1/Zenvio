@@ -455,6 +455,8 @@ export default async function Home() {
               joinHref={join.href}
               joinLabel={join.label}
               signupOpen={publicRegistrationOpen(controls)}
+              previewOnly={pricingSurface.previewOnly}
+              enrollmentReady={pricingSurface.enrollment.enabled}
             />
           ) : (
             <PublicPricing

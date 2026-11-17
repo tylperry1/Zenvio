@@ -42,8 +42,8 @@ export function NotificationsCenter() {
   return (
     <main className="platform-page notifications-page">
       <PageHeader
-        title="Notifications"
-        description="Browser alerts for this device, plus links to the systems that already send automatic customer email."
+        title="Browser alerts"
+        description="Device-local browser permission only. Appointment email, SMS, and server push preferences are not edited here."
       />
       {error && <Notice tone="danger">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
@@ -75,21 +75,23 @@ export function NotificationsCenter() {
 
       <section className="notif-card">
         <header>
-          <h2>Automatic customer email</h2>
+          <h2>Customer email & SMS</h2>
           <p>
-            Booking confirmations, reminders, and follow-ups are sent by the existing Resend lifecycle queue and Automations.
-            Timing and enablement live on those screens — not as local toggles on this page.
+            Booking confirmations, reminders, and follow-ups are sent by the Resend lifecycle queue and Automations.
+            SMS stays provider-gated and is not controlled by this browser permission. Timing lives on Automations —
+            not as toggles on this page.
           </p>
         </header>
         <p className="notif-note">
-          Security, billing, and account emails always send. Marketing mail stays opt-in through Growth tools.
+          Security, billing, and account emails always send. Marketing mail stays opt-in through Growth tools. Remote
+          push delivery is not available yet.
         </p>
         <div className="notif-actions">
           <Link className="ui-btn ui-btn-primary" href="/app/automation">
             Open Automations
           </Link>
           <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
-            Booking links & reminders
+            Services & reminders
           </Link>
         </div>
       </section>
