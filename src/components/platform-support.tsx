@@ -1,12 +1,19 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { supportCategories, supportCategoryLabel, supportPriorities } from "@/lib/support-options";
+import {
+  customerStatusLabel,
+  supportCategories,
+  supportCategoryLabel,
+  supportPriorities,
+  supportStatusLabels,
+  type SupportStatus,
+} from "@/lib/support-options";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, SearchField, Segmented, Skeleton, formatDate, relativeTime, type Tone } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 
-type Status = "open" | "pending" | "resolved";
+type Status = SupportStatus | "pending" | "needs_reply";
 type Ticket = {
   id: string;
   subject: string;
@@ -54,16 +61,23 @@ type Thread = {
   feedback?: { id: string; category: string; message: string; status: string; created_at: string }[];
 };
 
-const customerStatus: Record<Status, { label: string; tone: Tone }> = {
-  open: { label: "Waiting on Zenvio", tone: "info" },
-  pending: { label: "Zenvio replied", tone: "warning" },
-  resolved: { label: "Resolved", tone: "success" },
+const customerStatusTone = (status: string): Tone => {
+  const s = status === "pending" ? "waiting_customer" : status;
+  if (s === "waiting_customer") return "warning";
+  if (s === "resolved" || s === "closed") return "success";
+  return "info";
 };
-const staffStatus: Record<Status, { label: string; tone: Tone }> = {
-  open: { label: "Needs reply", tone: "danger" },
-  pending: { label: "Waiting on customer", tone: "warning" },
-  resolved: { label: "Resolved", tone: "success" },
+const staffStatusTone = (status: string): Tone => {
+  const s = status === "pending" ? "waiting_customer" : status;
+  if (s === "escalated" || s === "new" || s === "open") return "danger";
+  if (s === "waiting_customer" || s === "waiting_internal") return "warning";
+  if (s === "resolved" || s === "closed") return "success";
+  return "info";
 };
+const staffStatusLabel = (status: string) =>
+  status === "pending"
+    ? supportStatusLabels.waiting_customer
+    : supportStatusLabels[status as SupportStatus] || status;
 const priorityTone: Record<string, Tone> = { urgent: "danger", high: "warning", normal: "neutral", low: "neutral" };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const time = (s: string) => new Date(s).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -501,11 +515,11 @@ function CustomerThread({ id, version = 0, live = "offline", onBack, onChange }:
             {supportCategoryLabel(t.category)} · started {relativeTime(t.created_at)}
           </p>
         </div>
-        <Badge tone={customerStatus[t.status].tone}>{customerStatus[t.status].label}</Badge>
+        <Badge tone={customerStatusTone(t.status)}>{customerStatusLabel(t.status)}</Badge>
       </header>
       {error && <Notice tone="danger">{error}</Notice>}
       <MessageList messages={data.messages} staff={false} endpoint="/api/support" />
-      {t.status === "resolved" && <Rating ticket={t} onRated={load} />}
+      {(t.status === "resolved" || t.status === "closed") && <Rating ticket={t} onRated={load} />}
       <form
         className="sp-composer"
         onSubmit={(e) => {
@@ -563,7 +577,7 @@ function ConversationList({ items, active, onOpen }: { items: Ticket[]; active?:
             </span>
             {t.preview && <span className="sp-list-preview">{t.preview}</span>}
             <span className="sp-list-tags">
-              <Badge tone={customerStatus[t.status].tone}>{customerStatus[t.status].label}</Badge>
+              <Badge tone={customerStatusTone(t.status)}>{customerStatusLabel(t.status)}</Badge>
               {t.unread > 0 && <span className="sp-unread">{t.unread} new</span>}
             </span>
           </button>
@@ -959,9 +973,11 @@ function SupportConsole() {
             <div className="sp-filter-row">
               <select aria-label="Status" value={status} onChange={(e) => filter(setStatus)(e.target.value as typeof status)}>
                 <option value="active">Active</option>
-                <option value="open">Needs reply</option>
-                <option value="pending">Waiting on customer</option>
+                <option value="needs_reply">Needs reply</option>
+                <option value="open">Open</option>
+                <option value="waiting_customer">Waiting on customer</option>
                 <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
                 <option value="">All statuses</option>
               </select>
               <select aria-label="Topic" value={category} onChange={(e) => filter(setCategory)(e.target.value)}>
@@ -992,7 +1008,7 @@ function SupportConsole() {
                     <span className="sp-list-subject">{t.subject}</span>
                     {t.preview && <span className="sp-list-preview">{t.preview}</span>}
                     <span className="sp-list-tags">
-                      <Badge tone={staffStatus[t.status].tone}>{staffStatus[t.status].label}</Badge>
+                      <Badge tone={staffStatusTone(t.status)}>{staffStatusLabel(t.status)}</Badge>
                       {t.visitor && <Badge tone="info">Website visitor</Badge>}
                       {t.priority !== "normal" && <Badge tone={priorityTone[t.priority]}>{cap(t.priority)}</Badge>}
                       <small>{t.assignee_name ? t.assignee_name.split(" ")[0] : "Unassigned"}</small>
@@ -1068,7 +1084,7 @@ function StaffThread({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [internal, setInternal] = useState(false);
-  const [after, setAfter] = useState<"pending" | "resolved" | "">("pending");
+  const [after, setAfter] = useState<"waiting_customer" | "resolved" | "open">("waiting_customer");
   const [busy, setBusy] = useState(false);
   const draft = useDraft();
   const names = Object.fromEntries(team.map((m) => [m.id, m.name]));
@@ -1136,7 +1152,7 @@ function StaffThread({
               {t.page ? ` · from ${t.page}` : ""}
             </p>
           </div>
-          <Badge tone={staffStatus[t.status].tone}>{staffStatus[t.status].label}</Badge>
+          <Badge tone={staffStatusTone(t.status)}>{staffStatusLabel(t.status)}</Badge>
         </header>
         {t.visitor && <Notice tone="info">Website visitor without an account. Replies are emailed to {t.customer_email} with a private link back to this chat. Images can’t be sent to visitors.</Notice>}
         <div className="sp-controls">
@@ -1156,10 +1172,19 @@ function StaffThread({
               </option>
             ))}
           </Select>
-          <Select label="Status" value={t.status} onChange={(v) => update({ status: v })}>
+          <Select
+            label="Status"
+            value={t.status === "pending" ? "waiting_customer" : t.status}
+            onChange={(v) => update({ status: v })}
+          >
+            <option value="new">New</option>
             <option value="open">Needs reply</option>
-            <option value="pending">Waiting on customer</option>
+            <option value="in_progress">In progress</option>
+            <option value="waiting_customer">Waiting on customer</option>
+            <option value="waiting_internal">Waiting internal</option>
+            <option value="escalated">Escalated</option>
             <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
           </Select>
           {t.assigned_to !== me && (
             <button type="button" className="ds-btn sm" onClick={() => update({ assigned: "self" })}>
@@ -1239,9 +1264,9 @@ function StaffThread({
             )}
             {!internal && (
               <select aria-label="Status after sending" value={after} onChange={(e) => setAfter(e.target.value as typeof after)}>
-                <option value="pending">Then: wait on customer</option>
+                <option value="waiting_customer">Then: wait on customer</option>
                 <option value="resolved">Then: resolve</option>
-                <option value="">Then: keep open</option>
+                <option value="open">Then: keep open</option>
               </select>
             )}
             <button type="submit" className="ds-btn primary sm" disabled={busy || !draft.text.trim()}>
@@ -1292,7 +1317,7 @@ function StaffThread({
                 <li key={h.id}>
                   <Link href={`/admin/support?ticket=${h.id}`}>{h.subject}</Link>
                   <small>
-                    {staffStatus[h.status]?.label} · {formatDate(h.created_at)}
+                    {staffStatusLabel(h.status)} · {formatDate(h.created_at)}
                   </small>
                 </li>
               ))}

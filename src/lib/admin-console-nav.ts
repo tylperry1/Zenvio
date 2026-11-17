@@ -170,20 +170,28 @@ export const adminNavGroups: AdminNavGroup[] = [
     label: "Communications",
     items: [
       {
+        id: "support-ops",
+        icon: "message",
+        label: "Support Operations",
+        href: "/admin/support-ops",
+        permission: "support",
+        hint: "support ops center tickets sla escalations knowledge base analytics pop out",
+      },
+      {
         id: "support",
         icon: "message",
         label: "Support inbox",
         href: "/admin/support",
         permission: "support",
-        hint: "live chat customer support tickets help desk",
+        hint: "live chat customer support tickets help desk classic inbox",
       },
       {
         id: "feedback",
         icon: "feedback",
-        label: "Feedback",
+        label: "Suggestions",
         href: "/admin/feedback",
         permission: "feedback",
-        hint: "ideas bugs suggestions",
+        hint: "ideas bugs suggestions feedback",
       },
       {
         id: "email-preview",
@@ -278,6 +286,7 @@ export function resolveAdminNavId(pathname: string, searchParams: URLSearchParam
   if (path === "/admin/assistant") return "assistant";
   if (path === "/admin/email-preview") return "email-preview";
   if (path === "/admin/launch") return "launch";
+  if (path === "/admin/support-ops" || path.startsWith("/admin/support-ops/")) return "support-ops";
   if (path === "/admin/support") return "support";
   if (path === "/admin/feedback") return "feedback";
   if (path === "/admin/team") return "team";

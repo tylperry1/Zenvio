@@ -55,3 +55,41 @@ self.addEventListener("fetch", (event) => {
   }
   // Everything else (APIs, data, documents) is left to the browser untouched.
 });
+
+/* Platform alert Web Push — show a device notification and open the deep link. */
+self.addEventListener("push", (event) => {
+  let data = { title: "Zenvio", body: "", url: "/admin", tag: "zenvio-platform", icon: "/brand/icon-192.png" };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    try {
+      if (event.data) data.body = event.data.text();
+    } catch {}
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Zenvio", {
+      body: data.body || "",
+      icon: data.icon || "/brand/icon-192.png",
+      badge: "/brand/favicon-32.png",
+      tag: data.tag || "zenvio-platform",
+      data: { url: data.url || "/admin" },
+      renotify: true,
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/admin";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.navigate?.(target);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    }),
+  );
+});

@@ -14,9 +14,9 @@ test("support extras migration is additive and private", () => {
 });
 
 test("employee-only fields never reach customers", () => {
-  assert.match(lib, /\$\{staff \? "coalesce\(u\.email,t\.visitor_email\) email,a\.name assignee_name,\(t\.user_id IS NULL\) visitor," : ""\}/);
+  assert.match(lib, /\$\{staff \? "coalesce\(u\.email,t\.visitor_email\) email,a\.name assignee_name,\(t\.user_id IS NULL\) visitor/);
   assert.match(lib, /\$\{staff \? ',t\.page,t\.user_id,coalesce\(u\.name,t\.visitor_name\) customer_name,coalesce\(u\.email,t\.visitor_email\) customer_email/);
-  assert.match(lib, /if \(staff\) \{\s*const meta/);
+  assert.match(lib, /if \(staff\) \{\s*const meta = ticketRow/);
   // Search by name or email is staff-only.
   assert.match(lib, /OR \(\$1 AND \(strpos\(lower\(coalesce\(u\.email,t\.visitor_email\)\)/);
 });
@@ -31,16 +31,18 @@ test("staff-only actions are gated and priority/rating are validated", () => {
   assert.match(lib, /WHERE m\.id=\$1 AND NOT m\.staff AND NOT EXISTS \(SELECT 1 FROM private\.support_attachments/);
 });
 
-test("staff reply status hand-off only accepts pending or resolved and keeps internal notes neutral", () => {
-  assert.match(lib, /staff && !internal && \(input\.status === "pending" \|\| input\.status === "resolved"\)/);
+test("staff reply status hand-off accepts pending alias or resolved and keeps internal notes neutral", () => {
+  assert.match(lib, /normalizeSupportStatus\(input\.status\)/);
+  assert.match(lib, /input\.status === "pending"/);
+  assert.match(lib, /keepOpen/);
   assert.match(lib, /status=CASE WHEN \$2 THEN status/);
   assert.match(lib, /first_response_at=CASE WHEN \$3 AND NOT \$2/);
 });
 
-test("communications navigation groups support and suggestions", () => {
+test("communications navigation groups support ops, inbox, and suggestions", () => {
   const nav = read("src/lib/admin-console-nav.ts");
   assert.match(
     nav,
-    /label: "Communications"[\s\S]*?id: "support"[\s\S]*?permission: "support"[\s\S]*?id: "feedback"[\s\S]*?permission: "feedback"/,
+    /label: "Communications"[\s\S]*?id: "support-ops"[\s\S]*?id: "support"[\s\S]*?permission: "support"[\s\S]*?id: "feedback"[\s\S]*?permission: "feedback"/,
   );
 });

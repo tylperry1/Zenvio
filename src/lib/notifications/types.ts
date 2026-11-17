@@ -72,6 +72,8 @@ export type SmsChannelPayload = {
 export type PushChannelPayload = {
   title: string;
   body: string;
+  url?: string;
+  tag?: string;
 };
 
 export type EnqueueNotificationInput = {

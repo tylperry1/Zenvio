@@ -10,7 +10,10 @@ export const staffPermissions = {
     label: "Early-access signups",
     description: "Waitlist signups and confirmation status.",
   },
-  support: { label: "Customer support", description: "Live chat inbox: reply, assign, prioritize, internal notes and saved replies." },
+  support: {
+    label: "Customer support",
+    description: "Support Operations Center and live inbox: tickets, SLA, escalations, notes, and saved replies.",
+  },
   feedback: { label: "Suggestions & feedback", description: "Customer suggestions and feedback inbox." },
   subscriptions: {
     label: "Subscriptions",
@@ -45,7 +48,7 @@ export const sectionHome: Record<StaffPermission, string> = {
   accounts: "/admin",
   "early-access": "/admin/early-access",
   feedback: "/admin/feedback",
-  support: "/admin/support",
+  support: "/admin/support-ops",
   subscriptions: "/admin/operations?section=subscriptions",
   marketplace: "/admin/operations?section=marketplace",
   integrations: "/admin/operations?section=integrations",
