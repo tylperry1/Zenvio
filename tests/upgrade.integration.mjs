@@ -129,6 +129,7 @@ try {
     starts_at: slots[0],
     name: "Disposable Guest",
     email: "guest@example.com",
+    phone: "+15551234567",
   };
   assert.equal((await request("/api/book", details)).status, 400);
   const booked = await request("/api/book", {
@@ -760,6 +761,7 @@ try {
       starts_at: available,
       name: "Race fixture",
       email: "race@example.com",
+      phone: "+15557654321",
     };
     const race = await Promise.all([
       request("/api/book", payload),
@@ -967,7 +969,7 @@ try {
   assert.equal((await request("/api/workspace",{...manual,overrideConfirmed:false},alice.cookie)).status,400);
   assert.equal((await request("/api/workspace",manual,alice.cookie)).status,201);
   assert.equal((await request("/api/workspace",{...manual,email:"overlap@example.com"},alice.cookie)).status,409);
-  assert.equal((await request("/api/book",{host:wa.profile.slug,event:"after-hours",starts_at:manual.starts_at,name:"Public Guest",email:"public-after@example.com",answers:{},overrideAvailability:true,overrideConfirmed:true})).status,409);
+  assert.equal((await request("/api/book",{host:wa.profile.slug,event:"after-hours",starts_at:manual.starts_at,name:"Public Guest",email:"public-after@example.com",phone:"+15559876543",answers:{},overrideAvailability:true,overrideConfirmed:true})).status,409);
   assert.equal((await db.query("SELECT count(*)::int n FROM private.operation_log WHERE actor_id=$1 AND action='manual_booking_availability_override'",[aid])).rows[0].n,1);
 
 

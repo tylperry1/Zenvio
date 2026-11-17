@@ -71,10 +71,10 @@ export async function GET(req: NextRequest) {
       )
     ).rows[0];
     if (!c) throw new ApiError("Client not found.", 404);
-    const [bookings, envelopes, payments, deliveries, tasks] =
+    const [bookings, envelopes, payments, deliveries, tasks, addresses] =
       await Promise.all([
         getPool().query(
-          "SELECT b.id,e.title,b.starts_at,b.ends_at,b.status,b.notes,b.intake_snapshot FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.contact_id=$1 AND b.user_id=$2 ORDER BY starts_at DESC",
+          "SELECT b.id,e.title,b.starts_at,b.ends_at,b.status,b.notes,b.intake_snapshot,b.location,b.location_mode,b.service_address,b.access_instructions,b.guest_phone FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id WHERE b.contact_id=$1 AND b.user_id=$2 ORDER BY starts_at DESC",
           [id, token],
         ),
         getPool().query(
@@ -91,6 +91,13 @@ export async function GET(req: NextRequest) {
         ),
         getPool().query(
           "SELECT * FROM private.client_tasks WHERE user_id=$2 AND contact_id=$1",
+          [id, token],
+        ),
+        getPool().query(
+          `SELECT id,address_type,street,street2,city,state,postal_code,country,formatted,access_instructions,validated,source,updated_at
+             FROM private.addresses
+            WHERE workspace_id=$2 AND contact_id=$1
+            ORDER BY address_type, updated_at DESC`,
           [id, token],
         ),
       ]);
@@ -125,6 +132,7 @@ export async function GET(req: NextRequest) {
         textDocuments,
         unlinked,
         contact: c,
+        addresses: addresses.rows,
         bookings: bookings.rows,
         envelopes: envelopes.rows,
         payments: payments.rows,
@@ -159,7 +167,7 @@ export async function POST(req: NextRequest) {
       ).rowCount
     )
       throw new ApiError("Client not found.", 404);
-    if (v.action === "edit")
+    if (v.action === "edit") {
       await getPool().query(
         "UPDATE public.contacts SET name=$3,email=$4,company=$5,notes=$6,phone=$7,address=$8 WHERE id=$1 AND user_id=$2",
         [
@@ -173,6 +181,74 @@ export async function POST(req: NextRequest) {
           string(v.address || "", "address", 500, 0),
         ],
       );
+      // Typed residential/billing updates are explicit; never overwrite from appointment service addresses.
+      if (v.residentialAddress || v.billingAddress) {
+        const { parseAddressInput, toDbAddress } = await import("@/lib/addresses");
+        for (const [type, payload] of [
+          ["residential", v.residentialAddress],
+          ["billing", v.billingAddress],
+        ] as const) {
+          if (!payload) continue;
+          const parsed = parseAddressInput(payload);
+          const row = toDbAddress(parsed);
+          const existing = (
+            await getPool().query(
+              "SELECT id FROM private.addresses WHERE contact_id=$1 AND address_type=$2 LIMIT 1",
+              [id, type],
+            )
+          ).rows[0];
+          if (existing) {
+            await getPool().query(
+              `UPDATE private.addresses SET street=$2,street2=$3,city=$4,state=$5,postal_code=$6,country=$7,
+                 formatted=$8,access_instructions=$9,validated=$10,smarty_key=$11,source=$12,updated_at=now()
+               WHERE id=$1`,
+              [
+                existing.id,
+                row.street,
+                row.street2,
+                row.city,
+                row.state,
+                row.postal_code,
+                row.country,
+                row.formatted,
+                row.access_instructions,
+                row.validated,
+                row.smarty_key,
+                row.source,
+              ],
+            );
+          } else {
+            await getPool().query(
+              `INSERT INTO private.addresses(
+                 workspace_id,contact_id,address_type,street,street2,city,state,postal_code,country,
+                 formatted,access_instructions,validated,smarty_key,source
+               ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+              [
+                token,
+                id,
+                type,
+                row.street,
+                row.street2,
+                row.city,
+                row.state,
+                row.postal_code,
+                row.country,
+                row.formatted,
+                row.access_instructions,
+                row.validated,
+                row.smarty_key,
+                row.source,
+              ],
+            );
+          }
+          if (type === "residential" && row.formatted)
+            await getPool().query(
+              "UPDATE public.contacts SET address=$2 WHERE id=$1 AND user_id=$3",
+              [id, row.formatted.slice(0, 500), token],
+            );
+        }
+      }
+    }
     else if (v.action === "link_envelope") {
       const r = await getPool().query(
         "UPDATE private.signature_envelopes SET contact_id=$3 WHERE id=$1 AND user_id=$2 AND (contact_id IS NULL OR contact_id=$3) RETURNING id",

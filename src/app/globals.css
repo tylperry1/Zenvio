@@ -4193,3 +4193,11 @@ h4 {
 .delete-event-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:24px}.delete-event-summary{overflow-wrap:anywhere}.delete-event-summary>div{min-width:0}.event-card-footer>div{flex-wrap:wrap}
 .booking-form-steps{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;letter-spacing:.4px;margin:18px 0;color:#8893aa}.booking-form-steps b{color:#365cff}.booking-form-intro{font-size:13px;color:#73809a;line-height:1.65;margin:-4px 0 20px}.booking-extra-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}.booking-extra-fields label{min-width:0}.booking-field-help{font-size:12px;font-weight:400;line-height:1.6;color:#7c879e}.booking-review-note{display:flex;gap:9px;align-items:flex-start;color:#6d7b96;font-size:12px;line-height:1.6;padding:12px 14px;background:#f3f6ff;border-radius:10px}.booking-review-note svg{flex-shrink:0;margin-top:2px}.guest-details{max-height:none}.guest-details .selected-slot span{line-height:1.7}.booking-host .host-avatar{overflow:hidden}@media(max-width:520px){.booking-extra-fields{grid-template-columns:1fr;gap:0}}
 
+
+.address-autocomplete{position:relative;display:grid;gap:12px}
+.address-suggestions{list-style:none;margin:0;padding:6px;position:absolute;z-index:20;left:0;right:0;top:70px;background:#fff;border:1px solid #d7deea;border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.12);max-height:220px;overflow:auto}
+.address-suggestions button{width:100%;text-align:left;background:transparent;border:0;padding:10px 12px;border-radius:8px;cursor:pointer;font:inherit;color:inherit}
+.address-suggestions button:hover,.address-suggestions button:focus{background:#f3f6ff}
+.booking-location-modes{border:0;padding:0;margin:0 0 8px;display:grid;gap:8px}
+.booking-location-modes legend{font-weight:600;margin-bottom:4px}
+.checkbox-row{display:flex;align-items:center;gap:10px;font-weight:500}

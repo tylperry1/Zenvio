@@ -53,6 +53,26 @@ export function sameOrigin(request: NextRequest) {
     if (!origin || origin !== request.nextUrl.origin)
         throw new ApiError("This request is not allowed.", 403);
 }
+/** Browser same-document GETs often omit Origin; accept Sec-Fetch-Site / Referer instead. */
+export function sameOriginBrowser(request: NextRequest) {
+    const origin = request.headers.get("origin");
+    if (origin) {
+        if (origin !== request.nextUrl.origin)
+            throw new ApiError("This request is not allowed.", 403);
+        return;
+    }
+    const site = request.headers.get("sec-fetch-site");
+    if (site === "same-origin" || site === "same-site" || site === "none") return;
+    const referer = request.headers.get("referer");
+    if (referer) {
+        try {
+            if (new URL(referer).origin === request.nextUrl.origin) return;
+        } catch {
+            /* invalid referer */
+        }
+    }
+    throw new ApiError("This request is not allowed.", 403);
+}
 export async function body(request: NextRequest) {
     if (!request.headers.get("content-type")?.includes("application/json"))
         throw new ApiError("Expected a JSON request.", 415);
