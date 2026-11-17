@@ -146,7 +146,7 @@ test("at-business uses business address without requiring guest re-entry", () =>
 });
 
 test("migration and Smarty vault wiring are present", () => {
-  const migration = fs.readFileSync("postgres/migrations/095_smarty_addresses.sql", "utf8");
+  const migration = fs.readFileSync("postgres/migrations/097_smarty_addresses.sql", "utf8");
   assert.match(migration, /private\.addresses/);
   assert.match(migration, /location_mode/);
   assert.match(migration, /service_address/);
@@ -178,7 +178,7 @@ test("booking form requires telephone and keeps Smarty failure soft", () => {
 });
 
 test("Greptile P1 guards: migration order, browser origin, health merge, confirmation location", () => {
-  const migration = fs.readFileSync("postgres/migrations/095_smarty_addresses.sql", "utf8");
+  const migration = fs.readFileSync("postgres/migrations/097_smarty_addresses.sql", "utf8");
   const checkAt = migration.indexOf("event_types_allowed_location_modes_check CHECK");
   const backfillAt = migration.indexOf("allowed_location_modes = ARRAY[inferred.mode]");
   assert.ok(backfillAt > 0 && checkAt > backfillAt, "compound check must follow backfill");
@@ -207,5 +207,6 @@ test("CodeRabbit Major guards: enhanced_match none and usage connection release"
   const settleAt = usage.indexOf("settleUsage(");
   assert.ok(releaseAt > 0 && settleAt > releaseAt, "settleUsage must run after releasing the reservation connection");
   assert.ok(!fs.existsSync("postgres/migrations/092_smarty_addresses.sql"));
-  assert.ok(fs.existsSync("postgres/migrations/095_smarty_addresses.sql"));
+  assert.ok(!fs.existsSync("postgres/migrations/095_smarty_addresses.sql"));
+  assert.ok(fs.existsSync("postgres/migrations/097_smarty_addresses.sql"));
 });
