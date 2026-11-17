@@ -14,6 +14,17 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     await adminSession("entitlements");
+    const lookup = req.nextUrl.searchParams.get("lookup");
+    // Find an account by name or email so overrides never need a raw ID.
+    if (lookup !== null) {
+      const q = string(lookup, "search", 100, 2).toLowerCase();
+      const { rows } = await getPool().query(
+        `SELECT u.id,u.name,u.email,private.effective_plan(u.id) plan FROM public."user" u
+          WHERE position($1 in lower(u.name||' '||u.email))>0 ORDER BY u.email LIMIT 8`,
+        [q],
+      );
+      return Response.json({ users: rows }, { headers: { "Cache-Control": "no-store" } });
+    }
     const user = req.nextUrl.searchParams.get("user");
     return Response.json(
       {
@@ -24,7 +35,10 @@ export async function GET(req: NextRequest) {
         ...(user ? { account: await entitlementUsage(uuid(user)) } : {}),
         overrides: (
           await getPool().query(
-            "SELECT user_id,plan,expires_at,actor_id,reason FROM private.entitlement_overrides ORDER BY expires_at DESC LIMIT 100",
+            `SELECT o.user_id,o.plan,o.expires_at,o.reason,u.name,u.email,actor.email actor
+               FROM private.entitlement_overrides o JOIN public."user" u ON u.id=o.user_id
+               LEFT JOIN public."user" actor ON actor.id=o.actor_id
+              ORDER BY (o.expires_at>now()) DESC,o.expires_at DESC LIMIT 100`,
           )
         ).rows,
       },

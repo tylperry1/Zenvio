@@ -8,25 +8,73 @@ import {
   type Subscription,
   type Invoice,
 } from "@/lib/billing-types";
+import {
+  Badge,
+  EmptyState,
+  Field,
+  FormActions,
+  Kpi,
+  Notice,
+  Pagination,
+  Panel,
+  SearchField,
+  Segmented,
+  Skeleton,
+  type Tone,
+} from "./ds";
+import { Icon } from "./icons";
+
 type Account = Subscription & {
   effective_plan?: string;
   platform_included?: boolean;
   user_id: string;
   name: string;
   email: string;
-  team_members?: {user_id:string;name:string;email:string;team_name:string;organization_id:string}[];
+  team_members?: { user_id: string; name: string; email: string; team_name: string; organization_id: string }[];
   override_plan: string | null;
   override_expires: string | null;
   override_reason: string | null;
 };
+
+type Filter = "all" | "paid" | "free" | "ending" | "attention" | "override";
+
 const planName = (plan: string) =>
   ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams", pro: "Pro", business: "Business" })[plan] || plan;
+
 const subscriptionEnded = (account: Subscription) => ["canceled", "incomplete_expired"].includes(account.status);
+
 const inMonths = (n: number) => {
   const d = new Date();
   d.setMonth(d.getMonth() + n);
   return d.toISOString().slice(0, 10);
 };
+
+const filterOptions = [
+  ["all", "All"],
+  ["paid", "Paid"],
+  ["free", "Free"],
+  ["ending", "Ending"],
+  ["attention", "Attention"],
+  ["override", "Granted"],
+] as const;
+
+function statusTone(account: Account): Tone {
+  if (!account.has_subscription) {
+    return account.platform_included || account.override_plan ? "info" : "neutral";
+  }
+  if (account.status === "active") return "success";
+  if (account.status === "trialing") return "info";
+  if (["past_due", "unpaid", "incomplete"].includes(account.status)) return "warning";
+  return "neutral";
+}
+
+function statusLabel(account: Account) {
+  if (account.has_subscription) return account.status.replaceAll("_", " ");
+  if (account.platform_included) return "Included";
+  if (account.override_plan) return "Granted";
+  return "Free";
+}
+
 type Data = {
   accounts: Account[];
   total: number;
@@ -34,34 +82,33 @@ type Data = {
   pageSize: number;
   totals: { accounts: number; paid: number; ending: number; attention: number };
 };
+
 export function AdminSubscriptions() {
-  const [data, setData] = useState<Data | null>(null),
-    [page, setPage] = useState(0),
-    [query, setQuery] = useState(""),
-    [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all"),
-    [revision, setRevision] = useState(0),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [selected, setSelected] = useState<Account | null>(null),
-    [busy, setBusy] = useState(false),
-    [invoices, setInvoices] = useState<{
-      invoices: Invoice[];
-      hasMore: boolean;
-    } | null>(null),
-    [detailError, setDetailError] = useState(""),
-    [invoiceBusy, setInvoiceBusy] = useState(false),
-    [accessBusy, setAccessBusy] = useState(false),
-    [detailSection, setDetailSection] = useState("overview");
+  const [data, setData] = useState<Data | null>(null);
+  const [page, setPage] = useState(0);
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [selected, setSelected] = useState<Account | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [invoices, setInvoices] = useState<{ invoices: Invoice[]; hasMore: boolean } | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [detailSection, setDetailSection] = useState<"overview" | "access" | "invoices">("overview");
+
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
     setError("");
-    fetch(
-      `/api/admin/subscriptions?page=${page}&search=${encodeURIComponent(query)}&filter=${filter}`,
-      { signal: c.signal, cache: "no-store" },
-    )
+    fetch(`/api/admin/subscriptions?page=${page}&search=${encodeURIComponent(query)}&filter=${filter}`, {
+      signal: c.signal,
+      cache: "no-store",
+    })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw Error(d.error);
@@ -75,23 +122,22 @@ export function AdminSubscriptions() {
       });
     return () => c.abort();
   }, [page, query, filter, revision]);
+
   async function change(reason: string) {
     if (!selected) return;
     setBusy(true);
     setDetailError("");
     try {
       const r = await fetch("/api/admin/operations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: selected.cancel_at_period_end
-              ? "subscription-resume"
-              : "subscription-cancel",
-            userId: selected.user_id,
-            reason,
-          }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: selected.cancel_at_period_end ? "subscription-resume" : "subscription-cancel",
+          userId: selected.user_id,
+          reason,
         }),
-        d = await r.json();
+      });
+      const d = await r.json();
       if (!r.ok) throw Error(d.error);
       setMessage(
         selected.cancel_at_period_end
@@ -101,154 +147,122 @@ export function AdminSubscriptions() {
       setSelected(null);
       setRevision((n) => n + 1);
     } catch (e) {
-      setDetailError(
-        e instanceof Error ? e.message : "Unable to update subscription.",
-      );
+      setDetailError(e instanceof Error ? e.message : "Unable to update subscription.");
     } finally {
       setBusy(false);
     }
   }
+
+  function applySearch() {
+    setPage(0);
+    setQuery(search);
+  }
+
+  const totals = data?.totals;
+  const pageSize = data?.pageSize || 25;
+
   return (
-    <>
-      <div className="billing-metrics">
-        {(
-          [
-            ["Accounts", "accounts"],
-            ["Paid subscriptions", "paid"],
-            ["Ending", "ending"],
-            ["Needs attention", "attention"],
-          ] as const
-        ).map(([label, key]) => (
-          <article key={key}>
-            <span>{label}</span>
-            <b>{data?.totals[key] ?? "—"}</b>
-          </article>
-        ))}
+    <div className="ds-root as">
+      <div className="ds-kpis">
+        <Kpi label="Accounts" icon="users" value={totals?.accounts ?? "—"} detail="All billed workspaces" loading={loading && !data} />
+        <Kpi label="Paid subscriptions" icon="card" value={totals?.paid ?? "—"} detail="Active or trialing" loading={loading && !data} />
+        <Kpi
+          label="Ending"
+          icon="clock"
+          value={totals?.ending ?? "—"}
+          tone={totals?.ending ? "warning" : "neutral"}
+          detail="Cancel at period end"
+          loading={loading && !data}
+        />
+        <Kpi
+          label="Needs attention"
+          icon="shield"
+          value={totals?.attention ?? "—"}
+          tone={totals?.attention ? "danger" : "success"}
+          detail="Past due or incomplete"
+          loading={loading && !data}
+        />
       </div>
-      <section className="av-panel">
-        <div className="billing-section-heading">
-          <div>
-            <h2>Subscriptions</h2>
-            <p>
-              Team members are grouped under the account that covers their seat. Individual subscriptions remain separate.
-            </p>
-          </div>
-          <button
-            className="billing-secondary"
-            disabled={loading}
-            onClick={() => setRevision((n) => n + 1)}
-          >
-            Refresh
+
+      {message && <Notice tone="success">{message}</Notice>}
+      {error && <Notice tone="danger">{error}</Notice>}
+
+      <Panel
+        flush
+        title="Subscriptions"
+        description="Team members are grouped under the account that covers their seat. Individual subscriptions remain separate."
+        actions={
+          <button type="button" className="ds-btn sm" disabled={loading} onClick={() => setRevision((n) => n + 1)}>
+            <Icon name="clock" size={14} /> Refresh
           </button>
-        </div>
-        <form
-          className="billing-filters"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(0);
-            setQuery(search);
-          }}
-        >
-          <label className="sr-only" htmlFor="subscription-search">
-            Search accounts
-          </label>
-          <input
-            id="subscription-search"
-            placeholder="Search name or email"
-            maxLength={100}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button disabled={loading}>Search</button>
-          <label className="sr-only" htmlFor="subscription-filter">
-            Subscription status
-          </label>
-          <select
-            id="subscription-filter"
-            value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setPage(0);
+        }
+      >
+        <div className="as-toolbar">
+          <form
+            className="as-search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              applySearch();
             }}
           >
-            <option value="all">All accounts</option>
-            <option value="paid">Paid</option>
-            <option value="free">Free</option>
-            <option value="ending">Ending</option>
-            <option value="attention">Needs attention</option>
-            <option value="override">Granted plan access</option>
-          </select>
-        </form>
-        {message && <p role="status">{message}</p>}
-        {error && (
-          <p className="billing-error" role="alert">
-            {error}
-          </p>
-        )}
-        {loading ? (
-          <div className="billing-empty" role="status">
-            Loading subscription records…
+            <SearchField value={search} onChange={setSearch} placeholder="Search name or email" label="Search accounts" />
+            <button type="submit" className="ds-btn sm" disabled={loading}>
+              Search
+            </button>
+          </form>
+          <Segmented
+            label="Subscription status"
+            value={filter}
+            onChange={(v) => {
+              setFilter(v);
+              setPage(0);
+            }}
+            options={filterOptions}
+          />
+        </div>
+
+        {loading && !data ? (
+          <div className="as-loading">
+            <Skeleton height={220} />
           </div>
-        ) : (
-          !error && (
-            <>
-              <div className="billing-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Account</th>
-                      <th>Plan</th>
-                      <th>Status</th>
-                      <th>Renewal</th>
-                      <th>Billing period ends</th>
-                      <th>
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data?.accounts.map((s) => (
-                      <Fragment key={s.user_id}><tr className={s.team_members?.length ? "subscription-team-parent" : undefined}>
+        ) : !error ? (
+          <>
+            <div className="ds-table-wrap">
+              <table className="ds-table as-table">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Renewal</th>
+                    <th>Billing period ends</th>
+                    <th>
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.accounts.map((s) => (
+                    <Fragment key={s.user_id}>
+                      <tr className={s.team_members?.length ? "as-team-parent" : undefined}>
                         <td>
-                          <b>{s.name}</b>
-                          <small className="billing-cell-detail">
-                            {s.email}
-                          </small>
-                          {!!s.team_members?.length && <small className="subscription-team-count">{s.team_members.length} linked team {s.team_members.length===1?"member":"members"}</small>}
-                        </td>
-                        <td>
-                          {planName(s.effective_plan || s.override_plan || s.plan)}
-                          {s.platform_included && <small className="billing-cell-detail">Platform included · unlimited seats</small>}
-                          {s.override_plan && !s.platform_included && (
-                            <small className="billing-cell-detail">
-                              Granted until {billingDate(s.override_expires)}
+                          <b className="as-strong">{s.name}</b>
+                          <small className="as-detail">{s.email}</small>
+                          {!!s.team_members?.length && (
+                            <small className="as-detail">
+                              {s.team_members.length} linked team {s.team_members.length === 1 ? "member" : "members"}
                             </small>
                           )}
                         </td>
                         <td>
-                          <span
-                            className="billing-badge"
-                            data-tone={
-                              !s.has_subscription
-                                ? s.platform_included || s.override_plan
-                                  ? "info"
-                                  : "neutral"
-                                : s.status === "active"
-                                  ? "success"
-                                  : s.status === "trialing"
-                                    ? "info"
-                                    : ["past_due", "unpaid", "incomplete"].includes(s.status)
-                                      ? "warning"
-                                      : "neutral"
-                            }
-                          >
-                            {s.has_subscription
-                              ? s.status.replaceAll("_", " ")
-                              : s.platform_included ? "Included"
-                              : s.override_plan
-                                ? "Granted"
-                                : "Free"}
-                          </span>
+                          {planName(s.effective_plan || s.override_plan || s.plan)}
+                          {s.platform_included && <small className="as-detail">Platform included · unlimited seats</small>}
+                          {s.override_plan && !s.platform_included && (
+                            <small className="as-detail">Granted until {billingDate(s.override_expires)}</small>
+                          )}
+                        </td>
+                        <td>
+                          <Badge tone={statusTone(s)}>{statusLabel(s)}</Badge>
                         </td>
                         <td>
                           {s.has_subscription
@@ -262,7 +276,8 @@ export function AdminSubscriptions() {
                         <td>{billingDate(s.current_period_end)}</td>
                         <td>
                           <button
-                            className="billing-secondary"
+                            type="button"
+                            className="ds-btn sm"
                             onClick={() => {
                               setSelected(s);
                               setDetailSection("overview");
@@ -274,193 +289,280 @@ export function AdminSubscriptions() {
                           </button>
                         </td>
                       </tr>
-                      {s.team_members?.map(member=><tr className="subscription-team-child" key={member.user_id}><td><span className="subscription-member-indent"><b>{member.name}</b><small className="billing-cell-detail">{member.email}</small></span></td><td>Team seat<small className="billing-cell-detail">{member.team_name}</small></td><td><span className="billing-badge" data-tone="info">Covered by team</span></td><td colSpan={2}><small className="billing-cell-detail">Billing managed by {s.name}</small></td><td><a className="billing-secondary" href={`/admin?view=accounts&search=${encodeURIComponent(member.email)}`}>View account</a></td></tr>)}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!data?.accounts.length && (
-                <div className="billing-empty">
-                  <h3>No matching accounts</h3>
-                  <p>Try another search or subscription filter.</p>
-                </div>
-              )}
-              <div className="billing-pagination">
-                <span>
-                  {data?.total || 0} accounts · Page {page + 1} of{" "}
-                  {Math.max(1, Math.ceil((data?.total || 0) / 25))}
-                </span>
-                <div>
-                  <button
-                    className="billing-secondary"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    className="billing-secondary"
-                    disabled={(page + 1) * 25 >= (data?.total || 0)}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            </>
-          )
-        )}
-      </section>
+                      {s.team_members?.map((member) => (
+                        <tr className="as-team-child" key={member.user_id}>
+                          <td>
+                            <span className="as-indent">
+                              <b className="as-strong">{member.name}</b>
+                              <small className="as-detail">{member.email}</small>
+                            </span>
+                          </td>
+                          <td>
+                            Team seat
+                            <small className="as-detail">{member.team_name}</small>
+                          </td>
+                          <td>
+                            <Badge tone="info">Covered by team</Badge>
+                          </td>
+                          <td colSpan={2}>
+                            <small className="as-detail">Billing managed by {s.name}</small>
+                          </td>
+                          <td>
+                            <a className="ds-btn sm" href={`/admin?view=accounts&search=${encodeURIComponent(member.email)}`}>
+                              View account
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!data?.accounts.length && (
+              <EmptyState icon="search" title="No matching accounts">
+                Try another search or subscription filter.
+              </EmptyState>
+            )}
+            <Pagination page={page} pageSize={pageSize} total={data?.total || 0} onPage={setPage} />
+          </>
+        ) : null}
+      </Panel>
+
       {selected && (
         <Modal
           title="Manage subscription"
-          className="admin-subscription-dialog"
+          className="as-dialog"
           onClose={() => {
             if (!busy && !invoiceBusy && !accessBusy) setSelected(null);
           }}
         >
-          <div className="admin-subscription-identity"><span className="admin-subscription-avatar" aria-hidden="true">{selected.name.slice(0, 1).toUpperCase()}</span><div><h3>{selected.name}</h3><p>{selected.email}</p></div><span className="billing-badge" data-tone="info">{planName(selected.effective_plan || selected.override_plan || selected.plan)}</span></div>
-          <nav className="admin-subscription-nav" aria-label="Subscription details">
-            {[["overview", "Overview"], ["access", "Plan access"], ["invoices", "Invoices"]].map(([key, label]) => <button key={key} type="button" aria-pressed={detailSection === key} disabled={busy || invoiceBusy || accessBusy} onClick={() => setDetailSection(key)}>{label}</button>)}
-          </nav>
-          <div className="admin-subscription-body">
-          <p><a href={`/admin/billing?userId=${selected.user_id}`}>Manage package, seats & proration</a></p>
-          {detailError && <p role="alert" className="billing-error">{detailError}</p>}
-          {detailSection === "overview" && <>
-          <div className="billing-detail-grid">
+          <div className="as-identity">
+            <span className="as-avatar" aria-hidden="true">
+              {selected.name.slice(0, 1).toUpperCase()}
+            </span>
             <div>
-              <small>Plan in effect</small>
-              <b>
-                {planName(selected.override_plan || selected.plan)}
-                {!selected.platform_included && selected.override_plan && ` (granted until ${billingDate(selected.override_expires)})`}
-              </b>
+              <h3>{selected.name}</h3>
+              <p>{selected.email}</p>
             </div>
-            <div>
-              <small>Status</small>
-              <b>
-                {selected.has_subscription ? selected.status.replaceAll("_", " ") : selected.platform_included ? "Platform included" : selected.override_plan ? "Granted access" : "Free workspace"}
-              </b>
-            </div>
-            <div>
-              <small>Billing period ends</small>
-              <b>{billingDate(selected.current_period_end)}</b>
-            </div>
-            <div>
-              <small>Renewal</small>
-              <b>
-                {selected.has_subscription
-                  ? subscriptionEnded(selected)
-                    ? "Ended"
-                    : selected.cancel_at_period_end
-                      ? "Turned off"
-                      : "Automatic"
-                  : "No recurring payment"}
-              </b>
-            </div>
+            <Badge tone="info">{planName(selected.effective_plan || selected.override_plan || selected.plan)}</Badge>
           </div>
-          {!!selected.team_members?.length && <section className="admin-subscription-team"><h3>Covered team members <span>{selected.team_members.length}</span></h3><p>These seats are managed by this account.</p><ul>{selected.team_members.map(member => <li key={member.user_id}><div><b>{member.name}</b><small>{member.email}</small></div><span>{member.team_name}</span></li>)}</ul></section>}
-          {selected.platform_included && <p className="admin-subscription-note">Teams access is included for the master admin, with unlimited teammates. Stripe billing remains separate from this platform entitlement.</p>}
-          {!selected.platform_included && selected.override_plan && <p className="admin-subscription-note">Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing subscription remains unchanged.</p>}
-          {canChangeSubscription(selected) ? (
-            <form className="admin-subscription-renewal"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void change(
-                  String(new FormData(e.currentTarget).get("reason")),
-                );
-              }}
-            >
-              <h3>
-                {selected.cancel_at_period_end
-                  ? "Resume renewal"
-                  : "Schedule cancellation"}
-              </h3>
-              <p>
-                {selected.cancel_at_period_end
-                  ? "The existing subscription will renew at its current Stripe price."
-                  : "Cancellation takes effect at the end of the billing period. No refund is issued."}
-              </p>
-              <label>
-                Reason for this change
-                <textarea
-                  name="reason"
-                  required
-                  minLength={5}
-                  maxLength={500}
-                  rows={3}
-                />
-              </label>
-              <button disabled={busy}>
-                {busy
-                  ? "Updating…"
-                  : selected.cancel_at_period_end
-                    ? "Confirm resume"
-                    : "Confirm cancellation"}
+
+          <nav className="as-nav" aria-label="Subscription details">
+            {(
+              [
+                ["overview", "Overview"],
+                ["access", "Plan access"],
+                ["invoices", "Invoices"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={detailSection === key}
+                disabled={busy || invoiceBusy || accessBusy}
+                onClick={() => setDetailSection(key)}
+              >
+                {label}
               </button>
-            </form>
-          ) : (
-            <p>
-              {selected.has_subscription
-                ? "This subscription cannot currently be changed. Review its billing status in Stripe."
-                : "This account has no paid subscription. No cancellation is needed."}
+            ))}
+          </nav>
+
+          <div className="as-body">
+            <p className="as-link-row">
+              <a href={`/admin/billing?userId=${selected.user_id}`}>Manage package, seats &amp; proration</a>
             </p>
-          )}
-          </>}
-          {detailSection === "access" && <PlanAccess
-            account={selected}
-            onBusyChange={setAccessBusy}
-            onDone={(text) => {
-              setMessage(text);
-              setSelected(null);
-              setRevision((n) => n + 1);
-            }}
-          />}
-          {detailSection === "invoices" && <section className="admin-subscription-invoices"><h3>Invoice history</h3><p>{selected.has_customer ? "Review invoices and payment status from Stripe." : "No billing customer is linked to this account. Invoices will appear after billing is set up."}</p>
-          <button
-            className="billing-secondary"
-            disabled={!selected.has_customer || invoiceBusy}
-            onClick={async () => {
-              const userId = selected.user_id;
-              setInvoiceBusy(true);
-              setDetailError("");
-              try {
-                const r = await fetch(
-                    `/api/admin/subscriptions?userId=${userId}`,
-                    { cache: "no-store" },
-                  ),
-                  d = await r.json();
-                if (!r.ok) throw Error(d.error);
-                setInvoices(d);
-              } catch (e) {
-                setDetailError(
-                  e instanceof Error ? e.message : "Unable to load invoices.",
-                );
-              } finally {
-                setInvoiceBusy(false);
-              }
-            }}
-          >
-            {invoiceBusy ? "Loading…" : "Load latest invoices"}
-          </button>
-          {invoices && <InvoiceList {...invoices} />}
-          </section>}
+            {detailError && <Notice tone="danger">{detailError}</Notice>}
+
+            {detailSection === "overview" && (
+              <>
+                <dl className="ds-dl as-detail-grid">
+                  <div>
+                    <dt>Plan in effect</dt>
+                    <dd>
+                      {planName(selected.override_plan || selected.plan)}
+                      {!selected.platform_included &&
+                        selected.override_plan &&
+                        ` (granted until ${billingDate(selected.override_expires)})`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>
+                      {selected.has_subscription
+                        ? selected.status.replaceAll("_", " ")
+                        : selected.platform_included
+                          ? "Platform included"
+                          : selected.override_plan
+                            ? "Granted access"
+                            : "Free workspace"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Billing period ends</dt>
+                    <dd>{billingDate(selected.current_period_end)}</dd>
+                  </div>
+                  <div>
+                    <dt>Renewal</dt>
+                    <dd>
+                      {selected.has_subscription
+                        ? subscriptionEnded(selected)
+                          ? "Ended"
+                          : selected.cancel_at_period_end
+                            ? "Turned off"
+                            : "Automatic"
+                        : "No recurring payment"}
+                    </dd>
+                  </div>
+                </dl>
+
+                {!!selected.team_members?.length && (
+                  <section className="as-team">
+                    <h3>
+                      Covered team members <span>{selected.team_members.length}</span>
+                    </h3>
+                    <p>These seats are managed by this account.</p>
+                    <ul>
+                      {selected.team_members.map((member) => (
+                        <li key={member.user_id}>
+                          <div>
+                            <b>{member.name}</b>
+                            <small>{member.email}</small>
+                          </div>
+                          <span>{member.team_name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {selected.platform_included && (
+                  <Notice tone="info">
+                    Teams access is included for the master admin, with unlimited teammates. Stripe billing remains separate from this platform
+                    entitlement.
+                  </Notice>
+                )}
+                {!selected.platform_included && selected.override_plan && (
+                  <Notice tone="info">
+                    Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing
+                    subscription remains unchanged.
+                  </Notice>
+                )}
+
+                {canChangeSubscription(selected) ? (
+                  <form
+                    className="as-renewal"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void change(String(new FormData(e.currentTarget).get("reason")));
+                    }}
+                  >
+                    <h3>{selected.cancel_at_period_end ? "Resume renewal" : "Schedule cancellation"}</h3>
+                    <p>
+                      {selected.cancel_at_period_end
+                        ? "The existing subscription will renew at its current Stripe price."
+                        : "Cancellation takes effect at the end of the billing period. No refund is issued."}
+                    </p>
+                    <Field label="Reason for this change">
+                      <textarea name="reason" required minLength={5} maxLength={500} rows={3} />
+                    </Field>
+                    <FormActions>
+                      <button type="submit" className="ds-btn primary" disabled={busy}>
+                        {busy ? "Updating…" : selected.cancel_at_period_end ? "Confirm resume" : "Confirm cancellation"}
+                      </button>
+                    </FormActions>
+                  </form>
+                ) : (
+                  <p className="as-muted">
+                    {selected.has_subscription
+                      ? "This subscription cannot currently be changed. Review its billing status in Stripe."
+                      : "This account has no paid subscription. No cancellation is needed."}
+                  </p>
+                )}
+              </>
+            )}
+
+            {detailSection === "access" && (
+              <PlanAccess
+                account={selected}
+                onBusyChange={setAccessBusy}
+                onDone={(text) => {
+                  setMessage(text);
+                  setSelected(null);
+                  setRevision((n) => n + 1);
+                }}
+              />
+            )}
+
+            {detailSection === "invoices" && (
+              <section className="as-invoices">
+                <h3>Invoice history</h3>
+                <p>
+                  {selected.has_customer
+                    ? "Review invoices and payment status from Stripe."
+                    : "No billing customer is linked to this account. Invoices will appear after billing is set up."}
+                </p>
+                <button
+                  type="button"
+                  className="ds-btn sm"
+                  disabled={!selected.has_customer || invoiceBusy}
+                  onClick={async () => {
+                    const userId = selected.user_id;
+                    setInvoiceBusy(true);
+                    setDetailError("");
+                    try {
+                      const r = await fetch(`/api/admin/subscriptions?userId=${userId}`, { cache: "no-store" });
+                      const d = await r.json();
+                      if (!r.ok) throw Error(d.error);
+                      setInvoices(d);
+                    } catch (e) {
+                      setDetailError(e instanceof Error ? e.message : "Unable to load invoices.");
+                    } finally {
+                      setInvoiceBusy(false);
+                    }
+                  }}
+                >
+                  {invoiceBusy ? "Loading…" : "Load latest invoices"}
+                </button>
+                {invoices && <InvoiceList {...invoices} />}
+              </section>
+            )}
           </div>
-          <footer className="admin-subscription-footer"><span>Changes are recorded in the audit log.</span><button type="button" className="billing-secondary" disabled={busy || invoiceBusy || accessBusy} onClick={() => setSelected(null)}>Done</button></footer>
+
+          <footer className="as-footer">
+            <span>Changes are recorded in the audit log.</span>
+            <button
+              type="button"
+              className="ds-btn sm"
+              disabled={busy || invoiceBusy || accessBusy}
+              onClick={() => setSelected(null)}
+            >
+              Done
+            </button>
+          </footer>
         </Modal>
       )}
-    </>
+    </div>
   );
 }
 
 // Give an account plan access without charging it (comp, trial extension, support fix),
 // or remove that access. Saved as an audited, expiring override.
-function PlanAccess({ account, onDone, onBusyChange }: { account: Account; onDone: (message: string) => void; onBusyChange: (busy: boolean) => void }) {
-  const [plan, setPlan] = useState(account.override_plan || (account.plan === "free" ? "individual" : account.plan)),
-    [expires, setExpires] = useState(account.override_expires ? String(account.override_expires).slice(0, 10) : inMonths(1)),
-    [reason, setReason] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+function PlanAccess({
+  account,
+  onDone,
+  onBusyChange,
+}: {
+  account: Account;
+  onDone: (message: string) => void;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const [plan, setPlan] = useState(account.override_plan || (account.plan === "free" ? "individual" : account.plan));
+  const [expires, setExpires] = useState(account.override_expires ? String(account.override_expires).slice(0, 10) : inMonths(1));
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   async function send(action: "grant" | "revoke") {
     setBusy(true);
     onBusyChange(true);
@@ -485,9 +587,10 @@ function PlanAccess({ account, onDone, onBusyChange }: { account: Account; onDon
       onBusyChange(false);
     }
   }
+
   return (
     <form
-      className="plan-access"
+      className="as-access"
       onSubmit={(e) => {
         e.preventDefault();
         void send("grant");
@@ -498,22 +601,16 @@ function PlanAccess({ account, onDone, onBusyChange }: { account: Account; onDon
         Grant temporary access without a charge. When it expires, the account returns to its underlying plan. Stripe billing is unchanged.
         {account.override_reason && ` Current reason: ${account.override_reason}`}
       </p>
-      {error && (
-        <p role="alert" className="billing-error">
-          {error}
-        </p>
-      )}
-      <div className="plan-access-grid">
-        <label>
-          Plan
+      {error && <Notice tone="danger">{error}</Notice>}
+      <div className="as-access-grid">
+        <Field label="Plan">
           <select value={plan} onChange={(e) => setPlan(e.target.value)}>
             <option value="individual">Individual</option>
             <option value="team">Teams</option>
             <option value="free">Free (limit to Free)</option>
           </select>
-        </label>
-        <label>
-          Access ends
+        </Field>
+        <Field label="Access ends">
           <input
             type="date"
             required
@@ -522,27 +619,42 @@ function PlanAccess({ account, onDone, onBusyChange }: { account: Account; onDon
             value={expires}
             onChange={(e) => setExpires(e.target.value)}
           />
-        </label>
+        </Field>
       </div>
-      <div className="plan-access-presets">
+      <div className="as-presets">
         {[1, 3, 6, 12].map((n) => (
-          <button type="button" key={n} className="billing-secondary" onClick={() => setExpires(n === 12 ? new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10) : inMonths(n))}>
+          <button
+            type="button"
+            key={n}
+            className="ds-btn sm"
+            onClick={() =>
+              setExpires(
+                n === 12 ? new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10) : inMonths(n),
+              )
+            }
+          >
             {n === 12 ? "1 year" : `${n} month${n === 1 ? "" : "s"}`}
           </button>
         ))}
       </div>
-      <label>
-        Reason (kept in the audit log)
+      <Field label="Reason (kept in the audit log)">
         <input required minLength={5} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
-      </label>
-      <div className="plan-access-actions">
+      </Field>
+      <FormActions>
         {account.override_plan && (
-          <button type="button" className="billing-secondary" disabled={busy || reason.trim().length < 5} onClick={() => void send("revoke")}>
+          <button
+            type="button"
+            className="ds-btn"
+            disabled={busy || reason.trim().length < 5}
+            onClick={() => void send("revoke")}
+          >
             Remove granted access
           </button>
         )}
-        <button disabled={busy}>{busy ? "Saving…" : account.override_plan ? "Update access" : "Grant access"}</button>
-      </div>
+        <button type="submit" className="ds-btn primary" disabled={busy}>
+          {busy ? "Saving…" : account.override_plan ? "Update access" : "Grant access"}
+        </button>
+      </FormActions>
     </form>
   );
 }
