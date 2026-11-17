@@ -98,6 +98,7 @@ type CommandFinance = {
   activePaying: number | null;
   cashCoverage: string | null;
   alerts: { id: string; severity: string; title: string }[];
+  loadError?: string;
 };
 type CommandOps = {
   healthOk: number;
@@ -106,7 +107,30 @@ type CommandOps = {
   integrationsTotal: number;
   emailPending: number | null;
   emailFailed: number | null;
+  loadError?: string;
 };
+const financeUnavailable = (message: string): CommandFinance => ({
+  mrrCents: null,
+  mrrClass: "unavailable",
+  arrCents: null,
+  arrClass: "unavailable",
+  collectedCents: null,
+  collectedClass: "unavailable",
+  refundedCents: null,
+  activePaying: null,
+  cashCoverage: null,
+  alerts: [],
+  loadError: message,
+});
+const opsUnavailable = (message: string): CommandOps => ({
+  healthOk: 0,
+  healthTotal: 0,
+  integrationsConfigured: 0,
+  integrationsTotal: 0,
+  emailPending: null,
+  emailFailed: null,
+  loadError: message,
+});
 const number = (value: number) => Number(value).toLocaleString();
 const metricLabel = (cents: number | null, classification: string) => {
   if (cents == null || classification === "unavailable" || classification === "unknown")
@@ -189,7 +213,8 @@ export function AdminCenter({
         return data;
       }
       try {
-        const [accounts, activity, totals, financeRaw, opsRaw] = await Promise.all([
+        // Keep accounts/insights off the Resend-backed operations path.
+        const [accounts, activity, totals] = await Promise.all([
           canAccounts
             ? read(
                 `/api/admin?view=accounts&page=${view === "accounts" ? page : 0}&search=${encodeURIComponent(view === "accounts" ? query : "")}`,
@@ -226,79 +251,11 @@ export function AdminCenter({
                 },
                 services: { database: true, authentication: true, account_email: false },
               },
-          isMaster && view === "overview"
-            ? fetch("/api/admin/financial-intelligence", {
-                cache: "no-store",
-                signal: controller.signal,
-              }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null)
-            : Promise.resolve(null),
-          (isMaster || canHealth) && view === "overview"
-            ? fetch("/api/admin/operations", {
-                cache: "no-store",
-                signal: controller.signal,
-              }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null)
-            : Promise.resolve(null),
         ]);
         if (controller.signal.aborted) return;
         setOverview(accounts);
         setAudit(activity);
         setInsights(totals);
-        if (financeRaw?.overview?.kpis) {
-          const k = financeRaw.overview.kpis;
-          const subs = financeRaw.overview.subscriptions || {};
-          const collectedMeta = k.collected as {
-            valueCents?: number | null;
-            classification?: string;
-            refundedCents?: number | null;
-            completeCoverage?: boolean;
-          };
-          setFinance({
-            mrrCents: k.mrr?.valueCents ?? null,
-            mrrClass: String(k.mrr?.classification || "unavailable"),
-            arrCents: k.arr?.valueCents ?? null,
-            arrClass: String(k.arr?.classification || "unavailable"),
-            collectedCents: collectedMeta.valueCents ?? null,
-            collectedClass: String(collectedMeta.classification || "unavailable"),
-            refundedCents: collectedMeta.refundedCents ?? null,
-            activePaying: typeof subs.active === "number" ? subs.active : null,
-            cashCoverage:
-              typeof collectedMeta.completeCoverage === "boolean"
-                ? collectedMeta.completeCoverage
-                  ? "complete"
-                  : "incomplete"
-                : null,
-            alerts: Array.isArray(financeRaw.overview.alerts)
-              ? financeRaw.overview.alerts.slice(0, 4).map((a: { id: string; severity: string; title: string }) => ({
-                  id: a.id,
-                  severity: a.severity,
-                  title: a.title,
-                }))
-              : [],
-          });
-        } else {
-          setFinance(null);
-        }
-        if (opsRaw?.health && opsRaw?.integrations) {
-          const healthEntries = Object.values(opsRaw.health) as { ok?: boolean }[];
-          setOps({
-            healthOk: healthEntries.filter((h) => h?.ok).length,
-            healthTotal: healthEntries.length,
-            integrationsConfigured: (opsRaw.integrations as { configured?: boolean }[]).filter(
-              (i) => i.configured,
-            ).length,
-            integrationsTotal: (opsRaw.integrations as unknown[]).length,
-            emailPending:
-              typeof opsRaw.emailDelivery?.pending === "number"
-                ? opsRaw.emailDelivery.pending
-                : null,
-            emailFailed:
-              typeof opsRaw.emailDelivery?.failed === "number"
-                ? opsRaw.emailDelivery.failed
-                : null,
-          });
-        } else {
-          setOps(null);
-        }
         setRefreshedAt(
           new Date().toLocaleTimeString([], {
             hour: "numeric",
@@ -316,7 +273,150 @@ export function AdminCenter({
     }
     void load();
     return () => controller.abort();
-  }, [view, page, query, revision, canAccounts, canAudit, canHealth, isMaster]);
+  }, [view, page, query, revision, canAccounts, canAudit]);
+
+  useEffect(() => {
+    if (view !== "overview") {
+      setFinance(null);
+      setOps(null);
+      return;
+    }
+    const wantFinance = isMaster;
+    const wantOps = isMaster || canHealth;
+    if (!wantFinance && !wantOps) {
+      setFinance(null);
+      setOps(null);
+      return;
+    }
+    const controller = new AbortController();
+    if (wantFinance) setFinance(null);
+    if (wantOps) setOps(null);
+    async function loadCommand() {
+      const tasks: Promise<void>[] = [];
+      if (wantFinance) {
+        tasks.push(
+          fetch("/api/admin/financial-intelligence", {
+            cache: "no-store",
+            signal: controller.signal,
+          })
+            .then(async (r) => {
+              if (controller.signal.aborted) return;
+              if (!r.ok) {
+                const body = await r.json().catch(() => ({}));
+                setFinance(
+                  financeUnavailable(
+                    typeof body.error === "string"
+                      ? body.error
+                      : "Financial Intelligence request failed.",
+                  ),
+                );
+                return;
+              }
+              const financeRaw = await r.json();
+              if (!financeRaw?.overview?.kpis) {
+                setFinance(financeUnavailable("Financial Intelligence returned no KPIs."));
+                return;
+              }
+              const k = financeRaw.overview.kpis;
+              const subs = financeRaw.overview.subscriptions || {};
+              const collectedMeta = k.collected as {
+                valueCents?: number | null;
+                classification?: string;
+                refundedCents?: number | null;
+                completeCoverage?: boolean;
+              };
+              setFinance({
+                mrrCents: k.mrr?.valueCents ?? null,
+                mrrClass: String(k.mrr?.classification || "unavailable"),
+                arrCents: k.arr?.valueCents ?? null,
+                arrClass: String(k.arr?.classification || "unavailable"),
+                collectedCents: collectedMeta.valueCents ?? null,
+                collectedClass: String(collectedMeta.classification || "unavailable"),
+                refundedCents: collectedMeta.refundedCents ?? null,
+                activePaying: typeof subs.active === "number" ? subs.active : null,
+                cashCoverage:
+                  typeof collectedMeta.completeCoverage === "boolean"
+                    ? collectedMeta.completeCoverage
+                      ? "complete"
+                      : "incomplete"
+                    : null,
+                alerts: Array.isArray(financeRaw.overview.alerts)
+                  ? financeRaw.overview.alerts
+                      .slice(0, 4)
+                      .map((a: { id: string; severity: string; title: string }) => ({
+                        id: a.id,
+                        severity: a.severity,
+                        title: a.title,
+                      }))
+                  : [],
+              });
+            })
+            .catch((e) => {
+              if (controller.signal.aborted) return;
+              setFinance(
+                financeUnavailable(
+                  e instanceof Error ? e.message : "Financial Intelligence request failed.",
+                ),
+              );
+            }),
+        );
+      }
+      if (wantOps) {
+        tasks.push(
+          // lite=1 skips Resend emailDiagnostics (unused on Command Center).
+          fetch("/api/admin/operations?lite=1", {
+            cache: "no-store",
+            signal: controller.signal,
+          })
+            .then(async (r) => {
+              if (controller.signal.aborted) return;
+              if (!r.ok) {
+                const body = await r.json().catch(() => ({}));
+                setOps(
+                  opsUnavailable(
+                    typeof body.error === "string"
+                      ? body.error
+                      : "Operations request failed.",
+                  ),
+                );
+                return;
+              }
+              const opsRaw = await r.json();
+              if (!opsRaw?.health || !opsRaw?.integrations) {
+                setOps(opsUnavailable("Operations returned incomplete health data."));
+                return;
+              }
+              const healthEntries = Object.values(opsRaw.health) as { ok?: boolean }[];
+              setOps({
+                healthOk: healthEntries.filter((h) => h?.ok).length,
+                healthTotal: healthEntries.length,
+                integrationsConfigured: (opsRaw.integrations as { configured?: boolean }[]).filter(
+                  (i) => i.configured,
+                ).length,
+                integrationsTotal: (opsRaw.integrations as unknown[]).length,
+                emailPending:
+                  typeof opsRaw.emailDelivery?.pending === "number"
+                    ? opsRaw.emailDelivery.pending
+                    : null,
+                emailFailed:
+                  typeof opsRaw.emailDelivery?.failed === "number"
+                    ? opsRaw.emailDelivery.failed
+                    : null,
+              });
+            })
+            .catch((e) => {
+              if (controller.signal.aborted) return;
+              setOps(
+                opsUnavailable(e instanceof Error ? e.message : "Operations request failed."),
+              );
+            }),
+        );
+      }
+      await Promise.all(tasks);
+    }
+    void loadCommand();
+    return () => controller.abort();
+  }, [view, revision, canHealth, isMaster]);
   async function openAccount(id: string) {
     setDetailLoading(true);
     setDetailError("");
@@ -521,21 +621,30 @@ export function AdminCenter({
                         </article>
                       ))}
                     </section>
-                    {view === "overview" && (finance || ops) && (
+                    {view === "overview" && (isMaster || canHealth) && (
                       <section className="av-stats av-command-strip" aria-label="Revenue and integrations">
-                        {finance && (
+                        {isMaster && (
                           <>
                             <article className="av-stat">
                               <div>
                                 <span>MRR</span>
                                 <Icon name="card" size={18} />
                               </div>
-                              <strong>{metricLabel(finance.mrrCents, finance.mrrClass)}</strong>
+                              <strong>
+                                {finance
+                                  ? metricLabel(finance.mrrCents, finance.mrrClass)
+                                  : "…"}
+                              </strong>
                               <p>
-                                Classification: {finance.mrrClass}
-                                {finance.activePaying != null
-                                  ? ` · ${number(finance.activePaying)} active subscriptions`
-                                  : ""}
+                                {finance?.loadError
+                                  ? finance.loadError
+                                  : finance
+                                    ? `Classification: ${finance.mrrClass}${
+                                        finance.activePaying != null
+                                          ? ` · ${number(finance.activePaying)} active subscriptions`
+                                          : ""
+                                      }`
+                                    : "Loading Financial Intelligence…"}
                               </p>
                             </article>
                             <article className="av-stat">
@@ -543,8 +652,18 @@ export function AdminCenter({
                                 <span>ARR</span>
                                 <Icon name="spark" size={18} />
                               </div>
-                              <strong>{metricLabel(finance.arrCents, finance.arrClass)}</strong>
-                              <p>Derived as MRR × 12 when MRR is reconciled</p>
+                              <strong>
+                                {finance
+                                  ? metricLabel(finance.arrCents, finance.arrClass)
+                                  : "…"}
+                              </strong>
+                              <p>
+                                {finance?.loadError
+                                  ? finance.loadError
+                                  : finance
+                                    ? "Derived as MRR × 12 when MRR is reconciled"
+                                    : "Loading Financial Intelligence…"}
+                              </p>
                             </article>
                             <article className="av-stat">
                               <div>
@@ -552,42 +671,61 @@ export function AdminCenter({
                                 <Icon name="card" size={18} />
                               </div>
                               <strong>
-                                {metricLabel(finance.collectedCents, finance.collectedClass)}
+                                {finance
+                                  ? metricLabel(finance.collectedCents, finance.collectedClass)
+                                  : "…"}
                               </strong>
                               <p>
-                                {finance.refundedCents != null
-                                  ? `${money(finance.refundedCents)} refunded`
-                                  : "Refunds unavailable"}
-                                {finance.cashCoverage
-                                  ? ` · coverage ${finance.cashCoverage}`
-                                  : ""}
+                                {finance?.loadError
+                                  ? finance.loadError
+                                  : finance
+                                    ? `${
+                                        finance.refundedCents != null
+                                          ? `${money(finance.refundedCents)} refunded`
+                                          : "Refunds unavailable"
+                                      }${
+                                        finance.cashCoverage
+                                          ? ` · coverage ${finance.cashCoverage}`
+                                          : ""
+                                      }`
+                                    : "Loading Financial Intelligence…"}
                               </p>
                             </article>
                           </>
                         )}
-                        {ops && (
+                        {(isMaster || canHealth) && (
                           <article className="av-stat">
                             <div>
                               <span>Integrations & health</span>
                               <Icon name="plug" size={18} />
                             </div>
                             <strong>
-                              {ops.integrationsConfigured}/{ops.integrationsTotal} connected
+                              {ops?.loadError
+                                ? "Unavailable"
+                                : ops
+                                  ? `${ops.integrationsConfigured}/${ops.integrationsTotal} connected`
+                                  : "…"}
                             </strong>
                             <p>
-                              Health checks {ops.healthOk}/{ops.healthTotal} ok
-                              {ops.emailPending != null
-                                ? ` · ${number(ops.emailPending)} email pending`
-                                : ""}
-                              {ops.emailFailed != null && ops.emailFailed > 0
-                                ? ` · ${number(ops.emailFailed)} failed`
-                                : ""}
+                              {ops?.loadError
+                                ? ops.loadError
+                                : ops
+                                  ? `Health checks ${ops.healthOk}/${ops.healthTotal} ok${
+                                      ops.emailPending != null
+                                        ? ` · ${number(ops.emailPending)} email pending`
+                                        : ""
+                                    }${
+                                      ops.emailFailed != null && ops.emailFailed > 0
+                                        ? ` · ${number(ops.emailFailed)} failed`
+                                        : ""
+                                    }`
+                                  : "Loading operations health…"}
                             </p>
                           </article>
                         )}
                       </section>
                     )}
-                    {view === "overview" && finance && finance.alerts.length > 0 && (
+                    {view === "overview" && finance && !finance.loadError && finance.alerts.length > 0 && (
                       <section className="av-panel" aria-label="Financial alerts">
                         <div className="av-panel-heading">
                           <div>

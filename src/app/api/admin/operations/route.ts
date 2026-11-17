@@ -31,10 +31,12 @@ const sections: StaffPermission[] = [
   "pricing",
   "health",
 ];
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { access } = await adminSession(sections);
     const can = (p: StaffPermission) => canAccess(access, p);
+    // Command Center only needs health / integrations / delivery counts — skip Resend probes.
+    const lite = request.nextUrl.searchParams.get("lite") === "1";
     const start = Date.now();
     await getPool().query("SELECT 1");
     const health = {
@@ -76,7 +78,8 @@ export async function GET() {
       {
         access: { role: access.role, permissions: access.permissions },
         health,
-        emailDiagnostics: can("health") ? await emailDiagnostics() : undefined,
+        emailDiagnostics:
+          can("health") && !lite ? await emailDiagnostics() : undefined,
         healthDetails: {
           checkedAt: new Date().toISOString(),
           nodeVersion: process.version,

@@ -231,11 +231,11 @@ try {
   await businessGroup.locator("summary").click();
   await businessGroup.getByRole("link",{name:"Team",exact:true}).waitFor();
   await workspaceMenu.screenshot({path:"test-results/workspace-menu-compact.png"});
-  const platformNav = adminMenu.getByRole("navigation", { name: "Platform", exact: true });
-  const healthLink = platformNav.getByRole("link", { name: "System health" });
+  const settingsNav = adminMenu.getByRole("navigation", { name: "System Settings", exact: true });
+  const healthLink = settingsNav.getByRole("link", { name: "System health" });
   await healthLink.waitFor();
   assert.equal(await healthLink.getAttribute("aria-current"), "page");
-  const group = platformNav.locator("..");
+  const group = settingsNav.locator("..");
   const appearance = await group.evaluate((node) => {
     const style = getComputedStyle(node);
     return { background: style.backgroundColor, padding: style.padding, border: style.borderTopWidth };
@@ -243,18 +243,22 @@ try {
   assert.deepEqual(appearance, { background: "rgba(0, 0, 0, 0)", padding: "0px", border: "0px" });
   await adminMenu.screenshot({ path: "test-results/admin-health-sidebar.png" });
   await adminMenu.goto(origin + "/admin");
-  const billingToggle = adminMenu.getByRole("button", { name: "Billing", exact: true });
+  const billingToggle = adminMenu.getByRole("button", { name: "Billing & Revenue", exact: true });
   assert.equal(await billingToggle.getAttribute("aria-expanded"), "false");
   await billingToggle.click();
-  await adminMenu.getByRole("navigation", { name: "Billing", exact: true }).getByRole("link", { name: "Subscriptions" }).waitFor();
+  await adminMenu.getByRole("navigation", { name: "Billing & Revenue", exact: true }).getByRole("link", { name: "Subscriptions" }).waitFor();
   await billingToggle.click();
   await adminMenu.getByRole("textbox", { name: "Filter admin sections" }).fill("supplier");
-  await adminMenu.getByRole("link", { name: "Suppliers & pricing" }).waitFor();
+  await adminMenu.getByRole("link", { name: "Suppliers & fulfillment" }).waitFor();
   await adminMenu.getByRole("textbox", { name: "Filter admin sections" }).press("Escape");
   await adminMenu.screenshot({ path: "test-results/admin-menu-desktop.png" });
   await adminMenu.setViewportSize({ width: 390, height: 844 });
   await adminMenu.getByRole("button", { name: "Toggle admin navigation" }).click();
-  await adminMenu.getByRole("link", { name: "Support inbox" }).waitFor();
+  const communicationsToggle = adminMenu.getByRole("button", { name: "Communications", exact: true });
+  if ((await communicationsToggle.getAttribute("aria-expanded")) !== "true") {
+    await communicationsToggle.click();
+  }
+  await adminMenu.getByRole("navigation", { name: "Communications", exact: true }).getByRole("link", { name: "Support inbox" }).waitFor();
   await adminMenu.locator("#admin-console-links").getByRole("button", { name: "Sign out" }).waitFor();
   assert.ok(await adminMenu.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await adminMenu.screenshot({ path: "test-results/admin-menu-mobile.png" });
