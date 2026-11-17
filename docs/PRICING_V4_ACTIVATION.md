@@ -4,32 +4,53 @@
 
 ## What this release adds
 
-- Proposed catalog `2026-11-v4` (Free / Starter / Professional $19.99 / Business / Enterprise)
+- Catalog `2026-11-v4` (Free / Starter $9.99 / Professional $19.99 / Team $34.99 / Enterprise custom)
+- Monthly + annual Stripe price support for paid v4 plans (annual totals $95.88 / $191.88 / $335.88)
+- Gated v4 enrollment path in `/api/subscription-enroll` (requires `PRICING_V4_VALIDATED` + `pricing_v4.enrollmentEnabled`)
+- Durable platform coupon catalog with Stripe sync status (`synced` / `pending` / `failed` / `disabled`) and retry
+- Server-side v4 contact capacity + storage guards (legacy/v3 grandfathered)
 - Master Admin → **Financial Intelligence** (`/admin/financial-intelligence`)
+- Master Admin → **Billing** coupon sync UI + publish confirmation
 - Provider cost budgets, manual expenses, sync-state rows
-- Expanded usage meter vocabulary for future v4 allowances
 - Gated public preview of v4 pricing (`pricing_v4` platform setting)
 
 ## What stays unchanged until approval
 
 - Live Stripe products/prices for `2026-11-v3` Individual / Teams
 - Existing customer subscriptions, invoices, and grandfathered entitlements
-- `BILLING_CHECKOUT_ENABLED` / `PRICING_V3_VALIDATED` behavior
-- Add-on purchasing (`available: false`)
+- `BILLING_CHECKOUT_ENABLED` / `PRICING_V3_VALIDATED` behavior for current checkout
+- Add-on purchasing (`available: false`); SMS unpublished until carrier costs clear
+- No automatic subscriber migration or live price rewrite
 
 ## Activation sequence (production)
 
-1. Apply migrations `086_pricing_v4_financial_intelligence.sql` and `087_pricing_v4_constraint_validate.sql` via the normal deploy migrate path.
+1. Apply migrations through `092_billing_coupons_entitlements.sql` via the normal deploy migrate path.
 2. Configure read-only provider billing credentials where available (Vercel, Resend, Anthropic, Stripe, DB host). Leave `not_configured` otherwise — never invent actual costs.
-3. Stripe **test mode**: create v4 products/prices (`starter`, `professional`, `business`, `business_extra`, annual counterparts). Map into `private.subscription_prices` with `catalog_version='2026-11-v4'`. Do not overwrite v3 mappings.
-4. **Outside this PR:** finish Stripe test-mode checkout wiring and run checkout, upgrade/downgrade, renewal, failure, refund, and seat-change acceptance. This PR does not ship v4 checkout paths — do not set `PRICING_V4_VALIDATED` until that acceptance is complete.
-5. Optional test-mode Stripe product/price provision (idempotent, refuses live keys):
+3. Stripe **test mode**: provision v4 products/prices:
    `PRICING_V4_STRIPE_SYNC=true node scripts/provision-pricing-v4.mjs`
-   Review Admin → Billing → Sync & audit for mapping status before any enrollment flip.
+   Maps `starter` / `professional` / `business` (Team) / `business_extra` monthly + annual into `private.subscription_prices` with `catalog_version='2026-11-v4'`. Does not overwrite v3 mappings. Refuses live keys.
+4. Run Stripe test-mode acceptance: checkout (monthly + annual), upgrade/downgrade, renewal, failure, refund, seat-change, coupon create/redeem/expire/invalid, webhook retry/duplicate delivery.
+5. Review Admin → Billing → Sync & audit for mapping status. Confirm coupon create shows `synced` with Stripe coupon + promotion IDs.
 6. Set `PRICING_V4_VALIDATED=true` only after step 4–5 acceptance.
-7. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Admin keeps `enrollmentEnabled: false` until live billing is ready.
-8. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration in this PR.**
-9. **Before any live v4 sales:** provision live Stripe products/prices, complete live webhook acceptance, and only then consider `enrollmentEnabled` + checkout flags. Test-mode steps above are not live sales.
+7. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Keep `enrollmentEnabled: false` until live billing is ready.
+8. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration.**
+9. **Before any live v4 sales:** provision live Stripe products/prices with explicit approval, complete live webhook acceptance, then consider `enrollmentEnabled` + existing checkout flags. Test-mode steps are not live sales.
+10. Add-ons: set `ADDON_BILLING_VALIDATED=true` only after one-time AI/envelope/video fulfillment and refund acceptance. Leave recurring storage/SMS unpublished until fulfillment paths exist.
+
+## Coupon synchronization contract
+
+1. Admin submits coupon → local `private.billing_coupons` row (`pending`).
+2. Stripe Coupon created, then Promotion Code created.
+3. Local row stores both Stripe IDs and flips to `synced`.
+4. If promotion-code creation fails after coupon create, row is `failed` (Stripe coupon id may exist) — never reported as success. Use **Retry sync**.
+5. Pause/resume toggles the Stripe Promotion Code `active` flag and local `sync_status` (`disabled` when paused).
+6. Stripe Coupons are largely immutable; unsupported field changes require a new coupon version (new code / replacement), not silent mutation.
+
+## Usage period policy
+
+- Consumable meters (emails, marketing emails, automation executions, AI credits, envelopes, video, paid bookings): **UTC calendar month**, reset at `date_trunc('month', now() AT TIME ZONE 'UTC')`.
+- Storage and CRM contacts: **concurrent capacity**, not monthly consumables.
+- Legacy (`catalog_version` not v3/v4 versioned) subscriptions remain grandfathered from new meter enforcement.
 
 ## Financial definitions
 
@@ -45,4 +66,4 @@ See also [FINANCIAL_INTELLIGENCE.md](./FINANCIAL_INTELLIGENCE.md) for the full d
 
 ## Rollback
 
-Disable `pricing_v4` preview/publicCatalog back to v3. Leave migration tables in place (additive). Existing v3 checkout path remains authoritative when preview is off.
+Disable `pricing_v4` preview/publicCatalog/enrollment back to v3. Leave migration tables in place (additive). Existing v3 checkout path remains authoritative when enrollment is off. Failed coupons stay in `billing_coupons` for audit.

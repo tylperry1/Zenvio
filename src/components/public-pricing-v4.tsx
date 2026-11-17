@@ -135,7 +135,7 @@ export function PublicPricingV4({
           <section className="subscription-invoices">
             <h2>Team seats</h2>
             <p>
-              Business / Team includes three users. Additional members are {money(pricingV4ExtraSeat.monthly)}
+              Team includes three users. Additional members are {money(pricingV4ExtraSeat.monthly)}
               /month each ({money(pricingV4ExtraSeat.annual)}/year when billed annually).
             </p>
           </section>

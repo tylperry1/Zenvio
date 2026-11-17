@@ -295,7 +295,20 @@ export async function POST(request: NextRequest) {
         );
         break;
       }
-      case "contact":
+      case "contact": {
+        const { getPool } = await import("@/lib/db");
+        const { requireContactCapacity } = await import("@/lib/entitlements");
+        const db = await getPool().connect();
+        try {
+          await db.query("BEGIN");
+          await requireContactCapacity(db, user.id);
+          await db.query("COMMIT");
+        } catch (e) {
+          await db.query("ROLLBACK");
+          throw e;
+        } finally {
+          db.release();
+        }
         await write("contacts", {
           user_id: user.id,
           name: string(input.name, "name", 100),
@@ -304,6 +317,7 @@ export async function POST(request: NextRequest) {
           notes: string(input.notes ?? "", "notes", 2000, 0),
         });
         break;
+      }
       case "cancel":
         await write(
           `bookings?id=eq.${uuid(input.id)}`,
