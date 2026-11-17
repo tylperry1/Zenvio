@@ -44,5 +44,21 @@ export const planLimits = {
 
 export type Plan = keyof typeof planLimits;
 
-/** Plans that include multi-seat team capacity. */
+/**
+ * Plans that include multi-seat team capacity.
+ * Legacy solo `business` stays seat=1 in practice; v4 Business/Team uses the same id
+ * with catalog_version 2026-11-v4 and included seats=3. Prefer isTeamCapacityPlan().
+ */
 export const teamCapacityPlans = ["team", "teams", "business"] as const;
+
+/** Multi-seat capacity for Teams (v3) and Business/Team (v4). Legacy solo business remains single-seat. */
+export function isTeamCapacityPlan(plan: string, catalogVersion?: string | null): boolean {
+  if (plan === "team" || plan === "teams") return true;
+  if (plan === "business") {
+    return Boolean(
+      catalogVersion &&
+        (catalogVersion === "2026-11-v4" || catalogVersion.startsWith("2026-11-v4")),
+    );
+  }
+  return false;
+}

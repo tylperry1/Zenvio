@@ -1,14 +1,10 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
-import { pricingV4Settings } from "@/lib/pricing-activation";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
 import { PublicPricingV4 } from "@/components/public-pricing-v4";
 import { Logo, Icon } from "@/components/icons";
-import {
-  pricingV4Hero,
-  pricingV4Tagline,
-} from "@/lib/pricing-v4-catalog.mjs";
 
 export const metadata = {
   alternates: { canonical: "https://gozenvio.com/pricing" },
@@ -19,19 +15,21 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
-  const [promotionEnabled, controls, v4] = await Promise.all([
+  const [promotionEnabled, controls, surface] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
-    pricingV4Settings(),
+    publicPricingSurface(),
   ]);
   const signupOpen = publicRegistrationOpen(controls);
-  const showV4 = v4.previewEnabled && v4.publicCatalog === "v4";
+  const showV4 = surface.family === "v4";
   const joinHref = signupOpen ? "/sign-up" : controls.waitlistEnabled ? "/early-access" : "/demo";
   const joinLabel = signupOpen
     ? "Create account"
     : controls.waitlistEnabled
       ? "Join early access"
       : "Explore demo";
+  const hero = surface.display.hero || "";
+  const tagline = surface.display.tagline;
 
   return (
     <div className="subscription-pricing-page">
@@ -50,14 +48,14 @@ export default async function PricingPage() {
       <main>
         <header className="subscription-pricing-intro">
           <span className="subscription-kicker">
-            {showV4 ? pricingV4Tagline.toUpperCase() : "A CLEAR PRICE FOR YOUR NEXT CHAPTER"}
+            {showV4 && tagline ? tagline.toUpperCase() : "A CLEAR PRICE FOR YOUR NEXT CHAPTER"}
           </span>
           <h1>
-            {showV4 ? (
+            {showV4 && hero ? (
               <>
-                {pricingV4Hero.split(". ")[0]}.
+                {hero.split(". ")[0]}.
                 <br />
-                <span>{pricingV4Hero.split(". ").slice(1).join(". ")}</span>
+                <span>{hero.split(". ").slice(1).join(". ")}</span>
               </>
             ) : (
               <>
@@ -80,7 +78,7 @@ export default async function PricingPage() {
             promotionEnabled={promotionEnabled}
             waitlistEnabled={controls.waitlistEnabled}
             signupOpen={signupOpen}
-            catalog={await (await import("@/lib/billing-catalog")).currentCatalog()}
+            catalog={surface.liveCatalog}
           />
         )}
         <div className="subscription-free-note">
@@ -88,7 +86,9 @@ export default async function PricingPage() {
           <p>
             Explore the demo with sample data.
             {showV4
-              ? " Proposed v4 pricing is shown for preview only and is not yet open for paid enrollment."
+              ? surface.previewOnly
+                ? " Proposed v4 pricing is shown for preview only and is not yet open for paid enrollment."
+                : " Enrollment uses the synchronized Stripe catalog for these plans."
               : " See the current launch offer above when it is available."}{" "}
             No credit card required.
           </p>

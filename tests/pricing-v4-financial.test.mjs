@@ -65,7 +65,8 @@ test("financial intelligence migration and admin surfaces are wired", () => {
   assert.match(route, /adminSession\(\)/);
   assert.match(route, /enrollmentEnabled: false/);
   assert.match(pricing, /PublicPricingV4/);
-  assert.match(pricing, /publicCatalog === "v4"/);
+  assert.match(pricing, /publicPricingSurface/);
+  assert.match(pricing, /surface\.family === "v4"/);
 });
 
 test("financial intelligence sums model reservations and avoids v4 price fallback for legacy catalogs", async () => {

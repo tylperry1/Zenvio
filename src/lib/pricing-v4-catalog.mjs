@@ -5,8 +5,9 @@
  */
 export const pricingV4Version = "2026-11-v4";
 export const pricingV4Tagline = "Run Your Business. Not Your Budget.";
-export const pricingV4Hero = "Everything Your Business Needs. Just $19.99 a Month.";
 export const pricingV4Flagship = "professional";
+/** Derived from the Professional monthly amount so public copy cannot drift from the catalog. */
+export const pricingV4Hero = `Everything Your Business Needs. Just $${(1999 / 100).toFixed(2)} a Month.`;
 
 /** USD minor units. Annual amounts are billed once per year (not monthly installments). */
 export const pricingV4Offers = Object.freeze([

@@ -2,8 +2,10 @@ import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
 import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
+import { PublicPricingV4 } from "@/components/public-pricing-v4";
 import { PlatformSocialLinks } from "@/components/platform-social-links";
 import { appOrigin } from "@/lib/lifecycle";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
 import { MarketingPreview } from "@/components/marketing-preview";
@@ -72,10 +74,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const qrTarget = `${appOrigin()}/demo`;
-  const [promotionEnabled, controls, catalog, socialLinks, smartCardQr] = await Promise.all([
+  const [promotionEnabled, controls, pricingSurface, socialLinks, smartCardQr] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
-    (await import("@/lib/billing-catalog")).currentCatalog(),
+    publicPricingSurface(),
     platformSocialLinks(),
     QRCode.toString(qrTarget, {
       type: "svg",
@@ -85,6 +87,8 @@ export default async function Home() {
     }),
   ]);
   const join = joinDestination(controls);
+  const showV4 = pricingSurface.family === "v4";
+  const catalog = pricingSurface.liveCatalog;
 
   return (
     <div className="marketing-v3">
@@ -423,22 +427,46 @@ export default async function Home() {
             <div>
               <p className="mk-eyebrow">PRICING</p>
               <h2>
-                Simple plans for individuals
-                <br />
-                and teams.
+                {showV4 ? (
+                  <>
+                    One operating system
+                    <br />
+                    for your business.
+                  </>
+                ) : (
+                  <>
+                    Simple plans for individuals
+                    <br />
+                    and teams.
+                  </>
+                )}
               </h2>
             </div>
-            <p>Monthly pricing from the published catalog. Scheduling and signing included.</p>
+            <p>
+              {showV4
+                ? pricingSurface.previewOnly
+                  ? "Proposed pricing preview — checkout still uses the live published catalog until enrollment is approved."
+                  : "Published pricing with monthly and annual options. Scheduling and signing included."
+                : "Monthly pricing from the published catalog. Scheduling and signing included."}
+            </p>
           </div>
-          <PublicPricing
-            promotionEnabled={promotionEnabled}
-            waitlistEnabled={controls.waitlistEnabled}
-            signupOpen={publicRegistrationOpen(controls)}
-            catalog={catalog}
-            variant="home"
-            joinHref={join.href}
-            joinLabel={join.label}
-          />
+          {showV4 ? (
+            <PublicPricingV4
+              joinHref={join.href}
+              joinLabel={join.label}
+              signupOpen={publicRegistrationOpen(controls)}
+            />
+          ) : (
+            <PublicPricing
+              promotionEnabled={promotionEnabled}
+              waitlistEnabled={controls.waitlistEnabled}
+              signupOpen={publicRegistrationOpen(controls)}
+              catalog={catalog}
+              variant="home"
+              joinHref={join.href}
+              joinLabel={join.label}
+            />
+          )}
         </section>
 
         <section className="mk-faq mk-container" id="questions">

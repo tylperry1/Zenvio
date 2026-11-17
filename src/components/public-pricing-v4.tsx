@@ -12,6 +12,7 @@ import {
   pricingV4Tagline,
 } from "@/lib/pricing-v4-catalog.mjs";
 import { money } from "@/lib/billing-types";
+import { publicAddonsForDisplay } from "@/lib/public-pricing-surface";
 
 export function PublicPricingV4({
   joinHref = "/early-access",
@@ -26,6 +27,7 @@ export function PublicPricingV4({
 }) {
   const [annual, setAnnual] = useState(false);
   const paid = pricingV4Offers.filter((o) => o.id !== "enterprise");
+  const addons = publicAddonsForDisplay(pricingV4Addons);
 
   return (
     <div className={`subscription-offers subscription-offers-v4 subscription-offers-${variant}`}>
@@ -170,7 +172,7 @@ export function PublicPricingV4({
           <section className="subscription-invoices">
             <h2>Proposed add-ons</h2>
             <ul>
-              {pricingV4Addons.map((addon) => (
+              {addons.map((addon) => (
                 <li key={addon.id}>
                   {addon.name} · {money(addon.amount)}
                   {addon.recurring ? "/month" : ""} · not yet available for purchase
