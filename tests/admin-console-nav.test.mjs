@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import {
+  adminNavGroups,
+  resolveAdminNavId,
+} from "../src/lib/admin-console-nav.ts";
 
 const src = fs.readFileSync("src/lib/admin-console-nav.ts", "utf8");
 const nav = fs.readFileSync("src/components/admin-navigation.tsx", "utf8");
@@ -19,6 +23,10 @@ test("admin console IA includes the nine primary groups", () => {
   ]) {
     assert.match(src, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   }
+  assert.equal(
+    adminNavGroups.find((g) => g.items.some((i) => i.id === "health"))?.label,
+    "System Settings",
+  );
 });
 
 test("nav resolves active items from the URL and keeps FI + economics reachable", () => {
@@ -32,6 +40,24 @@ test("nav resolves active items from the URL and keeps FI + economics reachable"
   assert.match(src, /path === "\/admin\/launch"/);
   assert.match(src, /return "billing-center"/);
   assert.match(src, /return "launch"/);
+
+  const q = (search) => new URLSearchParams(search);
+  assert.equal(resolveAdminNavId("/admin", q("")), "overview");
+  assert.equal(resolveAdminNavId("/admin/", q("")), "overview");
+  assert.equal(resolveAdminNavId("/admin", q("view=accounts")), "accounts");
+  assert.equal(resolveAdminNavId("/admin", q("view=audit")), "audit");
+  assert.equal(resolveAdminNavId("/admin/billing", q("")), "billing-center");
+  assert.equal(resolveAdminNavId("/admin/financial-intelligence", q("")), "financial-intelligence");
+  assert.equal(resolveAdminNavId("/admin/economics", q("")), "economics");
+  assert.equal(resolveAdminNavId("/admin/launch", q("")), "launch");
+  assert.equal(resolveAdminNavId("/admin/suppliers", q("")), "suppliers");
+  assert.equal(resolveAdminNavId("/admin/gelato", q("")), "suppliers");
+  assert.equal(resolveAdminNavId("/admin/operations", q("section=users")), "users");
+  assert.equal(resolveAdminNavId("/admin/operations", q("section=health")), "health");
+  assert.equal(resolveAdminNavId("/admin/operations", q("section=pricing")), "pricing");
+  assert.equal(resolveAdminNavId("/admin/operations", q("")), "subscriptions");
+  assert.equal(resolveAdminNavId("/admin/operations", q("section=unknown")), "subscriptions");
+  assert.equal(resolveAdminNavId("/admin/not-a-real-page", q("")), "overview");
 });
 
 test("AdminFrame view mismatches for billing and launch are corrected", () => {

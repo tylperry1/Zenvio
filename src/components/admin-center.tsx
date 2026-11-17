@@ -703,7 +703,7 @@ export function AdminCenter({
                               {ops?.loadError
                                 ? "Unavailable"
                                 : ops
-                                  ? `${ops.integrationsConfigured}/${ops.integrationsTotal} connected`
+                                  ? `${ops.integrationsConfigured}/${ops.integrationsTotal} configured`
                                   : "…"}
                             </strong>
                             <p>
