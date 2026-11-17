@@ -29,7 +29,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const [host, bookings, thread, envelopes, estimates, requests, receipts, readiness] = await Promise.all([
       pool.query("SELECT name,company,slug,accent_color,timezone FROM public.profiles WHERE id=$1", [s.userId]),
       pool.query(
-        `SELECT b.id,b.cancel_token,b.starts_at,b.ends_at,b.status,e.title,coalesce(b.location,e.location) AS location,e.duration
+        `SELECT b.id,b.cancel_token,b.starts_at,b.ends_at,b.status,e.title,
+                coalesce(b.location,e.location) AS location,b.location_mode,b.service_address,
+                b.access_instructions,b.guest_phone,e.duration
            FROM public.bookings b JOIN public.event_types e ON e.id=b.event_id
           WHERE b.user_id=$1 AND (b.contact_id=$2 OR lower(b.guest_email)=lower($3)) ORDER BY b.starts_at DESC LIMIT 100`,
         [s.userId, s.contactId, s.email],
@@ -87,6 +89,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ends_at: b.ends_at,
         status: b.status,
         location: b.location,
+        location_mode: b.location_mode || null,
+        service_address: b.service_address || null,
+        access_instructions: b.access_instructions || "",
+        guest_phone: b.guest_phone || "",
         // The same manage link sent in confirmation emails; only for appointments still ahead.
         manage_url: upcoming ? `${appOrigin()}/reschedule#token=${b.cancel_token}` : null,
       };

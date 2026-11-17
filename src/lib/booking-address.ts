@@ -225,3 +225,51 @@ export async function businessAddressForWorkspace(db: PoolClient, workspaceId: s
       })
     : null;
 }
+
+/** Upsert the workspace business location used by at_business bookings. Contact stays null. */
+export async function saveBusinessAddress(
+  db: PoolClient,
+  workspaceId: string,
+  input: unknown,
+) {
+  const address = parseAddressInput(input);
+  if (!addressHasStreet(address))
+    throw new ApiError("Enter a complete business street, city, state, and ZIP.");
+  const row = toDbAddress(address);
+  // Partial unique index addresses_workspace_business_uidx (migration 098).
+  await db.query(
+    `INSERT INTO private.addresses(
+       workspace_id, contact_id, address_type, street, street2, city, state, postal_code,
+       country, formatted, access_instructions, validated, smarty_key, source
+     ) VALUES ($1,NULL,'business',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     ON CONFLICT (workspace_id) WHERE address_type='business' AND contact_id IS NULL
+     DO UPDATE SET
+       street=EXCLUDED.street,
+       street2=EXCLUDED.street2,
+       city=EXCLUDED.city,
+       state=EXCLUDED.state,
+       postal_code=EXCLUDED.postal_code,
+       country=EXCLUDED.country,
+       formatted=EXCLUDED.formatted,
+       access_instructions=EXCLUDED.access_instructions,
+       validated=EXCLUDED.validated,
+       smarty_key=EXCLUDED.smarty_key,
+       source=EXCLUDED.source,
+       updated_at=now()`,
+    [
+      workspaceId,
+      row.street,
+      row.street2,
+      row.city,
+      row.state,
+      row.postal_code,
+      row.country,
+      row.formatted,
+      row.access_instructions,
+      row.validated,
+      row.smarty_key,
+      row.source,
+    ],
+  );
+  return address;
+}

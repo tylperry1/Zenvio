@@ -35,6 +35,8 @@ import {
   initials,
   timezones,
 } from "@/lib/client";
+import { bookingLocationSummary } from "@/lib/addresses";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 type View =
   | "Overview"
   | "Event types"
@@ -1419,16 +1421,41 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   <small>{data.profile.timezone}</small>
                 </dd>
               </div>
-              <div>
-                <dt>
-                  <Icon name="video" size={17} />
-                  Where
-                </dt>
-                <dd>
-                  {selectedBooking.location ?? eventFor(selectedBooking.event_id)?.location ??
-                    "Contact your host"}
-                </dd>
-              </div>
+              {(() => {
+                const place = bookingLocationSummary({
+                  locationMode: selectedBooking.location_mode,
+                  location:
+                    selectedBooking.location ??
+                    eventFor(selectedBooking.event_id)?.location ??
+                    "",
+                  serviceAddress: selectedBooking.service_address,
+                  accessInstructions: selectedBooking.access_instructions,
+                });
+                return (
+                  <>
+                    <div>
+                      <dt>
+                        <Icon name="video" size={17} />
+                        Where
+                      </dt>
+                      <dd>
+                        <strong>{place.title}</strong>
+                        {place.body && place.body !== place.title && (
+                          <span style={{ display: "block", whiteSpace: "pre-line" }}>
+                            {place.body}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                    {place.access ? (
+                      <div>
+                        <dt>Access</dt>
+                        <dd style={{ whiteSpace: "pre-wrap" }}>{place.access}</dd>
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()}
               <div>
                 <dt>
                   <Icon name="users" size={17} />
@@ -1439,7 +1466,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               {selectedBooking.guest_phone && (
                 <div>
                   <dt>Phone</dt>
-                  <dd>{selectedBooking.guest_phone}</dd>
+                  <dd>{formatPhoneDisplay(selectedBooking.guest_phone)}</dd>
                 </div>
               )}
               {selectedBooking.guest_company && (

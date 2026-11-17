@@ -20,14 +20,15 @@ function suggestionLabel(s: Suggestion) {
 }
 
 export function AddressAutocomplete({
-  host,
+  host = "",
   value,
   onChange,
   required,
   label = "Service address",
   disabled,
 }: {
-  host: string;
+  /** Public booking slug, or omit/empty when the signed-in workspace session should bill usage. */
+  host?: string;
   value: StructuredAddress;
   onChange: (next: StructuredAddress) => void;
   required?: boolean;

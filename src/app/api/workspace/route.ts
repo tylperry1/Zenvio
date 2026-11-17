@@ -11,6 +11,12 @@ import { deliverBookingEmails } from "@/lib/mail";
 import { NextRequest } from "next/server";
 import { platformRole } from "@/lib/admin";
 import {
+  businessAddressForWorkspace,
+  persistBookingAddress,
+  resolveBookingLocation,
+} from "@/lib/booking-address";
+import { normalizeBookingPhone } from "@/lib/phone";
+import {
   backend,
   body,
   email,
@@ -44,7 +50,7 @@ export async function GET() {
         // paged through /api/bookings.
         getPool()
           .query(
-            "SELECT id,event_id,contact_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,intake_snapshot,location,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
+            "SELECT id,event_id,contact_id,guest_name,guest_email,notes,guest_phone,guest_company,meeting_purpose,intake_snapshot,location,location_mode,service_address,access_instructions,starts_at,ends_at,status FROM public.bookings WHERE user_id=$1 AND starts_at>=now()-interval '31 days' ORDER BY starts_at ASC LIMIT 1000",
             [token],
           )
           .then((r) => r.rows),
@@ -66,6 +72,13 @@ export async function GET() {
         "Your workspace is still being created. Please try again.",
         503,
       );
+    const db = await getPool().connect();
+    let businessAddress = null;
+    try {
+      businessAddress = await businessAddressForWorkspace(db, token);
+    } finally {
+      db.release();
+    }
     return Response.json(
       {
         profile: profiles[0],
@@ -73,6 +86,7 @@ export async function GET() {
         availability,
         bookings,
         contacts,
+        businessAddress,
         bookingCount: counts.bookings,
         contactCount: counts.contacts,
         platformRole: role,
@@ -147,7 +161,31 @@ export async function POST(request: NextRequest) {
             "That time is no longer available. Choose another time.",
             409,
           );
-        await backend("/rest/v1/rpc/reserve_booking_intake", {
+        const phone = normalizeBookingPhone(String(input.phone ?? ""), true);
+        const guestEmail = email(input.email);
+        const dbClient = await getPool().connect();
+        let location;
+        try {
+          location = resolveBookingLocation({
+            event,
+            businessAddress: await businessAddressForWorkspace(dbClient, token),
+            guest: {
+              locationMode: input.locationMode,
+              serviceAddress: input.serviceAddress,
+              accessInstructions: input.accessInstructions,
+            },
+          });
+        } finally {
+          dbClient.release();
+        }
+        if (
+          location.locationMode === "virtual" ||
+          location.locationMode === "custom"
+        ) {
+          const override = string(input.location ?? "", "meeting location", 500, 0);
+          if (override) location = { ...location, locationText: override };
+        }
+        const result = await backend("/rest/v1/rpc/reserve_booking_intake", {
           method: "POST",
           body: JSON.stringify({
             host_slug: profile.slug,
@@ -157,11 +195,11 @@ export async function POST(request: NextRequest) {
               event.intake_questions || [],
               input.answers,
             ),
-            booking_location: string(input.location ?? "", "meeting location", 500, 0),
+            booking_location: location.locationText,
             visitor_name: string(input.name, "name", 100, 2),
-            visitor_email: email(input.email),
+            visitor_email: guestEmail,
             visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
-            visitor_phone: string(input.phone ?? "", "phone number", 40, 0),
+            visitor_phone: phone,
             visitor_company: string(input.company ?? "", "company", 100, 0),
             visitor_purpose: string(
               input.purpose ?? "",
@@ -171,6 +209,78 @@ export async function POST(request: NextRequest) {
             ),
           }),
         }, token);
+        if (result?.id) {
+          let db;
+          try {
+            db = await getPool().connect();
+          } catch {
+            if (location.locationMode === "at_customer") {
+              // Required service address exists only in-memory; surface the same as persist failure.
+              throw new ApiError(
+                "Appointment was reserved, but the service address could not be saved. Open the appointment to add the address.",
+                502,
+              );
+            }
+            // Non-required modes: reservation stands without enrichment.
+            return Response.json(
+              {
+                ok: true,
+                message: "Appointment created.",
+                locationPending: true,
+              },
+              { status: 201 },
+            );
+          }
+          try {
+            try {
+              await persistBookingAddress(db, {
+                workspaceId: token,
+                bookingId: result.id,
+                guestEmail,
+                guestPhone: phone,
+                locationMode: location.locationMode,
+                locationText: location.locationText,
+                serviceAddress: location.serviceAddress,
+                accessInstructions: location.accessInstructions,
+                saveAsResidential: false,
+              });
+            } catch {
+              if (location.locationMode === "at_customer") {
+                // Durable recovery: required booking snapshot only (no CRM side effects).
+                try {
+                  await db.query(
+                    `UPDATE public.bookings
+                        SET location=$3,
+                            location_mode=$4,
+                            service_address=$5::jsonb,
+                            access_instructions=$6,
+                            guest_phone=CASE WHEN $7<>'' THEN $7 ELSE guest_phone END
+                      WHERE id=$1 AND user_id=$2`,
+                    [
+                      result.id,
+                      token,
+                      location.locationText.slice(0, 500),
+                      location.locationMode,
+                      location.serviceAddress
+                        ? JSON.stringify(location.serviceAddress)
+                        : null,
+                      location.accessInstructions,
+                      phone,
+                    ],
+                  );
+                } catch {
+                  throw new ApiError(
+                    "Appointment was reserved, but the service address could not be saved. Open the appointment to add the address.",
+                    502,
+                  );
+                }
+              }
+              // Non-required modes: reservation stands without enrichment.
+            }
+          } finally {
+            db.release();
+          }
+        }
         return Response.json(
           { ok: true, message: "Appointment created." },
           { status: 201 },
@@ -351,6 +461,16 @@ export async function POST(request: NextRequest) {
           "PATCH",
         );
         break;
+      case "business-address": {
+        const { saveBusinessAddress } = await import("@/lib/booking-address");
+        const dbClient = await getPool().connect();
+        try {
+          const saved = await saveBusinessAddress(dbClient, token, input.address);
+          return Response.json({ ok: true, businessAddress: saved });
+        } finally {
+          dbClient.release();
+        }
+      }
       default:
         throw new ApiError("Invalid action.");
     }

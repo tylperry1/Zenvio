@@ -4,6 +4,7 @@ import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CreateAppointment } from "./create-appointment";
+import { AddressAutocomplete } from "./address-autocomplete";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { Badge, Card, CopyField, Field, Tabs, formatDateTime } from "./ui";
@@ -18,6 +19,13 @@ import {
 import { AskZenvio } from "./assistant";
 import { IntakeAnswers } from "./intake-answers";
 import { SendBookingLinkDialog } from "./send-booking-link";
+import {
+  bookingLocationSummary,
+  displayStructuredAddress,
+  emptyAddress,
+  fromDbAddress,
+  type StructuredAddress,
+} from "@/lib/addresses";
 const shortDate = (value: string) =>
   new Date(value).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 export function ClientCenter() {
@@ -509,7 +517,14 @@ function ClientDetail({
               <EmptyState icon="calendar" title="No appointments yet" />
             ) : (
               <ul className="ui-list">
-                {detail.bookings.map((b: any) => (
+                {detail.bookings.map((b: any) => {
+                  const loc = bookingLocationSummary({
+                    locationMode: b.location_mode,
+                    location: b.location,
+                    serviceAddress: b.service_address,
+                    accessInstructions: b.access_instructions,
+                  });
+                  return (
                   <li key={b.id} className="client-appt">
                     <span className="ui-list-icon">
                       <Icon name="calendar" size={16} />
@@ -517,11 +532,20 @@ function ClientDetail({
                     <div className="ui-list-main">
                       <b>{b.title}</b>
                       <small>{formatDateTime(b.starts_at)}</small>
+                      {(loc.body || loc.title) && (
+                        <small style={{ whiteSpace: "pre-line", display: "block" }}>
+                          {loc.title}
+                          {loc.body ? `\n${loc.body}` : ""}
+                          {loc.access ? `\nAccess: ${loc.access}` : ""}
+                          {b.guest_phone ? `\nTel: ${b.guest_phone}` : ""}
+                        </small>
+                      )}
                       <IntakeAnswers answers={b.intake_snapshot} />
                     </div>
                     <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </Card>
@@ -688,42 +712,17 @@ function ClientDetail({
             </div>
           </div>
           {editing ? (
-            <form
-              className="ui-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void onSave({ action: "edit", ...Object.fromEntries(new FormData(e.currentTarget)) }).then(() =>
-                  setEditing(false),
-                ).catch(() => {});
+            <ClientEditForm
+              key={c.id}
+              contact={c}
+              addresses={detail.addresses || []}
+              busy={busy}
+              onCancel={() => setEditing(false)}
+              onSave={async (payload) => {
+                await onSave(payload);
+                setEditing(false);
               }}
-            >
-              <Field label="Name">
-                <input name="name" required defaultValue={c.name} />
-              </Field>
-              <Field label="Email">
-                <input name="email" type="email" required defaultValue={c.email} />
-              </Field>
-              <Field label="Phone">
-                <input name="phone" type="tel" maxLength={40} defaultValue={c.phone || ""} />
-              </Field>
-              <Field label="Address">
-                <textarea name="address" maxLength={500} rows={3} defaultValue={c.address || ""} />
-              </Field>
-              <Field label="Company">
-                <input name="company" defaultValue={c.company} />
-              </Field>
-              <Field label="Notes">
-                <textarea name="notes" maxLength={2000} rows={5} defaultValue={c.notes} />
-              </Field>
-              <div className="ui-modal-actions">
-                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setEditing(false)}>
-                  Cancel
-                </button>
-                <button className="ui-btn ui-btn-primary" disabled={busy}>
-                  Save
-                </button>
-              </div>
-            </form>
+            />
           ) : (
             <>
               <dl className="client-facts">
@@ -733,8 +732,21 @@ function ClientDetail({
                 </dd>
                 <dt>Phone</dt>
                 <dd>{c.phone || "—"}</dd>
-                <dt>Address</dt>
-                <dd style={{whiteSpace: "pre-line"}}>{c.address || "—"}</dd>
+                <dt>Residential address</dt>
+                <dd style={{whiteSpace: "pre-line"}}>
+                  {(() => {
+                    const row = (detail.addresses || []).find((a: any) => a.address_type === "residential");
+                    if (row) return displayStructuredAddress(fromDbAddress(row), c.address || "—");
+                    return c.address || "—";
+                  })()}
+                </dd>
+                <dt>Billing address</dt>
+                <dd style={{whiteSpace: "pre-line"}}>
+                  {(() => {
+                    const row = (detail.addresses || []).find((a: any) => a.address_type === "billing");
+                    return row ? displayStructuredAddress(fromDbAddress(row), "—") : "—";
+                  })()}
+                </dd>
                 <dt>Company</dt>
                 <dd>{c.company || "—"}</dd>
                 <dt>Client since</dt>
@@ -757,5 +769,91 @@ function ClientDetail({
         </Card>
       </aside>
     </div>
+  );
+}
+
+function ClientEditForm({
+  contact,
+  addresses,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  contact: any;
+  addresses: any[];
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (payload: Record<string, unknown>) => Promise<void>;
+}) {
+  const residentialRow = addresses.find((a) => a.address_type === "residential");
+  const billingRow = addresses.find((a) => a.address_type === "billing");
+  const [residential, setResidential] = useState<StructuredAddress>(
+    residentialRow ? fromDbAddress(residentialRow) : emptyAddress(),
+  );
+  const [billing, setBilling] = useState<StructuredAddress>(
+    billingRow ? fromDbAddress(billingRow) : emptyAddress(),
+  );
+  return (
+    <form
+      className="ui-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        void onSave({
+          action: "edit",
+          name: f.get("name"),
+          email: f.get("email"),
+          phone: f.get("phone"),
+          company: f.get("company"),
+          notes: f.get("notes"),
+          address: residential.street.trim()
+            ? residential.formatted || residential.street || ""
+            : "",
+          // null = explicit clear; omit when never set
+          residentialAddress: residential.street.trim()
+            ? residential
+            : residentialRow
+              ? null
+              : undefined,
+          billingAddress: billing.street.trim() ? billing : billingRow ? null : undefined,
+        }).catch(() => {});
+      }}
+    >
+      <Field label="Name">
+        <input name="name" required defaultValue={contact.name} />
+      </Field>
+      <Field label="Email">
+        <input name="email" type="email" required defaultValue={contact.email} />
+      </Field>
+      <Field label="Phone">
+        <input name="phone" type="tel" maxLength={40} defaultValue={contact.phone || ""} />
+      </Field>
+      <AddressAutocomplete
+        label="Residential address"
+        value={residential}
+        onChange={setResidential}
+        disabled={busy}
+      />
+      <AddressAutocomplete
+        label="Billing address"
+        value={billing}
+        onChange={setBilling}
+        disabled={busy}
+      />
+      <Field label="Company">
+        <input name="company" defaultValue={contact.company} />
+      </Field>
+      <Field label="Notes">
+        <textarea name="notes" maxLength={2000} rows={5} defaultValue={contact.notes} />
+      </Field>
+      <div className="ui-modal-actions">
+        <button type="button" className="ui-btn ui-btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="ui-btn ui-btn-primary" disabled={busy}>
+          Save
+        </button>
+      </div>
+    </form>
   );
 }

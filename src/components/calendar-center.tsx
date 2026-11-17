@@ -8,6 +8,8 @@ import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { Alert, Badge, Field, useConfirm } from "./ui";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
+import { bookingLocationSummary } from "@/lib/addresses";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
   return `${p.year}-${p.month}-${p.day}`;
@@ -224,7 +226,38 @@ export function CalendarCenter() {
                   timeZone: zone,
                 })}
               </dd>
-              <dt>Location</dt><dd>{selected.location || "Not specified"}</dd>
+              {(() => {
+                const place = bookingLocationSummary({
+                  locationMode: selected.location_mode,
+                  location: selected.location,
+                  serviceAddress: selected.service_address,
+                  accessInstructions: selected.access_instructions,
+                });
+                return (
+                  <>
+                    <dt>Location</dt>
+                    <dd>
+                      <strong>{place.title}</strong>
+                      {place.body && place.body !== place.title ? (
+                        <span style={{ display: "block", whiteSpace: "pre-line" }}>{place.body}</span>
+                      ) : null}
+                      {!place.title && !place.body ? "Not specified" : null}
+                    </dd>
+                    {place.access ? (
+                      <>
+                        <dt>Access</dt>
+                        <dd style={{ whiteSpace: "pre-wrap" }}>{place.access}</dd>
+                      </>
+                    ) : null}
+                  </>
+                );
+              })()}
+              {selected.guest_phone ? (
+                <>
+                  <dt>Phone</dt>
+                  <dd>{formatPhoneDisplay(selected.guest_phone)}</dd>
+                </>
+              ) : null}
               <dt>Status</dt>
               <dd>
                 <Badge tone={selected.status === "confirmed" ? "success" : "neutral"}>{selected.status}</Badge>

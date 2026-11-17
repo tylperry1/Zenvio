@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { AddressAutocomplete } from "./address-autocomplete";
 import { PageHeader } from "./app-shell";
 import { BookingDesign } from "./booking-design";
 import { Icon } from "./icons";
@@ -11,6 +12,7 @@ import { ShareLinkActions } from "./share-link";
 import { SmartCards } from "./smart-cards";
 import { TimezoneSelect } from "./timezone-select";
 import { Notice, Panel, Skeleton } from "./ds";
+import { emptyAddress, formatAddressMultiline, type StructuredAddress } from "@/lib/addresses";
 
 const sections = [
   { id: "overview", label: "Overview" },
@@ -62,6 +64,7 @@ type WorkspacePayload = {
   events: { title: string; duration: number; description: string; active: boolean; deleted_at?: string | null }[];
   email?: string;
   website?: string;
+  businessAddress?: StructuredAddress | null;
 };
 
 function SectionNav({ current }: { current: SectionId }) {
@@ -82,21 +85,31 @@ function SectionNav({ current }: { current: SectionId }) {
 
 function BusinessIdentityEditor({
   profile,
+  businessAddress,
   onSaved,
+  onBusinessAddressSaved,
   notify,
 }: {
   profile: WorkspaceProfile;
+  businessAddress: StructuredAddress | null;
   onSaved: (next: WorkspaceProfile) => void;
+  onBusinessAddressSaved: (next: StructuredAddress) => void;
   notify: (message: string, error?: boolean) => void;
 }) {
   const [slug, setSlug] = useState(profile.slug);
   const [zone, setZone] = useState(profile.timezone);
   const [busy, setBusy] = useState(false);
+  const [addressBusy, setAddressBusy] = useState(false);
+  const [address, setAddress] = useState<StructuredAddress>(businessAddress || emptyAddress());
 
   useEffect(() => {
     setSlug(profile.slug);
     setZone(profile.timezone);
   }, [profile.slug, profile.timezone]);
+
+  useEffect(() => {
+    setAddress(businessAddress || emptyAddress());
+  }, [businessAddress]);
 
   return (
     <div className="bp-hub-editor settings-layout">
@@ -198,6 +211,58 @@ function BusinessIdentityEditor({
           </button>
         </form>
       </section>
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Business street address</h2>
+            <p>
+              Verified location shown for “at business” appointments. Guests see the street address; entry
+              instructions stay private to the booking confirmation.
+            </p>
+          </div>
+        </div>
+        <form
+          className="stack-form settings-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setAddressBusy(true);
+            try {
+              const r = await fetch("/api/workspace", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "business-address", address }),
+              });
+              const d = await r.json();
+              if (!r.ok) throw Error(d.error || "Unable to save business address.");
+              const saved = d.businessAddress || address;
+              setAddress(saved);
+              onBusinessAddressSaved(saved);
+              notify("Business address saved.");
+            } catch (err) {
+              notify(err instanceof Error ? err.message : "Unable to save business address.", true);
+            } finally {
+              setAddressBusy(false);
+            }
+          }}
+        >
+          <AddressAutocomplete
+            host={profile.slug}
+            label="Business address"
+            value={address}
+            onChange={setAddress}
+            disabled={addressBusy}
+          />
+          {address.formatted && (
+            <small className="booking-field-help" style={{ whiteSpace: "pre-line" }}>
+              {formatAddressMultiline(address)}
+            </small>
+          )}
+          <button className="button primary" disabled={addressBusy}>
+            {addressBusy ? "Saving…" : "Save business address"}
+            <Icon name="check" size={16} />
+          </button>
+        </form>
+      </section>
       <aside>
         <div className="settings-profile-share">
           <h3>Public booking profile</h3>
@@ -273,6 +338,7 @@ function BusinessProfileInner() {
           events: Array.isArray(ws.events) ? ws.events : [],
           email: ws.email || p.email,
           website: details.website || p.website,
+          businessAddress: ws.businessAddress || null,
         });
         setProfile({
           business_name: p.company || p.business_name || p.name || ws.business_name,
@@ -407,7 +473,11 @@ function BusinessProfileInner() {
           {section === "details" && bookingProfile && (
             <BusinessIdentityEditor
               profile={bookingProfile}
+              businessAddress={workspace.businessAddress || null}
               notify={notify}
+              onBusinessAddressSaved={(next) => {
+                setWorkspace((w) => (w ? { ...w, businessAddress: next } : w));
+              }}
               onSaved={(next) => {
                 setWorkspace((w) => (w ? { ...w, profile: next } : w));
                 setProfile((p) =>

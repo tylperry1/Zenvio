@@ -82,6 +82,69 @@ test("structured address formatting keeps components separate", () => {
   assert.match(formatted, /1600 Amphitheatre Pkwy/);
   assert.match(formatted, /Suite 100/);
   assert.match(formatted, /Mountain View/);
+  assert.match(formatted, /CA 94043/);
+  const multi = addresses.formatAddressMultiline({
+    street: "123 Main Street",
+    street2: "Suite 200",
+    city: "Cincinnati",
+    state: "OH",
+    postalCode: "45202",
+  });
+  assert.equal(multi, "123 Main Street, Suite 200\nCincinnati, OH 45202");
+  const summary = addresses.bookingLocationSummary({
+    locationMode: "at_customer",
+    location: "On site",
+    serviceAddress: {
+      street: "456 Oak Avenue",
+      street2: "Apartment 3",
+      city: "Hamilton",
+      state: "OH",
+      postalCode: "45011",
+    },
+    accessInstructions: "Ring 3B",
+  });
+  assert.equal(summary.title, "At customer location");
+  assert.match(summary.body, /456 Oak Avenue/);
+  assert.equal(summary.access, "Ring 3B");
+  assert.equal(
+    addresses.bookingLocationSummary({
+      locationMode: "custom",
+      location: "Fallback hall",
+      serviceAddress: { formatted: "123 Main St only" },
+    }).body,
+    "123 Main St only",
+  );
+  assert.equal(
+    addresses.bookingLocationSummary({
+      locationMode: "custom",
+      location: "Fallback hall",
+      serviceAddress: {},
+    }).body,
+    "Fallback hall",
+  );
+  const migrated = "A".repeat(250) + ", Cincinnati, OH 45202";
+  assert.equal(
+    addresses.displayStructuredAddress({
+      street: migrated.slice(0, 200),
+      formatted: migrated,
+      city: "",
+      state: "",
+      postalCode: "",
+    }),
+    migrated,
+  );
+  const site = addresses.jobSiteSubmission({
+    street: "10 Main",
+    street2: "",
+    city: "Cincinnati",
+    state: "OH",
+    postalCode: "45202",
+    country: "US",
+    formatted: "10 Main · Cincinnati, OH 45202",
+    accessInstructions: "Gate 12",
+  });
+  assert.match(site.address, /10 Main/);
+  assert.equal(site.accessNote, "Gate 12");
 });
 
 test("phone normalization accepts US local numbers and rejects blanks", () => {
@@ -266,4 +329,73 @@ test("workspace backend allows Smarty event_types columns", () => {
     resolver,
     /guestAccessInstructions \|\|[\s\S]*serviceAddress\.accessInstructions/,
   );
+});
+
+test("platform business address write path and CRM typed addresses", () => {
+  const workspace = fs.readFileSync("src/app/api/workspace/route.ts", "utf8");
+  assert.match(workspace, /case "business-address"/);
+  assert.match(workspace, /saveBusinessAddress/);
+  assert.match(workspace, /businessAddressForWorkspace/);
+  assert.match(workspace, /locationMode === "virtual" \|\|[\s\S]*locationMode === "custom"/);
+  const booking = fs.readFileSync("src/lib/booking-address.ts", "utf8");
+  assert.match(booking, /export async function saveBusinessAddress/);
+  assert.match(booking, /ON CONFLICT \(workspace_id\) WHERE address_type='business'/);
+  assert.ok(fs.existsSync("postgres/migrations/098_business_address_unique.sql"));
+  const profile = fs.readFileSync("src/components/business-profile.tsx", "utf8");
+  assert.match(profile, /action: "business-address"/);
+  assert.match(profile, /AddressAutocomplete/);
+  const crm = fs.readFileSync("src/components/client-center.tsx", "utf8");
+  assert.match(crm, /residentialAddress/);
+  assert.match(crm, /billingAddress/);
+  assert.match(crm, /bookingLocationSummary/);
+  assert.match(crm, /guest_phone/);
+  assert.match(crm, /displayStructuredAddress/);
+  assert.match(crm, /residentialRow[\s\S]*\? null/);
+  const clients = fs.readFileSync("src/app/api/clients/route.ts", "utf8");
+  assert.match(clients, /payload === null/);
+  assert.match(clients, /DELETE FROM private\.addresses/);
+  const serviceRequest = fs.readFileSync("src/components/service-request.tsx", "utf8");
+  assert.match(serviceRequest, /jobSiteSubmission/);
+  assert.match(serviceRequest, /accessSuffix/);
+  assert.match(serviceRequest, /Shorten the description so access instructions still fit/);
+  const jobs = fs.readFileSync("src/components/jobs-center.tsx", "utf8");
+  assert.match(jobs, /jobSiteSubmission/);
+  assert.match(jobs, /accessSuffix/);
+  assert.match(jobs, /Shorten the description so access instructions still fit/);
+  const createAppt = fs.readFileSync("src/components/create-appointment.tsx", "utf8");
+  assert.match(createAppt, /Meeting link for this appointment/);
+  assert.match(createAppt, /virtualMeetingLink/);
+  assert.match(createAppt, /key=\{`\$\{eventId\}-\$\{locationMode\}`\}/);
+  assert.match(crm, /key=\{c\.id\}/);
+  const teamBook = fs.readFileSync("src/app/api/team-book/route.ts", "utf8");
+  assert.match(teamBook, /function teamLocationPolicy/);
+  assert.match(
+    teamBook,
+    /do not share a meeting location option/,
+  );
+  assert.doesNotMatch(
+    teamBook,
+    /if \(!intersection\.length\) intersection = \["custom"\]/,
+  );
+  assert.match(teamBook, /SAVEPOINT enrichment/);
+  assert.match(teamBook, /ROLLBACK TO SAVEPOINT enrichment/);
+  assert.match(teamBook, /serviceAddress: v\.serviceAddress/);
+  assert.match(teamBook, /if \(enrichmentError instanceof ApiError\) throw enrichmentError/);
+  assert.match(teamBook, /if \(requestedMode === "at_customer"\) throw enrichmentError/);
+  assert.match(teamBook, /allowed_location_modes: policy\.allowed_location_modes/);
+  assert.match(workspace, /locationPending: true/);
+  assert.match(workspace, /Appointment was reserved, but the service address could not be saved/);
+  assert.match(workspace, /if \(location\.locationMode === "at_customer"\)/);
+  const teamUi = fs.readFileSync("src/components/team-booking.tsx", "utf8");
+  assert.match(teamUi, /AddressAutocomplete/);
+  assert.match(teamUi, /serviceAddress/);
+  const bookingPage = fs.readFileSync("src/components/booking-page.tsx", "utf8");
+  assert.match(bookingPage, /location_mode: locationMode/);
+  assert.match(bookingPage, /service_address: resolvedServiceAddress/);
+  const autocomplete = fs.readFileSync("src/app/api/address/autocomplete/route.ts", "utf8");
+  assert.match(autocomplete, /resolveAddressWorkspace/);
+  const validate = fs.readFileSync("src/app/api/address/validate/route.ts", "utf8");
+  assert.match(validate, /resolveAddressWorkspace/);
+  const widget = fs.readFileSync("src/components/address-autocomplete.tsx", "utf8");
+  assert.match(widget, /host\?/);
 });

@@ -35,7 +35,13 @@ function load(file, overrides = {}) {
       : id === "./booking-email" ? load("src/lib/booking-email.ts")
       : id === "./transactional-email" ? load("src/lib/transactional-email.ts")
       : id === "./notifications/delivery-sync" ? load("src/lib/notifications/delivery-sync.ts")
-      : id === "./phone" ? load("src/lib/phone.ts", { "./server": helpers })
+      : id === "./phone"
+        ? load("src/lib/phone.ts", {
+            "./server": helpers,
+            "./phone-display": load("src/lib/phone-display.ts"),
+          })
+      : id === "./phone-display"
+        ? load("src/lib/phone-display.ts")
       : id === "./envelope-usage" ? { envelopeBudget: async()=>({sent:0,included:60}) }
       : id === "./microsoft-calendar" ? { filterMicrosoftSlots: async (_hostId, _email, slots) => slots }
       : id === "./resend-diagnostics"

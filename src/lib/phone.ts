@@ -1,4 +1,5 @@
 import { ApiError } from "./server";
+export { formatPhoneDisplay } from "./phone-display";
 
 /** Normalize guest phone numbers for booking and CRM. Prefer E.164. */
 export function normalizeBookingPhone(value: string, required = true): string {
@@ -19,15 +20,6 @@ export function normalizeBookingPhone(value: string, required = true): string {
   if (!/^\+[1-9][0-9]{7,14}$/.test(candidate))
     throw new ApiError("Enter a valid phone number including country code.");
   return candidate;
-}
-
-export function formatPhoneDisplay(e164: string): string {
-  const v = e164.trim();
-  if (/^\+1[0-9]{10}$/.test(v)) {
-    const n = v.slice(2);
-    return `+1 (${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
-  }
-  return v;
 }
 
 export function isLikelyPhone(value: string): boolean {

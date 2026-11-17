@@ -3,7 +3,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Icon, Logo } from "./icons";
 import { Captcha } from "./captcha";
+import { AddressAutocomplete } from "./address-autocomplete";
 import { Alert, Field, LinkProblem, Skeleton } from "./ui";
+import { emptyAddress, jobSiteSubmission, type StructuredAddress } from "@/lib/addresses";
 
 type Info = { business: string; slug: string; accent: string; industry: string; categories: string[]; captchaSiteKey: string | null };
 
@@ -99,7 +101,8 @@ export function ServiceRequestForm({ host }: { host: string }) {
     [attempts, setAttempts] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [done, setDone] = useState(false);
+    [done, setDone] = useState(false),
+    [jobAddress, setJobAddress] = useState<StructuredAddress>(emptyAddress());
   const uploads = useGuestUploads(host);
   useEffect(() => {
     fetch(`/api/service-requests?host=${encodeURIComponent(host)}`, { cache: "no-store" })
@@ -154,6 +157,16 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 setBusy(true);
                 setError("");
                 try {
+                  const site = jobSiteSubmission(jobAddress);
+                  const description = String(f.get("description") || "").trim();
+                  const accessSuffix = site.accessNote
+                    ? `${description ? "\n\n" : ""}Access: ${site.accessNote}`
+                    : "";
+                  if (description.length + accessSuffix.length > 4000) {
+                    throw new Error(
+                      "Shorten the description so access instructions still fit (4,000 character limit).",
+                    );
+                  }
                   const r = await fetch("/api/service-requests", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -162,9 +175,9 @@ export function ServiceRequestForm({ host }: { host: string }) {
                       name: f.get("name"),
                       email: f.get("email"),
                       phone: f.get("phone"),
-                      address: f.get("address"),
+                      address: site.address,
                       category: f.get("category"),
-                      description: f.get("description"),
+                      description: description + accessSuffix,
                       preferredTime: f.get("preferredTime"),
                       website: f.get("website"),
                       photos: files.map((x) => x.id),
@@ -206,9 +219,14 @@ export function ServiceRequestForm({ host }: { host: string }) {
                   </select>
                 </Field>
               </div>
-              <Field label="Job site address">
-                <input className="ui-input" name="address" required minLength={5} maxLength={300} autoComplete="street-address" />
-              </Field>
+              <AddressAutocomplete
+                host={host}
+                label="Job site address"
+                value={jobAddress}
+                onChange={setJobAddress}
+                required
+                disabled={busy}
+              />
               <Field label="Describe the problem" hint="What’s happening, when it started, and anything you’ve tried.">
                 <textarea className="ui-input" name="description" required minLength={10} maxLength={4000} rows={5} />
               </Field>

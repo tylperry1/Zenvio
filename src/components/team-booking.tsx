@@ -1,7 +1,15 @@
 "use client";
 import { Captcha, useCaptchaSiteKey } from "./captcha";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Logo } from "./icons";
+import { AddressAutocomplete } from "./address-autocomplete";
+import {
+  emptyAddress,
+  isLocationMode,
+  type LocationMode,
+  type StructuredAddress,
+} from "@/lib/addresses";
+
 export function TeamBooking({
   organization,
   event,
@@ -13,8 +21,20 @@ export function TeamBooking({
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [captcha, setCaptcha] = useState(""),
-    [attempts, setAttempts] = useState(0);
+    [attempts, setAttempts] = useState(0),
+    [serviceAddress, setServiceAddress] = useState<StructuredAddress>(emptyAddress()),
+    [accessInstructions, setAccessInstructions] = useState("");
   const captchaSiteKey = useCaptchaSiteKey();
+  const locationMode = useMemo(() => {
+    const modes = (data?.event?.allowed_location_modes?.length
+      ? data.event.allowed_location_modes
+      : [data?.event?.location_mode || "custom"]) as string[];
+    const preferred = data?.event?.location_mode;
+    const chosen = modes.includes(preferred) ? preferred : modes[0] || "custom";
+    return (isLocationMode(chosen) ? chosen : "custom") as LocationMode;
+  }, [data]);
+  const needsGuestAddress =
+    locationMode === "at_customer" || locationMode === "custom";
   return (
     <div className="platform-page tb-page">
       <main>
@@ -33,6 +53,8 @@ export function TeamBooking({
               e.preventDefault();
               const f = new FormData(e.currentTarget);
               try {
+                if (locationMode === "at_customer" && !serviceAddress.street.trim())
+                  throw Error("Enter the service address for this appointment.");
                 const r = await fetch("/api/team-book", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -41,6 +63,11 @@ export function TeamBooking({
                       event,
                       ...Object.fromEntries(f),
                       captcha,
+                      locationMode,
+                      serviceAddress: needsGuestAddress ? serviceAddress : undefined,
+                      accessInstructions: needsGuestAddress
+                        ? accessInstructions || serviceAddress.accessInstructions || ""
+                        : undefined,
                     }),
                   }),
                   d = await r.json();
@@ -51,6 +78,8 @@ export function TeamBooking({
                     ". Check your email for details.",
                 );
                 setData(null);
+                setServiceAddress(emptyAddress());
+                setAccessInstructions("");
               } catch (e) {
                 setError((e as Error).message);
                 setAttempts((n) => n + 1);
@@ -75,6 +104,9 @@ export function TeamBooking({
                       d = await r.json();
                     if (!r.ok) throw Error(d.error);
                     setData(d);
+                    setServiceAddress(emptyAddress());
+                    setAccessInstructions("");
+                    setError("");
                   } catch (e) {
                     setError((e as Error).message);
                   }
@@ -100,12 +132,48 @@ export function TeamBooking({
                 </label>
                 <label>
                   Your name
-                  <input name="name" required minLength={2} />
+                  <input name="name" required minLength={2} maxLength={100} />
                 </label>
                 <label>
                   Email
-                  <input name="email" type="email" required />
+                  <input name="email" type="email" required maxLength={254} />
                 </label>
+                <label>
+                  Telephone
+                  <input
+                    name="phone"
+                    type="tel"
+                    required
+                    maxLength={40}
+                    placeholder="+1 555 555 0100"
+                  />
+                </label>
+                {needsGuestAddress && (
+                  <>
+                    <AddressAutocomplete
+                      key={`${organization}-${event}-${locationMode}`}
+                      host={data.host || ""}
+                      value={serviceAddress}
+                      onChange={setServiceAddress}
+                      required={locationMode === "at_customer"}
+                      label={
+                        locationMode === "at_customer"
+                          ? "Service address"
+                          : "Meeting address"
+                      }
+                    />
+                    <label>
+                      Access instructions
+                      <textarea
+                        maxLength={1000}
+                        rows={2}
+                        value={accessInstructions}
+                        onChange={(e) => setAccessInstructions(e.target.value)}
+                        placeholder="Gate code, parking, suite entry…"
+                      />
+                    </label>
+                  </>
+                )}
                 <Captcha siteKey={captchaSiteKey} onToken={setCaptcha} resetKey={attempts} />
                 <button>Book appointment</button>
               </>
