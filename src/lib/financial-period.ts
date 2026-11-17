@@ -29,7 +29,14 @@ function parseDate(value: string | null | undefined, label: string) {
   }
   const [y, m, day] = value.split("-").map(Number);
   const d = new Date(Date.UTC(y, m - 1, day));
-  if (Number.isNaN(d.getTime())) throw new Error(`Invalid ${label} date.`);
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getUTCFullYear() !== y ||
+    d.getUTCMonth() !== m - 1 ||
+    d.getUTCDate() !== day
+  ) {
+    throw new Error(`Invalid ${label} date.`);
+  }
   return d;
 }
 

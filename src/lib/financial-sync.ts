@@ -31,13 +31,16 @@ function invoicePaid(invoice: InvoiceCompat) {
   return Boolean(invoice.paid || invoice.status === "paid");
 }
 
-/** Resolve refunded cents via invoice payments → PaymentIntent → Charge (Stripe 23+). */
-async function invoiceRefundedCents(
+type InvoiceRefundInfo = { cents: number; latestRefundAt: Date | null };
+
+/** Resolve refunded cents + latest refund time via invoice payments → PI → Charge (Stripe 23+). */
+async function invoiceRefundInfo(
   stripe: Stripe,
   invoice: InvoiceCompat,
-): Promise<number> {
+): Promise<InvoiceRefundInfo> {
   const creditNotes = Number(invoice.post_payment_credit_notes_amount || 0);
   let fromCharges = 0;
+  let latestRefundAt: Date | null = null;
   const paymentIntentIds = new Set<string>();
   const legacyPi = invoice.payment_intent;
   if (typeof legacyPi === "string") paymentIntentIds.add(legacyPi);
@@ -65,11 +68,22 @@ async function invoiceRefundedCents(
       if (!chargeId) continue;
       const charge = await stripe.charges.retrieve(chargeId);
       fromCharges += Number(charge.amount_refunded || 0);
+      try {
+        const refunds = await stripe.refunds.list({ charge: chargeId, limit: 100 });
+        for (const refund of refunds.data) {
+          if (!refund.created) continue;
+          const at = new Date(refund.created * 1000);
+          if (!latestRefundAt || at > latestRefundAt) latestRefundAt = at;
+        }
+      } catch {
+        // Charge refund list is best-effort; cents still count.
+      }
     } catch {
       // Keep aggregating remaining payment intents.
     }
   }
-  return Math.max(creditNotes, fromCharges);
+  const cents = Math.max(creditNotes, fromCharges);
+  return { cents, latestRefundAt: cents > 0 ? latestRefundAt : null };
 }
 
 function classifyInvoice(invoice: InvoiceCompat, refundedCents: number): string {
@@ -218,15 +232,15 @@ async function upsertInvoice(
     : paid && row.created
       ? new Date(row.created * 1000)
       : null;
-  const refunded = await invoiceRefundedCents(stripe, row);
+  const refund = await invoiceRefundInfo(stripe, row);
   await getPool().query(
     `INSERT INTO private.financial_invoice_snapshots(
        stripe_invoice_id,user_id,customer_id,status,billing_reason,currency,
        amount_paid_cents,amount_due_cents,amount_remaining_cents,amount_refunded_cents,
        subtotal_cents,total_cents,subscription_id,paid,attempted,
-       created_at,paid_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
+       created_at,paid_at,refunded_at,period_start,period_end,hosted_invoice_url,classification,reconciled_at
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,now()
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,now()
      )
      ON CONFLICT(stripe_invoice_id) DO UPDATE SET
        user_id=EXCLUDED.user_id,
@@ -242,6 +256,12 @@ async function upsertInvoice(
        paid=EXCLUDED.paid,
        attempted=EXCLUDED.attempted,
        paid_at=EXCLUDED.paid_at,
+       refunded_at=CASE
+         WHEN EXCLUDED.amount_refunded_cents <= 0 THEN private.financial_invoice_snapshots.refunded_at
+         WHEN EXCLUDED.amount_refunded_cents > private.financial_invoice_snapshots.amount_refunded_cents
+           THEN COALESCE(EXCLUDED.refunded_at, now())
+         ELSE COALESCE(private.financial_invoice_snapshots.refunded_at, EXCLUDED.refunded_at, now())
+       END,
        period_start=EXCLUDED.period_start,
        period_end=EXCLUDED.period_end,
        hosted_invoice_url=EXCLUDED.hosted_invoice_url,
@@ -257,7 +277,7 @@ async function upsertInvoice(
       row.amount_paid || 0,
       row.amount_due || 0,
       row.amount_remaining || 0,
-      refunded,
+      refund.cents,
       row.subtotal ?? null,
       row.total ?? null,
       subscription,
@@ -265,10 +285,11 @@ async function upsertInvoice(
       Boolean(row.attempted),
       new Date(row.created * 1000),
       paidAt,
+      refund.latestRefundAt,
       row.period_start ? new Date(row.period_start * 1000) : null,
       row.period_end ? new Date(row.period_end * 1000) : null,
       row.hosted_invoice_url || null,
-      classifyInvoice(row, refunded),
+      classifyInvoice(row, refund.cents),
     ],
   );
 }

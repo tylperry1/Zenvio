@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -220,15 +220,26 @@ export function FinancialIntelligence() {
   const [tenantQuery, setTenantQuery] = useState("");
   const [tenantPlan, setTenantPlan] = useState("all");
   const [tenantStatus, setTenantStatus] = useState("all");
+  const loadSeq = useRef(0);
+  const displayedPeriod = useRef<(typeof PERIODS)[number][0]>("this_month");
 
   async function load(nextPeriod = period) {
-    const r = await fetch(
-      `/api/admin/financial-intelligence?period=${encodeURIComponent(nextPeriod)}`,
-      { cache: "no-store" },
-    );
-    const d = await r.json();
-    if (!r.ok) throw Error(d.error || "Unable to load financial intelligence.");
-    setData(d);
+    const seq = ++loadSeq.current;
+    try {
+      const r = await fetch(
+        `/api/admin/financial-intelligence?period=${encodeURIComponent(nextPeriod)}`,
+        { cache: "no-store" },
+      );
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error || "Unable to load financial intelligence.");
+      if (seq !== loadSeq.current) return;
+      displayedPeriod.current = nextPeriod;
+      setPeriod(nextPeriod);
+      setData(d);
+    } catch (e) {
+      if (seq === loadSeq.current) setPeriod(displayedPeriod.current);
+      throw e;
+    }
   }
 
   useEffect(() => {
@@ -319,6 +330,7 @@ export function FinancialIntelligence() {
                 onChange={(id) => {
                   setPeriod(id);
                   setBusy(true);
+                  setError("");
                   void load(id)
                     .catch((e) => setError(e instanceof Error ? e.message : "Unable to load."))
                     .finally(() => setBusy(false));

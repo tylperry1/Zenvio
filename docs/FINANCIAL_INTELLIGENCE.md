@@ -42,7 +42,7 @@ Normalization happens at snapshot write time in `subscriptionRevenue()` (`src/li
 `ARR = MRR × 12` when MRR is available. Same classification as MRR.
 
 ### Collected revenue
-Sum of `amount_paid_cents` for invoices in the selected period from `financial_invoice_snapshots`.  
+Sum of `amount_paid_cents` for invoices whose `paid_at` falls in the selected period from `financial_invoice_snapshots`. Refunds attribute to `refunded_at` (Stripe refund created time when available) so a later refund does not rewrite an earlier period’s cash.  
 Failed / open invoices are **not** collected. Refunds are separate.
 
 ### Contribution

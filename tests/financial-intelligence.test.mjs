@@ -39,16 +39,19 @@ test("financial period helpers resolve UTC ranges", () => {
   const custom = resolveFinancialPeriod("custom", "2026-01-01", "2026-01-31", now);
   assert.equal(custom.end.toISOString(), "2026-02-01T00:00:00.000Z");
   assert.throws(() => resolveFinancialPeriod("custom", "2026-02-01", "2026-01-01", now));
+  assert.throws(() => resolveFinancialPeriod("custom", "2026-02-30", "2026-03-03", now));
 });
 
 test("FI migration wires invoice snapshots and sync runs", () => {
   const sql = fs.readFileSync("postgres/migrations/089_financial_intelligence_sync.sql", "utf8");
+  const refundSql = fs.readFileSync("postgres/migrations/090_financial_invoice_refunded_at.sql", "utf8");
   const docs = fs.readFileSync("docs/FINANCIAL_INTELLIGENCE.md", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
   const layout = fs.readFileSync("src/app/admin/financial-intelligence/layout.tsx", "utf8");
   assert.match(sql, /financial_invoice_snapshots/);
   assert.match(sql, /financial_sync_runs/);
+  assert.match(refundSql, /refunded_at/);
   assert.match(docs, /ARR = MRR × 12/);
   assert.match(docs, /never \$0/);
   assert.match(route, /reconcile_stripe_full/);
@@ -243,7 +246,11 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
   assert.equal(overview.kpis.collected.valueCents, null);
   assert.equal(overview.kpis.collected.classification, "unavailable");
   assert.notEqual(overview.kpis.collected.valueCents, 0);
-  assert.equal(overview.planning.costCents, 2300);
+  // Catalog-aware: v3 individual + v3 team(5) + v4 business(4)
+  const expectedPlanning =
+    850 + (1600 + 2 * 350) + (catalog.pricingV4PlanningCostCents.business + catalog.pricingV4PlanningCostCents.business_extra);
+  assert.equal(overview.planning.costCents, expectedPlanning);
+  assert.match(overview.planning.source, /v3 \+ v4/);
   assert.ok(overview.kpis.estimatedContribution.valueCents != null);
 
   const openai = overview.providers.find((p) => p.provider === "openai");
@@ -276,7 +283,76 @@ test("UI never renders money(0) for null financial metrics", () => {
   assert.match(src, /Sync Stripe/);
   assert.match(src, /not verified profit/);
   assert.match(src, /Export CSV/);
+  assert.match(src, /loadSeq/);
+  assert.match(src, /displayedPeriod/);
   assert.doesNotMatch(src, /money\(data\.overview\.planning\.costCents\)/);
+});
+
+test("addon refunds stay visible when no paid orders remain", async () => {
+  const fi = load("src/lib/financial-intelligence.ts", {
+    "./db": {
+      databaseConfigured: () => true,
+      getPool: () => ({
+        query: async (sql) => {
+          if (sql.includes("paying_accounts"))
+            return {
+              rows: [
+                {
+                  currency: "usd",
+                  mrr_cents: 1000,
+                  paying_accounts: 1,
+                  complete_snapshots: 1,
+                  incomplete: 0,
+                  snapshots: 1,
+                  last_reconciled_at: "2026-11-16T00:00:00Z",
+                },
+              ],
+            };
+          if (sql.includes("financial_invoice_snapshots")) return { rows: [] };
+          if (sql.includes("FROM private.subscriptions s")) return { rows: [] };
+          if (sql.includes("subscription_addon_orders"))
+            return {
+              rows: [
+                {
+                  addon_paid_cents: 0,
+                  addon_refunded_cents: 2500,
+                  paid_orders: 0,
+                  refunded_orders: 2,
+                },
+              ],
+            };
+          if (sql.includes("NOT EXISTS")) return { rows: [{ n: 0 }] };
+          return { rows: [] };
+        },
+      }),
+    },
+    "./provider-economics": {
+      providerEconomics: async () => ({
+        period: "fixture",
+        providerReservations: [],
+        otherProviderEvents: [],
+        revenue: [],
+        accountsByPlan: [],
+        anomalies: [],
+        planning: { costCents: 0, source: "planning" },
+        coverage: "fixture",
+      }),
+    },
+    "./pricing-v4-catalog.mjs": catalog,
+    "./subscription-offers.mjs": offers,
+    "./financial-period": load("src/lib/financial-period.ts"),
+    "./financial-sync": {
+      latestFinancialSyncRuns: async () => [],
+      latestInvoiceSyncCoverage: async () => ({
+        completeCoverage: true,
+        lastAt: "2026-11-16T00:00:00Z",
+        status: "succeeded",
+      }),
+    },
+  });
+  const overview = await fi.financialIntelligenceOverview({ periodId: "this_month" });
+  assert.equal(overview.cash.addonPaidOrders, 0);
+  assert.equal(overview.cash.addonRefundedCents, 2500);
 });
 
 test("cash stays partial without complete invoice coverage and ignores non-USD", async () => {
@@ -383,8 +459,12 @@ test("sync helpers page by user_id and avoid Invoice.charge expand", () => {
   assert.match(sync, /invoicePayments\.list/);
   assert.match(sync, /ORDER BY user_id ASC/);
   assert.match(sync, /completeCoverage/);
+  assert.match(sync, /refunded_at/);
+  assert.match(sync, /refunds\.list/);
   assert.doesNotMatch(sync, /expand:\s*\[["']data\.charge["']\]/);
   const pe = fs.readFileSync("src/lib/provider-economics.ts", "utf8");
   assert.match(pe, /created_at >= \$1::timestamptz/);
   assert.match(pe, /period >= \$1::date/);
+  const overviewSrc = fs.readFileSync("src/lib/financial-intelligence.ts", "utf8");
+  assert.match(overviewSrc, /coalesce\(refunded_at, paid_at, created_at\)/);
 });

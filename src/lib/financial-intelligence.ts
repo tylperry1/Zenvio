@@ -244,16 +244,43 @@ export async function financialIntelligenceOverview(input?: {
       db.query(
         `SELECT
            currency,
-           coalesce(sum(amount_paid_cents) FILTER (WHERE paid AND classification IN ('cash','refunded')), 0)::int AS collected_cents,
-           coalesce(sum(amount_refunded_cents), 0)::int AS refunded_cents,
-           coalesce(sum(amount_remaining_cents) FILTER (WHERE status = 'open'), 0)::int AS outstanding_cents,
-           count(*) FILTER (WHERE status = 'open')::int AS open_invoices,
-           count(*) FILTER (WHERE classification = 'failed' OR (attempted AND status = 'open' AND amount_remaining_cents > 0))::int AS failed_or_open_attempts,
-           count(*)::int AS invoices,
+           coalesce(sum(amount_paid_cents) FILTER (
+             WHERE paid AND classification IN ('cash','refunded')
+               AND coalesce(paid_at, created_at) >= $1
+               AND coalesce(paid_at, created_at) < $2
+           ), 0)::int AS collected_cents,
+           coalesce(sum(amount_refunded_cents) FILTER (
+             WHERE amount_refunded_cents > 0
+               AND coalesce(refunded_at, paid_at, created_at) >= $1
+               AND coalesce(refunded_at, paid_at, created_at) < $2
+           ), 0)::int AS refunded_cents,
+           coalesce(sum(amount_remaining_cents) FILTER (
+             WHERE status = 'open'
+               AND coalesce(paid_at, created_at) >= $1
+               AND coalesce(paid_at, created_at) < $2
+           ), 0)::int AS outstanding_cents,
+           count(*) FILTER (
+             WHERE status = 'open'
+               AND coalesce(paid_at, created_at) >= $1
+               AND coalesce(paid_at, created_at) < $2
+           )::int AS open_invoices,
+           count(*) FILTER (
+             WHERE (classification = 'failed' OR (attempted AND status = 'open' AND amount_remaining_cents > 0))
+               AND coalesce(paid_at, created_at) >= $1
+               AND coalesce(paid_at, created_at) < $2
+           )::int AS failed_or_open_attempts,
+           count(*) FILTER (
+             WHERE coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2
+                OR (amount_refunded_cents > 0
+                    AND coalesce(refunded_at, paid_at, created_at) >= $1
+                    AND coalesce(refunded_at, paid_at, created_at) < $2)
+           )::int AS invoices,
            max(reconciled_at) AS last_reconciled_at
          FROM private.financial_invoice_snapshots
-         WHERE coalesce(paid_at, created_at) >= $1
-           AND coalesce(paid_at, created_at) < $2
+         WHERE (coalesce(paid_at, created_at) >= $1 AND coalesce(paid_at, created_at) < $2)
+            OR (amount_refunded_cents > 0
+                AND coalesce(refunded_at, paid_at, created_at) >= $1
+                AND coalesce(refunded_at, paid_at, created_at) < $2)
          GROUP BY currency`,
         [period.start.toISOString(), period.end.toISOString()],
       ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
@@ -476,16 +503,7 @@ export async function financialIntelligenceOverview(input?: {
         ? "partial"
         : "verified";
 
-  // Planning contribution uses preliminary budgets — never claim verified profit.
-  const planningCost = economics.planning.costCents;
-  const planningCostValue = planningCost > 0 ? planningCost : null;
-  const contributionEstimate =
-    mrrCents == null || planningCostValue == null ? null : mrrCents - planningCostValue;
-  const contributionVerified =
-    mrrClassification === "verified" && operatingClassification === "verified" && operatingVerified != null
-      ? mrrCents! - operatingVerified
-      : null;
-
+  // Catalog-aware planning budgets (v3 + v4) — never claim verified profit.
   const tenantRows = tenants.rows.map((t) => {
     const plan = String(t.plan);
     const seats = Number(t.seats) || 1;
@@ -523,6 +541,19 @@ export async function financialIntelligenceOverview(input?: {
       },
     };
   });
+  let planningKnown = false;
+  const planningCost = tenantRows.reduce((n, t) => {
+    if (t.estimatedOperatingCostCents == null) return n;
+    planningKnown = true;
+    return n + t.estimatedOperatingCostCents;
+  }, 0);
+  const planningCostValue = planningKnown && planningCost > 0 ? planningCost : null;
+  const contributionEstimate =
+    mrrCents == null || planningCostValue == null ? null : mrrCents - planningCostValue;
+  const contributionVerified =
+    mrrClassification === "verified" && operatingClassification === "verified" && operatingVerified != null
+      ? mrrCents! - operatingVerified
+      : null;
 
   // Pricing discrepancy: mapped Stripe prices vs published catalog amounts (metadata only — no Stripe mutation).
   const publishedByPlan = new Map<string, { monthly: number | null; annual: number | null; version: string }>();
@@ -802,7 +833,7 @@ export async function financialIntelligenceOverview(input?: {
       source: "private.financial_invoice_snapshots",
       lastReconciledAt: usdCash?.last_reconciled_at || null,
       addonRevenueCents: addonOrders > 0 ? addonPaid : addonOrders === 0 ? 0 : null,
-      addonRefundedCents: addonOrders > 0 ? addonRefunded : 0,
+      addonRefundedCents: addonRefunded,
       addonPaidOrders: addonOrders,
       oneTimeNote:
         "Add-on checkout payments are one-time (or separately recurring add-ons) and are never included in MRR.",
@@ -828,10 +859,11 @@ export async function financialIntelligenceOverview(input?: {
         mrrCents && mrrCents > 0 && planningCostValue != null
           ? (mrrCents - planningCostValue) / mrrCents
           : null,
+      source: "Catalog-aware preliminary planning budgets (v3 + v4), not provider invoices",
       note:
         planningCostValue == null
           ? "No preliminary planning allocation for current active plan mix — shown as unavailable, not $0.00."
-          : economics.planning.source,
+          : "Catalog-aware preliminary planning budgets (v3 + v4), not provider invoices",
     },
     accountsByPlan: economics.accountsByPlan,
     anomalies: economics.anomalies,
