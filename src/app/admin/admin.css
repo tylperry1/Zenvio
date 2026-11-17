@@ -421,10 +421,11 @@
   width:100%;
 }
 .admin-v3.acx .soc-popout .sp-console{
-  min-height:calc(100vh - 220px);
+  min-height:max(18rem,calc(100vh - 220px));
 }
 .admin-v3.acx .soc-popout .sp-queue .sp-list{
-  max-height:calc(100vh - 280px);
+  /* Keep a usable list when the window is short or zoomed; never clamp to 0. */
+  max-height:max(12rem,calc(100vh - 280px));
 }
 @media(max-width:900px){.admin-v3.acx .soc-grid{grid-template-columns:1fr}}
 .admin-v3.acx .acx-role{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--action-hover);background:var(--surface-subtle);border:1px solid #dbe3ff;padding:5px 10px;border-radius:999px;white-space:nowrap}
