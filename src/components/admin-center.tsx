@@ -5,7 +5,8 @@ import { Icon, Logo } from "./icons";
 import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminUserActions } from "./admin-user-actions";
-import { useCan } from "./admin-access";
+import { useAdminAccess, useCan } from "./admin-access";
+import { money } from "@/lib/billing-types";
 type Account = {
   id: string;
   name: string;
@@ -86,7 +87,32 @@ type Insights = {
   };
 };
 type AdminView = "overview" | "accounts" | "audit";
+type CommandFinance = {
+  mrrCents: number | null;
+  mrrClass: string;
+  arrCents: number | null;
+  arrClass: string;
+  collectedCents: number | null;
+  collectedClass: string;
+  refundedCents: number | null;
+  activePaying: number | null;
+  cashCoverage: string | null;
+  alerts: { id: string; severity: string; title: string }[];
+};
+type CommandOps = {
+  healthOk: number;
+  healthTotal: number;
+  integrationsConfigured: number;
+  integrationsTotal: number;
+  emailPending: number | null;
+  emailFailed: number | null;
+};
 const number = (value: number) => Number(value).toLocaleString();
+const metricLabel = (cents: number | null, classification: string) => {
+  if (cents == null || classification === "unavailable" || classification === "unknown")
+    return "Unavailable";
+  return money(cents);
+};
 const date = (s: string | null) =>
   s
     ? new Date(s).toLocaleString("en-US", {
@@ -102,9 +128,12 @@ export function AdminCenter({
   initialView?: AdminView;
 }) {
   const can = useCan();
+  const access = useAdminAccess();
   // Employees only load the areas the master admin delegated to them.
   const canAccounts = can("accounts"),
-    canAudit = can("audit");
+    canAudit = can("audit"),
+    canHealth = can("health"),
+    isMaster = access?.role === "master_admin";
   const [view, setView] = useState<AdminView>(initialView),
     [page, setPage] = useState(0),
     [search, setSearch] = useState(""),
@@ -112,7 +141,9 @@ export function AdminCenter({
     [revision, setRevision] = useState(0);
   const [overview, setOverview] = useState<Overview | null>(null),
     [audit, setAudit] = useState<Audit | null>(null),
-    [insights, setInsights] = useState<Insights | null>(null);
+    [insights, setInsights] = useState<Insights | null>(null),
+    [finance, setFinance] = useState<CommandFinance | null>(null),
+    [ops, setOps] = useState<CommandOps | null>(null);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [forbidden, setForbidden] = useState(false),
@@ -158,7 +189,7 @@ export function AdminCenter({
         return data;
       }
       try {
-        const [accounts, activity, totals] = await Promise.all([
+        const [accounts, activity, totals, financeRaw, opsRaw] = await Promise.all([
           canAccounts
             ? read(
                 `/api/admin?view=accounts&page=${view === "accounts" ? page : 0}&search=${encodeURIComponent(view === "accounts" ? query : "")}`,
@@ -195,11 +226,79 @@ export function AdminCenter({
                 },
                 services: { database: true, authentication: true, account_email: false },
               },
+          isMaster && view === "overview"
+            ? fetch("/api/admin/financial-intelligence", {
+                cache: "no-store",
+                signal: controller.signal,
+              }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null)
+            : Promise.resolve(null),
+          (isMaster || canHealth) && view === "overview"
+            ? fetch("/api/admin/operations", {
+                cache: "no-store",
+                signal: controller.signal,
+              }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null)
+            : Promise.resolve(null),
         ]);
         if (controller.signal.aborted) return;
         setOverview(accounts);
         setAudit(activity);
         setInsights(totals);
+        if (financeRaw?.overview?.kpis) {
+          const k = financeRaw.overview.kpis;
+          const subs = financeRaw.overview.subscriptions || {};
+          const collectedMeta = k.collected as {
+            valueCents?: number | null;
+            classification?: string;
+            refundedCents?: number | null;
+            completeCoverage?: boolean;
+          };
+          setFinance({
+            mrrCents: k.mrr?.valueCents ?? null,
+            mrrClass: String(k.mrr?.classification || "unavailable"),
+            arrCents: k.arr?.valueCents ?? null,
+            arrClass: String(k.arr?.classification || "unavailable"),
+            collectedCents: collectedMeta.valueCents ?? null,
+            collectedClass: String(collectedMeta.classification || "unavailable"),
+            refundedCents: collectedMeta.refundedCents ?? null,
+            activePaying: typeof subs.active === "number" ? subs.active : null,
+            cashCoverage:
+              typeof collectedMeta.completeCoverage === "boolean"
+                ? collectedMeta.completeCoverage
+                  ? "complete"
+                  : "incomplete"
+                : null,
+            alerts: Array.isArray(financeRaw.overview.alerts)
+              ? financeRaw.overview.alerts.slice(0, 4).map((a: { id: string; severity: string; title: string }) => ({
+                  id: a.id,
+                  severity: a.severity,
+                  title: a.title,
+                }))
+              : [],
+          });
+        } else {
+          setFinance(null);
+        }
+        if (opsRaw?.health && opsRaw?.integrations) {
+          const healthEntries = Object.values(opsRaw.health) as { ok?: boolean }[];
+          setOps({
+            healthOk: healthEntries.filter((h) => h?.ok).length,
+            healthTotal: healthEntries.length,
+            integrationsConfigured: (opsRaw.integrations as { configured?: boolean }[]).filter(
+              (i) => i.configured,
+            ).length,
+            integrationsTotal: (opsRaw.integrations as unknown[]).length,
+            emailPending:
+              typeof opsRaw.emailDelivery?.pending === "number"
+                ? opsRaw.emailDelivery.pending
+                : null,
+            emailFailed:
+              typeof opsRaw.emailDelivery?.failed === "number"
+                ? opsRaw.emailDelivery.failed
+                : null,
+          });
+        } else {
+          setOps(null);
+        }
         setRefreshedAt(
           new Date().toLocaleTimeString([], {
             hour: "numeric",
@@ -217,7 +316,7 @@ export function AdminCenter({
     }
     void load();
     return () => controller.abort();
-  }, [view, page, query, revision, canAccounts, canAudit]);
+  }, [view, page, query, revision, canAccounts, canAudit, canHealth, isMaster]);
   async function openAccount(id: string) {
     setDetailLoading(true);
     setDetailError("");
@@ -292,7 +391,7 @@ export function AdminCenter({
     chartMax = Math.max(1, ...chart.map((d) => Number(d[metric]))),
     chartTotal = chart.reduce((sum, d) => sum + Number(d[metric]), 0);
   const titles = {
-    overview: "Platform overview",
+    overview: "Command Center",
     accounts: "Accounts & workspaces",
     audit: "Activity & audit log",
   };
@@ -311,7 +410,7 @@ export function AdminCenter({
               ? "Activity log"
               : view === "accounts"
                 ? "Accounts"
-                : "Overview"
+                : "Command Center"
           }
           actions={
             <button
@@ -326,11 +425,11 @@ export function AdminCenter({
         <main className="av-content" aria-busy={loading}>
           <div className="av-page-heading">
             <div>
-              <p className="av-eyebrow">ZENVIO CONTROL CENTER</p>
+              <p className="av-eyebrow">MASTER ADMIN</p>
               <h1>{titles[view]}</h1>
               <p>
                 {view === "overview"
-                  ? "Monitor adoption, scheduling activity, account health, and platform operations."
+                  ? "Live platform, revenue, and integration signals from Zenvio’s databases — never placeholder success."
                   : view === "accounts"
                     ? "Find a workspace, review its booking links, and keep the platform moving."
                     : "Review the who, what, and why behind platform administration."}
@@ -422,6 +521,124 @@ export function AdminCenter({
                         </article>
                       ))}
                     </section>
+                    {view === "overview" && (finance || ops) && (
+                      <section className="av-stats av-command-strip" aria-label="Revenue and integrations">
+                        {finance && (
+                          <>
+                            <article className="av-stat">
+                              <div>
+                                <span>MRR</span>
+                                <Icon name="card" size={18} />
+                              </div>
+                              <strong>{metricLabel(finance.mrrCents, finance.mrrClass)}</strong>
+                              <p>
+                                Classification: {finance.mrrClass}
+                                {finance.activePaying != null
+                                  ? ` · ${number(finance.activePaying)} active subscriptions`
+                                  : ""}
+                              </p>
+                            </article>
+                            <article className="av-stat">
+                              <div>
+                                <span>ARR</span>
+                                <Icon name="spark" size={18} />
+                              </div>
+                              <strong>{metricLabel(finance.arrCents, finance.arrClass)}</strong>
+                              <p>Derived as MRR × 12 when MRR is reconciled</p>
+                            </article>
+                            <article className="av-stat">
+                              <div>
+                                <span>Collected (period)</span>
+                                <Icon name="card" size={18} />
+                              </div>
+                              <strong>
+                                {metricLabel(finance.collectedCents, finance.collectedClass)}
+                              </strong>
+                              <p>
+                                {finance.refundedCents != null
+                                  ? `${money(finance.refundedCents)} refunded`
+                                  : "Refunds unavailable"}
+                                {finance.cashCoverage
+                                  ? ` · coverage ${finance.cashCoverage}`
+                                  : ""}
+                              </p>
+                            </article>
+                          </>
+                        )}
+                        {ops && (
+                          <article className="av-stat">
+                            <div>
+                              <span>Integrations & health</span>
+                              <Icon name="plug" size={18} />
+                            </div>
+                            <strong>
+                              {ops.integrationsConfigured}/{ops.integrationsTotal} connected
+                            </strong>
+                            <p>
+                              Health checks {ops.healthOk}/{ops.healthTotal} ok
+                              {ops.emailPending != null
+                                ? ` · ${number(ops.emailPending)} email pending`
+                                : ""}
+                              {ops.emailFailed != null && ops.emailFailed > 0
+                                ? ` · ${number(ops.emailFailed)} failed`
+                                : ""}
+                            </p>
+                          </article>
+                        )}
+                      </section>
+                    )}
+                    {view === "overview" && finance && finance.alerts.length > 0 && (
+                      <section className="av-panel" aria-label="Financial alerts">
+                        <div className="av-panel-heading">
+                          <div>
+                            <h2>Financial alerts</h2>
+                            <p>From Financial Intelligence — incomplete data stays incomplete</p>
+                          </div>
+                          <Link className="button secondary small" href="/admin/financial-intelligence">
+                            Open FI
+                          </Link>
+                        </div>
+                        <ul className="av-command-alerts">
+                          {finance.alerts.map((a) => (
+                            <li key={a.id} data-severity={a.severity}>
+                              <b>{a.title}</b>
+                              <span>{a.severity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                    {view === "overview" && (
+                      <section className="av-panel av-command-links" aria-label="Admin destinations">
+                        <div className="av-panel-heading">
+                          <div>
+                            <h2>Jump to a console area</h2>
+                            <p>Related modules stay on their existing routes — connected, not copied</p>
+                          </div>
+                        </div>
+                        <div className="av-command-link-grid">
+                          {[
+                            ["/admin?view=accounts", "Accounts", canAccounts],
+                            ["/admin/billing", "Billing center", isMaster],
+                            ["/admin/financial-intelligence", "Financial Intelligence", isMaster],
+                            ["/admin/operations?section=subscriptions", "Subscriptions", can("subscriptions")],
+                            ["/admin/support", "Support inbox", can("support")],
+                            ["/admin/operations?section=integrations", "Connections", can("integrations")],
+                            ["/admin/economics", "Provider economics", isMaster],
+                            ["/admin/launch", "Launch & flags", isMaster],
+                            ["/admin/operations?section=health", "System health", canHealth],
+                            ["/admin?view=audit", "Audit log", canAudit],
+                          ]
+                            .filter(([, , ok]) => ok)
+                            .map(([href, label]) => (
+                              <Link key={String(href)} className="av-command-link" href={String(href)}>
+                                {label}
+                                <Icon name="arrow" size={14} />
+                              </Link>
+                            ))}
+                        </div>
+                      </section>
+                    )}
                     {view === "overview" ? (
                       <>
                         <div className="av-overview-grid">

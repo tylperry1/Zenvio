@@ -281,11 +281,11 @@ try {
 
   await adminMenu.setViewportSize({width:1440,height:1000});
   await adminMenu.goto(origin+"/admin/suppliers");
-  const commerceMenu=adminMenu.getByRole("navigation",{name:"Commerce",exact:true});
-  assert.equal(await commerceMenu.locator('a[href="/admin/gelato"]').count(),0);
+  const platformMenu=adminMenu.getByRole("navigation",{name:"Platform & Modules",exact:true});
+  assert.equal(await platformMenu.locator('a[href="/admin/gelato"]').count(),0);
   await adminMenu.getByRole("navigation",{name:"Supplier sections"}).getByRole("link",{name:"Integrations",exact:true}).click();
   await adminMenu.getByRole("heading",{name:"Gelato",exact:true}).waitFor();
-  assert.equal(await commerceMenu.getByRole("link",{name:"Suppliers & pricing",exact:true}).getAttribute("aria-current"),"page");
+  assert.equal(await platformMenu.getByRole("link",{name:"Suppliers & fulfillment",exact:true}).getAttribute("aria-current"),"page");
   await adminMenu.screenshot({path:"test-results/commerce-supplier-integrations-desktop.png",fullPage:true});
   await adminMenu.setViewportSize({width:390,height:844});
   assert.ok(await adminMenu.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

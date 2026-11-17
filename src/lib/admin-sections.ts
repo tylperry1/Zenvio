@@ -40,7 +40,7 @@ export function isStaffPermission(value: unknown): value is StaffPermission {
 }
 
 
-// Where each console area lives, in navigation order.
+// Where each console area lives, in navigation order (Command Center IA).
 export const sectionHome: Record<StaffPermission, string> = {
   accounts: "/admin",
   "early-access": "/admin/early-access",

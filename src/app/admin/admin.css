@@ -888,3 +888,15 @@
 .cx.ds-root .cx-toolbar{align-items:center}
 .cx.ds-root .ds-search{min-width:min(260px,100%)}
 @media(max-width:720px){.as-toolbar{flex-direction:column;align-items:stretch}.as-access-grid{grid-template-columns:1fr}.as-footer{flex-wrap:wrap}}
+
+/* Command Center */
+.admin-v3.acx .av-command-strip{margin-top:4px}
+.admin-v3.acx .av-command-alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.admin-v3.acx .av-command-alerts li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface-subtle)}
+.admin-v3.acx .av-command-alerts li[data-severity=warning]{border-color:#d4a01755}
+.admin-v3.acx .av-command-alerts li[data-severity=danger]{border-color:#c23b3b55}
+.admin-v3.acx .av-command-alerts span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.admin-v3.acx .av-command-link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.admin-v3.acx .av-command-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-card);color:var(--text-primary);font-size:13px;font-weight:600;text-decoration:none}
+.admin-v3.acx .av-command-link:hover{border-color:var(--action-primary);color:var(--action-primary)}
+@media(max-width:700px){.admin-v3.acx .av-command-link-grid{grid-template-columns:1fr}}

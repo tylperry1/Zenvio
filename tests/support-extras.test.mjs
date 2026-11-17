@@ -37,7 +37,10 @@ test("staff reply status hand-off only accepts pending or resolved and keeps int
   assert.match(lib, /first_response_at=CASE WHEN \$3 AND NOT \$2/);
 });
 
-test("customer service navigation groups support and suggestions", () => {
-  const nav = read("src/components/admin-navigation.tsx");
-  assert.match(nav, /label: "Customer service",\s*items: \[\s*\{ id: "support"[^}]*permission: "support"[^}]*\},\s*\{ id: "feedback"[^}]*permission: "feedback"/);
+test("communications navigation groups support and suggestions", () => {
+  const nav = read("src/lib/admin-console-nav.ts");
+  assert.match(
+    nav,
+    /label: "Communications"[\s\S]*?id: "support"[\s\S]*?permission: "support"[\s\S]*?id: "feedback"[\s\S]*?permission: "feedback"/,
+  );
 });
