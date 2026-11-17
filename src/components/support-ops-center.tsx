@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   supportCategoryLabel,
   supportStatusLabels,
@@ -110,6 +110,7 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
   const [q, setQ] = useState("");
   const [view, setView] = useState("");
   const [status, setStatus] = useState("active");
+  const queueReq = useRef(0);
 
   const loadDash = useCallback(async () => {
     const r = await fetch("/api/admin/support-ops?view=dashboard", { cache: "no-store" });
@@ -120,11 +121,14 @@ export function SupportOpsCenter({ popout = false }: { popout?: boolean }) {
   }, []);
 
   const loadQueue = useCallback(async (page = 0, append = false) => {
+    const reqId = ++queueReq.current;
     const r = await fetch(
       `/api/admin/support?${new URLSearchParams({ view, status, q, page: String(page) })}`,
       { cache: "no-store" },
     );
     const d = await r.json().catch(() => ({}));
+    // Drop superseded responses when filters change mid-flight.
+    if (reqId !== queueReq.current) return;
     if (!r.ok) throw new Error(d.error || "Queue unavailable.");
     setQueuePage(page);
     setQueueHasMore(!!d.hasMore);

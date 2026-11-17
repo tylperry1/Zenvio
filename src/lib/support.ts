@@ -462,13 +462,19 @@ export async function supportAttachment(request: NextRequest, staff: boolean, up
   if (!upload) {
     const message = request.nextUrl.searchParams.get("message") ?? "";
     if (!/^\d{1,18}$/.test(message)) throw new ApiError("Invalid attachment.");
+    // Downloads use the same capability gate as the inbox; internal note files need notes.
+    const caps = staff
+      ? await agentCapabilities(getPool(), current.token, await adminAccess(current.token))
+      : ([] as SupportCapability[]);
+    if (staff) requireCap(caps, "inbox");
     const result = await getPool().query(
-      `SELECT a.data,a.content_type,a.filename FROM private.support_attachments a
+      `SELECT a.data,a.content_type,a.filename,m.internal FROM private.support_attachments a
        JOIN private.support_messages m ON m.id=a.message_id JOIN private.support_tickets t ON t.id=m.ticket_id
        WHERE m.id=$1 AND ($2::boolean OR (t.user_id=$3 AND NOT m.internal))`,
       [message, staff, current.token],
     );
     if (!result.rowCount) throw new ApiError("Attachment not found.", 404);
+    if (staff && result.rows[0].internal) requireCap(caps, "notes");
     return attachmentResponse(result.rows[0]);
   }
   if (!(await allowRequest("support-upload", current.token, 20, 3600))) throw new ApiError("Too many uploads. Try again later.", 429);

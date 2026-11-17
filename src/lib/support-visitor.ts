@@ -38,22 +38,10 @@ async function visitorTicket(token: string) {
     )
   ).rows[0];
   if (!row) return null;
-  // Follow merge chain so visitor replies never land on a hidden source ticket.
-  let id = row.id as string;
-  let merged = row.merged_into as string | null;
-  for (let i = 0; i < 10 && merged; i++) {
-    const next = (
-      await getPool().query(
-        "SELECT id,subject,status,category,rating,created_at,updated_at,visitor_name,visitor_email,customer_read,merged_into FROM private.support_tickets WHERE id=$1",
-        [merged],
-      )
-    ).rows[0];
-    if (!next) break;
-    id = next.id;
-    merged = next.merged_into;
-    Object.assign(row, next);
-  }
-  row.id = id;
+  // Source-ticket tokens must not open the survivor. Matching visitor emails are
+  // unverified, so following a merge chain would let a spoofed-email token read
+  // another visitor's conversation after staff merge.
+  if (row.merged_into) return null;
   return row;
 }
 
@@ -157,7 +145,15 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
   const pendingPushes: Awaited<ReturnType<typeof queueStaffAlert>>["pushes"] = [];
   try {
     await db.query("BEGIN");
-    await db.query("SELECT id FROM private.support_tickets WHERE id=$1 FOR UPDATE", [ticket.id]);
+    // Re-check merge state under the row lock so a concurrent staff merge cannot
+    // leave this reply on a now-hidden source ticket.
+    const locked = (
+      await db.query("SELECT id, merged_into, status FROM private.support_tickets WHERE id=$1 FOR UPDATE", [ticket.id])
+    ).rows[0] as { id: string; merged_into: string | null; status: string } | undefined;
+    if (!locked) throw new ApiError("This conversation link isn’t valid.", 404);
+    if (locked.merged_into) {
+      throw new ApiError("This conversation was merged. Refresh the page and try again.", 409);
+    }
     if (input.action === "message") {
       const content = string(input.content, "message", 4000);
       const reference = uuid(input.reference);
@@ -178,7 +174,7 @@ export async function visitorPost(request: NextRequest): Promise<{ data: unknown
     } else if (input.action === "rate") {
       const rating = Number(input.rating);
       if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError("Choose a rating from 1 to 5.");
-      if (ticket.status !== "resolved" && ticket.status !== "closed") {
+      if (locked.status !== "resolved" && locked.status !== "closed") {
         throw new ApiError("You can rate a conversation once it’s resolved.", 409);
       }
       await db.query("UPDATE private.support_tickets SET rating=$2 WHERE id=$1", [ticket.id, rating]);

@@ -38,7 +38,7 @@ test("Greptile P1 guards: ticket-before-dashboard, merge safety, empty caps, pus
   const notify = read("src/lib/support-notify.ts");
   const bell = read("src/components/admin-alert-bell.tsx");
   assert.match(ops, /Ticket detail must win over the dashboard default/);
-  assert.match(ops, /same customer/);
+  assert.match(ops, /same signed-in customer/);
   assert.match(ops, /already merged/);
   assert.match(ops, /No agent row: defaults\. Empty stored array/);
   assert.match(lib, /status NOT IN \('resolved','closed'\) AND merged_into IS NULL/);
@@ -46,6 +46,27 @@ test("Greptile P1 guards: ticket-before-dashboard, merge safety, empty caps, pus
   assert.match(lib, /requireCap\(caps,/);
   assert.match(notify, /push: false/);
   assert.match(bell, /Permission alone is not registration/);
+});
+
+test("CodeRabbit majors: attachment inbox gate, merge lock, stale queue, closed SLA refresh", () => {
+  const lib = read("src/lib/support.ts");
+  const visitor = read("src/lib/support-visitor.ts");
+  const ops = read("src/lib/support-ops.ts");
+  const sla = read("src/lib/support-sla.ts");
+  const ui = read("src/components/support-ops-center.tsx");
+  assert.match(lib, /Downloads use the same capability gate as the inbox/);
+  assert.match(lib, /if \(staff\) requireCap\(caps, "inbox"\)/);
+  assert.match(lib, /if \(staff && result\.rows\[0\]\.internal\) requireCap\(caps, "notes"\)/);
+  assert.match(visitor, /Source-ticket tokens must not open the survivor/);
+  assert.match(visitor, /if \(row\.merged_into\) return null/);
+  assert.match(visitor, /Re-check merge state under the row lock/);
+  assert.match(visitor, /This conversation was merged\. Refresh the page and try again/);
+  assert.match(ops, /Visitor emails are self-asserted and unverified/);
+  assert.doesNotMatch(ops, /sameVisitor/);
+  assert.match(sla, /Include completed tickets so a pre-deadline false flag/);
+  assert.match(sla, /OR closed_at IS NOT NULL/);
+  assert.match(ui, /queueReq/);
+  assert.match(ui, /Drop superseded responses when filters change mid-flight/);
 });
 
 test("CodeRabbit majors: masking, customer status lock, push allowlist, SW ready", () => {

@@ -416,15 +416,12 @@ export async function supportOpsPost(request: NextRequest) {
       if (src.merged_into || tgt.merged_into) {
         throw new ApiError("Cannot merge tickets that were already merged.", 409);
       }
+      // Visitor emails are self-asserted and unverified — matching addresses alone
+      // must not authorize a merge (that would let a spoofed-email token reach the
+      // survivor). Only signed-in account ownership is a shared verified identity.
       const sameUser = src.user_id && tgt.user_id && src.user_id === tgt.user_id;
-      const sameVisitor =
-        !src.user_id &&
-        !tgt.user_id &&
-        src.visitor_email &&
-        tgt.visitor_email &&
-        String(src.visitor_email).toLowerCase() === String(tgt.visitor_email).toLowerCase();
-      if (!sameUser && !sameVisitor) {
-        throw new ApiError("Tickets can only be merged when they belong to the same customer.", 400);
+      if (!sameUser) {
+        throw new ApiError("Tickets can only be merged when they belong to the same signed-in customer.", 400);
       }
       await db.query(
         "UPDATE private.support_messages SET ticket_id=$2 WHERE ticket_id=$1",
