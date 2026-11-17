@@ -22,8 +22,8 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 :is(.shell,.av-frame-content) .ui-card-head p{max-width:76ch;line-height:1.6}
 :is(.shell,.av-frame-content) .ui-table-wrap{max-width:100%;overflow:auto}
 :is(.shell,.av-frame-content) .ui-table td{overflow-wrap:anywhere}
-.premium-admin{width:100%;max-width:1240px;margin:0 auto;display:grid;gap:24px;color:var(--text-primary)}
-.premium-admin .page-header{margin:0;align-items:flex-start;gap:20px}
+.premium-admin{width:100%;max-width:1240px;margin:0 auto;display:grid;gap:24px;color:var(--text-primary);min-width:0}
+.premium-admin .page-header{margin:0;align-items:flex-start;gap:20px;min-width:0}
 .premium-admin .page-header h1{font-size:clamp(25px,3vw,32px);letter-spacing:-.035em;line-height:1.2;margin:6px 0 10px;color:var(--text-primary)}
 .premium-admin .page-header p{max-width:70ch;line-height:1.6;color:var(--text-secondary);font-size:14px;margin:0}
 .premium-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)}
@@ -82,10 +82,13 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .command-summary>div+div{border-left:0;border-top:1px solid var(--border)}
 .command-summary>div{padding:16px 20px}.command-summary span{margin-bottom:5px}
 .premium-admin .ui-card-head{padding:18px 20px}.premium-admin .ui-card-body{padding:8px 20px 18px}
+.premium-setting-row{align-items:flex-start;gap:12px}
+.premium-setting-row>div{overflow-wrap:anywhere}
 .premium-actions{align-items:stretch;flex-direction:column;gap:12px}
 .premium-button-group{display:grid;grid-template-columns:minmax(0,1fr)}
 .spend-meter{grid-template-columns:minmax(0,1fr)}.spend-meter progress{grid-row:auto}
 .release-billing>section{padding:18px}
+.platform-social-row{grid-template-columns:minmax(0,1fr)}
 }
 
 .release-billing.premium-admin{gap:0}

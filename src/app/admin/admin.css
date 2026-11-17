@@ -374,7 +374,7 @@
 .admin-v3.acx .acx-workspace:hover{color:var(--action-primary)}
 
 @media(max-width:760px){
-.admin-v3.admin-v3.admin-v3.acx{background:var(--surface-page)}
+.admin-v3.admin-v3.admin-v3.acx{background:var(--surface-page);overflow-x:clip}
 .admin-v3.acx .acx-sidebar{position:sticky!important;top:0;width:100%;height:auto;max-height:100svh;z-index:40;border-right:0}
 .admin-v3.acx .acx-brand-row{height:58px;padding:0 16px}
 .admin-v3.acx .acx-menu-toggle{display:inline-flex}
@@ -382,10 +382,19 @@
 .admin-v3.acx .acx-sidebar[data-open=true] .acx-drawer{display:flex;max-height:calc(100svh - 58px)}
 .admin-v3.acx .acx-group-toggle{min-height:40px}
 .admin-v3.acx .acx-sidebar nav>a,.admin-v3.acx .acx-sidebar nav>button{min-height:44px}
-.admin-v3.acx .acx-topbar{position:static}
+.admin-v3.acx .av-body{min-width:0;max-width:100%}
+.admin-v3.acx .acx-topbar{position:static;flex-wrap:wrap;gap:10px 14px;min-height:0;padding:12px 14px}
+.admin-v3.acx .acx-crumbs{flex:1 1 auto;min-width:0}
+.admin-v3.acx .acx-crumbs a,.admin-v3.acx .acx-crumbs b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.admin-v3.acx .acx-topbar-actions{flex:1 1 auto;justify-content:flex-end;gap:8px;min-width:0}
 .admin-v3.acx .acx-workspace{display:none}
-.admin-v3.acx .acx-crumbs a{white-space:nowrap}
+.admin-v3.acx .acx-role{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.admin-v3.acx .av-frame-content{min-width:0;max-width:100%;overflow-x:clip}
 .admin-v3.acx .cx-search{flex:1 1 100%}
+}
+@media(max-width:480px){
+.admin-v3.acx .acx-role{display:none}
+.admin-v3.acx .acx-console-tag{display:none}
 }
 
 /* ---------- Page heading and status messages inside operations ---------- */
