@@ -181,7 +181,8 @@ export async function GET(request: NextRequest) {
       );
     }
     const page = Math.max(0, Math.min(200, Number(params.get("page") || 0) || 0));
-    const pageSize = 50;
+    // Match pre-repair inbox depth; UI can page via `page` when total exceeds this.
+    const pageSize = 100;
     const { rows } = await pool.query(
       `SELECT * FROM (
          SELECT t.id,t.subject,t.status,t.assigned_to,t.last_message_at,t.contact_id,t.booking_id,
@@ -243,24 +244,67 @@ export async function POST(request: NextRequest) {
     const pool = getPool();
     switch (input.action) {
       case "start": {
+        const contactId = uuid(input.contactId);
+        const bookingId = input.bookingId ? uuid(input.bookingId) : null;
         const db = await pool.connect();
         try {
           await db.query("BEGIN");
-          const id = await ensureContactThread(db, user.id, uuid(input.contactId));
-          if (input.bookingId) {
-            await db.query(
-              `UPDATE private.message_threads SET booking_id=$2
-                WHERE id=$1 AND user_id=$3 AND booking_id IS NULL
-                  AND EXISTS(SELECT 1 FROM public.bookings b WHERE b.id=$2 AND b.user_id=$3 AND b.contact_id=$4)`,
-              [id, uuid(input.bookingId), user.id, uuid(input.contactId)],
-            );
+          let id: string;
+          if (bookingId) {
+            // Unique index message_threads_booking — reuse existing booking thread; never convert the
+            // contact-only thread (that would collide on a second start with the same booking).
+            const existing = (
+              await db.query(
+                `SELECT id FROM private.message_threads WHERE user_id=$1 AND booking_id=$2`,
+                [user.id, bookingId],
+              )
+            ).rows[0];
+            if (existing) {
+              id = existing.id as string;
+            } else {
+              const booking = (
+                await db.query(
+                  `SELECT id, contact_id FROM public.bookings WHERE id=$1 AND user_id=$2 AND contact_id=$3`,
+                  [bookingId, user.id, contactId],
+                )
+              ).rows[0];
+              if (!booking) throw new ApiError("Booking not found for this client.", 404);
+              const contact = (
+                await db.query(`SELECT id, name FROM public.contacts WHERE id=$1 AND user_id=$2`, [
+                  contactId,
+                  user.id,
+                ])
+              ).rows[0];
+              if (!contact) throw new ApiError("Client not found.", 404);
+              const inserted = (
+                await db.query(
+                  `INSERT INTO private.message_threads(user_id,organization_id,contact_id,booking_id,subject)
+                   VALUES($1,(SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),$2,$3,$4)
+                   ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL
+                   DO UPDATE SET subject=private.message_threads.subject
+                   RETURNING id, (xmax = 0) AS inserted`,
+                  [user.id, contactId, bookingId, contact.name],
+                )
+              ).rows[0];
+              id = inserted.id as string;
+              if (inserted.inserted) {
+                await recordThreadActivity(db, {
+                  threadId: id,
+                  actorId: user.id,
+                  action: "started",
+                  details: { bookingId },
+                });
+              }
+            }
+          } else {
+            id = await ensureContactThread(db, user.id, contactId);
+            await recordThreadActivity(db, {
+              threadId: id,
+              actorId: user.id,
+              action: "started",
+              details: {},
+            });
           }
-          await recordThreadActivity(db, {
-            threadId: id,
-            actorId: user.id,
-            action: "started",
-            details: {},
-          });
           await db.query("COMMIT");
           return Response.json({ id });
         } catch (e) {

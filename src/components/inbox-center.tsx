@@ -110,8 +110,12 @@ export function InboxCenter() {
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("all"),
     [query, setQuery] = useState(""),
+    [page, setPage] = useState(0),
     [list, setList] = useState<{
       threads: Thread[];
+      total: number;
+      page: number;
+      pageSize: number;
       members: { id: string; name: string; email: string }[];
       templates: Template[];
       unread: number;
@@ -122,23 +126,41 @@ export function InboxCenter() {
     [detail, setDetail] = useState<Detail | null>(null),
     [detailError, setDetailError] = useState(""),
     [picker, setPicker] = useState(false),
-    [shareLink, setShareLink] = useState(false);
+    [shareLink, setShareLink] = useState(false),
+    [loadingMore, setLoadingMore] = useState(false);
   const toast = useToast();
 
   const freshList = useFreshRequest();
   const freshThread = useFreshRequest();
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (opts?: { page?: number; append?: boolean }) => {
+    const nextPage = opts?.page ?? 0;
     const still = freshList();
     try {
-      const r = await fetch(`/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}`, { cache: "no-store" });
+      if (opts?.append) setLoadingMore(true);
+      const r = await fetch(
+        `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}`,
+        { cache: "no-store" },
+      );
       const d = await r.json();
       if (!still()) return;
       if (!r.ok) throw Error(d.error);
-      setList(d);
+      setPage(nextPage);
+      setList((prev) =>
+        opts?.append && prev
+          ? {
+              ...d,
+              threads: [...prev.threads, ...d.threads],
+              members: d.members,
+              templates: d.templates,
+            }
+          : d,
+      );
       setListError("");
     } catch (e) {
       if (!still()) return;
       setListError(e instanceof Error ? e.message : "The inbox couldn’t be loaded.");
+    } finally {
+      if (opts?.append) setLoadingMore(false);
     }
   }, [filter, query, freshList]);
   const loadThread = useCallback(async (id: string) => {
@@ -157,17 +179,18 @@ export function InboxCenter() {
   }, [freshThread, selected]);
 
   useEffect(() => {
-    const t = setTimeout(() => void loadList(), query ? 250 : 0);
+    setPage(0);
+    const t = setTimeout(() => void loadList({ page: 0 }), query ? 250 : 0);
     return () => clearTimeout(t);
   }, [loadList, query]);
   useEffect(() => {
     if (!selected) return setDetail(null);
     setDetail(null);
-    void loadThread(selected).then(() => loadList());
+    void loadThread(selected).then(() => loadList({ page: 0 }));
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
   useWorkspaceLive(() => {
-    void loadList();
+    void loadList({ page: 0 });
     if (selected) void loadThread(selected);
   });
 
@@ -306,6 +329,18 @@ export function InboxCenter() {
               </li>
             ))}
           </ul>
+          {list && list.threads.length < list.total && (
+            <div className="inbox-pad">
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary ui-btn-sm"
+                disabled={loadingMore}
+                onClick={() => void loadList({ page: page + 1, append: true })}
+              >
+                {loadingMore ? "Loading…" : `Load more (${list.threads.length} of ${list.total})`}
+              </button>
+            </div>
+          )}
         </section>
         <section className="inbox-view" aria-label="Conversation">
           {!selected ? (
@@ -324,7 +359,14 @@ export function InboxCenter() {
               onBack={() => setSelected(null)}
               onChange={async () => {
                 await loadThread(detail.thread.id);
-                await loadList();
+                await loadList({ page: 0 });
+              }}
+              onMarkedUnread={async () => {
+                // Leave the thread so GET ?thread=… does not immediately re-mark it read.
+                setSelected(null);
+                setDetail(null);
+                window.history.replaceState(null, "", "/app/inbox");
+                await loadList({ page: 0 });
               }}
               post={post}
               notify={toast.show}
@@ -338,7 +380,7 @@ export function InboxCenter() {
           onClose={() => setShareLink(false)}
           onSent={(m) => {
             toast.show(m);
-            void loadList();
+            void loadList({ page: 0 });
           }}
         />
       )}
@@ -353,6 +395,7 @@ function ThreadView({
   templates,
   onBack,
   onChange,
+  onMarkedUnread,
   post,
   notify,
 }: {
@@ -361,6 +404,7 @@ function ThreadView({
   templates: Template[];
   onBack: () => void;
   onChange: () => Promise<void>;
+  onMarkedUnread: () => Promise<void>;
   post: (p: Record<string, unknown>) => Promise<any>;
   notify: (text: string, error?: boolean) => void;
 }) {
@@ -452,7 +496,7 @@ function ThreadView({
             onClick={async () => {
               try {
                 await post({ action: "unread", threadId: thread.id });
-                await onChange();
+                await onMarkedUnread();
                 notify("Marked unread.");
               } catch (err) {
                 notify(err instanceof Error ? err.message : "Couldn’t mark unread.", true);

@@ -465,8 +465,10 @@ const listConversations: ReadTool<{ unread: boolean }> = {
   async run(ctx, input) {
     const { rows } = await getPool().query(
       `SELECT t.id,t.contact_id,c.name,t.status,
-              (SELECT count(*) FROM private.thread_messages m WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL)::int unread,
-              (SELECT body FROM private.thread_messages m WHERE m.thread_id=t.id ORDER BY created_at DESC LIMIT 1) last
+              (SELECT count(*) FROM private.thread_messages m
+                WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL)::int unread,
+              (SELECT body FROM private.thread_messages m
+                WHERE m.thread_id=t.id AND m.deleted_at IS NULL ORDER BY created_at DESC LIMIT 1) last
          FROM private.message_threads t LEFT JOIN public.contacts c ON c.id=t.contact_id
         WHERE t.user_id=$1 ORDER BY t.last_message_at DESC LIMIT 20`,
       [ctx.userId],

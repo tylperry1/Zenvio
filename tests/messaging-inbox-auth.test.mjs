@@ -80,3 +80,23 @@ test("status changes can notify closed customers and pending staff", () => {
   assert.match(messaging, /conversation_pending_response/);
   assert.match(inbox, /notifyThreadStatusChange/);
 });
+
+test("edit/delete require admin when author_id is null or another user", () => {
+  assert.match(messaging, /msg\.author_id !== input\.userId/);
+  assert.doesNotMatch(messaging, /if \(msg\.author_id && msg\.author_id !== input\.userId\)/);
+});
+
+test("start with booking reuses existing booking thread", () => {
+  assert.match(inbox, /WHERE user_id=\$1 AND booking_id=\$2/);
+  assert.match(inbox, /ON CONFLICT \(booking_id\) WHERE booking_id IS NOT NULL/);
+  assert.doesNotMatch(
+    inbox,
+    /UPDATE private\.message_threads SET booking_id=\$2\s+WHERE id=\$1 AND user_id=\$3 AND booking_id IS NULL/,
+  );
+});
+
+test("list page size restored and assistant excludes soft-deleted messages", () => {
+  assert.match(inbox, /pageSize = 100/);
+  const tools = fs.readFileSync("src/lib/assistant/tools.ts", "utf8");
+  assert.match(tools, /list_conversations[\s\S]*?m\.deleted_at IS NULL[\s\S]*?m\.deleted_at IS NULL/);
+});

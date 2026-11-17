@@ -218,7 +218,8 @@ export async function editThreadMessage(
   } else if (!editable && msg.direction === "inbound") {
     throw new ApiError("Customer messages can’t be edited.", 403);
   }
-  if (msg.author_id && msg.author_id !== input.userId) {
+  // Null author_id (legacy / system rows) is not "unowned" — require admin when not the author.
+  if (msg.author_id !== input.userId) {
     const admin = await canAdministerThread(db, input.userId, {
       user_id: msg.host_id,
       organization_id: msg.organization_id,
@@ -274,7 +275,8 @@ export async function softDeleteThreadMessage(
       organization_id: msg.organization_id,
     });
     if (!admin) throw new ApiError("Only a workspace admin can remove a customer message from the inbox.", 403);
-  } else if (msg.author_id && msg.author_id !== input.userId) {
+  } else if (msg.author_id !== input.userId) {
+    // Null author_id still requires admin — do not treat missing author as editable by any staff.
     const admin = await canAdministerThread(db, input.userId, {
       user_id: msg.host_id,
       organization_id: msg.organization_id,
