@@ -104,9 +104,9 @@ export function PricingAllowances({
               <h3>Optional capacity</h3>
               <p>Additional capacity at predictable prices.</p>
             </div>
-            <span className="allowance-coming-soon">Available after enrollment</span>
+            <span className="allowance-coming-soon">Planning only</span>
           </div>
-          <p className="allowance-availability">Add-on packs are listed for planning. Purchases open from Plan &amp; billing when your workspace is ready — nothing is charged on this page.</p>
+          <p className="allowance-availability">Add-on packs are listed for planning. Nothing is charged on this page; purchasing may open later from Plan &amp; billing when those offers are turned on.</p>
           <ul className="allowance-addons">
             {addons.map((offer) => (
               <li key={offer.id}>

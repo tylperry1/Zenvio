@@ -188,7 +188,7 @@ export function PublicPricingV4({
               {addons.map((addon) => (
                 <li key={addon.id}>
                   {addon.name} · {money(addon.amount)}
-                  {addon.recurring ? "/month" : ""} · Purchase opens with enrollment
+                  {addon.recurring ? "/month" : ""} · Planning only — not for purchase yet
                 </li>
               ))}
             </ul>
