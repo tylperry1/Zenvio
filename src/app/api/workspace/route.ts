@@ -193,6 +193,16 @@ export async function POST(request: NextRequest) {
       }
       case "event": {
         if (input.id) await liveEvent(input.id);
+        const modes = ["at_business", "at_customer", "virtual", "custom"] as const;
+        type Mode = (typeof modes)[number];
+        const locationMode: Mode = modes.includes(input.location_mode as Mode)
+          ? (input.location_mode as Mode)
+          : "custom";
+        const allowed: Mode[] = Array.isArray(input.allowed_location_modes)
+          ? input.allowed_location_modes.filter((m: unknown): m is Mode =>
+              typeof m === "string" && modes.includes(m as Mode),
+            )
+          : [locationMode];
         const data = {
           user_id: user.id,
           title: string(input.title, "title", 100),
@@ -201,11 +211,27 @@ export async function POST(request: NextRequest) {
           duration: integer(input.duration, "duration", 5, 240),
           buffer: integer(input.buffer, "buffer", 0, 60),
           location: string(input.location, "meeting location", 200),
+          location_mode: locationMode,
+          allowed_location_modes: allowed.length ? allowed : [locationMode],
+          virtual_instructions: string(
+            input.virtual_instructions ?? "",
+            "virtual instructions",
+            2000,
+            0,
+          ),
+          custom_location_prompt: string(
+            input.custom_location_prompt ?? "",
+            "custom location prompt",
+            500,
+            0,
+          ),
           color: string(input.color, "color", 7),
           active: input.active === true,
         };
         if (!/^#[0-9a-f]{6}$/i.test(data.color))
           throw new ApiError("Please choose a valid color.");
+        if (!data.allowed_location_modes.includes(data.location_mode))
+          data.allowed_location_modes = [...data.allowed_location_modes, data.location_mode];
         await write(
           input.id ? `event_types?id=eq.${uuid(input.id)}` : "event_types",
           data,

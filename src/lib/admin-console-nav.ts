@@ -206,6 +206,14 @@ export const adminNavGroups: AdminNavGroup[] = [
         permission: "integrations",
         hint: "api keys webhooks credentials stripe resend",
       },
+      {
+        id: "smarty",
+        icon: "globe",
+        label: "Address & Location Services",
+        href: "/admin/smarty",
+        permission: "integrations",
+        hint: "smarty address autocomplete validation booking location",
+      },
     ],
   },
   {
@@ -276,6 +284,7 @@ export function resolveAdminNavId(pathname: string, searchParams: URLSearchParam
   if (path === "/admin/economics") return "economics";
   if (path === "/admin/marketplace-tools") return "marketplace-tools";
   if (path === "/admin/suppliers" || path === "/admin/gelato") return "suppliers";
+  if (path === "/admin/smarty") return "smarty";
   if (path === "/admin/operations") {
     const section = get("section") || "subscriptions";
     if (

@@ -20,6 +20,10 @@ export type EventType = {
   duration: number;
   buffer: number;
   location: string;
+  location_mode?: import("./addresses").LocationMode;
+  allowed_location_modes?: import("./addresses").LocationMode[];
+  virtual_instructions?: string;
+  custom_location_prompt?: string;
   color: string;
   active: boolean;
   deleted_at?: string | null;
@@ -45,6 +49,9 @@ export type Booking = {
   status: "confirmed" | "cancelled";
   title?: string;
   location?: string;
+  location_mode?: import("./addresses").LocationMode | null;
+  service_address?: import("./addresses").StructuredAddress | null;
+  access_instructions?: string;
   contact_id?: string | null;
   intake_snapshot?: (import("./intake").Question & { answer: unknown })[];
 };
@@ -54,6 +61,8 @@ export type Contact = {
   email: string;
   company: string;
   notes: string;
+  phone?: string;
+  address?: string;
   created_at: string;
 };
 export type WorkspaceData = {
@@ -87,6 +96,12 @@ export type PublicEvent = {
   description: string;
   duration: number;
   location: string;
+  location_mode?: import("./addresses").LocationMode;
+  allowed_location_modes?: import("./addresses").LocationMode[];
+  virtual_instructions?: string;
+  custom_location_prompt?: string;
+  business_address?: import("./addresses").StructuredAddress | null;
+  saved_addresses?: import("./addresses").StructuredAddress[];
   color: string;
 };
 

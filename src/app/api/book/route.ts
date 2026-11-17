@@ -23,6 +23,9 @@ import {
   string,
   ApiError,
 } from "@/lib/server";
+import { fromDbAddress } from "@/lib/addresses";
+import { businessAddressForWorkspace, persistBookingAddress, resolveBookingLocation } from "@/lib/booking-address";
+import { normalizeBookingPhone } from "@/lib/phone";
 export const dynamic = "force-dynamic";
 async function liveHost(raw: string) {
   const requested = publicHostSlug(raw, "This booking page is unavailable.");
@@ -61,30 +64,52 @@ export async function GET(request: NextRequest) {
       );
       slots = await filterMicrosoftSlots(host,event,slots);
     }
+    const eventRow = (
+      await getPool().query(
+        `SELECT e.id,e.user_id,e.intake_questions,e.payment_mode,e.price_cents,e.deposit_cents,e.refund_policy,
+                e.location_mode,e.allowed_location_modes,e.virtual_instructions,e.custom_location_prompt
+           FROM public.event_types e
+           JOIN public.profiles p ON p.id=e.user_id
+          WHERE p.slug=$1 AND e.slug=$2 AND e.active AND e.deleted_at IS NULL`,
+        [host, event],
+      )
+    ).rows[0];
+    const businessAddress = eventRow
+      ? (
+          await getPool().query(
+            `SELECT street,street2,city,state,postal_code,country,formatted,access_instructions,validated,smarty_key,source
+               FROM private.addresses
+              WHERE workspace_id=$1 AND address_type='business'
+              ORDER BY updated_at DESC LIMIT 1`,
+            [eventRow.user_id],
+          )
+        ).rows[0]
+      : null;
     return Response.json(
       {
         event: {
           ...info[0],
           booking_window_days: Number(policy?.horizonDays ?? 90),
           minimum_notice_minutes: Number(policy?.noticeMinutes ?? 120),
-          questions:
-            (
-              await getPool().query(
-                "SELECT e.intake_questions,e.payment_mode,e.price_cents,e.deposit_cents,e.refund_policy FROM public.event_types e JOIN public.profiles p ON p.id=e.user_id WHERE p.slug=$1 AND e.slug=$2 AND e.active AND e.deleted_at IS NULL",
-                [host, event],
-              )
-            ).rows[0]?.intake_questions || [],
+          questions: eventRow?.intake_questions || [],
+          location_mode: eventRow?.location_mode || "custom",
+          allowed_location_modes: eventRow?.allowed_location_modes || ["custom"],
+          virtual_instructions: eventRow?.virtual_instructions || "",
+          custom_location_prompt: eventRow?.custom_location_prompt || "",
+          business_address: businessAddress ? fromDbAddress(businessAddress) : null,
         },
         slots,
         instructions:
           (await getPool().query("SELECT booking_instructions FROM public.profiles WHERE slug=$1", [host])).rows[0]
             ?.booking_instructions || "",
-        payment: (
-          await getPool().query(
-            "SELECT e.payment_mode,e.price_cents,e.deposit_cents,e.refund_policy FROM public.event_types e JOIN public.profiles p ON p.id=e.user_id WHERE p.slug=$1 AND e.slug=$2 AND e.active AND e.deleted_at IS NULL",
-            [host, event],
-          )
-        ).rows[0],
+        payment: eventRow
+          ? {
+              payment_mode: eventRow.payment_mode,
+              price_cents: eventRow.price_cents,
+              deposit_cents: eventRow.deposit_cents,
+              refund_policy: eventRow.refund_policy,
+            }
+          : null,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -115,11 +140,32 @@ export async function POST(request: NextRequest) {
       );
     const intake = (
       await getPool().query(
-        "SELECT e.intake_questions,e.payment_mode,e.price_cents,e.deposit_cents,e.refund_policy FROM public.event_types e JOIN public.profiles p ON p.id=e.user_id WHERE p.slug=$1 AND e.slug=$2 AND e.active AND e.deleted_at IS NULL",
+        `SELECT e.user_id,e.location,e.intake_questions,e.payment_mode,e.price_cents,e.deposit_cents,e.refund_policy,
+                e.location_mode,e.allowed_location_modes,e.virtual_instructions,e.custom_location_prompt
+           FROM public.event_types e
+           JOIN public.profiles p ON p.id=e.user_id
+          WHERE p.slug=$1 AND e.slug=$2 AND e.active AND e.deleted_at IS NULL`,
         [host, eventSlug],
       )
     ).rows[0];
     if (!intake) throw new ApiError("This booking page is unavailable.", 404);
+    const phone = normalizeBookingPhone(String(input.phone ?? ""), true);
+    const guestEmail = email(input.email);
+    const dbClient = await getPool().connect();
+    let location;
+    try {
+      location = resolveBookingLocation({
+        event: intake,
+        businessAddress: await businessAddressForWorkspace(dbClient, intake.user_id),
+        guest: {
+          locationMode: input.locationMode,
+          serviceAddress: input.serviceAddress,
+          accessInstructions: input.accessInstructions,
+        },
+      });
+    } finally {
+      dbClient.release();
+    }
     const snapshot = intakeAnswers(
       intake?.intake_questions || [],
       input.answers,
@@ -127,9 +173,7 @@ export async function POST(request: NextRequest) {
     // File answers hold upload ids from /api/uploads. Check they belong to this visitor and host,
     // then store the file names in the snapshot so the host sees what was attached.
     const fileIds = snapshot.flatMap((q) => (q.type === "file" ? (q.answer as string[]) : []));
-    const owner = fileIds.length
-      ? (await getPool().query("SELECT id FROM public.profiles WHERE slug=$1", [host])).rows[0]?.id
-      : null;
+    const owner = intake.user_id;
     if (fileIds.length) {
       if (intake?.payment_mode !== "free" && intake?.payment_mode)
         throw new ApiError("File uploads aren’t available on paid appointment types yet. Remove the file and try again.");
@@ -149,6 +193,11 @@ export async function POST(request: NextRequest) {
       return Response.json(
         await createAppointmentCheckout(host, eventSlug, start, {
           ...input,
+          phone,
+          locationMode: location.locationMode,
+          serviceAddress: location.serviceAddress,
+          accessInstructions: location.accessInstructions,
+          bookingLocation: location.locationText,
           snapshot,
         }),
       );
@@ -160,19 +209,31 @@ export async function POST(request: NextRequest) {
         answers_snapshot: snapshot,
         slot_start: start,
         visitor_name: string(input.name, "name", 100, 2),
-        visitor_email: email(input.email),
+        visitor_email: guestEmail,
         visitor_notes: string(input.notes ?? "", "notes", 2000, 0),
-        visitor_phone: string(input.phone ?? "", "phone number", 40, 0),
+        visitor_phone: phone,
         visitor_company: string(input.company ?? "", "company", 100, 0),
         visitor_purpose: string(input.purpose ?? "", "meeting purpose", 500, 0),
       }),
     });
-    if (fileIds.length && result?.id) {
+    if (result?.id) {
       const db = await getPool().connect();
       try {
-        await claimUploads(db, { hostId: owner, ids: fileIds, key: String(input.uploadKey), bookingId: result.id });
+        if (fileIds.length)
+          await claimUploads(db, { hostId: owner, ids: fileIds, key: String(input.uploadKey), bookingId: result.id });
+        await persistBookingAddress(db, {
+          workspaceId: owner,
+          bookingId: result.id,
+          guestEmail,
+          guestPhone: phone,
+          locationMode: location.locationMode,
+          locationText: location.locationText,
+          serviceAddress: location.serviceAddress,
+          accessInstructions: location.accessInstructions,
+          saveAsResidential: input.saveAsResidential === true,
+        });
       } catch {
-        // The booking stands; the snapshot still lists the file names the guest attached.
+        // Reservation stands; location enrichment is best-effort after confirm.
       } finally {
         db.release();
       }

@@ -163,6 +163,25 @@ const providers: Provider[] = [
     docs: { label: "Gelato API docs", href: "https://dashboard.gelato.com/docs/" },
   },
   {
+    id: "smarty",
+    name: "Smarty",
+    category: "Address & Location Services",
+    monogram: "S",
+    tint: "#0f766e",
+    description: "US address autocomplete and validation for booking. Manage enablement and usage under Address & Location Services. Secret Auth ID/Token stay server-side.",
+    fields: [
+      { key: "SMARTY_AUTH_ID", label: "Auth ID", hint: "Secret key pair from the Smarty account dashboard", secret: true },
+      { key: "SMARTY_AUTH_TOKEN", label: "Auth Token", hint: "Paired with Auth ID; never expose to the browser", secret: true },
+      { key: "SMARTY_EMBEDDED_KEY", label: "Embedded key (optional)", hint: "Hostname-restricted public key; Zenvio still proxies by default", secret: true },
+    ],
+    optional: ["SMARTY_EMBEDDED_KEY"],
+    endpoints: [
+      { label: "Autocomplete proxy", path: "/api/address/autocomplete" },
+      { label: "Validation proxy", path: "/api/address/validate" },
+    ],
+    docs: { label: "Smarty US Autocomplete Pro", href: "https://www.smarty.com/docs/cloud/us-autocomplete-pro-api" },
+  },
+  {
     id: "anthropic",
     name: "Anthropic",
     category: "AI",

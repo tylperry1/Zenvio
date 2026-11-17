@@ -81,14 +81,20 @@ export async function createAppointmentCheckout(
       "UPDATE private.appointment_payments SET status='expired' WHERE user_id=$1 AND status IN ('held','pending') AND hold_expires_at<=now()",
       [e.owner_id],
     );
+    const { normalizeBookingPhone } = await import("./phone");
     const guest = {
       name: string(input.name, "name", 100, 2),
       email: email(input.email),
-      phone: string(input.phone || "", "phone", 40, 0),
+      phone: normalizeBookingPhone(String(input.phone || ""), true),
       company: string(input.company || "", "company", 100, 0),
       purpose: string(input.purpose || "", "purpose", 500, 0),
       notes: string(input.notes || "", "notes", 2000, 0),
       intake: input.snapshot || [],
+      locationMode: input.locationMode || null,
+      serviceAddress: input.serviceAddress || null,
+      accessInstructions: string(input.accessInstructions || "", "access instructions", 1000, 0),
+      bookingLocation: string(input.bookingLocation || "", "meeting location", 500, 0),
+      saveAsResidential: input.saveAsResidential === true,
     };
     payment = (
       await db.query(
@@ -291,13 +297,28 @@ export async function reconcileAppointmentPayment(
           )
         ).rows[0];
         await db.query(
-          "INSERT INTO public.contacts(user_id,name,email,company) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,email) DO NOTHING",
-          [p.user_id, guest.name, guest.email, guest.company],
+          "INSERT INTO public.contacts(user_id,name,email,company,phone) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id,email) DO UPDATE SET phone=CASE WHEN public.contacts.phone='' THEN EXCLUDED.phone ELSE public.contacts.phone END",
+          [p.user_id, guest.name, guest.email, guest.company, guest.phone || ""],
         );
         await db.query(
           "UPDATE public.bookings b SET contact_id=c.id FROM public.contacts c WHERE b.id=$1 AND c.user_id=b.user_id AND c.email=b.guest_email",
           [booking.id],
         );
+        if (guest.bookingLocation || guest.locationMode || guest.serviceAddress) {
+          const { persistBookingAddress } = await import("./booking-address");
+          const { isLocationMode } = await import("./addresses");
+          await persistBookingAddress(db, {
+            workspaceId: p.user_id,
+            bookingId: booking.id,
+            guestEmail: guest.email,
+            guestPhone: guest.phone || "",
+            locationMode: isLocationMode(guest.locationMode) ? guest.locationMode : "custom",
+            locationText: String(guest.bookingLocation || "").slice(0, 500),
+            serviceAddress: guest.serviceAddress || null,
+            accessInstructions: String(guest.accessInstructions || ""),
+            saveAsResidential: guest.saveAsResidential === true,
+          });
+        }
         await db.query(
           "UPDATE private.appointment_payments SET status='paid',booking_id=$2,payment_intent=$3,guest_ciphertext='',last_error=NULL WHERE id=$1",
           [p.id, booking.id, checkout.payment_intent],
