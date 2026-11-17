@@ -219,6 +219,7 @@ try {
   await workspaceMenu.setViewportSize({width:1440,height:1000});
   await workspaceMenu.goto(origin+"/app/clients");
   const businessGroup = workspaceMenu.locator("#workspace-navigation [data-group='Business']");
+  await businessGroup.waitFor();
   assert.equal(await businessGroup.count(), 1);
   assert.equal(await businessGroup.getAttribute("open"),null);
   await businessGroup.locator("summary").click();
