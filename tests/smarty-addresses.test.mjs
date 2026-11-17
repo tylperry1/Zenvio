@@ -82,6 +82,30 @@ test("structured address formatting keeps components separate", () => {
   assert.match(formatted, /1600 Amphitheatre Pkwy/);
   assert.match(formatted, /Suite 100/);
   assert.match(formatted, /Mountain View/);
+  assert.match(formatted, /CA 94043/);
+  const multi = addresses.formatAddressMultiline({
+    street: "123 Main Street",
+    street2: "Suite 200",
+    city: "Cincinnati",
+    state: "OH",
+    postalCode: "45202",
+  });
+  assert.equal(multi, "123 Main Street, Suite 200\nCincinnati, OH 45202");
+  const summary = addresses.bookingLocationSummary({
+    locationMode: "at_customer",
+    location: "On site",
+    serviceAddress: {
+      street: "456 Oak Avenue",
+      street2: "Apartment 3",
+      city: "Hamilton",
+      state: "OH",
+      postalCode: "45011",
+    },
+    accessInstructions: "Ring 3B",
+  });
+  assert.equal(summary.title, "At customer location");
+  assert.match(summary.body, /456 Oak Avenue/);
+  assert.equal(summary.access, "Ring 3B");
 });
 
 test("phone normalization accepts US local numbers and rejects blanks", () => {
@@ -266,4 +290,29 @@ test("workspace backend allows Smarty event_types columns", () => {
     resolver,
     /guestAccessInstructions \|\|[\s\S]*serviceAddress\.accessInstructions/,
   );
+});
+
+test("platform business address write path and CRM typed addresses", () => {
+  const workspace = fs.readFileSync("src/app/api/workspace/route.ts", "utf8");
+  assert.match(workspace, /case "business-address"/);
+  assert.match(workspace, /saveBusinessAddress/);
+  assert.match(workspace, /businessAddressForWorkspace/);
+  const booking = fs.readFileSync("src/lib/booking-address.ts", "utf8");
+  assert.match(booking, /export async function saveBusinessAddress/);
+  assert.match(booking, /address_type='business'/);
+  const profile = fs.readFileSync("src/components/business-profile.tsx", "utf8");
+  assert.match(profile, /action: "business-address"/);
+  assert.match(profile, /AddressAutocomplete/);
+  const crm = fs.readFileSync("src/components/client-center.tsx", "utf8");
+  assert.match(crm, /residentialAddress/);
+  assert.match(crm, /billingAddress/);
+  assert.match(crm, /bookingLocationSummary/);
+  assert.match(crm, /guest_phone/);
+  assert.match(crm, /formatAddressMultiline/);
+  const autocomplete = fs.readFileSync("src/app/api/address/autocomplete/route.ts", "utf8");
+  assert.match(autocomplete, /resolveAddressWorkspace/);
+  const validate = fs.readFileSync("src/app/api/address/validate/route.ts", "utf8");
+  assert.match(validate, /resolveAddressWorkspace/);
+  const widget = fs.readFileSync("src/components/address-autocomplete.tsx", "utf8");
+  assert.match(widget, /host\?/);
 });

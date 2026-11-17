@@ -49,14 +49,47 @@ export function emptyAddress(): StructuredAddress {
   };
 }
 
+/** Single-line snapshot for booking.location and compact UI. City/state/ZIP: "City, ST 12345". */
 export function formatAddress(parts: Partial<StructuredAddress>): string {
   const line1 = [parts.street, parts.street2].filter(Boolean).join(", ");
-  const line2 = [parts.city, parts.state, parts.postalCode].filter(Boolean).join(", ");
+  const region = [parts.state, parts.postalCode].filter(Boolean).join(" ");
+  const line2 = [parts.city, region].filter(Boolean).join(", ");
   return [line1, line2, parts.country && parts.country !== "US" ? parts.country : ""]
     .filter(Boolean)
     .join(" · ")
     .trim()
     .slice(0, 500);
+}
+
+/** Multi-line display for dashboards, portals, and confirmation screens. */
+export function formatAddressMultiline(parts: Partial<StructuredAddress>): string {
+  const line1 = [parts.street, parts.street2].filter(Boolean).join(", ");
+  const region = [parts.state, parts.postalCode].filter(Boolean).join(" ");
+  const line2 = [parts.city, region].filter(Boolean).join(", ");
+  return [line1, line2, parts.country && parts.country !== "US" ? parts.country : ""]
+    .filter(Boolean)
+    .join("\n")
+    .trim()
+    .slice(0, 500);
+}
+
+export function bookingLocationSummary(input: {
+  locationMode?: string | null;
+  location?: string | null;
+  serviceAddress?: Partial<StructuredAddress> | null;
+  accessInstructions?: string | null;
+}): { title: string; body: string; access: string } {
+  const mode = isLocationMode(input.locationMode) ? input.locationMode : null;
+  const title = mode ? locationLabel(mode, String(input.location || "")) : String(input.location || "Location");
+  const formatted =
+    input.serviceAddress && (input.serviceAddress.street || input.serviceAddress.formatted)
+      ? formatAddressMultiline(input.serviceAddress)
+      : String(input.location || "").trim();
+  return {
+    title,
+    body: formatted,
+    access: String(input.accessInstructions || "").trim().slice(0, 1000),
+  };
 }
 
 export function parseAddressInput(input: unknown): StructuredAddress {

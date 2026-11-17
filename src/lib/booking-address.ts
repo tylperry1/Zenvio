@@ -225,3 +225,69 @@ export async function businessAddressForWorkspace(db: PoolClient, workspaceId: s
       })
     : null;
 }
+
+/** Upsert the workspace business location used by at_business bookings. Contact stays null. */
+export async function saveBusinessAddress(
+  db: PoolClient,
+  workspaceId: string,
+  input: unknown,
+) {
+  const address = parseAddressInput(input);
+  if (!addressHasStreet(address))
+    throw new ApiError("Enter a complete business street, city, state, and ZIP.");
+  const row = toDbAddress(address);
+  const existing = (
+    await db.query(
+      `SELECT id FROM private.addresses
+        WHERE workspace_id=$1 AND address_type='business' AND contact_id IS NULL
+        ORDER BY updated_at DESC LIMIT 1`,
+      [workspaceId],
+    )
+  ).rows[0];
+  if (existing) {
+    await db.query(
+      `UPDATE private.addresses SET
+          street=$2, street2=$3, city=$4, state=$5, postal_code=$6, country=$7,
+          formatted=$8, access_instructions=$9, validated=$10, smarty_key=$11, source=$12,
+          updated_at=now()
+        WHERE id=$1 AND workspace_id=$13`,
+      [
+        existing.id,
+        row.street,
+        row.street2,
+        row.city,
+        row.state,
+        row.postal_code,
+        row.country,
+        row.formatted,
+        row.access_instructions,
+        row.validated,
+        row.smarty_key,
+        row.source,
+        workspaceId,
+      ],
+    );
+  } else {
+    await db.query(
+      `INSERT INTO private.addresses(
+         workspace_id, contact_id, address_type, street, street2, city, state, postal_code,
+         country, formatted, access_instructions, validated, smarty_key, source
+       ) VALUES ($1,NULL,'business',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        workspaceId,
+        row.street,
+        row.street2,
+        row.city,
+        row.state,
+        row.postal_code,
+        row.country,
+        row.formatted,
+        row.access_instructions,
+        row.validated,
+        row.smarty_key,
+        row.source,
+      ],
+    );
+  }
+  return address;
+}
