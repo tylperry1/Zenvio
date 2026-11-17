@@ -61,10 +61,13 @@ export function EntitlementAdmin() {
       setLookupError("");
       return;
     }
+    // Drop previous matches immediately so a mid-debounce select can't stick an old account.
+    setResults([]);
+    setLookupError("");
+    const lookupQuery = query.trim();
     const controller = new AbortController();
     const t = setTimeout(() => {
-      setLookupError("");
-      fetch(`/api/admin/entitlements?lookup=${encodeURIComponent(query.trim())}`, {
+      fetch(`/api/admin/entitlements?lookup=${encodeURIComponent(lookupQuery)}`, {
         signal: controller.signal,
         cache: "no-store",
       })

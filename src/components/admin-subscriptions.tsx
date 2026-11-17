@@ -380,7 +380,7 @@ export function AdminSubscriptions() {
                   <div>
                     <dt>Plan in effect</dt>
                     <dd>
-                      {planName(selected.override_plan || selected.plan)}
+                      {planName(selected.effective_plan || selected.override_plan || selected.plan)}
                       {!selected.platform_included &&
                         selected.override_plan &&
                         ` (granted until ${billingDate(selected.override_expires)})`}

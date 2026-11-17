@@ -289,7 +289,11 @@ export function AdminBillingCenter() {
         <Segmented
           label="Billing sections"
           value={section}
-          onChange={setSection}
+          onChange={(next) => {
+            // Drop stale proration previews when leaving Seats; the form remounts uncontrolled.
+            if (next !== "seats") setPreview(null);
+            setSection(next);
+          }}
           options={[
             ["pricing", "Pricing & allowances"],
             ["coupons", "Coupons"],

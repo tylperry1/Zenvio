@@ -90,6 +90,12 @@ export function Billing() {
     [invoiceBusy, setInvoiceBusy] = useState(false),
     [invoiceError, setInvoiceError] = useState("");
 
+  // Auth redirects here with ?plan=&seats=; Enrollment only mounts on Plans.
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (plan === "individual" || plan === "team") setTab("plans");
+  }, []);
+
   async function syncPlan() {
     if (busy) return;
     setBusy(true);
