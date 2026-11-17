@@ -82,4 +82,15 @@ test("admin billing center exposes an Add-ons section", () => {
   assert.match(ui, /action: "addon-sync-all"/);
   assert.match(ui, /action: "addon-update"/);
   assert.match(ui, /ADDON_BILLING_VALIDATED/);
+  assert.match(ui, /if \(!result\) return/);
+});
+
+test("provision script locks add-ons and refuses unreadable live price overwrite", () => {
+  const script = fs.readFileSync("scripts/provision-pricing-v4.mjs", "utf8");
+  assert.match(script, /FROM private\.billing_addons ORDER BY id FOR UPDATE/);
+  assert.match(script, /Refusing to overwrite/);
+  assert.match(script, /resource_missing/);
+  const docs = fs.readFileSync("docs/PRICING_V4_ACTIVATION.md", "utf8");
+  assert.match(docs, /disposable test database/);
+  assert.match(docs, /no live v4/);
 });

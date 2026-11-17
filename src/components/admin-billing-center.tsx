@@ -728,13 +728,15 @@ export function AdminBillingCenter() {
                               amountCents: Math.round(Number(draft.amount) * 100),
                               available: draft.available,
                               reason: `Update add-on ${a.id} catalog fields`,
-                            }).then(() =>
+                            }).then((result) => {
+                              // send() resolves undefined on failure — keep the draft so edits are not lost.
+                              if (!result) return;
                               setAddonDrafts((d) => {
                                 const n = { ...d };
                                 delete n[a.id];
                                 return n;
-                              }),
-                            )
+                              });
+                            })
                           }
                         >
                           Save

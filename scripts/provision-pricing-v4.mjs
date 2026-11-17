@@ -119,6 +119,25 @@ try {
             { idempotencyKey: lookup },
           );
         }
+        const prior = (
+          await db.query(
+            "SELECT stripe_price_id FROM private.subscription_prices WHERE plan=$1 AND period=$2 FOR UPDATE",
+            [offer.id, period],
+          )
+        ).rows[0];
+        if (prior?.stripe_price_id && prior.stripe_price_id !== price.id) {
+          // Refuse to overwrite a mapping the test key cannot read (likely live Stripe IDs).
+          try {
+            await stripe.prices.retrieve(prior.stripe_price_id);
+          } catch (e) {
+            if (e.code === "resource_missing") {
+              throw Error(
+                `Refusing to overwrite ${offer.id}/${period} mapping ${prior.stripe_price_id} — not readable with this test key (possible live mapping). Use a disposable test database for step 3/10.`,
+              );
+            }
+            throw e;
+          }
+        }
         await db.query(
           "INSERT INTO private.subscription_prices(plan,period,stripe_price_id,catalog_version) VALUES($1,$2,$3,$4) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=excluded.stripe_price_id,catalog_version=excluded.catalog_version",
           [offer.id, period, price.id, pricingV4Version],
@@ -136,7 +155,7 @@ try {
     if (addonTable.rows[0]?.ready) {
       const addons = (
         await db.query(
-          "SELECT id,name,amount_cents,quantity,unit,recurring,stripe_product_id,stripe_price_id FROM private.billing_addons ORDER BY id",
+          "SELECT id,name,amount_cents,quantity,unit,recurring,stripe_product_id,stripe_price_id FROM private.billing_addons ORDER BY id FOR UPDATE",
         )
       ).rows;
       for (const row of addons) {

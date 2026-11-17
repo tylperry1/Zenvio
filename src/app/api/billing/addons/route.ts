@@ -79,6 +79,13 @@ export async function POST(req: NextRequest) {
     sameOrigin(req);
     const { token } = await session(),
       v = await body(req);
+    // Gate before pool checkout so ungated envs return 503 (not 409) and avoid holding a client.
+    if (!(await checkoutReady())) {
+      throw new ApiError("Add-on billing is being validated. No payment has been taken.", 503);
+    }
+    if (v.confirm !== true) {
+      throw new ApiError("This add-on is not available for purchase.", 409);
+    }
     const db = await getPool().connect();
     try {
       await db.query("begin");
@@ -86,14 +93,7 @@ export async function POST(req: NextRequest) {
       const offer = (
         await db.query("SELECT * FROM private.billing_addons WHERE id=$1 FOR UPDATE", [String(v.addon || "")])
       ).rows[0];
-      // Shape check first; env/checkout gate returns 503 before availability 409 (launch fixtures).
-      if (!offer || !oneTimePack(offer) || v.confirm !== true) {
-        throw new ApiError("This add-on is not available for purchase.", 409);
-      }
-      if (!(await checkoutReady())) {
-        throw new ApiError("Add-on billing is being validated. No payment has been taken.", 503);
-      }
-      if (!purchasable(offer)) {
+      if (!offer || !oneTimePack(offer) || !purchasable(offer)) {
         throw new ApiError("This add-on is not available for purchase.", 409);
       }
       const sub = (

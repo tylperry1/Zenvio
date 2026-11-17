@@ -91,17 +91,42 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       const stripe = await stripeClient();
       if (action === "addon-sync") {
         const addonId = string(input.addonId || input.id, "add-on id", 64, 1);
-        const synced = await syncAddonToStripe(db, stripe, addonId, actor);
-        if (synced.sync_status !== "synced" || !synced.stripe_price_id) {
-          throw new ApiError("Stripe add-on price was not created. Retry sync after fixing the provider error.", 503);
+        try {
+          const synced = await syncAddonToStripe(db, stripe, addonId, actor);
+          if (synced.sync_status !== "synced" || !synced.stripe_price_id) {
+            throw new ApiError(
+              "Stripe add-on price was not created. Retry sync after fixing the provider error.",
+              503,
+            );
+          }
+          result = {
+            ok: true,
+            addonId: synced.id,
+            product: synced.stripe_product_id,
+            price: synced.stripe_price_id,
+            syncStatus: synced.sync_status,
+          };
+        } catch (syncError) {
+          // Commit failed sync_status + audit (like coupons) so outer rollback cannot erase them.
+          await db.query(
+            "UPDATE private.billing_admin_operations SET state='failed',error=$2,result=$3,updated_at=now() WHERE id=$1",
+            [
+              operation,
+              syncError instanceof ApiError
+                ? syncError.message
+                : "Stripe add-on synchronization failed.",
+              JSON.stringify({ addonId, syncStatus: "failed" }),
+            ],
+          );
+          await db.query("COMMIT");
+          committed = true;
+          throw syncError instanceof ApiError
+            ? syncError
+            : new ApiError(
+                "Stripe add-on synchronization failed. The add-on was saved locally as failed — use Sync again.",
+                503,
+              );
         }
-        result = {
-          ok: true,
-          addonId: synced.id,
-          product: synced.stripe_product_id,
-          price: synced.stripe_price_id,
-          syncStatus: synced.sync_status,
-        };
       } else if (action === "addon-sync-all") {
         if (input.confirmStripeSync !== true) {
           throw new ApiError(
