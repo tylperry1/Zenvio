@@ -52,7 +52,7 @@ type Dashboard = {
     id: string;
     operation: string;
     micros: number;
-    workspaceId: string;
+    billingOwnerId: string;
     created_at: string;
   }[];
   errors: {
@@ -364,7 +364,7 @@ export function AdminSmarty() {
             </div>
             <div>
               <dt>Privacy</dt>
-              <dd>Activity below shows operation and workspace id only — never full street addresses.</dd>
+              <dd>Activity below shows operation and billing owner id only — never full street addresses.</dd>
             </div>
           </dl>
         </Panel>
@@ -375,28 +375,30 @@ export function AdminSmarty() {
               Autocomplete and validation reservations appear here once booking traffic uses Smarty.
             </EmptyState>
           ) : (
-            <table className="ds-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Operation</th>
-                  <th>Workspace</th>
-                  <th>µ$</th>
-                </tr>
-              </thead>
-              <tbody>
-                {c.activity.map((row) => (
-                  <tr key={row.id}>
-                    <td>{relativeTime(row.created_at)}</td>
-                    <td>{row.operation}</td>
-                    <td>
-                      <code className="ds-code">{row.workspaceId.slice(0, 8)}…</code>
-                    </td>
-                    <td>{row.micros}</td>
+            <div className="ds-table-wrap">
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Operation</th>
+                    <th>Billing owner</th>
+                    <th>µ$</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {c.activity.map((row) => (
+                    <tr key={row.id}>
+                      <td>{relativeTime(row.created_at)}</td>
+                      <td>{row.operation}</td>
+                      <td>
+                        <code className="ds-code">{row.billingOwnerId.slice(0, 8)}…</code>
+                      </td>
+                      <td>{row.micros}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Panel>
       </div>
@@ -407,28 +409,30 @@ export function AdminSmarty() {
             Failed Smarty calls will appear here.
           </EmptyState>
         ) : (
-          <table className="ds-table">
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Operation</th>
-                <th>Category</th>
-                <th>Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {c.errors.map((row) => (
-                <tr key={row.id}>
-                  <td>{relativeTime(row.created_at)}</td>
-                  <td>{row.operation}</td>
-                  <td>
-                    <Badge tone={row.category === "invalid_credentials" ? "danger" : "warning"}>{row.category}</Badge>
-                  </td>
-                  <td>{row.message}</td>
+          <div className="ds-table-wrap">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Operation</th>
+                  <th>Category</th>
+                  <th>Message</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {c.errors.map((row) => (
+                  <tr key={row.id}>
+                    <td>{relativeTime(row.created_at)}</td>
+                    <td>{row.operation}</td>
+                    <td>
+                      <Badge tone={row.category === "invalid_credentials" ? "danger" : "warning"}>{row.category}</Badge>
+                    </td>
+                    <td>{row.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Panel>
     </div>

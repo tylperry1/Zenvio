@@ -20,10 +20,14 @@ function connectionStatus(
   enabled: boolean,
   health: string,
   lastSuccessfulAt: string | null,
+  lastCheckedAt: string | null,
 ) {
   if (!configured) return { label: "Not configured", tone: "neutral" as const, connected: false };
   if (!enabled) return { label: "Ready · disabled", tone: "warning" as const, connected: false };
-  if (health === "healthy" && lastSuccessfulAt)
+  const successAt = lastSuccessfulAt ? +new Date(lastSuccessfulAt) : 0;
+  const checkedAt = lastCheckedAt ? +new Date(lastCheckedAt) : 0;
+  // Connected only when the latest check was itself a success — never revive from a stale lastSuccessfulAt.
+  if (successAt > 0 && successAt >= checkedAt)
     return { label: "Connected", tone: "success" as const, connected: true };
   if (health === "action_required")
     return { label: "Action required", tone: "danger" as const, connected: false };
@@ -56,6 +60,7 @@ async function dashboard() {
       config.enabled,
       config.health,
       config.lastSuccessfulAt,
+      config.lastCheckedAt,
     ),
     usage: {
       ...usage,
