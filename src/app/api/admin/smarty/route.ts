@@ -6,6 +6,7 @@ import {
   saveSmartyConfiguration,
   smartyConfiguration,
   smartyCredentials,
+  smartyRecentActivity,
   smartyUsageSummary,
   testSmartyConnection,
 } from "@/lib/smarty";
@@ -14,28 +15,53 @@ import { ApiError, body, failure, integer, sameOrigin } from "@/lib/server";
 export const dynamic = "force-dynamic";
 const noStore = { headers: { "Cache-Control": "no-store" } };
 
+function connectionStatus(
+  configured: boolean,
+  enabled: boolean,
+  health: string,
+  lastSuccessfulAt: string | null,
+) {
+  if (!configured) return { label: "Not configured", tone: "neutral" as const, connected: false };
+  if (!enabled) return { label: "Ready · disabled", tone: "warning" as const, connected: false };
+  if (health === "healthy" && lastSuccessfulAt)
+    return { label: "Connected", tone: "success" as const, connected: true };
+  if (health === "action_required")
+    return { label: "Action required", tone: "danger" as const, connected: false };
+  if (health === "degraded") return { label: "Degraded", tone: "warning" as const, connected: false };
+  return { label: "Enabled · verify connection", tone: "warning" as const, connected: false };
+}
+
 async function dashboard() {
-  const [config, creds, usage, errors] = await Promise.all([
+  const [config, creds, usage, activity, errors] = await Promise.all([
     smartyConfiguration(),
     smartyCredentials(),
     smartyUsageSummary(),
+    smartyRecentActivity(20),
     getPool().query(
       "SELECT id,operation,status_code,category,message,created_at FROM private.smarty_api_errors ORDER BY created_at DESC LIMIT 25",
     ),
   ]);
+  const credentials = {
+    authIdConfigured: Boolean(creds.authId),
+    authTokenConfigured: Boolean(creds.authToken),
+    embeddedKeyConfigured: Boolean(creds.embeddedKey),
+    configured: creds.configured,
+  };
   return {
     environment: environment(),
     config,
-    credentials: {
-      authIdConfigured: Boolean(creds.authId),
-      authTokenConfigured: Boolean(creds.authToken),
-      embeddedKeyConfigured: Boolean(creds.embeddedKey),
-      configured: creds.configured,
-    },
+    credentials,
+    connection: connectionStatus(
+      credentials.configured,
+      config.enabled,
+      config.health,
+      config.lastSuccessfulAt,
+    ),
     usage: {
       ...usage,
       estimatedCostUsd: Number((usage.monthMicros / 1_000_000).toFixed(4)),
     },
+    activity,
     errors: errors.rows,
     endpoints: {
       autocomplete: "https://us-autocomplete-pro.api.smarty.com/lookup",

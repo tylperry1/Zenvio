@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "./app-shell";
-import { Notice } from "./ds";
+import { Badge, Notice, Panel } from "./ds";
 
 export function NotificationsCenter() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
@@ -39,8 +39,19 @@ export function NotificationsCenter() {
     }
   }
 
+  const statusLabel =
+    permission === "unsupported"
+      ? "Not supported"
+      : permission === "granted"
+        ? "Permission granted"
+        : permission === "denied"
+          ? "Blocked in browser settings"
+          : "Not enabled yet";
+  const statusTone =
+    permission === "granted" ? "success" : permission === "denied" || permission === "unsupported" ? "warning" : "neutral";
+
   return (
-    <main className="platform-page notifications-page">
+    <main className="ds-root platform-page notifications-page">
       <PageHeader
         title="Browser alerts"
         description="Control browser alerts on this device. Email and SMS for bookings are managed separately under Automations and your services."
@@ -48,66 +59,50 @@ export function NotificationsCenter() {
       {error && <Notice tone="danger">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
 
-      <section className="notif-card">
-        <header>
-          <h2>Browser notifications</h2>
-          <p>
-            Asks this browser for permission so Zenvio can show alerts while the app is open on this device.
-          </p>
-        </header>
-        <p className="notif-status">
-          Status:{" "}
-          <strong>
-            {permission === "unsupported"
-              ? "Not supported"
-              : permission === "granted"
-                ? "Permission granted on this device"
-                : permission === "denied"
-                  ? "Blocked in browser settings"
-                  : "Not enabled yet"}
-          </strong>
-        </p>
-        <button className="ui-btn ui-btn-primary" disabled={busy || permission === "unsupported" || permission === "granted"} onClick={() => void enablePush()}>
-          {permission === "granted" ? "Permission granted" : busy ? "Enabling…" : "Enable browser notifications"}
-        </button>
-      </section>
+      <div className="ds-stack">
+        <Panel
+          title="Browser notifications"
+          description="Asks this browser for permission so Zenvio can show alerts while the app is open on this device."
+          actions={<Badge tone={statusTone} dot>{statusLabel}</Badge>}
+        >
+          <button
+            className="ds-btn primary"
+            disabled={busy || permission === "unsupported" || permission === "granted"}
+            onClick={() => void enablePush()}
+          >
+            {permission === "granted" ? "Permission granted" : busy ? "Enabling…" : "Enable browser notifications"}
+          </button>
+        </Panel>
 
-      <section className="notif-card">
-        <header>
-          <h2>Customer email & SMS</h2>
-          <p>
-            Manage booking email and, where available, SMS in Automations and your service settings. Those channels are
-            separate from this browser permission.
+        <Panel
+          title="Customer email & SMS"
+          description="Manage booking email and, where available, SMS in Automations and your service settings. Those channels are separate from this browser permission."
+        >
+          <p className="ds-muted">
+            Security, billing, and account emails send when email delivery is available. Marketing email stays opt-in.
+            Phone alerts use your Automations and messaging settings—not this browser switch.
           </p>
-        </header>
-        <p className="notif-note">
-          Security, billing, and account emails send when email delivery is available. Marketing email stays opt-in.
-          Phone alerts use your Automations and messaging settings—not this browser switch.
-        </p>
-        <div className="notif-actions">
-          <Link className="ui-btn ui-btn-primary" href="/app/automation">
-            Open Automations
-          </Link>
-          <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
-            Services & reminders
-          </Link>
-        </div>
-      </section>
+          <div className="ds-form-actions" style={{ justifyContent: "flex-start" }}>
+            <Link className="ds-btn primary" href="/app/automation">
+              Open Automations
+            </Link>
+            <Link className="ds-btn" href="/app?view=event-types">
+              Services & reminders
+            </Link>
+          </div>
+        </Panel>
 
-      <section className="notif-card">
-        <header>
-          <h2>In-app alerts</h2>
-          <p>Support and inbox activity continue to surface in the workspace. Use Support and Inbox for live conversations.</p>
-        </header>
-        <div className="notif-actions">
-          <Link className="ui-btn ui-btn-secondary" href="/app/inbox">
-            Open Inbox
-          </Link>
-          <Link className="ui-btn ui-btn-secondary" href="/app/support">
-            Open Support
-          </Link>
-        </div>
-      </section>
+        <Panel title="In-app alerts" description="Support and inbox activity continue to surface in the workspace.">
+          <div className="ds-form-actions" style={{ justifyContent: "flex-start" }}>
+            <Link className="ds-btn" href="/app/inbox">
+              Open Inbox
+            </Link>
+            <Link className="ds-btn" href="/app/support">
+              Open Support
+            </Link>
+          </div>
+        </Panel>
+      </div>
     </main>
   );
 }

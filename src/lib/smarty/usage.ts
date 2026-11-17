@@ -66,3 +66,26 @@ export async function smartyUsageSummary() {
     validations: rows[0]?.validations || 0,
   };
 }
+
+/** Recent metered lookups for admin activity — never includes street addresses. */
+export async function smartyRecentActivity(limit = 20) {
+  const safe = Math.min(50, Math.max(1, Math.floor(limit) || 20));
+  const { rows } = await getPool().query(
+    `SELECT id, model AS operation,
+            coalesce(actual_micros, reserved_micros, 0)::int AS micros,
+            user_id::text AS "workspaceId",
+            created_at
+       FROM private.provider_usage_reservations
+      WHERE provider='smarty' AND state<>'released'
+      ORDER BY created_at DESC
+      LIMIT $1`,
+    [safe],
+  );
+  return rows as {
+    id: string;
+    operation: string;
+    micros: number;
+    workspaceId: string;
+    created_at: string;
+  }[];
+}
