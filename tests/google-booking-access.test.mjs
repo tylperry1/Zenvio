@@ -19,71 +19,67 @@ const filename = path.resolve("src/app/api/book/route.ts"),
 m.filename = filename;
 m.paths = Module._nodeModulePaths(path.dirname(filename));
 const original = m.require.bind(m);
-m.require = (id) =>
-  id === "@/lib/marketing"
-    ? { cleanAttribution: () => ({ source: "direct" }), recordBookingSource: async () => {} }
-    : id === "@/lib/appointment-payments"
-    ? {}
-    : id === "@/lib/booking-protection"
-      ? { protectBooking: async () => {} }
-    : id === "@/lib/guest-uploads"
-      ? { claimUploads: async () => [], uploadKey: (v) => v, uploadKeyHash: (v) => v }
-    : id === "@/lib/workflows"
-      ? {}
-      : id === "@/lib/lifecycle"
-        ? {}
-        : id === "@/lib/intake"
-          ? { intakeAnswers: () => [] }
-          : id === "@/lib/db"
-            ? {
-                getPool: () => ({
-                  query: async () => ({
-                    rows: missingEvent ? [] : [{ intake_questions: [], payment_mode: "free" }],
-                  }),
-                }),
-              }
-            : id === "next/server"
-              ? { after: () => {} }
-              : id === "@/lib/mail"
-                ? { deliverBookingEmails: async () => {} }
-                : id === "@/lib/google-calendar"
-                  ? {
-                      filterGoogleSlots: async (h, e, slots) => {
-                        if (unavailable)
-                          throw new ApiError("Calendar unavailable", 503);
-                        return blocked ? [] : slots;
-                      },
-                      runGoogleJobsForHost: async () => {},
-                    }
-                  : id === "@/lib/microsoft-calendar"
-                    ? { filterMicrosoftSlots: async (_h, _e, slots) => slots }
-                  : id === "@/lib/server"
-                    ? {
-                        ApiError,
-                        slug: (v) => v,
-                        publicHostSlug: (v) => v,
-                        string: (v) => v,
-                        email: (v) => v,
-                        body: (r) => r.json(),
-                        sameOrigin: () => {},
-                        failure: (e) =>
-                          Response.json(
-                            { error: e.message },
-                            { status: e.status || 500 },
-                          ),
-                        backend: async (p) => {
-                          if (p.includes("reserve_booking")) {
-                            reservations++;
-                            return { id: "booking" };
-                          }
-                          if (p.endsWith("public_event"))
-                            return [{ duration: 30 }];
-                          if (p.endsWith("public_slots"))
-                            return [{ starts_at: "2026-11-02T15:00:00Z" }];
-                          throw Error("Unexpected call");
-                        },
-                      }
-                    : original(id);
+const stubs = {
+  "@/lib/marketing": {
+    cleanAttribution: () => ({ source: "direct" }),
+    recordBookingSource: async () => {},
+  },
+  "@/lib/appointment-payments": {},
+  "@/lib/booking-slug": { resolveBookingSlug: async (host) => host },
+  "@/lib/booking-protection": { protectBooking: async () => {} },
+  "@/lib/guest-uploads": {
+    claimUploads: async () => [],
+    uploadKey: (v) => v,
+    uploadKeyHash: (v) => v,
+  },
+  "@/lib/workflows": { scheduleWorkflows: async () => {} },
+  "@/lib/lifecycle": {
+    materializeReminders: async () => {},
+    drainDeliveries: async () => {},
+  },
+  "@/lib/intake": { intakeAnswers: () => [] },
+  "@/lib/db": {
+    getPool: () => ({
+      query: async () => ({
+        rows: missingEvent ? [] : [{ intake_questions: [], payment_mode: "free" }],
+      }),
+    }),
+  },
+  "next/server": { after: () => {}, NextRequest: class {} },
+  "@/lib/mail": { deliverBookingEmails: async () => {} },
+  "@/lib/google-calendar": {
+    filterGoogleSlots: async (h, e, slots) => {
+      if (unavailable) throw new ApiError("Calendar unavailable", 503);
+      return blocked ? [] : slots;
+    },
+    runGoogleJobsForHost: async () => {},
+  },
+  "@/lib/microsoft-calendar": {
+    filterMicrosoftSlots: async (_h, _e, slots) => slots,
+  },
+  "@/lib/server": {
+    ApiError,
+    slug: (v) => v,
+    publicHostSlug: (v) => v,
+    string: (v) => v,
+    email: (v) => v,
+    body: (r) => r.json(),
+    sameOrigin: () => {},
+    failure: (e) =>
+      Response.json({ error: e.message }, { status: e.status || 500 }),
+    backend: async (p) => {
+      if (p.includes("reserve_booking")) {
+        reservations++;
+        return { id: "booking" };
+      }
+      if (p.endsWith("public_event")) return [{ duration: 30 }];
+      if (p.endsWith("public_slots"))
+        return [{ starts_at: "2026-11-02T15:00:00Z" }];
+      throw Error("Unexpected call");
+    },
+  },
+};
+m.require = (id) => (Object.hasOwn(stubs, id) ? stubs[id] : original(id));
 m._compile(
   ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     compilerOptions: {

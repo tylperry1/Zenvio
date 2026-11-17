@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { LaunchControls } from "@/lib/launch-controls";
+import { PlatformSocialAdmin } from "./platform-social-admin";
 import { Alert, Badge, Card, Field, Skeleton, Toggle } from "./ui";
 
 const registration = [
@@ -44,5 +45,6 @@ export function LaunchControlAdmin() {
    <Card className="command-save" title="Save changes" description="Record why these controls are changing for the audit history."><Field label="Reason"><textarea className="ui-input" name="reason" required minLength={5} maxLength={500} disabled={busy} placeholder="Describe the rollout or access change"/></Field><div className="premium-actions"><span>Changes take effect after saving.</span><button className="ui-btn ui-btn-primary" disabled={busy}>{busy?"Saving…":"Save launch controls"}</button></div></Card>
   </form>}
   <Card title="Stripe sandbox acceptance" description="Verify the subscription lifecycle and signed webhook deliveries before enabling checkout."><div className="premium-actions"><p className="premium-note">Uses separate test credentials from <a href="/admin/operations?section=integrations">Connections</a>. No live charges are made.</p><div className="premium-button-group"><button className="ui-btn ui-btn-secondary" disabled={busy} onClick={()=>void acceptance("run")}>Run sandbox lifecycle</button>{sandboxRun&&<button className="ui-btn ui-btn-primary" disabled={busy} onClick={()=>void acceptance("verify")}>Verify signed webhooks</button>}</div></div></Card>
+  <PlatformSocialAdmin />
  </main>;
 }

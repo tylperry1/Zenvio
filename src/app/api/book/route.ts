@@ -10,6 +10,7 @@ import { deliverBookingEmails } from "@/lib/mail";
 import { cleanAttribution, recordBookingSource } from "@/lib/marketing";
 import { NextRequest } from "next/server";
 import { protectBooking } from "@/lib/booking-protection";
+import { resolveBookingSlug } from "@/lib/booking-slug";
 import { claimUploads, uploadKey, uploadKeyHash } from "@/lib/guest-uploads";
 import {
   backend,
@@ -23,9 +24,15 @@ import {
   ApiError,
 } from "@/lib/server";
 export const dynamic = "force-dynamic";
+async function liveHost(raw: string) {
+  const requested = publicHostSlug(raw, "This booking page is unavailable.");
+  const resolved = await resolveBookingSlug(requested);
+  if (!resolved) throw new ApiError("This booking page is unavailable.", 404);
+  return resolved;
+}
 export async function GET(request: NextRequest) {
   try {
-    const host = publicHostSlug(request.nextUrl.searchParams.get("host"), "This booking page is unavailable.");
+    const host = await liveHost(String(request.nextUrl.searchParams.get("host") || ""));
     const event = publicHostSlug(request.nextUrl.searchParams.get("event"), "This booking page is unavailable.");
     const info = await backend("/rest/v1/rpc/public_event", {
       method: "POST",
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(Date.parse(start)))
       throw new ApiError("Please choose a valid appointment time.");
     await protectBooking(request, input.captcha);
-    const host = slug(input.host),
+    const host = await liveHost(String(input.host || "")),
       eventSlug = slug(input.event);
     const googleSlots=await filterGoogleSlots(host,eventSlug,[start]);
     if (!(await filterMicrosoftSlots(host,eventSlug,googleSlots)).length)

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/icons";
+import { PlatformSocialLinks } from "@/components/platform-social-links";
 import { VisitorChat } from "@/components/visitor-support";
+import { platformSocialLinks } from "@/lib/platform-social";
 
 export const metadata = {
   title: "Contact Zenvio",
@@ -8,7 +10,8 @@ export const metadata = {
   alternates: { canonical: "https://gozenvio.com/contact" },
 };
 
-export default function Page() {
+export default async function Page() {
+  const socialLinks = await platformSocialLinks();
   return (
     <div className="vc-page">
       <header className="vc-page-head">
@@ -30,6 +33,12 @@ export default function Page() {
         <section className="vc-card">
           <VisitorChat />
         </section>
+        {socialLinks.length > 0 && (
+          <section className="vc-social" aria-label="Follow Zenvio">
+            <p className="vc-lead">Or find us on social.</p>
+            <PlatformSocialLinks links={socialLinks} />
+          </section>
+        )}
         <p className="vc-lead">
           Looking for setup guides? Visit the <Link href="/help">Help Center</Link>. Already have an account? Open{" "}
           <Link href="/app/support">workspace support</Link>.

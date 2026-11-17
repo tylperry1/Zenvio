@@ -53,6 +53,10 @@ body[data-smart-cards="false"] a[href^="/app/smart-cards"],body[data-growth="fal
 .premium-actions{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:18px}
 .premium-actions>span{font-size:12px;color:#65728a}
 .premium-button-group{display:flex;flex-wrap:wrap;gap:10px}
+.platform-social-rows{display:grid;gap:16px}
+.platform-social-row{display:grid;grid-template-columns:minmax(140px,0.8fr) minmax(0,1.4fr) minmax(0,1fr) auto;gap:12px;align-items:end;padding-bottom:16px;border-bottom:1px solid #edf0f6}
+.platform-social-row .ui-btn{min-height:42px}
+@media(max-width:900px){.platform-social-row{grid-template-columns:minmax(0,1fr)}}
 .command-save .ui-card-body{padding-top:20px}
 .ai-operations .aa-stats{gap:14px;margin:16px 0}
 .ai-operations .aa-stats>div{padding:16px;border:1px solid #e5eaf2;border-radius:10px;background: var(--surface-hover)}

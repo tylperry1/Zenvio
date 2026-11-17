@@ -251,6 +251,9 @@
 .mk-footer p{margin:8px 0 0;font-size:12px;color:var(--mk-muted)}
 .mk-footer nav{display:flex;flex-wrap:wrap;gap:12px 18px;font-size:12px;color:var(--mk-muted)}
 .mk-footer>span{font-size:12px;color:var(--mk-faint)}
+.mk-social{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:14px}
+.mk-social a{font-size:12px;font-weight:600;color:var(--mk-ink);text-decoration:none}
+.mk-social a:hover{color:var(--mk-blue)}
 .mk-legal{padding-bottom:36px}
 .mk-legal p{margin:0;max-width:960px;font-size:11px;line-height:1.65;color:var(--mk-faint)}
 .mk-legal a{text-decoration:underline}
