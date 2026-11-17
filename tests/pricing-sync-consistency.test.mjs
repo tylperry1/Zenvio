@@ -216,8 +216,14 @@ test("homepage and pricing page share the public pricing surface", () => {
 
 test("v4 provision script refuses live Stripe keys", () => {
   const src = fs.readFileSync("scripts/provision-pricing-v4.mjs", "utf8");
-  assert.match(src, /sk_test_/);
+  assert.match(src, /evaluateStripeTestModeKey/);
   assert.match(src, /PRICING_V4_STRIPE_SYNC/);
   assert.match(src, /PRICING_V4_LIVE_SYNC_APPROVED/);
   assert.match(src, /zenvio_\$\{offer\.id\}_v4/);
+  const guard = load("src/lib/stripe-test-mode.mjs");
+  assert.equal(guard.evaluateStripeTestModeKey("sk_live_synthetic").proceed, false);
+  assert.equal(guard.evaluateStripeTestModeKey("sk_live_synthetic").exitCode, 1);
+  assert.equal(guard.evaluateStripeTestModeKey("sk_test_synthetic").proceed, true);
+  assert.equal(guard.evaluateStripeTestModeKey("").proceed, false);
+  assert.equal(guard.evaluateStripeTestModeKey("").exitCode, 0);
 });

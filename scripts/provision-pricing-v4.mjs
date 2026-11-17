@@ -18,6 +18,7 @@ import {
   pricingV4Offers,
   pricingV4Version,
 } from "../src/lib/pricing-v4-catalog.mjs";
+import { evaluateStripeTestModeKey } from "../src/lib/stripe-test-mode.mjs";
 
 if (process.env.PRICING_V4_STRIPE_SYNC !== "true") {
   console.log("Pricing v4 Stripe sync skipped (set PRICING_V4_STRIPE_SYNC=true to run).");
@@ -62,13 +63,10 @@ const offers = [
 
 try {
   const key = await secret("STRIPE_SECRET_KEY");
-  if (!key) {
-    console.log("Pricing v4 sync pending: Stripe secret key missing.");
-    process.exit(0);
-  }
-  if (!key.startsWith("sk_test_")) {
-    console.log("Pricing v4 sync refused: Stripe secret key is not test mode (sk_test_).");
-    process.exit(1);
+  const gate = evaluateStripeTestModeKey(key);
+  if (!gate.proceed) {
+    console.log(gate.message);
+    process.exit(gate.exitCode);
   }
 
   const stripe = new Stripe(key, { timeout: 15000, maxNetworkRetries: 2 });
