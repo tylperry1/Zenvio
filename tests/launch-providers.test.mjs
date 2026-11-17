@@ -35,14 +35,14 @@ test('Telnyx duplicate callbacks commit an acknowledgement without updating mess
  const {privateKey,publicKey}=generateKeyPairSync('ed25519'),pub=publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64');
  const payload=JSON.stringify({data:{id:'event-duplicate',event_type:'message.finalized',payload:{id:'message-1'}}}),time=String(Math.floor(Date.now()/1000)),signature=sign(null,Buffer.from(time+'|'+payload),privateKey).toString('base64'),calls=[];
  const fake={query:async(sql)=>{calls.push(sql);return {rows:sql.startsWith('select processed_at')?[{processed_at:new Date()}]:[],rowCount:1}},release(){}};
- const route=loader({'next/server':{},db:{getPool:()=>({connect:async()=>fake})},'platform-settings':{integrationValue:async()=>pub},twilio:{normalizeE164:x=>x,twilioKeyword:()=>null},uploads:{readUpload:async()=>Buffer.from(payload)},messaging:{ensureContactThread:async()=>{throw Error('must not run')}}})('src/app/api/messaging/telnyx/route.ts');
+ const route=loader({'next/server':{},db:{getPool:()=>({connect:async()=>fake})},'platform-settings':{integrationValue:async()=>pub},twilio:{normalizeE164:x=>x,twilioKeyword:()=>null},uploads:{readUpload:async()=>Buffer.from(payload)},messaging:{bridgeProviderSmsToInbox:async()=>{throw Error('must not run')}}})('src/app/api/messaging/telnyx/route.ts');
  const result=await route.POST({headers:new Headers({'telnyx-timestamp':time,'telnyx-signature-ed25519':signature})});assert.equal(result.status,204);assert.equal(calls.at(-1),'commit');assert.equal(calls.some(s=>s.startsWith('update private.message_records')),false);
 });
 test('Telnyx failed processing rolls back its event claim so the provider can retry',async()=>{
  const {privateKey,publicKey}=generateKeyPairSync('ed25519'),pub=publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64');
  const payload=JSON.stringify({data:{id:'event-retry',event_type:'message.finalized',occurred_at:new Date().toISOString(),payload:{id:'message-1',to:[{phone_number:'+15125550123',status:'delivered'}]}}}),time=String(Math.floor(Date.now()/1000)),signature=sign(null,Buffer.from(time+'|'+payload),privateKey).toString('base64'),calls=[];
  const fake={query:async(sql)=>{calls.push(sql);return {rows:sql.startsWith('select processed_at')?[{processed_at:null}]:[],rowCount:1}},release(){}};
- const route=loader({'next/server':{},db:{getPool:()=>({connect:async()=>fake})},'platform-settings':{integrationValue:async()=>pub},twilio:{normalizeE164:x=>x,twilioKeyword:()=>null},uploads:{readUpload:async()=>Buffer.from(payload)},messaging:{ensureContactThread:async()=>{}}})('src/app/api/messaging/telnyx/route.ts');
+ const route=loader({'next/server':{},db:{getPool:()=>({connect:async()=>fake})},'platform-settings':{integrationValue:async()=>pub},twilio:{normalizeE164:x=>x,twilioKeyword:()=>null},uploads:{readUpload:async()=>Buffer.from(payload)},messaging:{bridgeProviderSmsToInbox:async()=>{}}})('src/app/api/messaging/telnyx/route.ts');
  assert.equal((await route.POST({headers:new Headers({'telnyx-timestamp':time,'telnyx-signature-ed25519':signature})})).status,503);assert.equal(calls.at(-1),'rollback');assert.equal(calls.includes('commit'),false);
 });
 test('Platform SMS suspension blocks consent checks and network dispatch',async()=>{

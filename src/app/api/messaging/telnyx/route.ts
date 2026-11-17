@@ -5,7 +5,7 @@ import { integrationValue } from "@/lib/platform-settings";
 import { normalizeE164, twilioKeyword } from "@/lib/twilio";
 import { telnyxSignatureValid } from "@/lib/launch/telnyx";
 import { readUpload } from "@/lib/uploads";
-import { ensureContactThread } from "@/lib/messaging";
+import { bridgeProviderSmsToInbox } from "@/lib/messaging";
 export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
     let raw: string;
@@ -57,11 +57,17 @@ export async function POST(request: NextRequest) {
             const message = (await db.query(`insert into private.message_records(thread_id,user_id,channel,direction,state,body,provider,provider_message_id,received_at)
         values($1,$2,'sms','inbound','received',$3,'telnyx',$4,now()) on conflict(provider,provider_message_id) where provider_message_id is not null do nothing returning id`, [thread.id, connection.user_id, text || "[Unsupported media message]", p.id])).rows[0];
             // Link only an unambiguous exact phone match. Never attach an inbound message by name.
+            // Dual-store: always keep provider ledger rows; bridge into product Inbox only on
+            // an unambiguous contact match (never by name).
             const contacts = (await db.query("select distinct contact_id from public.bookings where user_id=$1 and guest_phone=$2 and contact_id is not null limit 2", [connection.user_id, from])).rows;
             if (message && contacts.length === 1) {
-                const inbox = await ensureContactThread(db, connection.user_id, contacts[0].contact_id);
-                await db.query("insert into private.thread_messages(id,thread_id,direction,channel,author_name,body,status) values($1,$2,'inbound','sms',$3,$4,'received') on conflict(id) do nothing", [message.id, inbox, from, text || "[Unsupported media message]"]);
-                await db.query("update private.message_threads set last_message_at=now(),status='open' where id=$1", [inbox]);
+                await bridgeProviderSmsToInbox(db, {
+                    userId: connection.user_id,
+                    contactId: contacts[0].contact_id,
+                    messageId: message.id,
+                    from,
+                    body: text || "[Unsupported media message]",
+                });
             }
         }
         else if (["message.sent", "message.finalized"].includes(data.event_type)) {

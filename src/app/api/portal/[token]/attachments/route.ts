@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       await getPool().query(
         `SELECT a.filename,a.content_type,a.data FROM private.message_attachments a
            JOIN private.thread_messages m ON m.id=a.message_id JOIN private.message_threads t ON t.id=a.thread_id
-          WHERE a.id=$1 AND t.user_id=$2 AND t.contact_id=$3 AND m.direction<>'internal'`,
+          WHERE a.id=$1 AND t.user_id=$2 AND t.contact_id=$3 AND m.direction<>'internal' AND m.deleted_at IS NULL`,
         [uuid(request.nextUrl.searchParams.get("id")), s.userId, s.contactId],
       )
     ).rows[0];

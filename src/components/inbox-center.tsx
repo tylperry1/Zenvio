@@ -5,20 +5,23 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
+import { Kpi, Notice, PageHeader } from "./ds";
 import { Alert, Badge, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Modal } from "./modal";
 
+type ThreadStatus = "open" | "pending_response" | "closed" | "archived";
 type Thread = {
   id: string;
   subject: string;
-  status: "open" | "closed";
+  status: ThreadStatus;
   assigned_to: string | null;
   assigned_name: string | null;
   last_message_at: string;
   contact_id: string | null;
   contact_name: string | null;
   contact_email: string | null;
+  booking_id?: string | null;
   unread: number;
   last: { body: string; direction: string; channel: string } | null;
 };
@@ -32,21 +35,57 @@ type Message = {
   status: string;
   status_detail: string;
   created_at: string;
+  edited?: boolean;
   attachments: Attachment[];
 };
 type Detail = {
   thread: {
     id: string;
     subject: string;
-    status: "open" | "closed";
+    status: ThreadStatus;
     assigned_to: string | null;
+    booking_id?: string | null;
+    canAdminister?: boolean;
     contact: { id: string; name: string; email: string; phone: string } | null;
+    booking?: {
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      status: string;
+      location?: string;
+      title?: string;
+    } | null;
+    recentBookings?: {
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      status: string;
+      location?: string;
+      title?: string;
+    }[];
   };
   messages: Message[];
   sms: { ok: boolean; sender?: string; reason?: string; detail?: string };
 };
 type Template = { id: string; name: string; body: string };
-type Filter = "all" | "unread" | "mine" | "open" | "closed";
+type Metrics = {
+  open: number;
+  unread: number;
+  assigned_to_me: number;
+  unassigned: number;
+  pending_response: number;
+  closed: number;
+  archived: number;
+};
+type Filter =
+  | "all"
+  | "unread"
+  | "mine"
+  | "unassigned"
+  | "open"
+  | "pending_response"
+  | "closed"
+  | "archived";
 
 const statusTone: Record<string, "neutral" | "info" | "success" | "warning" | "danger"> = {
   queued: "info",
@@ -71,29 +110,64 @@ export function InboxCenter() {
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("all"),
     [query, setQuery] = useState(""),
-    [list, setList] = useState<{ threads: Thread[]; members: { id: string; name: string; email: string }[]; templates: Template[]; unread: number } | null>(null),
+    [page, setPage] = useState(0),
+    [list, setList] = useState<{
+      threads: Thread[];
+      total: number;
+      page: number;
+      pageSize: number;
+      listKey: string;
+      members: { id: string; name: string; email: string }[];
+      templates: Template[];
+      unread: number;
+      metrics?: Metrics;
+    } | null>(null),
     [listError, setListError] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("thread")),
     [detail, setDetail] = useState<Detail | null>(null),
     [detailError, setDetailError] = useState(""),
     [picker, setPicker] = useState(false),
-    [shareLink, setShareLink] = useState(false);
+    [shareLink, setShareLink] = useState(false),
+    [loadingMore, setLoadingMore] = useState(false);
   const toast = useToast();
+  const listKey = `${filter}\0${query}`;
 
   const freshList = useFreshRequest();
   const freshThread = useFreshRequest();
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (opts?: { page?: number; append?: boolean }) => {
+    const nextPage = opts?.page ?? 0;
+    const identity = `${filter}\0${query}`;
     const still = freshList();
     try {
-      const r = await fetch(`/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}`, { cache: "no-store" });
+      if (opts?.append) setLoadingMore(true);
+      const r = await fetch(
+        `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}`,
+        { cache: "no-store" },
+      );
       const d = await r.json();
       if (!still()) return;
       if (!r.ok) throw Error(d.error);
-      setList(d);
+      setPage(nextPage);
+      setList((prev) => {
+        if (opts?.append) {
+          // Reject appends that would mix rows from a different filter/search.
+          if (!prev || prev.listKey !== identity) return prev;
+          return {
+            ...d,
+            listKey: identity,
+            threads: [...prev.threads, ...d.threads],
+            members: d.members,
+            templates: d.templates,
+          };
+        }
+        return { ...d, listKey: identity };
+      });
       setListError("");
     } catch (e) {
       if (!still()) return;
       setListError(e instanceof Error ? e.message : "The inbox couldn’t be loaded.");
+    } finally {
+      if (opts?.append) setLoadingMore(false);
     }
   }, [filter, query, freshList]);
   const loadThread = useCallback(async (id: string) => {
@@ -112,17 +186,18 @@ export function InboxCenter() {
   }, [freshThread, selected]);
 
   useEffect(() => {
-    const t = setTimeout(() => void loadList(), query ? 250 : 0);
+    setPage(0);
+    const t = setTimeout(() => void loadList({ page: 0 }), query ? 250 : 0);
     return () => clearTimeout(t);
   }, [loadList, query]);
   useEffect(() => {
     if (!selected) return setDetail(null);
     setDetail(null);
-    void loadThread(selected).then(() => loadList());
+    void loadThread(selected).then(() => loadList({ page: 0 }));
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
   useWorkspaceLive(() => {
-    void loadList();
+    void loadList({ page: 0 });
     if (selected) void loadThread(selected);
   });
 
@@ -150,22 +225,33 @@ export function InboxCenter() {
     if (contact) void startWith(contact);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const metrics = list?.metrics;
   return (
-    <div className="platform-page inbox-page">
-      <div className="inbox-head">
-        <div>
-          <h1>Inbox</h1>
-          <p>Every client conversation in one place — email, text, portal replies and internal notes.</p>
+    <div className="platform-page inbox-page ds-root">
+      <PageHeader
+        title="Inbox"
+        description="Secure customer conversations — email, text, portal replies, and private notes."
+        actions={
+          <>
+            <button type="button" className="ds-btn ghost" onClick={() => setShareLink(true)}>
+              <Icon name="link" size={15} /> Send booking link
+            </button>
+            <button type="button" className="ds-btn primary" onClick={() => setPicker(true)}>
+              <Icon name="plus" size={15} /> New conversation
+            </button>
+          </>
+        }
+      />
+      {metrics && (
+        <div className="ds-kpis inbox-metrics">
+          <Kpi label="Open" value={String(metrics.open)} icon="message" />
+          <Kpi label="Unread" value={String(metrics.unread)} icon="mail" tone="warning" />
+          <Kpi label="Assigned to me" value={String(metrics.assigned_to_me)} icon="users" />
+          <Kpi label="Unassigned" value={String(metrics.unassigned)} icon="team" />
+          <Kpi label="Pending response" value={String(metrics.pending_response)} icon="clock" />
+          <Kpi label="Closed" value={String(metrics.closed)} icon="check" />
         </div>
-        <div className="inbox-head-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setShareLink(true)}>
-            <Icon name="link" size={15} /> Send booking link
-          </button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setPicker(true)}>
-            <Icon name="plus" size={15} /> New conversation
-          </button>
-        </div>
-      </div>
+      )}
       <div className={`inbox${selected ? " has-thread" : ""}`}>
         <section className="inbox-list" aria-label="Conversations">
           <div className="inbox-list-tools">
@@ -173,7 +259,7 @@ export function InboxCenter() {
               <Icon name="search" size={15} />
               <input
                 type="search"
-                placeholder="Search conversations"
+                placeholder="Search name, email, phone, or message"
                 aria-label="Search conversations"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -187,7 +273,10 @@ export function InboxCenter() {
                 { id: "all", label: "All" },
                 { id: "unread", label: "Unread", count: list?.unread || undefined },
                 { id: "mine", label: "Assigned to me" },
+                { id: "unassigned", label: "Unassigned" },
+                { id: "pending_response", label: "Pending" },
                 { id: "closed", label: "Closed" },
+                { id: "archived", label: "Archived" },
               ]}
             />
           </div>
@@ -229,7 +318,12 @@ export function InboxCenter() {
                       )}
                     </span>
                     <span className="inbox-thread-meta">
-                      {t.status === "closed" && <Badge>Closed</Badge>}
+                      {t.status !== "open" && (
+                        <Badge tone={t.status === "pending_response" ? "warning" : "neutral"}>
+                          {t.status.replaceAll("_", " ")}
+                        </Badge>
+                      )}
+                      {t.booking_id && <Badge tone="info">Booking</Badge>}
                       {t.assigned_name && <Badge tone="info">{t.assigned_name}</Badge>}
                     </span>
                   </span>
@@ -242,6 +336,18 @@ export function InboxCenter() {
               </li>
             ))}
           </ul>
+          {list && list.listKey === listKey && list.threads.length < list.total && (
+            <div className="inbox-pad">
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary ui-btn-sm"
+                disabled={loadingMore}
+                onClick={() => void loadList({ page: page + 1, append: true })}
+              >
+                {loadingMore ? "Loading…" : `Load more (${list.threads.length} of ${list.total})`}
+              </button>
+            </div>
+          )}
         </section>
         <section className="inbox-view" aria-label="Conversation">
           {!selected ? (
@@ -260,7 +366,14 @@ export function InboxCenter() {
               onBack={() => setSelected(null)}
               onChange={async () => {
                 await loadThread(detail.thread.id);
-                await loadList();
+                await loadList({ page: 0 });
+              }}
+              onMarkedUnread={async () => {
+                // Leave the thread so GET ?thread=… does not immediately re-mark it read.
+                setSelected(null);
+                setDetail(null);
+                window.history.replaceState(null, "", "/app/inbox");
+                await loadList({ page: 0 });
               }}
               post={post}
               notify={toast.show}
@@ -274,7 +387,7 @@ export function InboxCenter() {
           onClose={() => setShareLink(false)}
           onSent={(m) => {
             toast.show(m);
-            void loadList();
+            void loadList({ page: 0 });
           }}
         />
       )}
@@ -289,6 +402,7 @@ function ThreadView({
   templates,
   onBack,
   onChange,
+  onMarkedUnread,
   post,
   notify,
 }: {
@@ -297,16 +411,31 @@ function ThreadView({
   templates: Template[];
   onBack: () => void;
   onChange: () => Promise<void>;
+  onMarkedUnread: () => Promise<void>;
   post: (p: Record<string, unknown>) => Promise<any>;
   notify: (text: string, error?: boolean) => void;
 }) {
   const { thread, messages, sms } = detail;
   const contact = thread.contact;
+  const booking = thread.booking;
+  const recentBookings = thread.recentBookings || [];
   const scroller = useRef<HTMLDivElement>(null);
   const [shareLink, setShareLink] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [messages.length]);
+
+  async function setStatus(status: ThreadStatus) {
+    try {
+      await post({ action: "status", threadId: thread.id, status });
+      await onChange();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Couldn’t update status.", true);
+    }
+  }
+
   return (
     <>
       <header className="inbox-view-head">
@@ -319,6 +448,13 @@ function ThreadView({
             <small>
               {contact.email}
               {contact.phone && ` · ${contact.phone}`}
+            </small>
+          )}
+          {booking && (
+            <small>
+              Appointment: {booking.title || "Service"} ·{" "}
+              {new Date(booking.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+              {booking.location ? ` · ${booking.location}` : ""}
             </small>
           )}
         </div>
@@ -366,23 +502,99 @@ function ThreadView({
             className="ui-btn ui-btn-ghost ui-btn-sm"
             onClick={async () => {
               try {
-                await post({ action: "status", threadId: thread.id, status: thread.status === "open" ? "closed" : "open" });
-                await onChange();
+                await post({ action: "unread", threadId: thread.id });
+                await onMarkedUnread();
+                notify("Marked unread.");
               } catch (err) {
-                notify(err instanceof Error ? err.message : "Couldn’t update.", true);
+                notify(err instanceof Error ? err.message : "Couldn’t mark unread.", true);
               }
             }}
           >
-            {thread.status === "open" ? "Close" : "Reopen"}
+            Mark unread
           </button>
+          <select
+            className="ui-input inbox-assign"
+            aria-label="Conversation status"
+            value={thread.status}
+            onChange={(e) => void setStatus(e.target.value as ThreadStatus)}
+          >
+            <option value="open">Open</option>
+            <option value="pending_response">Pending response</option>
+            <option value="closed">Closed</option>
+            <option value="archived">Archived</option>
+          </select>
         </div>
       </header>
+      {(contact || recentBookings.length > 0) && (
+        <aside className="inbox-context" aria-label="Customer context">
+          {contact && (
+            <div>
+              <b>{contact.name}</b>
+              <p className="ds-muted">
+                {contact.email}
+                {contact.phone ? ` · ${contact.phone}` : ""}
+              </p>
+              <Link className="ds-btn ghost sm" href={`/app/clients?client=${contact.id}`}>
+                Open customer record
+              </Link>
+            </div>
+          )}
+          {recentBookings.length > 0 && (
+            <div>
+              <small className="ds-eyebrow">Appointments</small>
+              <ul className="inbox-context-bookings">
+                {recentBookings.slice(0, 5).map((b) => (
+                  <li key={b.id}>
+                    <span>
+                      {b.title || "Service"} ·{" "}
+                      {new Date(b.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                    </span>
+                    <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </aside>
+      )}
       <div className="inbox-messages" ref={scroller} role="log" aria-label="Messages">
         {!messages.length && <p className="inbox-empty-thread">No messages yet. Write the first one below.</p>}
         {messages.map((m) => (
           <article key={m.id} className={`inbox-msg inbox-msg-${m.direction}`}>
             <div className="inbox-msg-bubble">
-              <p>{m.body}</p>
+              {m.direction === "internal" && <Badge tone="warning">Internal note</Badge>}
+              {editingId === m.id ? (
+                <div className="inbox-edit">
+                  <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={4} />
+                  {(m.channel === "email" || m.channel === "sms") && (
+                    <Notice tone="info">
+                      Saving updates Zenvio’s copy only. The recipient’s already-delivered message cannot be changed.
+                    </Notice>
+                  )}
+                  <div className="inbox-edit-actions">
+                    <button
+                      type="button"
+                      className="ds-btn sm"
+                      onClick={async () => {
+                        try {
+                          await post({ action: "edit-message", messageId: m.id, body: editBody });
+                          setEditingId(null);
+                          await onChange();
+                        } catch (err) {
+                          notify(err instanceof Error ? err.message : "Couldn’t edit.", true);
+                        }
+                      }}
+                    >
+                      Save edit
+                    </button>
+                    <button type="button" className="ds-btn ghost sm" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>{m.body}</p>
+              )}
               {m.attachments.length > 0 && (
                 <ul className="inbox-attachments">
                   {m.attachments.map((a) => (
@@ -399,10 +611,38 @@ function ThreadView({
               <span>
                 {m.direction === "inbound" ? contact?.name || "Client" : m.author_name || "You"} · {channelLabel[m.channel]} ·{" "}
                 {formatDateTime(m.created_at)}
+                {m.edited ? " · Edited" : ""}
               </span>
               {m.direction === "outbound" && (
                 <Badge tone={statusTone[m.status] || "neutral"}>{statusLabel[m.status] || m.status}</Badge>
               )}
+              {m.direction !== "inbound" && editingId !== m.id && (
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-ghost ui-btn-sm"
+                  onClick={() => {
+                    setEditingId(m.id);
+                    setEditBody(m.body);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                type="button"
+                className="ui-btn ui-btn-ghost ui-btn-sm"
+                onClick={async () => {
+                  if (!confirm("Remove this message from the inbox? Delivery records are preserved.")) return;
+                  try {
+                    await post({ action: "delete-message", messageId: m.id });
+                    await onChange();
+                  } catch (err) {
+                    notify(err instanceof Error ? err.message : "Couldn’t delete.", true);
+                  }
+                }}
+              >
+                Delete
+              </button>
             </footer>
             {m.status_detail && m.direction === "outbound" && <small className="inbox-msg-detail">{m.status_detail}</small>}
           </article>
@@ -447,8 +687,10 @@ function Composer({
     [busy, setBusy] = useState(false),
     [menu, setMenu] = useState<"" | "templates" | "links">(""),
     [links, setLinks] = useState<{ profile: string | null; links: { title: string; url: string }[] } | null>(null),
-    [saving, setSaving] = useState(false);
+    [saving, setSaving] = useState(false),
+    [draftSaved, setDraftSaved] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const sending = useRef(false);
   const draftKey = "zenvio-draft:" + thread;
   useEffect(() => {
     try {
@@ -457,8 +699,13 @@ function Composer({
   }, [draftKey]);
   useEffect(() => {
     try {
-      if (body) localStorage.setItem(draftKey, body);
-      else localStorage.removeItem(draftKey);
+      if (body) {
+        localStorage.setItem(draftKey, body);
+        setDraftSaved(true);
+      } else {
+        localStorage.removeItem(draftKey);
+        setDraftSaved(false);
+      }
     } catch {}
   }, [body, draftKey]);
   useEffect(() => {
@@ -488,6 +735,10 @@ function Composer({
     }
   }
   async function send() {
+    if (sending.current || busy) return;
+    if (!body.trim()) return notify("Write a message before sending.", true);
+    if (channel === "sms" && !sms.ok) return notify(sms.detail || "Text messaging isn’t connected.", true);
+    sending.current = true;
     setBusy(true);
     try {
       const d = await post({
@@ -500,11 +751,26 @@ function Composer({
       });
       setBody("");
       setFiles([]);
-      notify(channel === "note" ? "Note added." : d.status === "queued" ? "Message queued for delivery." : "Message sent.");
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {}
+      // Only claim queued/sent from provider-backed statuses returned by the API.
+      notify(
+        channel === "note"
+          ? "Note added."
+          : d.status === "queued"
+            ? "Message queued for delivery."
+            : d.status === "sent" || d.status === "delivered"
+              ? "Message accepted for delivery."
+              : d.status === "failed"
+                ? "Delivery failed."
+                : `Message status: ${d.status}.`,
+      );
       await onSent();
     } catch (e) {
       notify(e instanceof Error ? e.message : "The message couldn’t be sent.", true);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -534,11 +800,18 @@ function Composer({
           <Icon name="file" size={14} /> Internal note
         </button>
       </div>
-      {hasContact && !sms.ok && channel !== "note" && <p className="inbox-composer-hint">Text messages: {sms.detail}</p>}
+      {hasContact && !sms.ok && (
+        <Notice tone="warning">
+          Text messaging isn’t connected for this workspace yet. {sms.detail || "Send by email or through the client portal instead."}
+        </Notice>
+      )}
       {channel === "sms" && sms.ok && (
         <p className="inbox-composer-hint">
           Sends from {sms.sender}. Only text clients who agreed to receive texts; replies of STOP are honored automatically.
         </p>
+      )}
+      {channel === "note" && (
+        <Notice tone="info">Internal notes stay in Zenvio. They are never emailed, texted, or shown in the client portal.</Notice>
       )}
       <textarea
         className="ui-input"
@@ -552,6 +825,23 @@ function Composer({
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim() && !busy) void send();
         }}
       />
+      {draftSaved && body.trim() && (
+        <div className="inbox-draft-row">
+          <small className="ds-muted">Draft saved on this device</small>
+          <button
+            type="button"
+            className="ds-btn ghost sm"
+            onClick={() => {
+              setBody("");
+              try {
+                localStorage.removeItem(draftKey);
+              } catch {}
+            }}
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
       {files.length > 0 && (
         <ul className="inbox-files">
           {files.map((f) => (

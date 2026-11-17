@@ -14,6 +14,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Provider SMS/email ledger (messaging_threads / message_records). Product Inbox UI uses
+// message_threads via /api/inbox — do not merge these stores in this route.
+
 export async function GET(request: NextRequest) {
   try {
     const { token } = await session();

@@ -41,6 +41,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'filename',a.filename)) FROM private.message_attachments a WHERE a.message_id=m.id),'[]') attachments
            FROM private.message_threads t JOIN private.thread_messages m ON m.thread_id=t.id
           WHERE t.user_id=$1 AND t.contact_id=$2 AND m.direction<>'internal' AND m.channel<>'sms'
+            AND m.deleted_at IS NULL
           ORDER BY m.created_at DESC LIMIT 100`,
         [s.userId, s.contactId],
       ),
