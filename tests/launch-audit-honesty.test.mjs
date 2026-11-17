@@ -11,9 +11,10 @@ test("v4 public pricing does not deep-link unenrollable plan ids while preview-o
   assert.match(v4, /previewOnly/);
   assert.match(v4, /enrollmentReady/);
   assert.match(v4, /Preview only — paid enrollment stays on the live catalog/);
-  assert.match(v4, /canEnroll && signupOpen/);
-  assert.match(v4, /canEnroll && signupOpen\s*\?\s*`\/sign-up\?plan=\$\{offer\.id\}`/);
-  assert.doesNotMatch(v4, /:\s*signupOpen\s*\?\s*`\/sign-up\?plan=\$\{offer\.id\}`/);
+  assert.match(v4, /Annual amounts are for planning only/);
+  assert.match(v4, /const href = signupOpen \? "\/sign-up" : joinHref/);
+  assert.doesNotMatch(v4, /`\/sign-up\?plan=\$\{offer\.id\}`/);
+  assert.doesNotMatch(v4, /\?plan=\$\{offer\.id\}/);
   assert.match(home, /previewOnly=\{pricingSurface\.previewOnly\}/);
   assert.match(pricing, /previewOnly=\{surface\.previewOnly\}/);
 });
@@ -22,6 +23,8 @@ test("billing overview discloses paused checkout when Stripe is configured", () 
   const billing = read("src/components/billing.tsx");
   assert.match(billing, /data\.connected && !data\.checkoutEnabled/);
   assert.match(billing, /paid plan enrollment is paused/);
+  assert.match(billing, /sub\.has_customer/);
+  assert.match(billing, /href="\/pricing"/);
 });
 
 test("portal documents expose a recipient sign URL when available", () => {

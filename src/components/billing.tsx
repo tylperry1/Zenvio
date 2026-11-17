@@ -396,8 +396,20 @@ export function Billing() {
               {data.connected && !data.checkoutEnabled && (
                 <Notice tone="info">
                   Stripe is configured, but paid plan enrollment is paused until checkout readiness is
-                  complete. You can still sync an existing subscription and open Payment details for
-                  invoices. Compare plans to review the published catalog.
+                  complete.
+                  {managedByTeam
+                    ? " Your team owner manages billing."
+                    : sub.has_customer
+                      ? " You can still sync an existing subscription and open Payment details for invoices."
+                      : " You can still sync an existing subscription once one is linked."}{" "}
+                  {managedByTeam || data.usage.platformIncluded ? (
+                    <>
+                      Review the published catalog on the{" "}
+                      <Link href="/pricing">public pricing page</Link>.
+                    </>
+                  ) : (
+                    <>Use Compare plans to review the published catalog in this workspace.</>
+                  )}
                 </Notice>
               )}
               {sub.promotion_ends_at && (

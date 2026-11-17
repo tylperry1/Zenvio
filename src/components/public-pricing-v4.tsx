@@ -52,38 +52,28 @@ export function PublicPricingV4({
           Bill annually
         </label>
       </div>
+      {annual ? (
+        <p className="premium-note sob-annual-note" role="note">
+          Annual amounts are for planning only. Live paid enrollment still uses the published
+          monthly catalog until v4 checkout is fully wired.
+        </p>
+      ) : null}
 
       <div className="subscription-offer-grid">
         {paid.map((offer) => {
           const featured = offer.id === pricingV4Flagship;
           const price = annual ? offer.annual : offer.monthly;
           const isFree = offer.id === "free";
-          // Preview mode never deep-links starter|professional|business — auth/enroll only
-          // accept Individual/Teams until v4 enrollment is fully wired.
-          const href = isFree
-            ? signupOpen
-              ? "/sign-up"
-              : joinHref
-            : canEnroll && signupOpen
-              ? `/sign-up?plan=${offer.id}`
-              : canEnroll
-                ? joinHref.includes("early-access")
-                  ? `${joinHref}${joinHref.includes("?") ? "&" : "?"}plan=${offer.id}`
-                  : joinHref
-                : signupOpen
-                  ? "/sign-up"
-                  : joinHref;
+          // Never deep-link starter|professional|business — auth + /api/subscription-enroll
+          // still only accept Individual/Teams. Keep paid CTAs on generic signup/join.
+          const href = signupOpen ? "/sign-up" : joinHref;
           const cta = isFree
             ? signupOpen
               ? "Create free account"
               : joinLabel
-            : canEnroll
-              ? signupOpen
-                ? "Choose plan"
-                : joinLabel
-              : signupOpen
-                ? "Create free account"
-                : joinLabel;
+            : signupOpen
+              ? "Create free account"
+              : joinLabel;
           return (
             <article
               key={offer.id}
