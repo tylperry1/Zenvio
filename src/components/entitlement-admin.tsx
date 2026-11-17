@@ -313,9 +313,7 @@ export function EntitlementAdmin() {
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search by name or email"
                     aria-label="Search accounts"
-                    role="combobox"
-                    aria-expanded={results.length > 0}
-                    aria-controls="ent-results"
+                    aria-describedby={results.length > 0 ? "ent-results-hint" : undefined}
                     aria-invalid={lookupError ? true : undefined}
                   />
                   {lookupError && (
@@ -324,16 +322,21 @@ export function EntitlementAdmin() {
                     </p>
                   )}
                   {results.length > 0 && (
-                    <ul id="ent-results" role="listbox">
-                      {results.map((u) => (
-                        <li key={u.id} role="option" aria-selected={false}>
-                          <button type="button" onClick={() => setTarget(u)}>
-                            <b>{u.name}</b>
-                            <small>{u.email}</small>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <p id="ent-results-hint" className="sr-only">
+                        {results.length} matching {results.length === 1 ? "account" : "accounts"}. Tab to select.
+                      </p>
+                      <ul id="ent-results">
+                        {results.map((u) => (
+                          <li key={u.id}>
+                            <button type="button" onClick={() => setTarget(u)}>
+                              <b>{u.name}</b>
+                              <small>{u.email}</small>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
                   )}
                 </div>
               )}
