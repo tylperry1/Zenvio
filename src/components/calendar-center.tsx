@@ -9,7 +9,7 @@ import { Modal } from "./modal";
 import { Alert, Badge, Field, useConfirm } from "./ui";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
 import { bookingLocationSummary } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
   return `${p.year}-${p.month}-${p.day}`;

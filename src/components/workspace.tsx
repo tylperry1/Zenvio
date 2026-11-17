@@ -36,7 +36,7 @@ import {
   timezones,
 } from "@/lib/client";
 import { bookingLocationSummary } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 type View =
   | "Overview"
   | "Event types"

@@ -6,7 +6,7 @@ import { Alert, Badge, EmptyState, Field, LinkProblem, Skeleton, Tabs, formatDat
 import { LiveControls, useFreshRequest, useLive } from "./platform-support";
 import { money } from "@/lib/contractor";
 import { bookingLocationSummary, type LocationMode, type StructuredAddress } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 
 type Estimate = {
   id: string;

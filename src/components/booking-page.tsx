@@ -18,7 +18,7 @@ import {
   type LocationMode,
   type StructuredAddress,
 } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone";
+import { formatPhoneDisplay } from "@/lib/phone-display";
 type Confirmation = Pick<Booking, "id" | "starts_at" | "ends_at"> & {
   cancel_token: string;
   title: string;
