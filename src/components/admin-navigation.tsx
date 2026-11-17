@@ -1,72 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import type { StaffPermission } from "@/lib/admin-sections";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  adminNavGroups,
+  resolveAdminNavId,
+  type AdminNavItem,
+} from "@/lib/admin-console-nav";
 import { useAdminAccess, useCan } from "./admin-access";
 import { Icon, Logo } from "./icons";
 import { ThemeControl } from "./theme-control";
-
-type Item = {
-  id: string;
-  icon: string;
-  label: string;
-  href: string;
-  // "team" is master-only; everything else can be delegated to employees.
-  permission: StaffPermission | "team";
-  hint?: string;
-};
-const groups: { label: string; items: Item[] }[] = [
-  {
-    label: "Workspace",
-    items: [
-      { id: "overview", icon: "home", label: "Overview", href: "/admin", permission: "accounts" },
-      { id: "accounts", icon: "users", label: "Accounts", href: "/admin?view=accounts", permission: "accounts" },
-      { id: "early-access", icon: "sparkles", label: "Early access", href: "/admin/early-access", permission: "early-access" },
-    ],
-  },
-  {
-    label: "Customer service",
-    items: [
-      { id: "support", icon: "message", label: "Support inbox", href: "/admin/support", permission: "support", hint: "live chat customer support tickets help desk" },
-      { id: "feedback", icon: "feedback", label: "Feedback", href: "/admin/feedback", permission: "feedback", hint: "ideas bugs suggestions" },
-    ],
-  },
-  {
-    label: "Billing",
-    items: [
-      {id:"billing-center",icon:"card",label:"Billing & revenue",href:"/admin/billing",permission:"team"},
-      {id:"financial-intelligence",icon:"spark",label:"Financial Intelligence",href:"/admin/financial-intelligence",permission:"team",hint:"mrr provider costs budgets forecasts profitability"},
-      { id: "subscriptions", icon: "card", label: "Subscriptions", href: "/admin/operations?section=subscriptions", permission: "subscriptions" },
-      { id: "pricing", icon: "spark", label: "Pricing", href: "/admin/operations?section=pricing", permission: "pricing" },
-      { id: "entitlements", icon: "layers", label: "Plans & entitlements", href: "/admin/entitlements", permission: "entitlements" },
-    ],
-  },
-  {
-    label: "Commerce",
-    items: [
-      { id: "marketplace", icon: "bag", label: "Marketplace", href: "/admin/operations?section=marketplace", permission: "marketplace" },
-      { id: "suppliers", icon: "briefcase", label: "Suppliers & pricing", href: "/admin/suppliers", permission: "marketplace", hint: "supplier pipeline markup margin integrations gelato print fulfillment catalog import" },
-      { id: "marketplace-tools", icon: "image", label: "Personalization", href: "/admin/marketplace-tools", permission: "marketplace" },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      {id:"launch",icon:"shield",label:"Launch controls",href:"/admin/launch",permission:"team"},
-      { id: "integrations", icon: "plug", label: "Connections", href: "/admin/operations?section=integrations", permission: "integrations", hint: "integrations api keys" },
-      { id: "assistant", icon: "sparkles", label: "AI assistant", href: "/admin/assistant", permission: "assistant" },
-      { id: "email-preview", icon: "mail", label: "Email preview", href: "/admin/email-preview", permission: "integrations" },
-      { id: "health", icon: "shield", label: "System health", href: "/admin/operations?section=health", permission: "health" },
-    ],
-  },
-  {
-    label: "Governance",
-    items: [
-      { id: "team", icon: "team", label: "Team & access", href: "/admin/team", permission: "team", hint: "employees staff" },
-      { id: "audit", icon: "clock", label: "Activity & audit", href: "/admin?view=audit", permission: "audit" },
-    ],
-  },
-];
 
 async function defaultSignOut() {
   const r = await fetch("/api/auth", {
@@ -98,15 +41,26 @@ function useSupportWaiting(enabled: boolean) {
   return count;
 }
 
-export function AdminNavigation({
+type NavProps = {
+  /** Optional override; when omitted, active item is derived from the URL. */
+  view?: string;
+  onNavigate?: (view: string) => void;
+  onSignOut?: () => void;
+};
+
+export function AdminNavigation(props: NavProps) {
+  return (
+    <Suspense fallback={<aside className="av-sidebar acx-sidebar" aria-busy="true" aria-label="Admin navigation" />}>
+      <AdminNavigationInner {...props} />
+    </Suspense>
+  );
+}
+
+function AdminNavigationInner({
   view,
   onNavigate,
   onSignOut,
-}: {
-  view: string;
-  onNavigate?: (view: string) => void;
-  onSignOut?: () => void;
-}) {
+}: NavProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({});
@@ -114,6 +68,12 @@ export function AdminNavigation({
   const access = useAdminAccess();
   const can = useCan();
   const supportWaiting = useSupportWaiting(!!access && can("support"));
+  const pathname = usePathname() || "/admin";
+  const searchParams = useSearchParams();
+  const activeId = useMemo(
+    () => view || resolveAdminNavId(pathname, searchParams),
+    [view, pathname, searchParams],
+  );
 
   // "/" jumps to the navigation filter, like most consoles.
   useEffect(() => {
@@ -135,16 +95,16 @@ export function AdminNavigation({
   }, []);
 
   const q = filter.trim().toLowerCase();
-  const visible = groups
-      .map((g) => ({
-        ...g,
-        items: g.items.filter(
-          (i) =>
-            (!access || can(i.permission)) &&
-            (!q || `${i.label} ${g.label} ${i.hint || ""}`.toLowerCase().includes(q)),
-        ),
-      }))
-      .filter((g) => g.items.length);
+  const visible = adminNavGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) =>
+          (!access || can(i.permission)) &&
+          (!q || `${i.label} ${g.label} ${i.hint || ""}`.toLowerCase().includes(q)),
+      ),
+    }))
+    .filter((g) => g.items.length);
 
   const initials = (access?.name || "Zenvio")
     .split(/\s+/)
@@ -153,6 +113,50 @@ export function AdminNavigation({
     .slice(0, 2)
     .toUpperCase();
   const signOut = onSignOut || (() => void defaultSignOut());
+
+  function renderItem(item: AdminNavItem) {
+    const active = activeId === item.id;
+    const content = (
+      <>
+        <span className="acx-icon">
+          <Icon name={item.icon} size={16} />
+        </span>
+        <span className="acx-label">{item.label}</span>
+        {item.id === "support" && supportWaiting > 0 && (
+          <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
+            {supportWaiting > 99 ? "99+" : supportWaiting}
+          </span>
+        )}
+        {item.permission === "team" && <span className="acx-pill">Owner</span>}
+      </>
+    );
+    if (onNavigate && ["overview", "accounts", "audit"].includes(item.id)) {
+      return (
+        <button
+          key={item.id}
+          className={active ? "active" : ""}
+          aria-current={active ? "page" : undefined}
+          onClick={() => {
+            onNavigate(item.id);
+            setOpen(false);
+          }}
+        >
+          {content}
+        </button>
+      );
+    }
+    return (
+      <Link
+        key={item.id}
+        href={item.href}
+        onClick={() => setOpen(false)}
+        className={active ? "active" : ""}
+        aria-current={active ? "page" : undefined}
+      >
+        {content}
+      </Link>
+    );
+  }
 
   return (
     <aside className="av-sidebar acx-sidebar" data-open={open}>
@@ -191,10 +195,10 @@ export function AdminNavigation({
         </label>
         <div className="acx-groups">
           {visible.map((g) => {
-            const groupId = `admin-group-${g.label.toLowerCase().replaceAll(" ", "-")}`;
-            const containsCurrent = g.items.some((item) => item.id === view);
+            const groupId = `admin-group-${g.label.toLowerCase().replaceAll(" ", "-").replaceAll("&", "and")}`;
+            const containsCurrent = g.items.some((item) => item.id === activeId);
             const expanded = Boolean(q) || (groupOverrides[g.label] ??
-              (containsCurrent || g.label === "Workspace" || g.label === "Customer service"));
+              (containsCurrent || Boolean(g.defaultOpen)));
             return (
               <div className="acx-group" key={g.label}>
                 <button
@@ -209,46 +213,7 @@ export function AdminNavigation({
                   <Icon name="chevronDown" size={14} />
                 </button>
                 <nav id={groupId} aria-label={g.label} hidden={!expanded}>
-                  {g.items.map((item) => {
-                    const active = view === item.id;
-                    const content = (
-                      <>
-                        <span className="acx-icon">
-                          <Icon name={item.icon} size={16} />
-                        </span>
-                        <span className="acx-label">{item.label}</span>
-                        {item.id === "support" && supportWaiting > 0 && (
-                          <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
-                            {supportWaiting > 99 ? "99+" : supportWaiting}
-                          </span>
-                        )}
-                        {item.permission === "team" && <span className="acx-pill">Owner</span>}
-                      </>
-                    );
-                    return onNavigate && ["overview", "accounts", "audit"].includes(item.id) ? (
-                      <button
-                        key={item.id}
-                        className={active ? "active" : ""}
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => {
-                          onNavigate(item.id);
-                          setOpen(false);
-                        }}
-                      >
-                        {content}
-                      </button>
-                    ) : (
-                      <Link
-                        key={item.id}
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={active ? "active" : ""}
-                        aria-current={active ? "page" : undefined}
-                      >
-                        {content}
-                      </Link>
-                    );
-                  })}
+                  {g.items.map(renderItem)}
                 </nav>
               </div>
             );

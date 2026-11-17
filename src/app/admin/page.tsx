@@ -8,7 +8,7 @@ import { configured } from "@/lib/server";
 import { redirect } from "next/navigation";
 import { AdminCenter } from "@/components/admin-center";
 export const metadata = {
-  title: "Admin console",
+  title: "Command Center · Admin",
   robots: { index: false, follow: false },
 };
 export default async function Page({
