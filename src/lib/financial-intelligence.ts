@@ -1,6 +1,11 @@
 import { getPool, databaseConfigured } from "./db";
 import { providerEconomics } from "./provider-economics";
-import { pricingV4PlanningCostCents, pricingV4Offers, pricingV4Version } from "./pricing-v4-catalog.mjs";
+import {
+  pricingV4ExtraSeat,
+  pricingV4PlanningCostCents,
+  pricingV4Offers,
+  pricingV4Version,
+} from "./pricing-v4-catalog.mjs";
 import { planningCostCents } from "./subscription-offers.mjs";
 
 export type CostClassification = "actual" | "estimated" | "forecast" | "manual" | "mixed" | "unknown";
@@ -56,12 +61,20 @@ function revenueForTenant(
   plan: string,
   monthlyAmountCents: number | null,
   catalogVersion: string | null,
+  seats = 1,
 ) {
   if (monthlyAmountCents != null) return { cents: Number(monthlyAmountCents), classification: "actual" as const };
   // Never backfill legacy plans with proposed v4 list prices.
   if (catalogVersion === pricingV4Version) {
     const offer = pricingV4Offers.find((o) => o.id === plan);
-    if (offer?.monthly != null) return { cents: offer.monthly, classification: "estimated" as const };
+    if (offer?.monthly != null) {
+      const included = offer.seats ?? 1;
+      const extra =
+        plan === "business" && seats > included
+          ? (seats - included) * pricingV4ExtraSeat.monthly
+          : 0;
+      return { cents: offer.monthly + extra, classification: "estimated" as const };
+    }
   }
   return { cents: null as number | null, classification: "unknown" as const };
 }
@@ -213,7 +226,7 @@ export async function financialIntelligenceOverview() {
     const seats = Number(t.seats) || 1;
     const catalogVersion = t.catalog_version == null ? null : String(t.catalog_version);
     const planning = planningCostForTenant(plan, seats, catalogVersion);
-    const revenue = revenueForTenant(plan, t.monthly_amount_cents, catalogVersion);
+    const revenue = revenueForTenant(plan, t.monthly_amount_cents, catalogVersion, seats);
     return {
       userId: t.user_id,
       email: t.email,

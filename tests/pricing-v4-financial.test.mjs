@@ -45,6 +45,8 @@ test("v4 add-ons stay unpublished and SMS is not promised as available", () => {
 
 test("financial intelligence migration and admin surfaces are wired", () => {
   const sql = fs.readFileSync("postgres/migrations/086_pricing_v4_financial_intelligence.sql", "utf8");
+  const validate = fs.readFileSync("postgres/migrations/087_pricing_v4_constraint_validate.sql", "utf8");
+  const docs = fs.readFileSync("docs/PRICING_V4_ACTIVATION.md", "utf8");
   const nav = fs.readFileSync("src/components/admin-navigation.tsx", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
@@ -52,6 +54,12 @@ test("financial intelligence migration and admin surfaces are wired", () => {
   assert.match(sql, /provider_cost_budgets/);
   assert.match(sql, /marketingEmails/);
   assert.match(sql, /pricing_v4/);
+  assert.match(sql, /NOT VALID/);
+  assert.match(validate, /VALIDATE CONSTRAINT subscription_usage_reservations_meter_check/);
+  assert.match(validate, /VALIDATE CONSTRAINT entitlement_overrides_plan_check/);
+  assert.match(docs, /Outside this PR/);
+  assert.match(docs, /live webhook acceptance/);
+  assert.match(docs, /enrollmentEnabled: false/);
   assert.match(nav, /financial-intelligence/);
   assert.match(page, /requireAdminPage\(\)/);
   assert.match(route, /adminSession\(\)/);
@@ -93,6 +101,16 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
                   monthly_amount_cents: 4997,
                   email: "b@example.com",
                   name: "B",
+                },
+                {
+                  user_id: "u3",
+                  plan: "business",
+                  status: "active",
+                  seats: 4,
+                  catalog_version: "2026-11-v4",
+                  monthly_amount_cents: null,
+                  email: "c@example.com",
+                  name: "C",
                 },
               ],
             };
@@ -137,6 +155,9 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
   assert.equal(legacy.classification.revenue, "unknown");
   const team = overview.tenants.find((t) => t.userId === "u2");
   assert.equal(team.estimatedOperatingCostCents, 1600 + 2 * 350);
+  const business = overview.tenants.find((t) => t.userId === "u3");
+  assert.equal(business.subscriptionRevenueCents, 3499 + 500); // base + one extra seat
+  assert.equal(business.classification.revenue, "estimated");
 });
 
 test("annual pricing caption uses yearly total divided by twelve", () => {

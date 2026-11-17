@@ -19,14 +19,14 @@
 
 ## Activation sequence (production)
 
-1. Apply migration `086_pricing_v4_financial_intelligence.sql` via normal deploy migrate path.
+1. Apply migrations `086_pricing_v4_financial_intelligence.sql` and `087_pricing_v4_constraint_validate.sql` via the normal deploy migrate path.
 2. Configure read-only provider billing credentials where available (Vercel, Resend, Anthropic, Stripe, DB host). Leave `not_configured` otherwise — never invent actual costs.
 3. Stripe **test mode**: create v4 products/prices (`starter`, `professional`, `business`, `business_extra`, annual counterparts). Map into `private.subscription_prices` with `catalog_version='2026-11-v4'`. Do not overwrite v3 mappings.
-4. Run test-mode checkout, upgrade/downgrade, renewal, failure, refund, and seat-change acceptance.
-5. Set `PRICING_V4_VALIDATED=true` only after acceptance.
-6. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview.
+4. **Outside this PR:** finish Stripe test-mode checkout wiring and run checkout, upgrade/downgrade, renewal, failure, refund, and seat-change acceptance. This PR does not ship v4 checkout paths — do not set `PRICING_V4_VALIDATED` until that acceptance is complete.
+5. Set `PRICING_V4_VALIDATED=true` only after step 4 acceptance.
+6. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Admin keeps `enrollmentEnabled: false` until live billing is ready.
 7. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration in this PR.**
-8. Only then consider `enrollmentEnabled` + checkout flags for new v4 sales.
+8. **Before any live v4 sales:** provision live Stripe products/prices, complete live webhook acceptance, and only then consider `enrollmentEnabled` + checkout flags. Test-mode steps above are not live sales.
 
 ## Financial definitions
 

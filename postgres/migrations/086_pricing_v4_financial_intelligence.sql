@@ -2,6 +2,7 @@
 -- Does not reprice or migrate existing subscriptions. Activation stays gated.
 
 -- Expand usage meters for v4 allowances (existing meters remain valid).
+-- Add replacement CHECKs as NOT VALID to avoid long AccessExclusive locks; 087 validates.
 ALTER TABLE private.subscription_usage_reservations
   DROP CONSTRAINT IF EXISTS subscription_usage_reservations_meter_check;
 ALTER TABLE private.subscription_usage_reservations
@@ -9,7 +10,7 @@ ALTER TABLE private.subscription_usage_reservations
   CHECK (meter IN (
     'aiCredits','videoMinutes','emails','smsSegments','storageBytes','envelopes',
     'marketingEmails','automationExecutions','apiCalls','contacts','appointments'
-  ));
+  )) NOT VALID;
 
 ALTER TABLE private.subscription_credit_entries
   DROP CONSTRAINT IF EXISTS subscription_credit_entries_meter_check;
@@ -18,7 +19,7 @@ ALTER TABLE private.subscription_credit_entries
   CHECK (meter IN (
     'aiCredits','videoMinutes','emails','smsSegments','storageBytes','envelopes',
     'marketingEmails','automationExecutions','apiCalls','contacts','appointments'
-  ));
+  )) NOT VALID;
 
 -- Allow proposed plan ids on price mappings and overrides (enrollment still gated).
 ALTER TABLE private.subscription_prices
@@ -28,7 +29,7 @@ ALTER TABLE private.subscription_prices
   CHECK (plan IN (
     'pro','business','teams','individual','team','team_extra',
     'free','starter','professional','business_extra','enterprise'
-  ));
+  )) NOT VALID;
 
 ALTER TABLE private.entitlement_overrides
   DROP CONSTRAINT IF EXISTS entitlement_overrides_plan_check;
@@ -37,7 +38,7 @@ ALTER TABLE private.entitlement_overrides
   CHECK (plan IN (
     'free','pro','business','teams','individual','team',
     'starter','professional','enterprise'
-  ));
+  )) NOT VALID;
 
 -- Provider cost budgets, manual expenses, and sync status for Financial Intelligence.
 CREATE TABLE IF NOT EXISTS private.provider_cost_budgets (
