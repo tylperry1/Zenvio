@@ -37,12 +37,13 @@ try {
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
           const allowances = page.getByRole("region", {name:"Included in your workspace"});
           await allowances.getByText("How usage is measured", {exact:true}).click();
-          await allowances.getByText("Credit, storage and SMS terms", {exact:true}).click();
-          assert.equal(await allowances.locator(".allowance-addons li").count(), 8);
+          await allowances.getByText("Credit and storage terms", {exact:true}).click();
+          // SMS offers stay out of the public catalog (8 catalog rows, 6 public).
+          assert.equal(await allowances.locator(".allowance-addons li").count(), 6);
           assert.ok(await allowances.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Allowances must fit the viewport");
           await page.screenshot({path:`test-results/pricing-allowances-${width}.png`});
           await allowances.getByText("How usage is measured", {exact:true}).click();
-          await allowances.getByText("Credit, storage and SMS terms", {exact:true}).click();
+          await allowances.getByText("Credit and storage terms", {exact:true}).click();
         }
         if(route === "/admin/operations") {
           await page.getByRole("button", {name: "Manage", exact: true}).first().click();
