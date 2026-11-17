@@ -1268,6 +1268,45 @@
 .portal-main > .ui-alert {
   margin-bottom: 14px;
 }
+.portal-main > .ui-tabs {
+  margin: 0 0 14px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+  gap: 2px;
+}
+.portal-main > .ui-tabs.ui-tabs.ui-tabs > button {
+  flex: 1 1 auto;
+  justify-content: center;
+  margin: 0;
+  padding: 11px 12px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  font-weight: 550;
+}
+.portal-main > .ui-tabs.ui-tabs.ui-tabs > button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.portal-main > .ui-tabs.ui-tabs.ui-tabs > button.active {
+  background: var(--surface-selected);
+  color: var(--action-primary);
+  font-weight: 650;
+  box-shadow: inset 0 0 0 1px var(--info-border);
+}
+.portal-main > .ui-tabs .ui-tab-count {
+  background: var(--surface-inset);
+  color: var(--text-primary);
+  font-weight: 650;
+}
+.portal-main > .ui-tabs.ui-tabs.ui-tabs > button.active .ui-tab-count {
+  background: var(--action-primary);
+  color: var(--text-on-accent);
+}
 .portal-panel {
   padding: clamp(16px, 2.5vw, 22px);
   border: 1px solid var(--border);

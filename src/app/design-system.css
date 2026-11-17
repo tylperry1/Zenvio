@@ -764,3 +764,56 @@
   .vc-panel { left: 12px; right: 12px; bottom: 12px; top: auto; width: auto; max-height: calc(100dvh - 24px); }
   .vc-card { padding: 14px; }
 }
+
+/* Business workspace: Plan & billing (.bp) */
+.bp { display: grid; gap: var(--ds-4); }
+.bp > .ds-segmented { justify-self: start; margin-bottom: 0; }
+.bp-pad { padding: 8px 0; }
+.bp-hero { margin: 0; }
+.bp-hero .ds-badge { background: color-mix(in srgb, #fff 14%, transparent); color: var(--brand-pale-blue); border: 1px solid color-mix(in srgb, #fff 22%, transparent); }
+.bp-hero .ds-badge.success { background: color-mix(in srgb, var(--success) 28%, transparent); color: #c8f5d8; }
+.bp-hero .ds-badge.warning { background: color-mix(in srgb, var(--warning) 28%, transparent); color: #ffe6b0; }
+.bp-hero .ds-badge.info { background: color-mix(in srgb, var(--brand-cobalt) 40%, transparent); color: #e8eeff; }
+.bp-hero-kpis { margin: 8px 0 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bp-hero-kpis .ds-kpi { background: color-mix(in srgb, #fff 8%, transparent); border-color: color-mix(in srgb, #fff 16%, transparent); box-shadow: none; color: #fff; }
+.bp-hero-kpis .ds-kpi-top, .bp-hero-kpis .ds-kpi-top svg, .bp-hero-kpis .ds-kpi p { color: #b9c3de; }
+.bp-hero-kpis .ds-kpi strong { color: #fff; font-size: 22px; }
+.bp-usage-kpis { margin: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bp-actions { display: flex; flex-wrap: wrap; gap: var(--ds-2); margin: 0; }
+.bp-muted { margin: 12px 0 0; font-size: var(--ds-text-xs); color: var(--text-muted); line-height: 1.5; }
+.ds-root.ds-root.bp .subscription-account-card { box-shadow: var(--ds-elev-1); }
+.ds-root.ds-root.bp .subscription-help { margin-top: 0; }
+@media (max-width: 900px) {
+  .bp-hero-kpis, .bp-usage-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .bp-hero-kpis, .bp-usage-kpis { grid-template-columns: 1fr; }
+}
+
+/* Business workspace: Payments (.payc) */
+.payc { display: grid; gap: var(--ds-4); }
+.payc-pad { padding: 8px 0; }
+.payc-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.payc-checks li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--ds-line-soft); border-radius: 10px; background: var(--ds-surface-muted); color: var(--text-primary); font-size: var(--ds-text-sm); }
+.payc-strong { color: var(--text-primary); font-weight: 650; }
+.payc-error, .payc-sub { display: block; margin-top: 4px; font-size: var(--ds-text-xs); color: var(--text-muted); line-height: 1.45; }
+.payc-error { color: var(--error); }
+@media (max-width: 900px) {
+  .payc .ds-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .payc .ds-kpis { grid-template-columns: 1fr; }
+}
+
+/* Business workspace: Clients (.cc) */
+.cc { display: grid; gap: var(--ds-4); }
+.cc-kpis { margin: 0 0 var(--ds-4); }
+.ds-root.ds-root.cc .client-table { width: 100%; }
+.ds-root.ds-root.cc .client-table th { background: var(--ds-surface-muted); }
+.ds-root.ds-root.cc .ds-panel-actions .ds-search { min-width: min(280px, 100%); }
+@media (max-width: 900px) {
+  .cc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .cc-kpis { grid-template-columns: 1fr; }
+}

@@ -63,5 +63,5 @@ Status tones use the existing semantic tokens (`--success`, `--warning`, `--erro
 
 - Admin → Billing & revenue (`admin-billing-center.tsx`, `.bc`), Subscriptions (`admin-subscriptions.tsx`, `.as`), Pricing (`admin-pricing.tsx`), Users & activity (`admin-users-activity.tsx`), System health (`admin-health.tsx`), Plans & entitlements (`entitlement-admin.tsx`, `.ent`), Connections (`admin-connections.tsx`, `.cx`), Early access (`early-access-admin.tsx`), Suppliers (`admin-suppliers.tsx`)
 - Public → team invitation (`team-booking.tsx`, `.tb-*`), legal contents (`legal-toc.tsx`), PWA install card (`pwa.tsx`)
-- App → Marketing (`marketing-center.tsx`), Smart cards, Support
+- App → Marketing (`marketing-center.tsx`), Smart cards, Support, Plan & billing (`billing.tsx`, `.bp`), Payments (`payment-center.tsx`, `.payc`), Clients (`client-center.tsx`, `.cc`)
 - The console chrome (`admin-navigation.tsx`) and Team & access follow the same tokens and will migrate to the shared components as they are touched.

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
+import { EmptyState as DsEmpty } from "./ds";
 import { AccountData } from "./account-data";
 import { BookingLinkPrompt, SetupChecklist, bookingLinkLabel, hasGeneratedLink, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
@@ -408,27 +409,23 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   function bookingRows(rows: Booking[]) {
     if (!rows.length)
       return (
-        <div className="empty">
-          <span className="empty-icon">
-            <Icon name="calendar" size={28} />
-          </span>
-          <h3>No appointments here yet</h3>
-          <p>
-            Your{" "}
-            {filter === "cancelled"
-              ? "cancelled"
-              : filter === "past"
-                ? "past"
-                : "upcoming"}{" "}
-            appointments will appear here.
-          </p>
-          <button
-            className="button secondary small"
-            onClick={() => navigate("Event types")}
-          >
-            Share a booking link <Icon name="arrow" size={15} />
-          </button>
-        </div>
+        <DsEmpty
+          icon="calendar"
+          title="No appointments here yet"
+          action={
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={() => navigate("Event types")}
+            >
+              Share a booking link <Icon name="arrow" size={15} />
+            </button>
+          }
+        >
+          Your{" "}
+          {filter === "cancelled" ? "cancelled" : filter === "past" ? "past" : "upcoming"}{" "}
+          appointments will appear here.
+        </DsEmpty>
       );
     return (
       <div className="booking-rows">
@@ -619,13 +616,13 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             }
           />
           {view === "Overview" && (
-            <>
+            <div className="workspace-overview">
               <div className="overview-brief">
                 <div>
                   <span className="brief-label">YOUR SCHEDULE</span>
                   <h2>Ready for what’s next.</h2>
                   <p>{upcoming.length ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.` : "Set your availability and share a booking link to get started."}</p>
-                  <button className="button small" onClick={() => navigate("Bookings")}>Open schedule <Icon name="arrow" size={16} /></button>
+                  <button type="button" className="button small" onClick={() => navigate("Bookings")}>Open schedule <Icon name="arrow" size={16} /></button>
                 </div>
                 <div className="brief-date">
                   <Icon name="calendar" size={24} />
@@ -736,6 +733,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   </p>
                 </div>
                 <button
+                  type="button"
                   className="subtle-button"
                   onClick={() =>
                     data?.profile.slug && hasGeneratedLink(data.profile.slug)
@@ -747,7 +745,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                   <Icon name="arrow" size={15} />
                 </button>
               </div>
-            </>
+            </div>
           )}
           {view === "Event types" && (
             <>
