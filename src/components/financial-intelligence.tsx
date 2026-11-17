@@ -95,8 +95,17 @@ export function FinancialIntelligence() {
       });
       const d = await r.json();
       if (!r.ok) throw Error(d.error || "Unable to save.");
-      await load();
-      setMessage("Saved and recorded in the audit history.");
+      try {
+        await load();
+        setMessage("Saved and recorded in the audit history.");
+      } catch (refreshError) {
+        setMessage("Saved; refresh failed.");
+        setError(
+          refreshError instanceof Error
+            ? refreshError.message
+            : "Unable to reload financial intelligence. Use Reload — do not resubmit.",
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to save.");
     } finally {
@@ -117,6 +126,23 @@ export function FinancialIntelligence() {
         {message && (
           <div role="status">
             <Alert tone="success">{message}</Alert>
+            {message === "Saved; refresh failed." ? (
+              <button
+                type="button"
+                className="ui-btn ui-btn-secondary"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  setError("");
+                  void load()
+                    .then(() => setMessage("Reloaded."))
+                    .catch((e) => setError(e instanceof Error ? e.message : "Unable to reload."))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Reload
+              </button>
+            ) : null}
           </div>
         )}
         {data && (

@@ -109,7 +109,8 @@ export async function POST(request: NextRequest) {
     } finally {
       db.release();
     }
-    return Response.json({ ok: true, overview: await financialIntelligenceOverview() });
+    // Mutation already committed — do not fail the response if overview refresh fails.
+    return Response.json({ ok: true });
   } catch (e) {
     return failure(e);
   }
