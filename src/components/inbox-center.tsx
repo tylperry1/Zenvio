@@ -5,20 +5,23 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
+import { Kpi, Notice, PageHeader } from "./ds";
 import { Alert, Badge, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Modal } from "./modal";
 
+type ThreadStatus = "open" | "pending_response" | "closed" | "archived";
 type Thread = {
   id: string;
   subject: string;
-  status: "open" | "closed";
+  status: ThreadStatus;
   assigned_to: string | null;
   assigned_name: string | null;
   last_message_at: string;
   contact_id: string | null;
   contact_name: string | null;
   contact_email: string | null;
+  booking_id?: string | null;
   unread: number;
   last: { body: string; direction: string; channel: string } | null;
 };
@@ -32,21 +35,49 @@ type Message = {
   status: string;
   status_detail: string;
   created_at: string;
+  edited?: boolean;
   attachments: Attachment[];
 };
 type Detail = {
   thread: {
     id: string;
     subject: string;
-    status: "open" | "closed";
+    status: ThreadStatus;
     assigned_to: string | null;
+    booking_id?: string | null;
+    canAdminister?: boolean;
     contact: { id: string; name: string; email: string; phone: string } | null;
+    booking?: {
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      status: string;
+      location?: string;
+      title?: string;
+    } | null;
   };
   messages: Message[];
   sms: { ok: boolean; sender?: string; reason?: string; detail?: string };
 };
 type Template = { id: string; name: string; body: string };
-type Filter = "all" | "unread" | "mine" | "open" | "closed";
+type Metrics = {
+  open: number;
+  unread: number;
+  assigned_to_me: number;
+  unassigned: number;
+  pending_response: number;
+  closed: number;
+  archived: number;
+};
+type Filter =
+  | "all"
+  | "unread"
+  | "mine"
+  | "unassigned"
+  | "open"
+  | "pending_response"
+  | "closed"
+  | "archived";
 
 const statusTone: Record<string, "neutral" | "info" | "success" | "warning" | "danger"> = {
   queued: "info",
@@ -71,7 +102,13 @@ export function InboxCenter() {
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("all"),
     [query, setQuery] = useState(""),
-    [list, setList] = useState<{ threads: Thread[]; members: { id: string; name: string; email: string }[]; templates: Template[]; unread: number } | null>(null),
+    [list, setList] = useState<{
+      threads: Thread[];
+      members: { id: string; name: string; email: string }[];
+      templates: Template[];
+      unread: number;
+      metrics?: Metrics;
+    } | null>(null),
     [listError, setListError] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("thread")),
     [detail, setDetail] = useState<Detail | null>(null),
@@ -150,22 +187,33 @@ export function InboxCenter() {
     if (contact) void startWith(contact);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const metrics = list?.metrics;
   return (
-    <div className="platform-page inbox-page">
-      <div className="inbox-head">
-        <div>
-          <h1>Inbox</h1>
-          <p>Every client conversation in one place — email, text, portal replies and internal notes.</p>
+    <div className="platform-page inbox-page ds-root">
+      <PageHeader
+        title="Inbox"
+        description="Secure customer conversations — email, text, portal replies, and private notes."
+        actions={
+          <>
+            <button type="button" className="ds-btn ghost" onClick={() => setShareLink(true)}>
+              <Icon name="link" size={15} /> Send booking link
+            </button>
+            <button type="button" className="ds-btn primary" onClick={() => setPicker(true)}>
+              <Icon name="plus" size={15} /> New conversation
+            </button>
+          </>
+        }
+      />
+      {metrics && (
+        <div className="ds-kpis inbox-metrics">
+          <Kpi label="Open" value={String(metrics.open)} icon="message" />
+          <Kpi label="Unread" value={String(metrics.unread)} icon="mail" tone="warning" />
+          <Kpi label="Assigned to me" value={String(metrics.assigned_to_me)} icon="users" />
+          <Kpi label="Unassigned" value={String(metrics.unassigned)} icon="team" />
+          <Kpi label="Pending response" value={String(metrics.pending_response)} icon="clock" />
+          <Kpi label="Closed" value={String(metrics.closed)} icon="check" />
         </div>
-        <div className="inbox-head-actions">
-          <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setShareLink(true)}>
-            <Icon name="link" size={15} /> Send booking link
-          </button>
-          <button type="button" className="ui-btn ui-btn-primary" onClick={() => setPicker(true)}>
-            <Icon name="plus" size={15} /> New conversation
-          </button>
-        </div>
-      </div>
+      )}
       <div className={`inbox${selected ? " has-thread" : ""}`}>
         <section className="inbox-list" aria-label="Conversations">
           <div className="inbox-list-tools">
@@ -173,7 +221,7 @@ export function InboxCenter() {
               <Icon name="search" size={15} />
               <input
                 type="search"
-                placeholder="Search conversations"
+                placeholder="Search name, email, phone, or message"
                 aria-label="Search conversations"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -187,7 +235,10 @@ export function InboxCenter() {
                 { id: "all", label: "All" },
                 { id: "unread", label: "Unread", count: list?.unread || undefined },
                 { id: "mine", label: "Assigned to me" },
+                { id: "unassigned", label: "Unassigned" },
+                { id: "pending_response", label: "Pending" },
                 { id: "closed", label: "Closed" },
+                { id: "archived", label: "Archived" },
               ]}
             />
           </div>
@@ -229,7 +280,12 @@ export function InboxCenter() {
                       )}
                     </span>
                     <span className="inbox-thread-meta">
-                      {t.status === "closed" && <Badge>Closed</Badge>}
+                      {t.status !== "open" && (
+                        <Badge tone={t.status === "pending_response" ? "warning" : "neutral"}>
+                          {t.status.replaceAll("_", " ")}
+                        </Badge>
+                      )}
+                      {t.booking_id && <Badge tone="info">Booking</Badge>}
                       {t.assigned_name && <Badge tone="info">{t.assigned_name}</Badge>}
                     </span>
                   </span>
@@ -302,11 +358,24 @@ function ThreadView({
 }) {
   const { thread, messages, sms } = detail;
   const contact = thread.contact;
+  const booking = thread.booking;
   const scroller = useRef<HTMLDivElement>(null);
   const [shareLink, setShareLink] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [messages.length]);
+
+  async function setStatus(status: ThreadStatus) {
+    try {
+      await post({ action: "status", threadId: thread.id, status });
+      await onChange();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Couldn’t update status.", true);
+    }
+  }
+
   return (
     <>
       <header className="inbox-view-head">
@@ -319,6 +388,13 @@ function ThreadView({
             <small>
               {contact.email}
               {contact.phone && ` · ${contact.phone}`}
+            </small>
+          )}
+          {booking && (
+            <small>
+              Appointment: {booking.title || "Service"} ·{" "}
+              {new Date(booking.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+              {booking.location ? ` · ${booking.location}` : ""}
             </small>
           )}
         </div>
@@ -366,15 +442,27 @@ function ThreadView({
             className="ui-btn ui-btn-ghost ui-btn-sm"
             onClick={async () => {
               try {
-                await post({ action: "status", threadId: thread.id, status: thread.status === "open" ? "closed" : "open" });
+                await post({ action: "unread", threadId: thread.id });
                 await onChange();
+                notify("Marked unread.");
               } catch (err) {
-                notify(err instanceof Error ? err.message : "Couldn’t update.", true);
+                notify(err instanceof Error ? err.message : "Couldn’t mark unread.", true);
               }
             }}
           >
-            {thread.status === "open" ? "Close" : "Reopen"}
+            Mark unread
           </button>
+          <select
+            className="ui-input inbox-assign"
+            aria-label="Conversation status"
+            value={thread.status}
+            onChange={(e) => void setStatus(e.target.value as ThreadStatus)}
+          >
+            <option value="open">Open</option>
+            <option value="pending_response">Pending response</option>
+            <option value="closed">Closed</option>
+            <option value="archived">Archived</option>
+          </select>
         </div>
       </header>
       <div className="inbox-messages" ref={scroller} role="log" aria-label="Messages">
@@ -382,7 +470,39 @@ function ThreadView({
         {messages.map((m) => (
           <article key={m.id} className={`inbox-msg inbox-msg-${m.direction}`}>
             <div className="inbox-msg-bubble">
-              <p>{m.body}</p>
+              {m.direction === "internal" && <Badge tone="warning">Internal note</Badge>}
+              {editingId === m.id ? (
+                <div className="inbox-edit">
+                  <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={4} />
+                  {(m.channel === "email" || m.channel === "sms") && (
+                    <Notice tone="info">
+                      Saving updates Zenvio’s copy only. The recipient’s already-delivered message cannot be changed.
+                    </Notice>
+                  )}
+                  <div className="inbox-edit-actions">
+                    <button
+                      type="button"
+                      className="ds-btn sm"
+                      onClick={async () => {
+                        try {
+                          await post({ action: "edit-message", messageId: m.id, body: editBody });
+                          setEditingId(null);
+                          await onChange();
+                        } catch (err) {
+                          notify(err instanceof Error ? err.message : "Couldn’t edit.", true);
+                        }
+                      }}
+                    >
+                      Save edit
+                    </button>
+                    <button type="button" className="ds-btn ghost sm" onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>{m.body}</p>
+              )}
               {m.attachments.length > 0 && (
                 <ul className="inbox-attachments">
                   {m.attachments.map((a) => (
@@ -399,10 +519,38 @@ function ThreadView({
               <span>
                 {m.direction === "inbound" ? contact?.name || "Client" : m.author_name || "You"} · {channelLabel[m.channel]} ·{" "}
                 {formatDateTime(m.created_at)}
+                {m.edited ? " · Edited" : ""}
               </span>
               {m.direction === "outbound" && (
                 <Badge tone={statusTone[m.status] || "neutral"}>{statusLabel[m.status] || m.status}</Badge>
               )}
+              {m.direction !== "inbound" && editingId !== m.id && (
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-ghost ui-btn-sm"
+                  onClick={() => {
+                    setEditingId(m.id);
+                    setEditBody(m.body);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                type="button"
+                className="ui-btn ui-btn-ghost ui-btn-sm"
+                onClick={async () => {
+                  if (!confirm("Remove this message from the inbox? Delivery records are preserved.")) return;
+                  try {
+                    await post({ action: "delete-message", messageId: m.id });
+                    await onChange();
+                  } catch (err) {
+                    notify(err instanceof Error ? err.message : "Couldn’t delete.", true);
+                  }
+                }}
+              >
+                Delete
+              </button>
             </footer>
             {m.status_detail && m.direction === "outbound" && <small className="inbox-msg-detail">{m.status_detail}</small>}
           </article>

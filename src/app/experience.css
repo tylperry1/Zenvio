@@ -575,6 +575,25 @@
   height: calc(100dvh - 64px);
   padding-bottom: 16px;
 }
+.inbox-page .ds-page-header {
+  margin-bottom: 12px;
+}
+.inbox-metrics {
+  margin-bottom: 14px;
+}
+.inbox-edit {
+  display: grid;
+  gap: 8px;
+}
+.inbox-edit textarea {
+  width: 100%;
+  min-height: 96px;
+}
+.inbox-edit-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .inbox-head {
   display: flex;
   align-items: flex-start;

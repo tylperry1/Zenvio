@@ -9,6 +9,9 @@ import { ApiError } from "./server";
 // Messaging center storage is a temporary adapter (see docs/ZENVIO_2_1.md). Email goes out
 // through the existing Resend delivery queue; SMS goes through the shared transport contract.
 export type Channel = "email" | "sms" | "note";
+export type ThreadStatus = "open" | "pending_response" | "closed" | "archived";
+
+export const THREAD_STATUSES: ThreadStatus[] = ["open", "pending_response", "closed", "archived"];
 
 // Threads a user may open: their own, ones assigned to them, and every thread in a workspace
 // they administer. `$1` must be the signed-in user's id.
@@ -17,13 +20,40 @@ export const threadAccess = `(t.user_id=$1 OR t.assigned_to=$1 OR t.organization
 
 export async function accessibleThread(db: PoolClient | ReturnType<typeof getPool>, userId: string, threadId: string) {
   const { rows } = await db.query(
-    `SELECT t.*,c.name contact_name,c.email contact_email FROM private.message_threads t
+    `SELECT t.*,c.name contact_name,c.email contact_email,c.phone contact_phone FROM private.message_threads t
        LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id
       WHERE t.id=$2 AND ${threadAccess}`,
     [userId, threadId],
   );
   if (!rows[0]) throw new ApiError("Conversation not found.", 404);
   return rows[0];
+}
+
+/** Owner or org administrator may assign/archive; assignees may send and close assigned threads. */
+export async function canAdministerThread(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+  thread: { user_id: string; organization_id: string | null },
+) {
+  if (thread.user_id === userId) return true;
+  if (!thread.organization_id) return false;
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM private.memberships
+      WHERE organization_id=$1 AND user_id=$2 AND active AND role IN ('owner','administrator')`,
+    [thread.organization_id, userId],
+  );
+  return !!rowCount;
+}
+
+export async function recordThreadActivity(
+  db: PoolClient | ReturnType<typeof getPool>,
+  input: { threadId: string; actorId: string; action: string; details?: Record<string, unknown> },
+) {
+  await db.query(
+    `INSERT INTO private.thread_activity(thread_id, actor_id, action, details)
+     VALUES ($1,$2,$3,$4::jsonb)`,
+    [input.threadId, input.actorId, input.action.slice(0, 64), JSON.stringify(input.details || {})],
+  );
 }
 
 export async function ensureContactThread(db: PoolClient, userId: string, contactId: string) {
@@ -72,6 +102,8 @@ export async function sendThreadMessage(
     includePortalLink?: boolean;
   },
 ) {
+  // Re-check ACL inside the write path so callers cannot skip accessibleThread.
+  await accessibleThread(db, input.actor.id, input.threadId);
   const t = (
     await db.query(
       `SELECT t.*,c.email,c.name FROM private.message_threads t LEFT JOIN public.contacts c ON c.id=t.contact_id AND c.user_id=t.user_id WHERE t.id=$1 FOR UPDATE OF t`,
@@ -142,8 +174,145 @@ export async function sendThreadMessage(
       "UPDATE private.message_attachments SET message_id=$1 WHERE thread_id=$2 AND message_id IS NULL AND id=ANY($3::uuid[])",
       [messageId, t.id, input.attachmentIds],
     );
-  await db.query("UPDATE private.message_threads SET last_message_at=now(),status='open' WHERE id=$1", [t.id]);
+  await db.query(
+    `UPDATE private.message_threads
+        SET last_message_at=now(),
+            status=CASE WHEN status='archived' THEN status ELSE 'open' END
+      WHERE id=$1`,
+    [t.id],
+  );
+  await recordThreadActivity(db, {
+    threadId: t.id,
+    actorId: input.actor.id,
+    action: input.channel === "note" ? "note_added" : "message_sent",
+    details: { channel: input.channel, messageId, status },
+  });
   return { id: messageId, status, deliveryJob: job };
+}
+
+/** Edit an internal note or draft-like note body. Delivered email/SMS store a revision; recipient copy is unchanged. */
+export async function editThreadMessage(
+  db: PoolClient,
+  input: { userId: string; messageId: string; body: string },
+) {
+  const body = input.body.trim();
+  if (!body || body.length > 5000) throw new ApiError("Write a message up to 5,000 characters.");
+  const msg = (
+    await db.query(
+      `SELECT m.*, t.id AS thread_id, t.user_id AS host_id, t.organization_id
+         FROM private.thread_messages m
+         JOIN private.message_threads t ON t.id = m.thread_id
+        WHERE m.id=$2 AND m.deleted_at IS NULL AND ${threadAccess}
+        FOR UPDATE OF m`,
+      [input.userId, input.messageId],
+    )
+  ).rows[0];
+  if (!msg) throw new ApiError("Message not found.", 404);
+  const editable =
+    msg.direction === "internal" ||
+    msg.channel === "note" ||
+    (msg.direction === "outbound" && (msg.status === "queued" || msg.status === "failed"));
+  if (!editable && msg.direction === "outbound") {
+    // Allow storing a corrected copy with clear edit metadata; never rewrite delivery.
+  } else if (!editable && msg.direction === "inbound") {
+    throw new ApiError("Customer messages can’t be edited.", 403);
+  }
+  if (msg.author_id && msg.author_id !== input.userId) {
+    const admin = await canAdministerThread(db, input.userId, {
+      user_id: msg.host_id,
+      organization_id: msg.organization_id,
+    });
+    if (!admin) throw new ApiError("Only the author or a workspace admin can edit this message.", 403);
+  }
+  await db.query(
+    `INSERT INTO private.thread_message_revisions(message_id, thread_id, body, edited_by)
+     VALUES ($1,$2,$3,$4)`,
+    [msg.id, msg.thread_id, msg.body, input.userId],
+  );
+  await db.query(
+    `UPDATE private.thread_messages
+        SET body=$2, edited_at=now(), edited_by=$3
+      WHERE id=$1`,
+    [msg.id, body, input.userId],
+  );
+  await recordThreadActivity(db, {
+    threadId: msg.thread_id,
+    actorId: input.userId,
+    action: "message_edited",
+    details: {
+      messageId: msg.id,
+      channel: msg.channel,
+      deliveredCopyUnchanged: msg.channel === "email" || msg.channel === "sms",
+    },
+  });
+  return {
+    id: msg.id,
+    edited: true,
+    deliveredCopyUnchanged: msg.channel === "email" || msg.channel === "sms",
+  };
+}
+
+export async function softDeleteThreadMessage(
+  db: PoolClient,
+  input: { userId: string; messageId: string },
+) {
+  const msg = (
+    await db.query(
+      `SELECT m.*, t.id AS thread_id, t.user_id AS host_id, t.organization_id
+         FROM private.thread_messages m
+         JOIN private.message_threads t ON t.id = m.thread_id
+        WHERE m.id=$2 AND m.deleted_at IS NULL AND ${threadAccess}
+        FOR UPDATE OF m`,
+      [input.userId, input.messageId],
+    )
+  ).rows[0];
+  if (!msg) throw new ApiError("Message not found.", 404);
+  if (msg.direction === "inbound") {
+    const admin = await canAdministerThread(db, input.userId, {
+      user_id: msg.host_id,
+      organization_id: msg.organization_id,
+    });
+    if (!admin) throw new ApiError("Only a workspace admin can remove a customer message from the inbox.", 403);
+  } else if (msg.author_id && msg.author_id !== input.userId) {
+    const admin = await canAdministerThread(db, input.userId, {
+      user_id: msg.host_id,
+      organization_id: msg.organization_id,
+    });
+    if (!admin) throw new ApiError("Only the author or a workspace admin can delete this message.", 403);
+  }
+  await db.query(
+    `UPDATE private.thread_messages SET deleted_at=now(), deleted_by=$2 WHERE id=$1`,
+    [msg.id, input.userId],
+  );
+  await recordThreadActivity(db, {
+    threadId: msg.thread_id,
+    actorId: input.userId,
+    action: "message_deleted",
+    details: { messageId: msg.id, channel: msg.channel, soft: true },
+  });
+  return { ok: true };
+}
+
+export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, userId: string) {
+  const { rows } = await db.query(
+    `SELECT
+       count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
+       count(*) FILTER (
+         WHERE EXISTS (
+           SELECT 1 FROM private.thread_messages m
+            WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL
+         )
+       )::int AS unread,
+       count(*) FILTER (WHERE t.assigned_to=$1 AND t.status IN ('open','pending_response'))::int AS assigned_to_me,
+       count(*) FILTER (WHERE t.assigned_to IS NULL AND t.status IN ('open','pending_response'))::int AS unassigned,
+       count(*) FILTER (WHERE t.status='pending_response')::int AS pending_response,
+       count(*) FILTER (WHERE t.status='closed')::int AS closed,
+       count(*) FILTER (WHERE t.status='archived')::int AS archived
+     FROM private.message_threads t
+     WHERE ${threadAccess}`,
+    [userId],
+  );
+  return rows[0];
 }
 
 // Display status combines the stored message status with the delivery queue's result.
