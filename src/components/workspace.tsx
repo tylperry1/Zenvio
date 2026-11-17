@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
-import { EmptyState as DsEmpty } from "./ds";
+import { EmptyState as DsEmpty, Kpi, Panel } from "./ds";
 import { AccountData } from "./account-data";
 import { BookingLinkPrompt, SetupChecklist, bookingLinkLabel, hasGeneratedLink, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
@@ -652,73 +652,56 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 onChooseLink={linkPrompt.show}
                 onCopyLink={sharePageControl("Share link", "button secondary small")}
               />
-              <div className="stats-grid">
-                {[
-                  [
-                    "calendar",
-                    "Upcoming appointments",
-                    String(nextWeek.length),
-                    "Over the next 7 days",
-                  ],
-                  [
-                    "clock",
-                    "Booked time",
+              <div className="ds-kpis">
+                <Kpi
+                  label="Upcoming appointments"
+                  icon="calendar"
+                  value={String(nextWeek.length)}
+                  detail="Over the next 7 days"
+                />
+                <Kpi
+                  label="Booked time"
+                  icon="clock"
+                  value={
                     totalMinutes >= 60
                       ? `${Math.round((totalMinutes / 60) * 10) / 10} hrs`
-                      : `${totalMinutes} min`,
-                    "Scheduled over the next 7 days",
-                  ],
-                  [
-                    "users",
-                    "Total clients",
-                    String(data.contactCount ?? data.contacts.length),
-                    "Across your workspace",
-                  ],
-                  [
-                    "link",
-                    "Active services",
-                    String(visibleEvents.filter((e) => e.active).length),
-                    "Available for clients to book",
-                  ],
-                ].map(([icon, title, value, note]) => (
-                  <article className="stat-card" key={title}>
-                    <div>
-                      <span>{title}</span>
-                      <Icon name={icon} size={18} />
-                    </div>
-                    <strong>{value}</strong>
-                    <small>{note}</small>
-                  </article>
-                ))}
+                      : `${totalMinutes} min`
+                  }
+                  detail="Scheduled over the next 7 days"
+                />
+                <Kpi
+                  label="Total clients"
+                  icon="users"
+                  value={String(data.contactCount ?? data.contacts.length)}
+                  detail="Across your workspace"
+                />
+                <Kpi
+                  label="Active services"
+                  icon="link"
+                  value={String(visibleEvents.filter((e) => e.active).length)}
+                  detail="Available for clients to book"
+                />
               </div>
-              <section className="workspace-section">
-                <div className="section-bar">
-                  <div>
-                    <h2>Up next</h2>
-                    <p>Your next confirmed appointments.</p>
-                  </div>
-                  <button
-                    className="inline-link"
-                    onClick={() => navigate("Bookings")}
-                  >
+              <Panel
+                title="Up next"
+                description="Your next confirmed appointments."
+                actions={
+                  <button className="ds-btn ghost sm" onClick={() => navigate("Bookings")}>
                     View all bookings <Icon name="arrow" size={15} />
                   </button>
-                </div>
-                <div className="panel">{bookingRows(upcoming.slice(0, 3))}</div>
-              </section>
-              <section className="workspace-section">
-                <div className="section-bar">
-                  <div>
-                    <h2>Your services</h2>
-                    <p>Appointment types clients can book with you.</p>
-                  </div>
-                  <button
-                    className="inline-link"
-                    onClick={() => navigate("Event types")}
-                  >
+                }
+              >
+                {bookingRows(upcoming.slice(0, 3))}
+              </Panel>
+              <Panel
+                title="Your services"
+                description="Appointment types clients can book with you."
+                actions={
+                  <button className="ds-btn ghost sm" onClick={() => navigate("Event types")}>
                     View all <Icon name="arrow" size={15} />
                   </button>
-                </div>
+                }
+              >
                 <div className="events-grid">
                   {visibleEvents.slice(0, 2).map(eventCard)}
                   <button
@@ -732,7 +715,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <p>Create a new appointment type</p>
                   </button>
                 </div>
-              </section>
+              </Panel>
               <div className="workspace-tip">
                 <span>✳</span>
                 <div>
@@ -749,7 +732,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                 </div>
                 <button
                   type="button"
-                  className="subtle-button"
+                  className="ds-btn sm"
                   onClick={() =>
                     data?.profile.slug && hasGeneratedLink(data.profile.slug)
                       ? linkPrompt.show()

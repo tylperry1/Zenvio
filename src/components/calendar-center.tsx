@@ -133,7 +133,7 @@ export function CalendarCenter() {
             onChange={(e) => e.target.value && setDate(e.target.value)}
           />
         </div>
-        <select className="ui-input cal-view" aria-label="Calendar view" value={view} onChange={(e) => setView(e.target.value)}>
+        <select className="ds-select cal-view" aria-label="Calendar view" value={view} onChange={(e) => setView(e.target.value)}>
           {["day", "week", "month", "agenda"].map((v) => (
             <option key={v} value={v}>
               {v[0].toUpperCase() + v.slice(1)}
@@ -141,8 +141,8 @@ export function CalendarCenter() {
           ))}
         </select>
       </div>
-      <div className="cal-filters">
-        <select className="ui-input" aria-label="Calendar source" value={account} onChange={(e) => setAccount(e.target.value)}>
+      <div className="cal-filters ds-toolbar">
+        <select className="ds-select" aria-label="Calendar source" value={account} onChange={(e) => setAccount(e.target.value)}>
           <option value="all">All calendars</option>
           <option value="zenvio">Zenvio only</option>
           {data?.accounts.map((a: any) => (
@@ -151,7 +151,7 @@ export function CalendarCenter() {
             </option>
           ))}
         </select>
-        <select className="ui-input" aria-label="Appointment type" value={type} onChange={(e) => setType(e.target.value)}>
+        <select className="ds-select" aria-label="Appointment type" value={type} onChange={(e) => setType(e.target.value)}>
           <option value="all">All appointment types</option>
           {workspace?.events.map((e: any) => (
             <option key={e.id} value={e.id}>
@@ -159,7 +159,7 @@ export function CalendarCenter() {
             </option>
           ))}
         </select>
-        <select className="ui-input" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className="ds-select" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="confirmed">Confirmed</option>
           <option value="cancelled">Cancelled</option>
           <option value="all">All statuses</option>
@@ -168,7 +168,7 @@ export function CalendarCenter() {
           <Icon name="globe" size={15} />
           <TimezoneSelect value={zone} onChange={setZone} label="Timezone" businessZone={workspace?.profile?.timezone} />
         </label>
-        <a className="cal-team-link" href="/app/team">
+        <a className="cal-team-link ds-btn ghost sm" href="/app/team">
           Team schedules
         </a>
       </div>

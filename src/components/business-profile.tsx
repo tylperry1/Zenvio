@@ -112,17 +112,11 @@ function BusinessIdentityEditor({
   }, [businessAddress]);
 
   return (
-    <div className="bp-hub-editor settings-layout">
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Business information</h2>
-            <p>Shared identity for your public profile, booking page, and digital card.</p>
-          </div>
-        </div>
+    <div className="bp-hub-editor settings-layout ds-root">
+      <Panel title="Business information" description="Shared identity for your public profile, booking page, and digital card.">
         <ProfilePhoto host={profile.slug} />
         <form
-          className="stack-form settings-form"
+          className="stack-form settings-form ds-stack"
           onSubmit={async (e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
@@ -205,22 +199,16 @@ function BusinessIdentityEditor({
             Timezone
             <TimezoneSelect name="timezone" value={zone} onChange={setZone} businessZone={profile.timezone} initialAutomatic={false} />
           </label>
-          <button className="button primary" disabled={busy}>
+          <button className="ds-btn primary" disabled={busy}>
             {busy ? "Saving…" : "Save business information"}
             <Icon name="check" size={16} />
           </button>
         </form>
-      </section>
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Business street address</h2>
-            <p>
-              Verified location shown for “at business” appointments. Guests see the street address; entry
-              instructions stay private to the booking confirmation.
-            </p>
-          </div>
-        </div>
+      </Panel>
+      <Panel
+        title="Business street address"
+        description="Verified location shown for “at business” appointments. Guests see the street address; entry instructions stay private to the booking confirmation."
+      >
         <form
           className="stack-form settings-form"
           onSubmit={async (e) => {
@@ -257,16 +245,14 @@ function BusinessIdentityEditor({
               {formatAddressMultiline(address)}
             </small>
           )}
-          <button className="button primary" disabled={addressBusy}>
+          <button className="ds-btn primary" disabled={addressBusy}>
             {addressBusy ? "Saving…" : "Save business address"}
             <Icon name="check" size={16} />
           </button>
         </form>
-      </section>
+      </Panel>
       <aside>
-        <div className="settings-profile-share">
-          <h3>Public booking profile</h3>
-          <p>Save before previewing. Contact, social links, and hours live under Booking Configuration.</p>
+        <Panel title="Public booking profile" description="Save before previewing. Contact, social links, and hours live under Booking Configuration.">
           <ShareLinkActions
             url={`/book/${profile.slug}`}
             label="Public booking page link"
@@ -276,11 +262,11 @@ function BusinessIdentityEditor({
             onResult={(_, message) => notify(message, message.startsWith("Couldn’t") || message.startsWith("Could not"))}
           />
           <div className="public-profile-actions">
-            <Link className="button secondary small" href={`/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+            <Link className="ds-btn sm" href={`/book/${profile.slug}`} target="_blank" rel="noopener noreferrer">
               Preview profile <Icon name="arrow" size={14} />
             </Link>
           </div>
-        </div>
+        </Panel>
       </aside>
     </div>
   );

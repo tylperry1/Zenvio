@@ -7,7 +7,7 @@ import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminUserActions } from "./admin-user-actions";
 import { useAdminAccess, useCan } from "./admin-access";
-import { Notice, PageHeader } from "./ds";
+import { Kpi, Notice, PageHeader, Panel } from "./ds";
 import { money } from "@/lib/billing-types";
 type Account = {
   id: string;
@@ -577,59 +577,43 @@ export function AdminCenter({
                 overview &&
                 insights && (
                   <>
-                    <section className="av-stats" aria-label="Platform totals">
-                      {[
-                        [
-                          "Total accounts",
-                          overview.totals.accounts,
-                          `${number(insights.metrics.new_accounts_30d)} joined in the last 30 days`,
-                          "users",
-                        ],
-                        [
-                          "Appointments",
-                          overview.totals.bookings,
-                          `${number(insights.metrics.upcoming_7d)} coming up in the next 7 days`,
-                          "calendar",
-                        ],
-                        [
-                          "Active booking links",
-                          overview.totals.active_events,
-                          `${number(insights.metrics.paused_events)} paused · ${number(insights.metrics.events)} total`,
-                          "link",
-                        ],
-                        [
-                          "Contacts",
-                          overview.totals.contacts,
-                          "Client contacts across all workspaces",
-                          "users",
-                        ],
-                      ].map(([label, value, note, icon]) => (
-                        <article className="av-stat" key={label}>
-                          <div>
-                            <span>{label}</span>
-                            <Icon name={String(icon)} size={18} />
-                          </div>
-                          <strong>{number(Number(value))}</strong>
-                          <p>{note}</p>
-                        </article>
-                      ))}
-                    </section>
+                    <div className="ds-kpis" aria-label="Platform totals">
+                      <Kpi
+                        label="Total accounts"
+                        icon="users"
+                        value={number(overview.totals.accounts)}
+                        detail={`${number(insights.metrics.new_accounts_30d)} joined in the last 30 days`}
+                      />
+                      <Kpi
+                        label="Appointments"
+                        icon="calendar"
+                        value={number(overview.totals.bookings)}
+                        detail={`${number(insights.metrics.upcoming_7d)} coming up in the next 7 days`}
+                      />
+                      <Kpi
+                        label="Active booking links"
+                        icon="link"
+                        value={number(overview.totals.active_events)}
+                        detail={`${number(insights.metrics.paused_events)} paused · ${number(insights.metrics.events)} total`}
+                      />
+                      <Kpi
+                        label="Contacts"
+                        icon="users"
+                        value={number(overview.totals.contacts)}
+                        detail="Client contacts across all workspaces"
+                      />
+                    </div>
                     {view === "overview" && (isMaster || canHealth) && (
-                      <section className="av-stats av-command-strip" aria-label="Revenue and integrations">
+                      <div className="ds-kpis av-command-strip" aria-label="Revenue and integrations">
                         {isMaster && (
                           <>
-                            <article className="av-stat">
-                              <div>
-                                <span>MRR</span>
-                                <Icon name="card" size={18} />
-                              </div>
-                              <strong>
-                                {finance
-                                  ? metricLabel(finance.mrrCents, finance.mrrClass)
-                                  : "…"}
-                              </strong>
-                              <p>
-                                {finance?.loadError
+                            <Kpi
+                              label="MRR"
+                              icon="card"
+                              loading={!finance}
+                              value={finance ? metricLabel(finance.mrrCents, finance.mrrClass) : ""}
+                              detail={
+                                finance?.loadError
                                   ? finance.loadError
                                   : finance
                                     ? `Classification: ${finance.mrrClass}${
@@ -637,70 +621,55 @@ export function AdminCenter({
                                           ? ` · ${number(finance.activePaying)} active subscriptions`
                                           : ""
                                       }`
-                                    : "Loading Financial Intelligence…"}
-                              </p>
-                            </article>
-                            <article className="av-stat">
-                              <div>
-                                <span>ARR</span>
-                                <Icon name="spark" size={18} />
-                              </div>
-                              <strong>
-                                {finance
-                                  ? metricLabel(finance.arrCents, finance.arrClass)
-                                  : "…"}
-                              </strong>
-                              <p>
-                                {finance?.loadError
+                                    : "Loading Financial Intelligence…"
+                              }
+                            />
+                            <Kpi
+                              label="ARR"
+                              icon="spark"
+                              loading={!finance}
+                              value={finance ? metricLabel(finance.arrCents, finance.arrClass) : ""}
+                              detail={
+                                finance?.loadError
                                   ? finance.loadError
                                   : finance
                                     ? "Derived as MRR × 12 when MRR is reconciled"
-                                    : "Loading Financial Intelligence…"}
-                              </p>
-                            </article>
-                            <article className="av-stat">
-                              <div>
-                                <span>Collected (period)</span>
-                                <Icon name="card" size={18} />
-                              </div>
-                              <strong>
-                                {finance
-                                  ? metricLabel(finance.collectedCents, finance.collectedClass)
-                                  : "…"}
-                              </strong>
-                              <p>
-                                {finance?.loadError
+                                    : "Loading Financial Intelligence…"
+                              }
+                            />
+                            <Kpi
+                              label="Collected (period)"
+                              icon="card"
+                              loading={!finance}
+                              value={finance ? metricLabel(finance.collectedCents, finance.collectedClass) : ""}
+                              detail={
+                                finance?.loadError
                                   ? finance.loadError
                                   : finance
                                     ? `${
                                         finance.refundedCents != null
                                           ? `${money(finance.refundedCents)} refunded`
                                           : "Refunds unavailable"
-                                      }${
-                                        finance.cashCoverage
-                                          ? ` · coverage ${finance.cashCoverage}`
-                                          : ""
-                                      }`
-                                    : "Loading Financial Intelligence…"}
-                              </p>
-                            </article>
+                                      }${finance.cashCoverage ? ` · coverage ${finance.cashCoverage}` : ""}`
+                                    : "Loading Financial Intelligence…"
+                              }
+                            />
                           </>
                         )}
                         {(isMaster || canHealth) && (
-                          <article className="av-stat">
-                            <div>
-                              <span>Integrations & health</span>
-                              <Icon name="plug" size={18} />
-                            </div>
-                            <strong>
-                              {ops?.loadError
+                          <Kpi
+                            label="Integrations & health"
+                            icon="plug"
+                            loading={!ops}
+                            value={
+                              ops?.loadError
                                 ? "Unavailable"
                                 : ops
                                   ? `${ops.integrationsConfigured}/${ops.integrationsTotal} configured`
-                                  : "…"}
-                            </strong>
-                            <p>
-                              {ops?.loadError
+                                  : ""
+                            }
+                            detail={
+                              ops?.loadError
                                 ? ops.loadError
                                 : ops
                                   ? `Health checks ${ops.healthOk}/${ops.healthTotal} ok${
@@ -712,24 +681,23 @@ export function AdminCenter({
                                         ? ` · ${number(ops.emailFailed)} failed`
                                         : ""
                                     }`
-                                  : "Loading operations health…"}
-                            </p>
-                          </article>
+                                  : "Loading operations health…"
+                            }
+                          />
                         )}
-                      </section>
+                      </div>
                     )}
                     {view === "overview" && finance && !finance.loadError && finance.alerts.length > 0 && (
-                      <section className="av-panel" aria-label="Financial alerts">
-                        <div className="av-panel-heading">
-                          <div>
-                            <h2>Financial alerts</h2>
-                            <p>From Financial Intelligence — incomplete data stays incomplete</p>
-                          </div>
-                          <Link className="button secondary small" href="/admin/financial-intelligence">
+                      <Panel
+                        title="Financial alerts"
+                        description="From Financial Intelligence — incomplete data stays incomplete"
+                        actions={
+                          <Link className="ds-btn sm" href="/admin/financial-intelligence">
                             Open FI
                           </Link>
-                        </div>
-                        <ul className="av-command-alerts">
+                        }
+                      >
+                        <ul className="av-command-alerts ds-plain-list">
                           {finance.alerts.map((a) => (
                             <li key={a.id} data-severity={a.severity}>
                               <b>{a.title}</b>
@@ -737,16 +705,10 @@ export function AdminCenter({
                             </li>
                           ))}
                         </ul>
-                      </section>
+                      </Panel>
                     )}
                     {view === "overview" && (
-                      <section className="av-panel av-command-links" aria-label="Admin destinations">
-                        <div className="av-panel-heading">
-                          <div>
-                            <h2>Jump to a console area</h2>
-                            <p>Related modules stay on their existing routes — connected, not copied</p>
-                          </div>
-                        </div>
+                      <Panel title="Jump to a console area" description="Related modules stay on their existing routes — connected, not copied">
                         <div className="av-command-link-grid">
                           {[
                             ["/admin?view=accounts", "Accounts", canAccounts],
@@ -768,32 +730,24 @@ export function AdminCenter({
                               </Link>
                             ))}
                         </div>
-                      </section>
+                      </Panel>
                     )}
                     {view === "overview" ? (
                       <>
                         <div className="av-overview-grid">
-                          <section className="av-panel av-chart-panel">
-                            <div className="av-panel-heading">
-                              <div>
-                                <h2>Platform activity</h2>
-                                <p>New records by creation date · UTC</p>
-                              </div>
-                              <div
-                                className="av-segments"
-                                aria-label="Activity period"
-                              >
+                          <Panel
+                            title="Platform activity"
+                            description="New records by creation date · UTC"
+                            actions={
+                              <div className="ds-segmented" role="group" aria-label="Activity period">
                                 {([7, 14] as const).map((n) => (
-                                  <button
-                                    key={n}
-                                    aria-pressed={range === n}
-                                    onClick={() => setRange(n)}
-                                  >
+                                  <button key={n} type="button" aria-pressed={range === n} onClick={() => setRange(n)}>
                                     {n} days
                                   </button>
                                 ))}
                               </div>
-                            </div>
+                            }
+                          >
                             <div className="av-chart-controls">
                               <div className="av-metric-tabs">
                                 {(["bookings", "accounts"] as const).map(
@@ -855,37 +809,32 @@ export function AdminCenter({
                             )}
                             <details className="av-chart-data">
                               <summary>View daily figures</summary>
-                              <table>
-                                <caption className="sr-only">
-                                  Daily platform activity in UTC
-                                </caption>
-                                <thead>
-                                  <tr>
-                                    <th>Date</th>
-                                    <th>Bookings</th>
-                                    <th>Accounts</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {chart.map((d) => (
-                                    <tr key={d.day}>
-                                      <td>{d.day}</td>
-                                      <td>{number(d.bookings)}</td>
-                                      <td>{number(d.accounts)}</td>
+                              <div className="ds-table-wrap">
+                                <table className="ds-table">
+                                  <caption className="sr-only">
+                                    Daily platform activity in UTC
+                                  </caption>
+                                  <thead>
+                                    <tr>
+                                      <th>Date</th>
+                                      <th>Bookings</th>
+                                      <th>Accounts</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </details>
-                          </section>
-                          <section className="av-panel av-status-panel">
-                            <div className="av-panel-heading">
-                              <div>
-                                <h2>Platform setup</h2>
-                                <p>Configuration at this refresh</p>
+                                  </thead>
+                                  <tbody>
+                                    {chart.map((d) => (
+                                      <tr key={d.day}>
+                                        <td>{d.day}</td>
+                                        <td>{number(d.bookings)}</td>
+                                        <td>{number(d.accounts)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
                               </div>
-                              <Icon name="settings" size={19} />
-                            </div>
+                            </details>
+                          </Panel>
+                          <Panel title="Platform setup" description="Configuration at this refresh">
                             {[
                               [
                                 "Database",
@@ -926,22 +875,18 @@ export function AdminCenter({
                                   : "Accounts work today. Password recovery and verification emails need a connected sender."}
                               </p>
                             </div>
-                          </section>
+                          </Panel>
                         </div>
                         <div className="av-overview-grid av-lower-grid">
-                          <section className="av-panel">
-                            <div className="av-panel-heading">
-                              <div>
-                                <h2>Recent accounts</h2>
-                                <p>The newest workspaces on Zenvio</p>
-                              </div>
-                              <button
-                                className="av-text-button"
-                                onClick={() => navigate("accounts")}
-                              >
+                          <Panel
+                            title="Recent accounts"
+                            description="The newest workspaces on Zenvio"
+                            actions={
+                              <button className="ds-btn ghost sm" onClick={() => navigate("accounts")}>
                                 View all <Icon name="arrow" size={15} />
                               </button>
-                            </div>
+                            }
+                          >
                             {overview.accounts.length ? (
                               <div className="av-recent-accounts">
                                 {overview.accounts.slice(0, 5).map((a) => (
@@ -978,22 +923,18 @@ export function AdminCenter({
                                 </p>
                               </div>
                             )}
-                          </section>
-                          <section className="av-panel">
-                            <div className="av-panel-heading">
-                              <div>
-                                <h2>Recent admin activity</h2>
-                                <p>A traceable trail of platform changes</p>
-                              </div>
-                              {canAudit && (
-                                <button
-                                  className="av-text-button"
-                                  onClick={() => navigate("audit")}
-                                >
+                          </Panel>
+                          <Panel
+                            title="Recent admin activity"
+                            description="A traceable trail of platform changes"
+                            actions={
+                              canAudit ? (
+                                <button className="ds-btn ghost sm" onClick={() => navigate("audit")}>
                                   View log <Icon name="arrow" size={15} />
                                 </button>
-                              )}
-                            </div>
+                              ) : undefined
+                            }
+                          >
                             {audit?.entries.length ? (
                               <ol className="av-timeline">
                                 {audit.entries.slice(0, 4).map((a) => (
@@ -1029,7 +970,7 @@ export function AdminCenter({
                                 <p>Administrative actions will appear here.</p>
                               </div>
                             )}
-                          </section>
+                          </Panel>
                         </div>
                         <section className="av-summary-strip">
                           <div>
