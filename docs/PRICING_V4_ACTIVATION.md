@@ -38,6 +38,8 @@
 
 These three columns must never be summed as independent expenses.
 
+See also [FINANCIAL_INTELLIGENCE.md](./FINANCIAL_INTELLIGENCE.md) for the full data-source map, MRR/ARR methodology, Stripe sync actions, and honesty rules (missing data is never shown as `$0.00`).
+
 ## Rollback
 
 Disable `pricing_v4` preview/publicCatalog back to v3. Leave migration tables in place (additive). Existing v3 checkout path remains authoritative when preview is off.

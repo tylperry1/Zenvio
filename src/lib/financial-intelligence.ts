@@ -6,12 +6,35 @@ import {
   pricingV4Offers,
   pricingV4Version,
 } from "./pricing-v4-catalog.mjs";
-import { planningCostCents } from "./subscription-offers.mjs";
+import {
+  catalogVersion as pricingV3Version,
+  currentOffers as pricingV3Offers,
+  extraSeatOffer as pricingV3ExtraSeat,
+  planningCostCents,
+} from "./subscription-offers.mjs";
+import {
+  resolveFinancialPeriod,
+  type FinancialPeriod,
+  type FinancialPeriodId,
+} from "./financial-period";
+import { latestFinancialSyncRuns } from "./financial-sync";
 
-export type CostClassification = "actual" | "estimated" | "forecast" | "manual" | "mixed" | "unknown";
+export type CostClassification =
+  | "actual"
+  | "estimated"
+  | "forecast"
+  | "manual"
+  | "mixed"
+  | "unknown"
+  | "verified"
+  | "partial"
+  | "pending"
+  | "not_reconciled"
+  | "unavailable";
 
 export type ProviderCostRow = {
   provider: string;
+  category: string;
   connection: string;
   actualBilledCents: number | null;
   runningEstimateCents: number | null;
@@ -20,12 +43,38 @@ export type ProviderCostRow = {
   remainingBudgetCents: number | null;
   lastSyncAt: string | null;
   lastError: string | null;
+  lastRecordedExpenseAt: string | null;
   classification: {
     actual: CostClassification;
     running: CostClassification;
     forecast: CostClassification;
   };
   notes: string;
+};
+
+export type FinancialAlert = {
+  id: string;
+  severity: "info" | "warning" | "danger";
+  title: string;
+  detail: string;
+  href: string;
+};
+
+const PROVIDER_CATEGORIES: Record<string, string> = {
+  vercel: "Hosting",
+  neon: "Database",
+  database: "Database",
+  stripe: "Payments",
+  resend: "Email",
+  anthropic: "AI",
+  openai: "AI",
+  gemini: "AI",
+  google: "Google services",
+  storage: "Storage",
+  document_processing: "Documents",
+  sms: "Messaging",
+  telnyx: "Messaging",
+  daily: "Video",
 };
 
 function microsToCents(micros: string | number | null | undefined) {
@@ -43,14 +92,14 @@ function planningCostForTenant(plan: string, seats: number, catalogVersion: stri
   const seatCount = Number(seats) || 1;
   if (catalogVersion === pricingV4Version) {
     const base = pricingV4PlanningCostCents[plan as keyof typeof pricingV4PlanningCostCents];
-    if (base == null) return 0;
+    if (base == null) return null;
     if (plan === "business" && seatCount > 3) {
       return base + (seatCount - 3) * pricingV4PlanningCostCents.business_extra;
     }
     return base;
   }
   const base = planningCostCents[plan as keyof typeof planningCostCents];
-  if (base == null) return 0;
+  if (base == null) return null;
   if (plan === "team" && seatCount > 3) {
     return base + (seatCount - 3) * planningCostCents.team_extra;
   }
@@ -62,9 +111,17 @@ function revenueForTenant(
   monthlyAmountCents: number | null,
   catalogVersion: string | null,
   seats = 1,
+  snapshotMrrCents: number | null,
+  snapshotComplete: boolean | null,
 ) {
-  if (monthlyAmountCents != null) return { cents: Number(monthlyAmountCents), classification: "actual" as const };
-  // Never backfill legacy plans with proposed v4 list prices.
+  if (snapshotComplete && snapshotMrrCents != null) {
+    return { cents: Number(snapshotMrrCents), classification: "verified" as const };
+  }
+  if (monthlyAmountCents != null) {
+    return { cents: Number(monthlyAmountCents), classification: "actual" as const };
+  }
+  // Only estimate from the published v4 list when the subscription is already on v4
+  // and Stripe has not yet recorded monthly_amount_cents. Never invent v3/legacy revenue.
   if (catalogVersion === pricingV4Version) {
     const offer = pricingV4Offers.find((o) => o.id === plan);
     if (offer?.monthly != null) {
@@ -79,46 +136,171 @@ function revenueForTenant(
   return { cents: null as number | null, classification: "unknown" as const };
 }
 
-export async function financialIntelligenceOverview() {
-  if (!databaseConfigured()) {
+function metric(
+  valueCents: number | null,
+  classification: CostClassification,
+  source: string,
+  extras: Record<string, unknown> = {},
+) {
+  return { valueCents, classification, source, ...extras };
+}
+
+export async function financialIntelligenceOverview(input?: {
+  periodId?: FinancialPeriodId | string | null;
+  customStart?: string | null;
+  customEnd?: string | null;
+}) {
+  let period: FinancialPeriod;
+  try {
+    period = resolveFinancialPeriod(input?.periodId, input?.customStart, input?.customEnd);
+  } catch (e) {
     return {
-      period: "unavailable",
+      period: "invalid",
+      periodMeta: null,
       revenue: null,
+      cash: null,
       providers: [] as ProviderCostRow[],
       tenants: [],
+      alerts: [
+        {
+          id: "period",
+          severity: "danger" as const,
+          title: "Invalid date range",
+          detail: e instanceof Error ? e.message : "Unable to resolve period.",
+          href: "/admin/financial-intelligence",
+        },
+      ],
+      coverage: "Invalid period selection.",
+      complete: false,
+    };
+  }
+
+  if (!databaseConfigured()) {
+    return {
+      period: period.label,
+      periodMeta: { id: period.id, start: period.start.toISOString(), end: period.end.toISOString() },
+      revenue: null,
+      cash: null,
+      providers: [] as ProviderCostRow[],
+      tenants: [],
+      alerts: [
+        {
+          id: "db",
+          severity: "danger" as const,
+          title: "Database unavailable",
+          detail: "Financial figures cannot be verified without a configured database.",
+          href: "/admin/connections",
+        },
+      ],
       coverage:
         "Database is not configured in this environment. No financial figures are claimed.",
+      complete: false,
     };
   }
 
   const economics = await providerEconomics();
   const db = getPool();
-  const [budgets, sync, manual, tenants] = await Promise.all([
-    db.query("SELECT provider, monthly_budget_cents FROM private.provider_cost_budgets"),
-    db.query(
-      "SELECT provider, connection_status, last_sync_at, last_error FROM private.provider_cost_sync_state ORDER BY provider",
-    ),
-    db.query(
-      `SELECT provider, coalesce(sum(amount_cents),0)::int cents
-       FROM private.provider_cost_manual_expenses
-       WHERE voided_at IS NULL
-         AND period_start < (date_trunc('month', now()) + interval '1 month')::date
-         AND period_end >= date_trunc('month', now())::date
-       GROUP BY provider`,
-    ),
-    db.query(
-      `SELECT s.user_id, s.plan, s.status, s.seats, s.catalog_version, s.monthly_amount_cents,
-              u.email, u.name
-       FROM private.subscriptions s
-       JOIN public."user" u ON u.id = s.user_id
-       WHERE s.status IN ('active','trialing','past_due')
-       ORDER BY coalesce(s.monthly_amount_cents,0) DESC
-       LIMIT 200`,
-    ),
-  ]);
+  const [budgets, sync, manual, tenants, revenueAgg, invoiceAgg, addonAgg, statusCounts, priceMaps, missingSnapshots, lastExpense, syncRuns] =
+    await Promise.all([
+      db.query("SELECT provider, monthly_budget_cents FROM private.provider_cost_budgets"),
+      db.query(
+        "SELECT provider, connection_status, last_sync_at, last_error FROM private.provider_cost_sync_state ORDER BY provider",
+      ),
+      db.query(
+        `SELECT provider, coalesce(sum(amount_cents),0)::int cents
+         FROM private.provider_cost_manual_expenses
+         WHERE voided_at IS NULL
+           AND period_start < $2::date
+           AND period_end >= $1::date
+         GROUP BY provider`,
+        [period.start.toISOString().slice(0, 10), period.end.toISOString().slice(0, 10)],
+      ),
+      db.query(
+        `SELECT s.user_id, s.plan, s.status, s.seats, s.catalog_version, s.monthly_amount_cents,
+                u.email, u.name,
+                r.mrr_cents AS snapshot_mrr_cents, r.complete AS snapshot_complete,
+                r.issue AS snapshot_issue, r.reconciled_at AS snapshot_reconciled_at,
+                r.currency AS snapshot_currency
+         FROM private.subscriptions s
+         JOIN public."user" u ON u.id = s.user_id
+         LEFT JOIN private.subscription_revenue_snapshots r ON r.user_id = s.user_id
+         WHERE s.status IN ('active','trialing','past_due','unpaid','canceled')
+         ORDER BY coalesce(r.mrr_cents, s.monthly_amount_cents, 0) DESC
+         LIMIT 400`,
+      ),
+      db.query(
+        `SELECT
+           currency,
+           coalesce(sum(mrr_cents) FILTER (WHERE complete AND status = 'active'), 0)::float AS mrr_cents,
+           count(*) FILTER (WHERE complete AND status = 'active' AND mrr_cents > 0)::int AS paying_accounts,
+           count(*) FILTER (WHERE complete)::int AS complete_snapshots,
+           count(*) FILTER (WHERE NOT complete)::int AS incomplete,
+           count(*)::int AS snapshots,
+           max(reconciled_at) AS last_reconciled_at
+         FROM private.subscription_revenue_snapshots
+         GROUP BY currency`,
+      ),
+      db.query(
+        `SELECT
+           currency,
+           coalesce(sum(amount_paid_cents) FILTER (WHERE paid AND classification IN ('cash','refunded')), 0)::int AS collected_cents,
+           coalesce(sum(amount_refunded_cents), 0)::int AS refunded_cents,
+           coalesce(sum(amount_remaining_cents) FILTER (WHERE status = 'open'), 0)::int AS outstanding_cents,
+           count(*) FILTER (WHERE status = 'open')::int AS open_invoices,
+           count(*) FILTER (WHERE classification = 'failed' OR (attempted AND status = 'open' AND amount_remaining_cents > 0))::int AS failed_or_open_attempts,
+           count(*)::int AS invoices,
+           max(reconciled_at) AS last_reconciled_at
+         FROM private.financial_invoice_snapshots
+         WHERE coalesce(paid_at, created_at) >= $1
+           AND coalesce(paid_at, created_at) < $2
+         GROUP BY currency`,
+        [period.start.toISOString(), period.end.toISOString()],
+      ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
+      db.query(
+        `SELECT
+           coalesce(sum(amount_cents) FILTER (WHERE state = 'paid'), 0)::int AS addon_paid_cents,
+           coalesce(sum(refunded_cents), 0)::int AS addon_refunded_cents,
+           count(*) FILTER (WHERE state = 'paid')::int AS paid_orders,
+           count(*) FILTER (WHERE state IN ('refunded','partially_refunded'))::int AS refunded_orders
+         FROM private.subscription_addon_orders
+         WHERE coalesce(paid_at, created_at) >= $1
+           AND coalesce(paid_at, created_at) < $2`,
+        [period.start.toISOString(), period.end.toISOString()],
+      ),
+      db.query(
+        `SELECT status, count(*)::int AS accounts
+         FROM private.subscriptions
+         WHERE subscription_id IS NOT NULL
+         GROUP BY status`,
+      ),
+      db.query(
+        `SELECT plan, period, stripe_price_id, catalog_version
+         FROM private.subscription_prices
+         ORDER BY catalog_version, plan, period`,
+      ),
+      db.query(
+        `SELECT count(*)::int AS n
+         FROM private.subscriptions s
+         WHERE s.subscription_id IS NOT NULL
+           AND s.status IN ('active','trialing','past_due')
+           AND NOT EXISTS (
+             SELECT 1 FROM private.subscription_revenue_snapshots r WHERE r.user_id = s.user_id
+           )`,
+      ),
+      db.query(
+        `SELECT provider, max(created_at) AS last_at
+         FROM private.provider_cost_manual_expenses
+         WHERE voided_at IS NULL
+         GROUP BY provider`,
+      ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
+      latestFinancialSyncRuns(6).catch(() => []),
+    ]);
 
   const budgetMap = new Map(budgets.rows.map((r) => [r.provider as string, Number(r.monthly_budget_cents)]));
   const manualMap = new Map(manual.rows.map((r) => [r.provider as string, Number(r.cents)]));
+  const lastExpenseMap = new Map(
+    lastExpense.rows.map((r) => [r.provider as string, r.last_at as string | null]),
+  );
   const syncMap = new Map(
     sync.rows.map((r) => [
       r.provider as string,
@@ -130,7 +312,6 @@ export async function financialIntelligenceOverview() {
     ]),
   );
 
-  // Sum model-level reservation rows that share a provider prefix (e.g. openai/gpt-4 + openai/…).
   const reservationMap = new Map<string, number>();
   for (const r of economics.providerReservations) {
     const provider = String(r.provider).split("/")[0] || String(r.provider);
@@ -182,7 +363,6 @@ export async function financialIntelligenceOverview() {
         : manualCents > 0
           ? manualCents
           : null;
-    // Extrapolate metered burn only; fixed manual expenses stay at their month amount.
     const forecast =
       meteredRunning != null
         ? Math.round(meteredRunning * (monthLength / dayOfMonth)) + manualCents
@@ -192,7 +372,10 @@ export async function financialIntelligenceOverview() {
     const budget = budgetMap.has(provider) ? budgetMap.get(provider)! : null;
     return {
       provider,
-      connection: syncRow?.connection_status || (manualCents > 0 || budget != null ? "manual" : "unknown"),
+      category: PROVIDER_CATEGORIES[provider] || "Other",
+      connection:
+        syncRow?.connection_status ||
+        (manualCents > 0 || budget != null ? "manual" : "unknown"),
       actualBilledCents: actual,
       runningEstimateCents: running,
       monthlyForecastCents: forecast,
@@ -200,6 +383,7 @@ export async function financialIntelligenceOverview() {
       remainingBudgetCents: budget == null || running == null ? null : budget - running,
       lastSyncAt: syncRow?.last_sync_at || null,
       lastError: syncRow?.last_error || null,
+      lastRecordedExpenseAt: lastExpenseMap.get(provider) || null,
       classification: {
         actual:
           meteredActual != null && manualCents > 0
@@ -209,24 +393,93 @@ export async function financialIntelligenceOverview() {
               : manualCents > 0
                 ? "manual"
                 : "unknown",
-        running: "estimated",
-        forecast: "forecast",
+        running: running == null ? "unknown" : "estimated",
+        forecast: forecast == null ? "unknown" : "forecast",
       },
       notes:
-        "Actual billed, running estimate, and monthly forecast are separate views of the same period — do not add them together. Forecast extrapolates metered burn only; manual expenses are included at face value.",
+        "Actual billed, running estimate, and monthly forecast are separate views of the same period — do not add them together. Forecast extrapolates metered burn only; manual expenses are included at face value. Missing invoices are unknown, not $0.",
     };
   });
 
-  const mrr = economics.revenue.find((r) => r.currency === "usd");
-  const mrrCents =
-    mrr && Number(mrr.incomplete) === 0 ? Number(mrr.mrr_cents) : null;
+  const usdRevenue = revenueAgg.rows.find((r) => r.currency === "usd") || revenueAgg.rows[0];
+  const incomplete = usdRevenue ? Number(usdRevenue.incomplete) : 0;
+  const completeSnapshots = usdRevenue ? Number(usdRevenue.complete_snapshots) : 0;
+  const missingActive = Number(missingSnapshots.rows[0]?.n || 0);
+  const reconciledMrr =
+    usdRevenue && completeSnapshots > 0 ? Math.round(Number(usdRevenue.mrr_cents)) : null;
+  const mrrClassification: CostClassification =
+    reconciledMrr == null
+      ? incomplete > 0 || missingActive > 0
+        ? "not_reconciled"
+        : "unknown"
+      : incomplete > 0 || missingActive > 0
+        ? "partial"
+        : "verified";
+  const mrrCents = reconciledMrr;
+  const arrCents = mrrCents == null ? null : mrrCents * 12;
+
+  const usdCash = invoiceAgg.rows.find((r) => r.currency === "usd") || invoiceAgg.rows[0];
+  const invoiceCount = usdCash ? Number(usdCash.invoices) : 0;
+  const collectedCents = usdCash && invoiceCount > 0 ? Number(usdCash.collected_cents) : null;
+  const refundedCents = usdCash && invoiceCount > 0 ? Number(usdCash.refunded_cents) : null;
+  const outstandingCents = usdCash && invoiceCount > 0 ? Number(usdCash.outstanding_cents) : null;
+  const cashClassification: CostClassification =
+    invoiceCount === 0 ? "unavailable" : "verified";
+
+  const addonPaid = Number(addonAgg.rows[0]?.addon_paid_cents || 0);
+  const addonRefunded = Number(addonAgg.rows[0]?.addon_refunded_cents || 0);
+  const addonOrders = Number(addonAgg.rows[0]?.paid_orders || 0);
+
+  const statusMap = Object.fromEntries(
+    statusCounts.rows.map((r) => [String(r.status), Number(r.accounts)]),
+  ) as Record<string, number>;
+
+  const verifiedOperatingCents = providers.reduce((n, p) => {
+    if (p.actualBilledCents == null) return n;
+    if (p.classification.actual === "unknown") return n;
+    return n + p.actualBilledCents;
+  }, 0);
+  const providersWithActual = providers.filter((p) => p.actualBilledCents != null).length;
+  const providersUnknown = providers.filter((p) => p.actualBilledCents == null).length;
+  const estimatedOperatingCents = providers.reduce((n, p) => n + (p.runningEstimateCents || 0), 0);
+  const operatingVerified =
+    providersWithActual > 0 && providersUnknown === 0
+      ? verifiedOperatingCents
+      : providersWithActual > 0
+        ? verifiedOperatingCents
+        : null;
+  const operatingClassification: CostClassification =
+    providersWithActual === 0
+      ? "unavailable"
+      : providersUnknown > 0
+        ? "partial"
+        : "verified";
+
+  // Planning contribution uses preliminary budgets — never claim verified profit.
+  const planningCost = economics.planning.costCents;
+  const planningCostValue = planningCost > 0 ? planningCost : null;
+  const contributionEstimate =
+    mrrCents == null || planningCostValue == null ? null : mrrCents - planningCostValue;
+  const contributionVerified =
+    mrrClassification === "verified" && operatingClassification === "verified" && operatingVerified != null
+      ? mrrCents! - operatingVerified
+      : null;
 
   const tenantRows = tenants.rows.map((t) => {
     const plan = String(t.plan);
     const seats = Number(t.seats) || 1;
     const catalogVersion = t.catalog_version == null ? null : String(t.catalog_version);
     const planning = planningCostForTenant(plan, seats, catalogVersion);
-    const revenue = revenueForTenant(plan, t.monthly_amount_cents, catalogVersion, seats);
+    const snapshotMrr =
+      t.snapshot_complete && t.snapshot_mrr_cents != null ? Number(t.snapshot_mrr_cents) : null;
+    const revenue = revenueForTenant(
+      plan,
+      t.monthly_amount_cents == null ? null : Number(t.monthly_amount_cents),
+      catalogVersion,
+      seats,
+      snapshotMrr,
+      t.snapshot_complete == null ? null : Boolean(t.snapshot_complete),
+    );
     return {
       userId: t.user_id,
       email: t.email,
@@ -238,30 +491,317 @@ export async function financialIntelligenceOverview() {
       subscriptionRevenueCents: revenue.cents,
       estimatedOperatingCostCents: planning,
       estimatedContributionCents:
-        revenue.cents == null ? null : revenue.cents - planning,
+        revenue.cents == null || planning == null ? null : revenue.cents - planning,
+      verifiedContributionCents: null as number | null,
+      snapshotIssue: t.snapshot_issue,
+      snapshotReconciledAt: t.snapshot_reconciled_at,
       classification: {
         revenue: revenue.classification,
-        cost: "estimated" as const,
+        cost: planning == null ? ("unknown" as const) : ("estimated" as const),
+        contribution: "estimated" as const,
       },
     };
   });
 
+  // Pricing discrepancy: mapped Stripe prices vs published catalog amounts (metadata only — no Stripe mutation).
+  const publishedByPlan = new Map<string, { monthly: number | null; annual: number | null; version: string }>();
+  for (const o of pricingV3Offers) {
+    publishedByPlan.set(`${pricingV3Version}:${o.id}`, {
+      monthly: o.monthly,
+      annual: o.annual || null,
+      version: pricingV3Version,
+    });
+  }
+  publishedByPlan.set(`${pricingV3Version}:team_extra`, {
+    monthly: pricingV3ExtraSeat.monthly,
+    annual: null,
+    version: pricingV3Version,
+  });
+  for (const o of pricingV4Offers) {
+    publishedByPlan.set(`${pricingV4Version}:${o.id}`, {
+      monthly: o.monthly,
+      annual: o.annual,
+      version: pricingV4Version,
+    });
+  }
+
+  const pricingDiscrepancies: {
+    plan: string;
+    period: string;
+    catalogVersion: string;
+    stripePriceId: string;
+    issue: string;
+  }[] = [];
+  for (const row of priceMaps.rows) {
+    const key = `${row.catalog_version}:${row.plan}`;
+    const published = publishedByPlan.get(key);
+    if (!published) {
+      pricingDiscrepancies.push({
+        plan: String(row.plan),
+        period: String(row.period),
+        catalogVersion: String(row.catalog_version),
+        stripePriceId: String(row.stripe_price_id),
+        issue: "Mapped Stripe price has no matching published catalog offer.",
+      });
+    }
+  }
+
+  const planDistribution = Object.entries(
+    tenantRows
+      .filter((t) => ["active", "trialing", "past_due"].includes(t.status))
+      .reduce(
+        (acc, t) => {
+          acc[t.plan] = (acc[t.plan] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+  ).map(([label, value]) => ({ label, value }));
+
+  const revenueByPlan = Object.entries(
+    tenantRows
+      .filter((t) => t.status === "active" && t.subscriptionRevenueCents != null)
+      .reduce(
+        (acc, t) => {
+          acc[t.plan] = (acc[t.plan] || 0) + (t.subscriptionRevenueCents || 0);
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+  ).map(([label, value]) => ({ label, value }));
+
+  const costByCategory = Object.entries(
+    providers.reduce(
+      (acc, p) => {
+        const cents = p.actualBilledCents ?? p.runningEstimateCents;
+        if (cents == null) return acc;
+        acc[p.category] = (acc[p.category] || 0) + cents;
+        return acc;
+      },
+      {} as Record<string, number>,
+    ),
+  ).map(([label, value]) => ({ label, value }));
+
+  const payingCustomers =
+    usdRevenue && completeSnapshots > 0 ? Number(usdRevenue.paying_accounts) : null;
+
+  const alerts: FinancialAlert[] = [];
+  if (missingActive > 0) {
+    alerts.push({
+      id: "missing-snapshots",
+      severity: "warning",
+      title: "Revenue snapshots missing",
+      detail: `${missingActive} active/trialing/past_due subscription(s) lack a Stripe revenue snapshot. Run Stripe subscription sync.`,
+      href: "/admin/financial-intelligence",
+    });
+  }
+  if (incomplete > 0) {
+    alerts.push({
+      id: "incomplete-mrr",
+      severity: "warning",
+      title: "Incomplete MRR snapshots",
+      detail: `${incomplete} snapshot(s) could not be fully reconciled (discounts, metered, mixed currency, or incomplete price data).`,
+      href: "/admin/billing",
+    });
+  }
+  if (invoiceCount === 0) {
+    alerts.push({
+      id: "invoices-unsynced",
+      severity: "info",
+      title: "Cash collections not synced",
+      detail: "No invoice snapshots for this period. Collected revenue stays Unavailable until Stripe invoice sync runs.",
+      href: "/admin/financial-intelligence",
+    });
+  }
+  if (providersUnknown > 0) {
+    alerts.push({
+      id: "provider-gaps",
+      severity: "warning",
+      title: "Provider cost data incomplete",
+      detail: `${providersUnknown} provider(s) have no verified invoice or manual expense this period. Missing costs are not treated as $0.`,
+      href: "/admin/financial-intelligence",
+    });
+  }
+  for (const p of providers) {
+    if (p.lastError) {
+      alerts.push({
+        id: `sync-error-${p.provider}`,
+        severity: "danger",
+        title: `${p.provider} sync error`,
+        detail: p.lastError,
+        href: "/admin/connections",
+      });
+    }
+    if (
+      p.budgetCents != null &&
+      p.runningEstimateCents != null &&
+      p.runningEstimateCents >= p.budgetCents
+    ) {
+      alerts.push({
+        id: `budget-${p.provider}`,
+        severity: "danger",
+        title: `${p.provider} over budget`,
+        detail: "Running estimate meets or exceeds the configured monthly budget.",
+        href: "/admin/financial-intelligence",
+      });
+    }
+  }
+  for (const d of pricingDiscrepancies.slice(0, 8)) {
+    alerts.push({
+      id: `price-${d.stripePriceId}`,
+      severity: "warning",
+      title: "Pricing map discrepancy",
+      detail: `${d.plan} (${d.catalogVersion}/${d.period}): ${d.issue}`,
+      href: "/admin/pricing",
+    });
+  }
+  for (const a of economics.anomalies || []) {
+    alerts.push({
+      id: `anomaly-${a.provider}-${a.day}`,
+      severity: "warning",
+      title: `Unusual ${a.provider} spend`,
+      detail: `Provider usage on ${a.day} exceeded the recent baseline (≥3× and ≥$0.10).`,
+      href: "/admin/economics",
+    });
+  }
+
+  const lastSync = Array.isArray(syncRuns) ? syncRuns[0] : null;
+
   return {
-    period: economics.period,
+    period: period.label,
+    periodMeta: {
+      id: period.id,
+      start: period.start.toISOString(),
+      end: period.end.toISOString(),
+    },
     tagline: "Platform Financial Intelligence",
+    methodology: {
+      mrr: "Sum of complete Stripe-reconciled subscription_revenue_snapshots for status=active. Annual prices are normalized to monthly in snapshot creation (unit_amount × qty / (interval_count × 12 for yearly)). Incomplete snapshots are excluded from the total and counted separately. Canceled subscriptions contribute $0 when complete. ARR = MRR × 12.",
+      cash: "Collected revenue sums amount_paid from financial_invoice_snapshots in the selected period. Failed/open invoices are not counted as collected. Refunds are reported separately from collections.",
+      contribution:
+        "Estimated contribution = reconciled MRR − preliminary planning cost budgets. Verified contribution requires verified MRR and fully attributed provider actuals. Missing costs never become $0.",
+    },
+    kpis: {
+      mrr: metric(mrrCents, mrrClassification, "private.subscription_revenue_snapshots", {
+        incompleteSnapshots: incomplete,
+        missingActiveSnapshots: missingActive,
+        lastReconciledAt: usdRevenue?.last_reconciled_at || null,
+        arrMethodology: "MRR × 12",
+      }),
+      arr: metric(arrCents, mrrClassification, "Derived from reconciled MRR × 12"),
+      collected: metric(
+        collectedCents,
+        cashClassification,
+        "private.financial_invoice_snapshots (Stripe invoices)",
+        {
+          refundedCents,
+          outstandingCents,
+          invoiceCount,
+          lastReconciledAt: usdCash?.last_reconciled_at || null,
+        },
+      ),
+      operatingCosts: metric(
+        operatingVerified,
+        operatingClassification,
+        "Provider actual billed + manual expenses (never invents missing invoices)",
+        {
+          estimatedRunningCents: estimatedOperatingCents > 0 ? estimatedOperatingCents : null,
+          providersWithActual,
+          providersUnknown,
+        },
+      ),
+      estimatedContribution: metric(
+        contributionEstimate,
+        contributionEstimate == null ? "unavailable" : "estimated",
+        "MRR − preliminary planning budgets (not verified profit)",
+      ),
+      verifiedContribution: metric(
+        contributionVerified,
+        contributionVerified == null ? "unavailable" : "verified",
+        "Verified MRR − verified provider actuals",
+      ),
+      payingCustomers: metric(
+        payingCustomers,
+        payingCustomers == null ? "unknown" : mrrClassification,
+        "Complete snapshots with mrr_cents > 0 and status=active",
+      ),
+    },
     revenue: {
       mrrCents,
-      arrCents: mrrCents == null ? null : mrrCents * 12,
-      incompleteSnapshots: mrr ? Number(mrr.incomplete) : null,
-      classification: mrrCents == null ? "unknown" : "actual",
+      arrCents,
+      incompleteSnapshots: incomplete,
+      missingActiveSnapshots: missingActive,
+      classification: mrrClassification,
       source: "private.subscription_revenue_snapshots (reconciled Stripe MRR)",
+      lastReconciledAt: usdRevenue?.last_reconciled_at || null,
+      payingCustomers,
+      byPlan: revenueByPlan,
+      averageRecurringRevenueCents:
+        payingCustomers && payingCustomers > 0 && mrrCents != null
+          ? Math.round(mrrCents / payingCustomers)
+          : null,
     },
-    planning: economics.planning,
+    cash: {
+      collectedCents,
+      refundedCents,
+      outstandingCents,
+      openInvoices: usdCash ? Number(usdCash.open_invoices) : null,
+      failedOrOpenAttempts: usdCash ? Number(usdCash.failed_or_open_attempts) : null,
+      invoiceCount,
+      classification: cashClassification,
+      source: "private.financial_invoice_snapshots",
+      lastReconciledAt: usdCash?.last_reconciled_at || null,
+      addonRevenueCents: addonOrders > 0 ? addonPaid : addonOrders === 0 ? 0 : null,
+      addonRefundedCents: addonOrders > 0 ? addonRefunded : 0,
+      addonPaidOrders: addonOrders,
+      oneTimeNote:
+        "Add-on checkout payments are one-time (or separately recurring add-ons) and are never included in MRR.",
+    },
+    subscriptions: {
+      active: statusMap.active || 0,
+      trialing: statusMap.trialing || 0,
+      pastDue: statusMap.past_due || 0,
+      canceled: statusMap.canceled || 0,
+      unpaid: statusMap.unpaid || 0,
+      byStatus: statusCounts.rows.map((r) => ({
+        label: String(r.status),
+        value: Number(r.accounts),
+      })),
+      planDistribution,
+    },
+    planning: {
+      ...economics.planning,
+      costCents: planningCostValue,
+      costClassification: planningCostValue == null ? "unavailable" : "estimated",
+      estimatedContributionCents: contributionEstimate,
+      estimatedContributionMargin:
+        mrrCents && mrrCents > 0 && planningCostValue != null
+          ? (mrrCents - planningCostValue) / mrrCents
+          : null,
+      note:
+        planningCostValue == null
+          ? "No preliminary planning allocation for current active plan mix — shown as unavailable, not $0.00."
+          : economics.planning.source,
+    },
     accountsByPlan: economics.accountsByPlan,
     anomalies: economics.anomalies,
     providers,
-    tenants: tenantRows,
+    costByCategory,
+    tenants: tenantRows.filter((t) =>
+      ["active", "trialing", "past_due"].includes(t.status),
+    ),
+    pricing: {
+      publishedV3: pricingV3Offers,
+      publishedV4: pricingV4Offers,
+      mappedPrices: priceMaps.rows,
+      discrepancies: pricingDiscrepancies,
+    },
     proposedPlans: pricingV4Offers,
+    alerts,
+    sync: {
+      lastRun: lastSync || null,
+      recentRuns: Array.isArray(syncRuns) ? syncRuns : [],
+    },
     coverage: economics.coverage,
     complete: false,
   };
