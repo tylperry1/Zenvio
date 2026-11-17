@@ -143,11 +143,27 @@ export function AdminBillingCenter() {
     catalog_targets?: string[];
     updated_at?: string;
   };
+  type AddonRow = {
+    id: string;
+    name: string;
+    amount_cents: number;
+    quantity: number | string;
+    unit: string;
+    recurring: boolean;
+    available: boolean;
+    catalog_targets?: string[];
+    stripe_product_id?: string | null;
+    stripe_price_id?: string | null;
+    sync_status: string;
+    sync_error?: string | null;
+    updated_at?: string;
+  };
   const [data, setData] = useState<{
     versions: Version[];
     operations: Operation[];
     catalog: BillingCatalog;
     coupons?: CouponRow[];
+    addons?: AddonRow[];
     sync?: CatalogSyncReport;
     publicSurface?: {
       family: string;
@@ -163,8 +179,11 @@ export function AdminBillingCenter() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [last, setLast] = useState<Record<string, unknown> | null>(null);
   const [planTab, setPlanTab] = useState<"individual" | "team">("individual");
-  const [section, setSection] = useState<"pricing" | "coupons" | "seats" | "audit">(
+  const [section, setSection] = useState<"pricing" | "coupons" | "addons" | "seats" | "audit">(
     params.get("userId") ? "seats" : "pricing",
+  );
+  const [addonDrafts, setAddonDrafts] = useState<Record<string, { name: string; amount: string; available: boolean }>>(
+    {},
   );
   // Bumped when leaving Seats (or starting a newer preview) so stale send() completions cannot restore preview.
   const seatsPreviewGen = useRef(0);
@@ -207,7 +226,7 @@ export function AdminBillingCenter() {
     } catch (e) {
       setError((e as Error).message);
       // Refresh after failed coupon sync so Retry sync / legacy controls appear without a full reload.
-      if (String(input.action).startsWith("coupon")) {
+      if (String(input.action).startsWith("coupon") || String(input.action).startsWith("addon")) {
         try {
           await load();
         } catch {
@@ -222,12 +241,30 @@ export function AdminBillingCenter() {
   const published = useMemo(() => data?.versions.find((v) => v.state === "published") || null, [data]);
   const drafts = useMemo(() => data?.versions.filter((v) => v.state === "draft") || [], [data]);
   const coupons = useMemo(() => data?.coupons || [], [data]);
+  const addons = useMemo(() => data?.addons || [], [data]);
   const legacyCouponOps = useMemo(
     () => data?.operations.filter((o) => o.action === "coupon" && o.state === "succeeded") || [],
     [data],
   );
   const recentOps = useMemo(() => data?.operations || [], [data]);
   const failedOps = useMemo(() => data?.operations.filter((o) => o.state === "failed").length || 0, [data]);
+
+  useEffect(() => {
+    if (!addons.length) return;
+    setAddonDrafts((prev) => {
+      const next = { ...prev };
+      for (const a of addons) {
+        if (!next[a.id]) {
+          next[a.id] = {
+            name: a.name,
+            amount: (a.amount_cents / 100).toFixed(2),
+            available: a.available,
+          };
+        }
+      }
+      return next;
+    });
+  }, [addons]);
 
   if (error && !data) {
     return (
@@ -348,6 +385,7 @@ export function AdminBillingCenter() {
           options={[
             ["pricing", "Pricing & allowances"],
             ["coupons", "Coupons"],
+            ["addons", "Add-ons"],
             ["seats", "Seats & proration"],
             ["audit", "Sync & audit"],
           ]}
@@ -567,6 +605,158 @@ export function AdminBillingCenter() {
                     )}
                   </li>
                 ))}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      {section === "addons" && (
+        <div className="ds-stack">
+          <Panel
+            title="Add-on catalog"
+            description="Approved retail amounts are stored locally and synchronized to Stripe as Products + Prices. Purchase stays off until ADDON_BILLING_VALIDATED and each row is marked available. Recurring SMS/storage and seat add-ons remain unpublished until fulfillment acceptance."
+          >
+            <FormActions>
+              <button
+                type="button"
+                className="ds-btn primary"
+                disabled={busy}
+                onClick={() =>
+                  void send({
+                    action: "addon-sync-all",
+                    confirmStripeSync: true,
+                    reason: "Sync all platform add-ons to Stripe products and prices",
+                  })
+                }
+              >
+                Sync all to Stripe
+              </button>
+            </FormActions>
+            {!addons.length ? (
+              <EmptyState icon="spark" title="No add-ons seeded">
+                Apply migration 094 to seed the approved add-on catalog.
+              </EmptyState>
+            ) : (
+              <ul className="bc-versions">
+                {addons.map((a) => {
+                  const draft = addonDrafts[a.id] || {
+                    name: a.name,
+                    amount: (a.amount_cents / 100).toFixed(2),
+                    available: a.available,
+                  };
+                  return (
+                    <li key={a.id}>
+                      <div>
+                        <b>{a.id}</b>
+                        <small>
+                          {a.quantity} {a.unit}
+                          {a.recurring ? " · monthly" : " · one-time"}
+                          {(a.catalog_targets || []).length
+                            ? ` · ${(a.catalog_targets || []).join("+")}`
+                            : ""}
+                        </small>
+                        <Badge
+                          tone={
+                            a.sync_status === "synced"
+                              ? "success"
+                              : a.sync_status === "failed"
+                                ? "danger"
+                                : "warning"
+                          }
+                          dot
+                        >
+                          {a.sync_status}
+                        </Badge>
+                        {a.stripe_price_id ? <small>{a.stripe_price_id}</small> : null}
+                        {a.sync_error ? <small>{a.sync_error}</small> : null}
+                      </div>
+                      <div className="bc-form-grid">
+                        <Field label="Display name" htmlFor={`addon-name-${a.id}`}>
+                          <input
+                            id={`addon-name-${a.id}`}
+                            className="bc-input"
+                            value={draft.name}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, name: e.target.value },
+                              }))
+                            }
+                          />
+                        </Field>
+                        <Field label="Amount (USD)" htmlFor={`addon-amt-${a.id}`}>
+                          <input
+                            id={`addon-amt-${a.id}`}
+                            className="bc-input"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={draft.amount}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, amount: e.target.value },
+                              }))
+                            }
+                          />
+                        </Field>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={draft.available}
+                            onChange={(e) =>
+                              setAddonDrafts((d) => ({
+                                ...d,
+                                [a.id]: { ...draft, available: e.target.checked },
+                              }))
+                            }
+                          />{" "}
+                          Available (local; still needs ADDON_BILLING_VALIDATED)
+                        </label>
+                      </div>
+                      <FormActions>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void send({
+                              action: "addon-update",
+                              addonId: a.id,
+                              name: draft.name,
+                              amountCents: Math.round(Number(draft.amount) * 100),
+                              available: draft.available,
+                              reason: `Update add-on ${a.id} catalog fields`,
+                            }).then(() =>
+                              setAddonDrafts((d) => {
+                                const n = { ...d };
+                                delete n[a.id];
+                                return n;
+                              }),
+                            )
+                          }
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void send({
+                              action: "addon-sync",
+                              addonId: a.id,
+                              reason: `Sync add-on ${a.id} to Stripe`,
+                            })
+                          }
+                        >
+                          Sync to Stripe
+                        </button>
+                      </FormActions>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Panel>

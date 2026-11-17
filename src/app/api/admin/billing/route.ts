@@ -7,6 +7,7 @@ import { currentCatalog } from "@/lib/billing-catalog";
 import { catalogSyncReport } from "@/lib/pricing-sync";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import { listBillingCoupons } from "@/lib/billing-coupons";
+import { listBillingAddons } from "@/lib/billing-addons";
 
 export const maxDuration = 120;
 
@@ -14,7 +15,7 @@ export async function GET() {
   try {
     await adminSession();
     const db = getPool();
-    const [catalog, versions, operations, sync, publicSurface, coupons] = await Promise.all([
+    const [catalog, versions, operations, sync, publicSurface, coupons, addons] = await Promise.all([
       currentCatalog(),
       db.query("SELECT * FROM private.billing_catalog_versions ORDER BY created_at DESC LIMIT 20"),
       db.query(
@@ -23,6 +24,7 @@ export async function GET() {
       catalogSyncReport(),
       publicPricingSurface(),
       listBillingCoupons(db),
+      listBillingAddons(db),
     ]);
     return Response.json(
       {
@@ -30,6 +32,7 @@ export async function GET() {
         versions: versions.rows,
         operations: operations.rows,
         coupons,
+        addons,
         sync,
         publicSurface: {
           family: publicSurface.family,

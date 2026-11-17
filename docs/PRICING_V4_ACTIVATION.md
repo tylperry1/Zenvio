@@ -35,7 +35,7 @@
 7. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Keep `enrollmentEnabled: false` until live billing is ready.
 8. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration.**
 9. **Before any live v4 sales:** provision live Stripe products/prices with explicit approval, complete live webhook acceptance, then consider `enrollmentEnabled` + existing checkout flags. Test-mode steps are not live sales.
-10. Add-ons: set `ADDON_BILLING_VALIDATED=true` only after one-time AI/envelope/video fulfillment and refund acceptance. Leave recurring storage/SMS unpublished until fulfillment paths exist.
+10. Add-ons: migration `094` seeds `private.billing_addons` (all `available=false`). From **Master Admin → Billing → Add-ons**, edit amounts/names and **Sync to Stripe** (or run `PRICING_V4_STRIPE_SYNC=true node scripts/provision-pricing-v4.mjs` which also maps add-on products/prices in test mode). Set `ADDON_BILLING_VALIDATED=true` only after one-time AI/envelope/video fulfillment and refund acceptance, then mark individual rows available. Leave recurring storage/SMS unpublished until fulfillment paths exist.
 
 ## Coupon synchronization contract
 

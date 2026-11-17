@@ -14,6 +14,12 @@ import {
   syncCouponToStripe,
   type CatalogTarget,
 } from "./billing-coupons";
+import {
+  listBillingAddons,
+  syncAddonToStripe,
+  syncAllAddonsToStripe,
+  updateBillingAddon,
+} from "./billing-addons";
 
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const fingerprint = (s: any) =>
@@ -70,6 +76,11 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       ).rows[0].id;
     } else if (action === "list-coupons") {
       result = { ok: true, coupons: await listBillingCoupons(db) };
+    } else if (action === "list-addons") {
+      result = { ok: true, addons: await listBillingAddons(db) };
+    } else if (action === "addon-update") {
+      // Local catalog edit only — does not call Stripe or enable purchase flags.
+      result = { ok: true, addon: await updateBillingAddon(db, actor, input) };
     } else {
       if (!(await sandboxAccepted()))
         throw new ApiError(
@@ -77,7 +88,33 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           409,
         );
       const stripe = await stripeClient();
-      if (action === "publish") {
+      if (action === "addon-sync") {
+        const addonId = string(input.addonId || input.id, "add-on id", 64, 1);
+        const synced = await syncAddonToStripe(db, stripe, addonId, actor);
+        if (synced.sync_status !== "synced" || !synced.stripe_price_id) {
+          throw new ApiError("Stripe add-on price was not created. Retry sync after fixing the provider error.", 503);
+        }
+        result = {
+          ok: true,
+          addonId: synced.id,
+          product: synced.stripe_product_id,
+          price: synced.stripe_price_id,
+          syncStatus: synced.sync_status,
+        };
+      } else if (action === "addon-sync-all") {
+        if (input.confirmStripeSync !== true) {
+          throw new ApiError(
+            "Confirm Stripe sync to create or refresh add-on products and prices in the connected Stripe account.",
+            400,
+          );
+        }
+        const results = await syncAllAddonsToStripe(db, stripe, actor);
+        result = {
+          ok: true,
+          results,
+          message: "Add-on Stripe sync finished. Purchase remains gated until ADDON_BILLING_VALIDATED.",
+        };
+      } else if (action === "publish") {
         if (input.confirmLiveStripe !== true)
           throw new ApiError(
             "Confirm publishing to create new Stripe prices for new enrollments. Existing subscriber prices are never rewritten.",
@@ -483,7 +520,8 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             "INSERT INTO private.billing_change_dispatches(operation_id,actor_id,user_id,subscription_id,request) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
             [operation, actor, user, current.id, JSON.stringify(request)],
           );
-          const updated = await stripe.subscriptions.update(current.id, request, {
+          const { targetSeats: _ignoredTargetSeats, ...stripeChange } = request;
+          const updated = await stripe.subscriptions.update(current.id, stripeChange as never, {
             idempotencyKey: operation,
           });
           await saveSubscription(db, updated, user);

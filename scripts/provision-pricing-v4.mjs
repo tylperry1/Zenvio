@@ -129,6 +129,74 @@ try {
         );
       }
     }
+    // Also map durable add-on products/prices when the billing_addons table exists.
+    const addonTable = await db.query(
+      "SELECT to_regclass('private.billing_addons') IS NOT NULL AS ready",
+    );
+    if (addonTable.rows[0]?.ready) {
+      const addons = (
+        await db.query(
+          "SELECT id,name,amount_cents,quantity,unit,recurring,stripe_product_id,stripe_price_id FROM private.billing_addons ORDER BY id",
+        )
+      ).rows;
+      for (const row of addons) {
+        const productKey = `zenvio_addon_${row.id}`;
+        let product;
+        try {
+          product = await stripe.products.retrieve(row.stripe_product_id || productKey);
+        } catch (e) {
+          if (e.code !== "resource_missing") throw e;
+          product = await stripe.products.create(
+            {
+              id: productKey,
+              name: `Zenvio ${row.name}`,
+              metadata: {
+                zenvio_addon: row.id,
+                zenvio_unit: row.unit,
+                zenvio_recurring: String(row.recurring),
+              },
+            },
+            { idempotencyKey: productKey },
+          );
+        }
+        const lookup = `zenvio_addon_${row.id}_${row.amount_cents}_${row.recurring ? "mo" : "once"}`;
+        const found = await stripe.prices.list({ lookup_keys: [lookup], limit: 5 });
+        let price = found.data.find(
+          (p) =>
+            p.active &&
+            p.product === product.id &&
+            p.unit_amount === row.amount_cents &&
+            p.currency === "usd",
+        );
+        if (!price) {
+          price = await stripe.prices.create(
+            {
+              product: product.id,
+              currency: "usd",
+              unit_amount: row.amount_cents,
+              lookup_key: lookup,
+              transfer_lookup_key: true,
+              ...(row.recurring ? { recurring: { interval: "month", interval_count: 1 } } : {}),
+              metadata: {
+                zenvio_addon: row.id,
+                zenvio_quantity: String(row.quantity),
+                zenvio_unit: row.unit,
+              },
+            },
+            { idempotencyKey: lookup },
+          );
+        }
+        await db.query(
+          `UPDATE private.billing_addons
+              SET stripe_product_id=$2,stripe_price_id=$3,sync_status='synced',
+                  sync_error=NULL,last_synced_at=now(),updated_at=now()
+            WHERE id=$1`,
+          [row.id, product.id, price.id],
+        );
+      }
+      console.log(`Add-on Stripe products/prices mapped (${addons.length}). Purchase remains gated.`);
+    }
+
     await db.query("COMMIT");
     console.log(
       `Pricing v4 test catalog mapped (${pricingV4Version}). Live enrollment remains gated until PRICING_V4_VALIDATED + enrollmentEnabled.`,
