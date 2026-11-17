@@ -106,6 +106,29 @@ test("structured address formatting keeps components separate", () => {
   assert.equal(summary.title, "At customer location");
   assert.match(summary.body, /456 Oak Avenue/);
   assert.equal(summary.access, "Ring 3B");
+  const migrated = "A".repeat(250) + ", Cincinnati, OH 45202";
+  assert.equal(
+    addresses.displayStructuredAddress({
+      street: migrated.slice(0, 200),
+      formatted: migrated,
+      city: "",
+      state: "",
+      postalCode: "",
+    }),
+    migrated,
+  );
+  const site = addresses.jobSiteSubmission({
+    street: "10 Main",
+    street2: "",
+    city: "Cincinnati",
+    state: "OH",
+    postalCode: "45202",
+    country: "US",
+    formatted: "10 Main · Cincinnati, OH 45202",
+    accessInstructions: "Gate 12",
+  });
+  assert.match(site.address, /10 Main/);
+  assert.equal(site.accessNote, "Gate 12");
 });
 
 test("phone normalization accepts US local numbers and rejects blanks", () => {
@@ -297,9 +320,11 @@ test("platform business address write path and CRM typed addresses", () => {
   assert.match(workspace, /case "business-address"/);
   assert.match(workspace, /saveBusinessAddress/);
   assert.match(workspace, /businessAddressForWorkspace/);
+  assert.match(workspace, /locationMode === "virtual"/);
   const booking = fs.readFileSync("src/lib/booking-address.ts", "utf8");
   assert.match(booking, /export async function saveBusinessAddress/);
-  assert.match(booking, /address_type='business'/);
+  assert.match(booking, /ON CONFLICT \(workspace_id\) WHERE address_type='business'/);
+  assert.ok(fs.existsSync("postgres/migrations/098_business_address_unique.sql"));
   const profile = fs.readFileSync("src/components/business-profile.tsx", "utf8");
   assert.match(profile, /action: "business-address"/);
   assert.match(profile, /AddressAutocomplete/);
@@ -308,7 +333,20 @@ test("platform business address write path and CRM typed addresses", () => {
   assert.match(crm, /billingAddress/);
   assert.match(crm, /bookingLocationSummary/);
   assert.match(crm, /guest_phone/);
-  assert.match(crm, /formatAddressMultiline/);
+  assert.match(crm, /displayStructuredAddress/);
+  assert.match(crm, /residentialRow[\s\S]*\? null/);
+  const clients = fs.readFileSync("src/app/api/clients/route.ts", "utf8");
+  assert.match(clients, /payload === null/);
+  assert.match(clients, /DELETE FROM private\.addresses/);
+  const serviceRequest = fs.readFileSync("src/components/service-request.tsx", "utf8");
+  assert.match(serviceRequest, /jobSiteSubmission/);
+  assert.match(serviceRequest, /Access: \$\{site\.accessNote\}/);
+  const jobs = fs.readFileSync("src/components/jobs-center.tsx", "utf8");
+  assert.match(jobs, /jobSiteSubmission/);
+  assert.match(jobs, /Access: \$\{site\.accessNote\}/);
+  const createAppt = fs.readFileSync("src/components/create-appointment.tsx", "utf8");
+  assert.match(createAppt, /Meeting link for this appointment/);
+  assert.match(createAppt, /virtualMeetingLink/);
   const autocomplete = fs.readFileSync("src/app/api/address/autocomplete/route.ts", "utf8");
   assert.match(autocomplete, /resolveAddressWorkspace/);
   const validate = fs.readFileSync("src/app/api/address/validate/route.ts", "utf8");

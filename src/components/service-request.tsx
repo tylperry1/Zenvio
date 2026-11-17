@@ -5,7 +5,7 @@ import { Icon, Logo } from "./icons";
 import { Captcha } from "./captcha";
 import { AddressAutocomplete } from "./address-autocomplete";
 import { Alert, Field, LinkProblem, Skeleton } from "./ui";
-import { emptyAddress, type StructuredAddress } from "@/lib/addresses";
+import { emptyAddress, jobSiteSubmission, type StructuredAddress } from "@/lib/addresses";
 
 type Info = { business: string; slug: string; accent: string; industry: string; categories: string[]; captchaSiteKey: string | null };
 
@@ -157,6 +157,8 @@ export function ServiceRequestForm({ host }: { host: string }) {
                 setBusy(true);
                 setError("");
                 try {
+                  const site = jobSiteSubmission(jobAddress);
+                  const description = String(f.get("description") || "").trim();
                   const r = await fetch("/api/service-requests", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -165,9 +167,11 @@ export function ServiceRequestForm({ host }: { host: string }) {
                       name: f.get("name"),
                       email: f.get("email"),
                       phone: f.get("phone"),
-                      address: jobAddress.formatted || [jobAddress.street, jobAddress.city, jobAddress.state, jobAddress.postalCode].filter(Boolean).join(", "),
+                      address: site.address,
                       category: f.get("category"),
-                      description: f.get("description"),
+                      description: site.accessNote
+                        ? `${description}\n\nAccess: ${site.accessNote}`.slice(0, 4000)
+                        : description,
                       preferredTime: f.get("preferredTime"),
                       website: f.get("website"),
                       photos: files.map((x) => x.id),

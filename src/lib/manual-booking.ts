@@ -48,7 +48,7 @@ export async function createManualBooking(owner: string, input: Record<string, u
       ).length
     )
       throw new ApiError("This time conflicts with a connected calendar.", 409);
-    const location = resolveBookingLocation({
+    let location = resolveBookingLocation({
       event,
       businessAddress: await businessAddressForWorkspace(db, owner),
       guest: {
@@ -57,6 +57,10 @@ export async function createManualBooking(owner: string, input: Record<string, u
         accessInstructions: input.accessInstructions,
       },
     });
+    if (location.locationMode === "virtual") {
+      const override = string(input.location ?? "", "meeting location", 500, 0);
+      if (override) location = { ...location, locationText: override };
+    }
     const snapshot = intakeAnswers(event.intake_questions || [], input.answers);
     const contact = (
       await db.query(

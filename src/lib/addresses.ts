@@ -73,6 +73,36 @@ export function formatAddressMultiline(parts: Partial<StructuredAddress>): strin
     .slice(0, 500);
 }
 
+/**
+ * Prefer the stored formatted snapshot when it is longer/more complete than a
+ * rebuilt multiline (legacy migration rows keep up to 500 chars in formatted
+ * while street is capped at 200).
+ */
+export function displayStructuredAddress(
+  parts: Partial<StructuredAddress> | null | undefined,
+  fallback = "",
+): string {
+  if (!parts) return fallback;
+  const rebuilt = formatAddressMultiline(parts);
+  const formatted = String(parts.formatted || "").trim();
+  if (formatted && (!rebuilt || formatted.length >= rebuilt.length || !String(parts.city || "").trim()))
+    return formatted.slice(0, 500);
+  return rebuilt || formatted || fallback;
+}
+
+/** Package a job-site address for legacy jobs.address (≤300) plus access note for description. */
+export function jobSiteSubmission(address: StructuredAddress): {
+  address: string;
+  accessNote: string;
+} {
+  const line = (address.formatted || formatAddress(address)).trim().slice(0, 300);
+  const accessNote = String(address.accessInstructions || "")
+    .replace(/[\x00-\x1f\x7f]/g, " ")
+    .trim()
+    .slice(0, 1000);
+  return { address: line, accessNote };
+}
+
 export function bookingLocationSummary(input: {
   locationMode?: string | null;
   location?: string | null;

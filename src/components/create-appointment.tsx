@@ -50,6 +50,7 @@ export function CreateAppointment({
   const [locationMode, setLocationMode] = useState<LocationMode>("custom");
   const [serviceAddress, setServiceAddress] = useState<StructuredAddress>(emptyAddress());
   const [accessInstructions, setAccessInstructions] = useState("");
+  const [virtualMeetingLink, setVirtualMeetingLink] = useState("");
 
   useEffect(() => {
     const next = (
@@ -60,7 +61,8 @@ export function CreateAppointment({
     setLocationMode(next);
     setServiceAddress(emptyAddress());
     setAccessInstructions("");
-  }, [eventId, allowedModes, event?.location_mode]);
+    setVirtualMeetingLink(event?.location || "");
+  }, [eventId, allowedModes, event?.location_mode, event?.location]);
 
   useEffect(() => {
     setSlots([]);
@@ -143,7 +145,7 @@ export function CreateAppointment({
               locationMode === "at_business"
                 ? business?.formatted || event?.location || ""
                 : locationMode === "virtual"
-                  ? event?.location || "Virtual meeting"
+                  ? virtualMeetingLink.trim() || event?.location || "Virtual meeting"
                   : serviceAddress.formatted || event?.location || "",
             phone,
             company: f.get("company"),
@@ -383,9 +385,22 @@ export function CreateAppointment({
           </p>
         )}
         {locationMode === "virtual" && (
-          <p style={{ whiteSpace: "pre-line" }}>
-            {event?.virtual_instructions || event?.location || "Virtual meeting"}
-          </p>
+          <>
+            {event?.virtual_instructions ? (
+              <p style={{ whiteSpace: "pre-line" }}>{event.virtual_instructions}</p>
+            ) : null}
+            <label>
+              Meeting link for this appointment
+              <input
+                value={virtualMeetingLink}
+                onChange={(e) => setVirtualMeetingLink(e.target.value)}
+                maxLength={500}
+                disabled={busy}
+                placeholder="https://meet.example.com/… or dial-in details"
+              />
+              <small>Overrides the appointment type location for this booking only.</small>
+            </label>
+          </>
         )}
         {needsGuestAddress && (
           <>

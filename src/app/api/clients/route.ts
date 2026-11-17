@@ -182,13 +182,26 @@ export async function POST(req: NextRequest) {
         ],
       );
       // Typed residential/billing updates are explicit; never overwrite from appointment service addresses.
-      if (v.residentialAddress || v.billingAddress) {
+      // null payload = clear that typed address; omit/undefined leaves it unchanged.
+      if ("residentialAddress" in v || "billingAddress" in v) {
         const { parseAddressInput, toDbAddress } = await import("@/lib/addresses");
         for (const [type, payload] of [
           ["residential", v.residentialAddress],
           ["billing", v.billingAddress],
         ] as const) {
-          if (!payload) continue;
+          if (payload === undefined) continue;
+          if (payload === null) {
+            await getPool().query(
+              "DELETE FROM private.addresses WHERE contact_id=$1 AND address_type=$2 AND workspace_id=$3",
+              [id, type, token],
+            );
+            if (type === "residential")
+              await getPool().query(
+                "UPDATE public.contacts SET address='' WHERE id=$1 AND user_id=$2",
+                [id, token],
+              );
+            continue;
+          }
           const parsed = parseAddressInput(payload);
           const row = toDbAddress(parsed);
           const existing = (

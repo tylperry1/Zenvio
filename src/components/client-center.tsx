@@ -21,8 +21,8 @@ import { IntakeAnswers } from "./intake-answers";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import {
   bookingLocationSummary,
+  displayStructuredAddress,
   emptyAddress,
-  formatAddressMultiline,
   fromDbAddress,
   type StructuredAddress,
 } from "@/lib/addresses";
@@ -735,7 +735,7 @@ function ClientDetail({
                 <dd style={{whiteSpace: "pre-line"}}>
                   {(() => {
                     const row = (detail.addresses || []).find((a: any) => a.address_type === "residential");
-                    if (row) return formatAddressMultiline(fromDbAddress(row));
+                    if (row) return displayStructuredAddress(fromDbAddress(row), c.address || "—");
                     return c.address || "—";
                   })()}
                 </dd>
@@ -743,7 +743,7 @@ function ClientDetail({
                 <dd style={{whiteSpace: "pre-line"}}>
                   {(() => {
                     const row = (detail.addresses || []).find((a: any) => a.address_type === "billing");
-                    return row ? formatAddressMultiline(fromDbAddress(row)) : "—";
+                    return row ? displayStructuredAddress(fromDbAddress(row), "—") : "—";
                   })()}
                 </dd>
                 <dt>Company</dt>
@@ -805,9 +805,16 @@ function ClientEditForm({
           phone: f.get("phone"),
           company: f.get("company"),
           notes: f.get("notes"),
-          address: residential.formatted || contact.address || "",
-          residentialAddress: residential.street ? residential : undefined,
-          billingAddress: billing.street ? billing : undefined,
+          address: residential.street.trim()
+            ? residential.formatted || residential.street || ""
+            : "",
+          // null = explicit clear; omit when never set
+          residentialAddress: residential.street.trim()
+            ? residential
+            : residentialRow
+              ? null
+              : undefined,
+          billingAddress: billing.street.trim() ? billing : billingRow ? null : undefined,
         }).catch(() => {});
       }}
     >

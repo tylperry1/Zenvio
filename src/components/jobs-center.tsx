@@ -9,7 +9,7 @@ import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Alert, Badge, Card, CopyField, EmptyState, Field, Skeleton, Tabs, formatDateTime, useConfirm, useToast } from "./ui";
 import { estimateTotals, jobStatuses, money } from "@/lib/contractor";
 import { AddressAutocomplete } from "./address-autocomplete";
-import { emptyAddress, type StructuredAddress } from "@/lib/addresses";
+import { emptyAddress, jobSiteSubmission, type StructuredAddress } from "@/lib/addresses";
 
 type JobRow = {
   id: string;
@@ -269,16 +269,16 @@ function NewJob({ categories, onClose, onCreated }: { categories: string[]; onCl
           setBusy(true);
           setError("");
           try {
+            const site = jobSiteSubmission(jobAddress);
+            const description = String(f.get("description") || "").trim();
             const d = await api({
               action: "create",
               title: f.get("title"),
               category: f.get("category") || "",
-              address:
-                jobAddress.formatted ||
-                [jobAddress.street, jobAddress.city, jobAddress.state, jobAddress.postalCode]
-                  .filter(Boolean)
-                  .join(", "),
-              description: f.get("description"),
+              address: site.address,
+              description: site.accessNote
+                ? `${description}${description ? "\n\n" : ""}Access: ${site.accessNote}`.slice(0, 4000)
+                : description,
               ...(mode === "existing" ? { contactId: f.get("contactId") || undefined } : { clientName: f.get("clientName"), clientEmail: f.get("clientEmail") }),
             });
             onCreated(d.id);

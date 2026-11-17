@@ -178,6 +178,10 @@ export async function POST(request: NextRequest) {
         } finally {
           dbClient.release();
         }
+        if (location.locationMode === "virtual") {
+          const override = string(input.location ?? "", "meeting location", 500, 0);
+          if (override) location = { ...location, locationText: override };
+        }
         const result = await backend("/rest/v1/rpc/reserve_booking_intake", {
           method: "POST",
           body: JSON.stringify({

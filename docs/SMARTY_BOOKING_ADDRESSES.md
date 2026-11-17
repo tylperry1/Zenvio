@@ -23,13 +23,18 @@ Official endpoints used:
 - Autocomplete: `https://us-autocomplete-pro.api.smarty.com/lookup`
 - Validation: `https://us-street.api.smarty.com/street-address`
 
-## Database changes (`097_smarty_addresses.sql`)
+## Database changes
 
+### `097_smarty_addresses.sql`
 - `private.addresses` — typed structured addresses (`residential`, `billing`, `business`, `service_saved`, `custom_meeting`)
 - `public.event_types.location_mode`, `allowed_location_modes`, `virtual_instructions`, `custom_location_prompt`
 - `public.bookings.location_mode`, `service_address` (jsonb snapshot), `access_instructions`
 - `private.smarty_api_errors`
 - Legacy `contacts.address` values copied into residential rows without clearing the legacy column
+
+### `098_business_address_unique.sql`
+- Unique partial index: one `business` address per workspace (`contact_id IS NULL`)
+- `saveBusinessAddress` uses atomic `ON CONFLICT` upsert
 
 ## Booking & location modes
 
