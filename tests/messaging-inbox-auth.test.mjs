@@ -60,3 +60,23 @@ test("inbox detail includes recent bookings for customer context", () => {
   assert.match(inbox, /recentBookings/);
   assert.match(inbox, /ORDER BY b\.starts_at DESC LIMIT 8/);
 });
+
+test("per-user read state does not clear shared message.read_at on open", () => {
+  const reads = fs.readFileSync("postgres/migrations/100_messaging_per_user_reads.sql", "utf8");
+  assert.match(reads, /thread_user_state/);
+  assert.match(messaging, /markThreadReadForUser/);
+  assert.match(messaging, /markThreadUnreadForUser/);
+  assert.match(messaging, /threadUnreadCountSql/);
+  assert.match(inbox, /markThreadReadForUser/);
+  assert.doesNotMatch(
+    inbox,
+    /UPDATE private\.thread_messages\s+SET read_at=now\(\)\s+WHERE thread_id=\$1 AND direction='inbound'/,
+  );
+});
+
+test("status changes can notify closed customers and pending staff", () => {
+  assert.match(messaging, /notifyThreadStatusChange/);
+  assert.match(messaging, /conversation_closed/);
+  assert.match(messaging, /conversation_pending_response/);
+  assert.match(inbox, /notifyThreadStatusChange/);
+});

@@ -294,6 +294,50 @@ export async function softDeleteThreadMessage(
   return { ok: true };
 }
 
+/** Mark the thread read for one user only (does not clear teammates' unread). */
+export async function markThreadReadForUser(
+  db: PoolClient | ReturnType<typeof getPool>,
+  input: { threadId: string; userId: string },
+) {
+  await db.query(
+    `INSERT INTO private.thread_user_state(thread_id, user_id, last_read_at, updated_at)
+     VALUES ($1,$2,now(),now())
+     ON CONFLICT (thread_id, user_id) DO UPDATE
+       SET last_read_at=EXCLUDED.last_read_at, updated_at=now()`,
+    [input.threadId, input.userId],
+  );
+}
+
+/** Soft-unread for the current user by rewinding their last_read cursor. */
+export async function markThreadUnreadForUser(
+  db: PoolClient | ReturnType<typeof getPool>,
+  input: { threadId: string; userId: string },
+) {
+  const latest = (
+    await db.query(
+      `SELECT created_at FROM private.thread_messages
+        WHERE thread_id=$1 AND direction='inbound' AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 1`,
+      [input.threadId],
+    )
+  ).rows[0];
+  if (!latest) return;
+  const rewind = new Date(new Date(latest.created_at).getTime() - 1).toISOString();
+  await db.query(
+    `INSERT INTO private.thread_user_state(thread_id, user_id, last_read_at, updated_at)
+     VALUES ($1,$2,$3::timestamptz,now())
+     ON CONFLICT (thread_id, user_id) DO UPDATE
+       SET last_read_at=EXCLUDED.last_read_at, updated_at=now()`,
+    [input.threadId, input.userId, rewind],
+  );
+}
+
+/** SQL fragment: inbound messages newer than this viewer's last_read_at. Uses alias `t` and `$1` = user id. */
+export const threadUnreadCountSql = `(SELECT count(*)::int FROM private.thread_messages m
+  LEFT JOIN private.thread_user_state rs ON rs.thread_id=t.id AND rs.user_id=$1
+ WHERE m.thread_id=t.id AND m.direction='inbound' AND m.deleted_at IS NULL
+   AND m.created_at > coalesce(rs.last_read_at, 'epoch'::timestamptz))`;
+
 /** Notify a newly assigned teammate (email only; never includes internal note bodies). */
 export async function notifyThreadAssignment(
   db: PoolClient,
@@ -334,16 +378,78 @@ export async function notifyThreadAssignment(
   });
 }
 
+export async function notifyThreadStatusChange(
+  db: PoolClient,
+  input: {
+    workspaceId: string;
+    threadId: string;
+    actorId: string;
+    from: string;
+    to: ThreadStatus;
+    contactName?: string | null;
+    contactEmail?: string | null;
+    assigneeId?: string | null;
+  },
+) {
+  const label = (input.contactName || "your conversation").slice(0, 120);
+  const day = new Date().toISOString().slice(0, 10);
+  const inboxUrl = `${appOrigin()}/app/inbox?thread=${input.threadId}`;
+
+  if (input.to === "closed" && input.contactEmail) {
+    const key = `thread-closed:${input.threadId}:${day}`;
+    await enqueueNotification(db, {
+      workspaceId: input.workspaceId,
+      idempotencyKey: `notify:${key}:${input.contactEmail}`,
+      category: "customer_message",
+      templateId: "conversation_closed",
+      channels: ["email"],
+      recipientAddress: input.contactEmail,
+      email: {
+        kind: "customer_message",
+        key: `${key}:${input.contactEmail}`,
+        to: input.contactEmail,
+        subject: `Conversation closed: ${label}`,
+        text:
+          `Your conversation with the business has been marked closed.\n` +
+          `If you still need help, reply from your client portal or send a new message.\n`,
+      },
+    });
+  }
+
+  if (input.to === "pending_response") {
+    const targets = new Set<string>();
+    if (input.assigneeId) targets.add(input.assigneeId);
+    targets.add(input.workspaceId);
+    targets.delete(input.actorId);
+    for (const userId of targets) {
+      const u = (await db.query(`SELECT id, email FROM public."user" WHERE id=$1`, [userId])).rows[0];
+      if (!u?.email) continue;
+      const key = `thread-pending:${input.threadId}:${userId}:${day}`;
+      await enqueueNotification(db, {
+        workspaceId: input.workspaceId,
+        idempotencyKey: `notify:${key}`,
+        category: "other",
+        templateId: "conversation_pending_response",
+        channels: ["email"],
+        recipientAddress: u.email,
+        recipientUserId: u.id,
+        email: {
+          kind: "customer_message",
+          key,
+          to: u.email,
+          subject: `Response needed: ${label}`,
+          text: `A conversation with ${label} is marked pending response.\n\nOpen Inbox: ${inboxUrl}\n`,
+        },
+      });
+    }
+  }
+}
+
 export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, userId: string) {
   const { rows } = await db.query(
     `SELECT
        count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
-       count(*) FILTER (
-         WHERE EXISTS (
-           SELECT 1 FROM private.thread_messages m
-            WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL
-         )
-       )::int AS unread,
+       count(*) FILTER (WHERE ${threadUnreadCountSql} > 0)::int AS unread,
        count(*) FILTER (WHERE t.assigned_to=$1 AND t.status IN ('open','pending_response'))::int AS assigned_to_me,
        count(*) FILTER (WHERE t.assigned_to IS NULL AND t.status IN ('open','pending_response'))::int AS unassigned,
        count(*) FILTER (WHERE t.status='pending_response')::int AS pending_response,

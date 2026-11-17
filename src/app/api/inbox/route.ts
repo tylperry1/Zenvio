@@ -12,11 +12,15 @@ import {
   editThreadMessage,
   ensureContactThread,
   inboxMetrics,
+  markThreadReadForUser,
+  markThreadUnreadForUser,
   notifyThreadAssignment,
+  notifyThreadStatusChange,
   recordThreadActivity,
   sendThreadMessage,
   softDeleteThreadMessage,
   threadAccess,
+  threadUnreadCountSql,
   THREAD_STATUSES,
   type ThreadStatus,
 } from "@/lib/messaging";
@@ -112,22 +116,14 @@ export async function GET(request: NextRequest) {
           [t.id],
         ),
       ]);
-      // Mark read for this open only after ACL; activity recorded for audit.
-      const marked = await pool.query(
-        `UPDATE private.thread_messages
-            SET read_at=now()
-          WHERE thread_id=$1 AND direction='inbound' AND read_at IS NULL AND deleted_at IS NULL
-          RETURNING id`,
-        [t.id],
-      );
-      if (marked.rowCount) {
-        await recordThreadActivity(pool, {
-          threadId: t.id,
-          actorId: user.id,
-          action: "marked_read",
-          details: { count: marked.rowCount },
-        }).catch(() => {});
-      }
+      // Per-user read cursor — opening a thread must not clear teammates' unread.
+      await markThreadReadForUser(pool, { threadId: t.id, userId: user.id });
+      await recordThreadActivity(pool, {
+        threadId: t.id,
+        actorId: user.id,
+        action: "marked_read",
+        details: { scope: "user" },
+      }).catch(() => {});
       const sms = await smsReadiness(t.user_id, phone || t.contact_phone || "", "");
       const admin = await canAdministerThread(pool, user.id, t);
       return Response.json(
@@ -190,8 +186,7 @@ export async function GET(request: NextRequest) {
       `SELECT * FROM (
          SELECT t.id,t.subject,t.status,t.assigned_to,t.last_message_at,t.contact_id,t.booking_id,
                 c.name contact_name,c.email contact_email,a.name assigned_name,
-                (SELECT count(*) FROM private.thread_messages m
-                  WHERE m.thread_id=t.id AND m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL)::int unread,
+                ${threadUnreadCountSql} unread,
                 (SELECT jsonb_build_object('body',left(m.body,160),'direction',m.direction,'channel',m.channel)
                    FROM private.thread_messages m
                   WHERE m.thread_id=t.id AND m.deleted_at IS NULL
@@ -216,8 +211,8 @@ export async function GET(request: NextRequest) {
       ),
       pool.query("SELECT id,name,body FROM private.message_templates WHERE user_id=$1 ORDER BY name", [user.id]),
       pool.query(
-        `SELECT count(*)::int n FROM private.thread_messages m JOIN private.message_threads t ON t.id=m.thread_id
-          WHERE m.direction='inbound' AND m.read_at IS NULL AND m.deleted_at IS NULL AND ${threadAccess}`,
+        `SELECT count(*)::int n FROM private.message_threads t
+          WHERE ${threadAccess} AND ${threadUnreadCountSql} > 0`,
         [user.id],
       ),
       inboxMetrics(pool, user.id),
@@ -389,26 +384,47 @@ export async function POST(request: NextRequest) {
         if (!THREAD_STATUSES.includes(status)) throw new ApiError("Invalid status.");
         if (status === "archived" && !(await canAdministerThread(pool, user.id, t)))
           throw new ApiError("Only a workspace admin can archive conversations.", 403);
-        await pool.query("UPDATE private.message_threads SET status=$2 WHERE id=$1", [t.id, status]);
-        await recordThreadActivity(pool, {
-          threadId: t.id,
-          actorId: user.id,
-          action: "status_changed",
-          details: { from: t.status, to: status },
-        });
+        const previous = t.status as string;
+        const db = await pool.connect();
+        try {
+          await db.query("BEGIN");
+          await db.query("UPDATE private.message_threads SET status=$2 WHERE id=$1", [t.id, status]);
+          await recordThreadActivity(db, {
+            threadId: t.id,
+            actorId: user.id,
+            action: "status_changed",
+            details: { from: previous, to: status },
+          });
+          if (previous !== status) {
+            await notifyThreadStatusChange(db, {
+              workspaceId: t.user_id,
+              threadId: t.id,
+              actorId: user.id,
+              from: previous,
+              to: status,
+              contactName: t.contact_name,
+              contactEmail: t.contact_email,
+              assigneeId: t.assigned_to,
+            });
+          }
+          await db.query("COMMIT");
+        } catch (e) {
+          await db.query("ROLLBACK");
+          throw e;
+        } finally {
+          db.release();
+        }
+        if (previous !== status) after(() => drainDeliveries(t.user_id, 3).then(() => {}));
         return Response.json({ ok: true });
       }
       case "unread": {
         const t = await accessibleThread(pool, user.id, uuid(input.threadId));
-        await pool.query(
-          "UPDATE private.thread_messages SET read_at=NULL WHERE id=(SELECT id FROM private.thread_messages WHERE thread_id=$1 AND direction='inbound' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1)",
-          [t.id],
-        );
+        await markThreadUnreadForUser(pool, { threadId: t.id, userId: user.id });
         await recordThreadActivity(pool, {
           threadId: t.id,
           actorId: user.id,
           action: "marked_unread",
-          details: {},
+          details: { scope: "user" },
         });
         return Response.json({ ok: true });
       }
