@@ -39,9 +39,13 @@ async function ensureDevicePush(vapidPublicKey: string | null): Promise<boolean>
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   if (typeof Notification === "undefined") return false;
   if (Notification.permission !== "granted") return false;
-  await navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => null);
+  // Let registration failures propagate — swallowing them left ready hanging forever.
+  await navigator.serviceWorker.register("/sw.js", { scope: "/" });
   // Wait for an active worker — subscribe() rejects with InvalidStateError otherwise.
-  const ready = await navigator.serviceWorker.ready.catch(() => null);
+  const ready = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 10_000)),
+  ]);
   if (!ready) return false;
   const existing = await ready.pushManager.getSubscription();
   const subscription =

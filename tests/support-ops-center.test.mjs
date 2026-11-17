@@ -65,8 +65,21 @@ test("CodeRabbit majors: attachment inbox gate, merge lock, stale queue, closed 
   assert.doesNotMatch(ops, /sameVisitor/);
   assert.match(sla, /Include completed tickets so a pre-deadline false flag/);
   assert.match(sla, /OR closed_at IS NOT NULL/);
+  assert.match(sla, /status IN \('resolved','closed'\) AND closed_at IS NOT NULL THEN closed_at/);
   assert.match(ui, /queueReq/);
   assert.match(ui, /Drop superseded responses when filters change mid-flight/);
+});
+
+test("CodeRabbit follow-ups: feedback after awaits push; SW register propagates", () => {
+  const feedback = read("src/app/api/feedback/route.ts");
+  const bell = read("src/components/admin-alert-bell.tsx");
+  const platform = read("src/components/platform-support.tsx");
+  assert.match(feedback, /after\(async \(\) =>/);
+  assert.match(feedback, /await Promise\.all/);
+  assert.match(bell, /await navigator\.serviceWorker\.register\("\/sw\.js"/);
+  assert.doesNotMatch(bell, /register\("\/sw\.js".*\.catch\(\(\) => null\)/);
+  assert.match(bell, /Promise\.race/);
+  assert.match(platform, /t\.status === "resolved" \|\| t\.status === "closed"/);
 });
 
 test("CodeRabbit majors: masking, customer status lock, push allowlist, SW ready", () => {

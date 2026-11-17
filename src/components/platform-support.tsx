@@ -519,7 +519,7 @@ function CustomerThread({ id, version = 0, live = "offline", onBack, onChange }:
       </header>
       {error && <Notice tone="danger">{error}</Notice>}
       <MessageList messages={data.messages} staff={false} endpoint="/api/support" />
-      {t.status === "resolved" && <Rating ticket={t} onRated={load} />}
+      {(t.status === "resolved" || t.status === "closed") && <Rating ticket={t} onRated={load} />}
       <form
         className="sp-composer"
         onSubmit={(e) => {

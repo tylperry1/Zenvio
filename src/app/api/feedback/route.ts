@@ -78,15 +78,18 @@ export async function POST(request: NextRequest) {
       }).catch(() => ({ created: false as const, id: null }));
       if (alert.created) pushTargets.push(userId);
     }
-    after(() => {
-      for (const userId of pushTargets) {
-        void deliverWebPushToUser(getPool(), userId, {
-          title,
-          body: bodyText,
-          url: href,
-          tag: "feedback_new",
-        }).catch(() => null);
-      }
+    after(async () => {
+      // Next.js waits for this callback's promise; keep failures best-effort.
+      await Promise.all(
+        pushTargets.map((userId) =>
+          deliverWebPushToUser(getPool(), userId, {
+            title,
+            body: bodyText,
+            url: href,
+            tag: "feedback_new",
+          }).catch(() => null),
+        ),
+      );
     });
     return Response.json({ id }, { status: 201 });
   } catch (e) {

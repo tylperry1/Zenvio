@@ -278,7 +278,8 @@ export async function refreshSlaBreaches(db: DB = getPool()) {
                 CASE
                   WHEN sla_resolve_due_at IS NULL THEN NULL
                   WHEN resolved_at IS NOT NULL THEN resolved_at > sla_resolve_due_at
-                  WHEN closed_at IS NOT NULL THEN closed_at > sla_resolve_due_at
+                  -- closed_at only counts while still terminal; reopened rows may keep a stale stamp.
+                  WHEN status IN ('resolved','closed') AND closed_at IS NOT NULL THEN closed_at > sla_resolve_due_at
                   WHEN status IN ('resolved','closed') THEN NULL
                   ELSE now() > sla_resolve_due_at
                 END AS resolve_breached
