@@ -565,7 +565,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             </Link>
           </div>
         )}
-        <main className="workspace-content">
+        <main className="workspace-content ds-root">
           <PageHeader
             title={
               view === "Overview"
@@ -593,9 +593,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <>
                 {view === "Overview" && (
                   <>
-                    {sharePageControl("Share booking page", "button primary small")}
+                    {sharePageControl("Share booking page", "ds-btn primary sm")}
                     <Link
-                      className="button secondary small"
+                      className="ds-btn sm"
                       href={`/book/${data.profile.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -604,24 +604,24 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     </Link>
                   </>
                 )}
-                {view === "Event types" && sharePageControl("Share page", "button secondary small")}
+                {view === "Event types" && sharePageControl("Share page", "ds-btn sm")}
                 {["Overview", "Event types"].includes(view) ? (
                   <button
-                    className={view === "Overview" ? "button secondary small" : "button primary small"}
+                    className={view === "Overview" ? "ds-btn sm" : "ds-btn primary sm"}
                     onClick={() => setEditing(true)}
                   >
                     <Icon name="plus" size={17} /> New service
                   </button>
                 ) : view === "Bookings" && !demo ? (
                   <button
-                    className="button primary small"
+                    className="ds-btn primary sm"
                     onClick={() => setCreatingAppointment(true)}
                   >
                     <Icon name="plus" size={17} /> Create appointment
                   </button>
                 ) : view === "Contacts" ? (
                   <button
-                    className="button primary small"
+                    className="ds-btn primary sm"
                     onClick={() => setContactModal(true)}
                   >
                     <Icon name="plus" size={17} /> Add contact

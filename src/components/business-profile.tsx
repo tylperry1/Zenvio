@@ -394,7 +394,7 @@ function BusinessProfileInner() {
   const bookingProfile = workspace?.profile;
 
   return (
-    <main className="bp-hub platform-page">
+    <main className="bp-hub platform-page ds-root">
       <PageHeader
         title="Business Profile"
         description="Manage business information, branding, booking pages, and digital cards from one place."
@@ -440,30 +440,30 @@ function BusinessProfileInner() {
             <div className="bp-hub-grid">
               <Panel title="Business Information" description="Name, introduction, timezone, and accent">
                 <p>Keep one authoritative record that booking pages and cards inherit.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=details">
+                <Link className="ds-btn primary" href="/app/business-profile?section=details">
                   Edit business information <Icon name="arrow" size={15} />
                 </Link>
               </Panel>
               <Panel title="Public Profile & Branding" description="Logo, cover, social links, and live preview">
                 <p>Design the public booking header without leaving this hub.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=branding">
+                <Link className="ds-btn primary" href="/app/business-profile?section=branding">
                   Open branding editor
                 </Link>
               </Panel>
               <Panel title="Booking Configuration" description="Instructions, services, and availability">
                 <p>Tune booking page copy and jump to services or hours.</p>
                 <div className="bp-hub-actions">
-                  <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=booking">
+                  <Link className="ds-btn primary" href="/app/business-profile?section=booking">
                     Booking setup
                   </Link>
-                  <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
+                  <Link className="ds-btn" href="/app?view=event-types">
                     Services
                   </Link>
                 </div>
               </Panel>
               <Panel title="Digital Card" description="NFC, QR, and contact-saving experiences">
                 <p>Publish Smart Cards with the same business identity.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/business-profile?section=digital-card">
+                <Link className="ds-btn primary" href="/app/business-profile?section=digital-card">
                   Manage Digital Cards
                 </Link>
               </Panel>
@@ -504,13 +504,13 @@ function BusinessProfileInner() {
               {section === "booking" && (
                 <Panel title="Booking shortcuts" description="Services, hours, and appointment tools">
                   <div className="bp-hub-actions">
-                    <Link className="ui-btn ui-btn-secondary" href="/app?view=event-types">
+                    <Link className="ds-btn" href="/app?view=event-types">
                       Services & booking links
                     </Link>
-                    <Link className="ui-btn ui-btn-secondary" href="/app?view=availability">
+                    <Link className="ds-btn" href="/app?view=availability">
                       Business hours
                     </Link>
-                    <Link className="ui-btn ui-btn-secondary" href="/app?view=bookings">
+                    <Link className="ds-btn" href="/app?view=bookings">
                       Appointments
                     </Link>
                   </div>
@@ -530,18 +530,18 @@ function BusinessProfileInner() {
             <div className="bp-hub-grid">
               <Panel title="Notifications & reminders" description="Confirmations, reminders, and follow-ups">
                 <p>Control how customers hear about appointments and updates.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/notifications">
+                <Link className="ds-btn primary" href="/app/notifications">
                   Notification preferences
                 </Link>
               </Panel>
               <Panel title="Automations" description="Reminder workflows and customer journeys">
                 <p>Keep lifecycle messages consistent with your booking experience.</p>
-                <Link className="ui-btn ui-btn-secondary" href="/app/automation">
+                <Link className="ds-btn" href="/app/automation">
                   Open automations
                 </Link>
               </Panel>
               <Panel title="Reviews" description="Collect and showcase customer feedback">
-                <Link className="ui-btn ui-btn-secondary" href="/app/marketing?tab=reviews">
+                <Link className="ds-btn" href="/app/marketing?tab=reviews">
                   Review settings
                 </Link>
               </Panel>
@@ -560,14 +560,14 @@ function BusinessProfileInner() {
                   onResult={(_, message) => notify(message, message.startsWith("Couldn’t") || message.startsWith("Could not"))}
                 />
                 <div className="bp-hub-actions">
-                  <Link className="ui-btn ui-btn-secondary" href={`/book/${bookingProfile.slug}`} target="_blank" rel="noopener noreferrer">
+                  <Link className="ds-btn" href={`/book/${bookingProfile.slug}`} target="_blank" rel="noopener noreferrer">
                     Open public page
                   </Link>
                 </div>
               </Panel>
               <Panel title="Campaign links & QR" description="Tracked destinations for Growth">
                 <p>Create tracked marketing links without duplicating profile data.</p>
-                <Link className="ui-btn ui-btn-primary" href="/app/marketing">
+                <Link className="ds-btn primary" href="/app/marketing">
                   Open campaigns
                 </Link>
               </Panel>
@@ -578,10 +578,10 @@ function BusinessProfileInner() {
             <Panel title="Analytics" description="Profile, card, and campaign performance">
               <p>Card visits, campaign attribution, and review activity live in Growth analytics.</p>
               <div className="bp-hub-actions">
-                <Link className="ui-btn ui-btn-primary" href="/app/marketing?tab=sources">
+                <Link className="ds-btn primary" href="/app/marketing?tab=sources">
                   Campaign analytics
                 </Link>
-                <Link className="ui-btn ui-btn-secondary" href="/app/growth/overview">
+                <Link className="ds-btn" href="/app/growth/overview">
                   Growth overview
                 </Link>
               </div>
@@ -592,19 +592,19 @@ function BusinessProfileInner() {
             <div className="bp-hub-grid">
               <Panel title="Workspace settings" description="Account preferences and connected tools">
                 <div className="bp-hub-actions">
-                  <Link className="ui-btn ui-btn-primary" href="/app?view=settings">
+                  <Link className="ds-btn primary" href="/app?view=settings">
                     Open workspace settings
                   </Link>
-                  <Link className="ui-btn ui-btn-secondary" href="/app/connections">
+                  <Link className="ds-btn" href="/app/connections">
                     Calendar connections
                   </Link>
-                  <Link className="ui-btn ui-btn-secondary" href="/app/billing">
+                  <Link className="ds-btn" href="/app/billing">
                     Plan & billing
                   </Link>
                 </div>
               </Panel>
               <Panel title="Team & access" description="Invite staff and manage permissions">
-                <Link className="ui-btn ui-btn-secondary" href="/app/team">
+                <Link className="ds-btn" href="/app/team">
                   Manage team
                 </Link>
               </Panel>
@@ -620,7 +620,7 @@ export function BusinessProfile() {
   return (
     <Suspense
       fallback={
-        <main className="bp-hub platform-page">
+        <main className="bp-hub platform-page ds-root">
           <Skeleton height={220} />
         </main>
       }

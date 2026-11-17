@@ -6,7 +6,7 @@ import { TimezoneSelect } from "./timezone-select";
 import { AppointmentDetailModal } from "./appointment-detail";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
-import { Alert } from "./ui";
+import { Notice } from "./ds";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
@@ -99,17 +99,18 @@ export function CalendarCenter() {
       title="Calendar"
       description="Your Zenvio appointments alongside busy times from connected calendars."
       actions={
-        <button className="ui-btn ui-btn-primary" disabled={!workspace} onClick={() => setCreating(true)}>
+        <button className="ds-btn primary" disabled={!workspace} onClick={() => setCreating(true)}>
           + New appointment
         </button>
       }
     >
-      {error && <Alert tone="danger">{error}</Alert>}
-      {message && <Alert tone="success">{message}</Alert>}
+      <div className="ds-root">
+      {error && <Notice tone="danger">{error}</Notice>}
+      {message && <Notice tone="success">{message}</Notice>}
       <div className="cal-toolbar">
         <div className="cal-nav">
           <button
-            className="ui-btn ui-btn-secondary"
+            className="ds-btn"
             onClick={() => {
               const p = inZone(new Date(), zone);
               setDate(`${p.year}-${p.month}-${p.day}`);
@@ -117,10 +118,10 @@ export function CalendarCenter() {
           >
             Today
           </button>
-          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, -days))} aria-label="Previous period">
+          <button className="ds-btn ghost sm" onClick={() => setDate(shift(start, -days))} aria-label="Previous period">
             <Icon name="chevron" size={16} style={{ transform: "rotate(180deg)" }} />
           </button>
-          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, days))} aria-label="Next period">
+          <button className="ds-btn ghost sm" onClick={() => setDate(shift(start, days))} aria-label="Next period">
             <Icon name="chevron" size={16} />
           </button>
           <h2 className="cal-range">{rangeLabel(start, days, view)}</h2>
@@ -172,10 +173,10 @@ export function CalendarCenter() {
         </a>
       </div>
         {data?.errors.map((e: any) => (
-          <p role="alert" className="ui-alert ui-alert-warning" key={e.account}>
+          <Notice tone="warning" key={e.account}>
             {e.account}: {e.message}{" "}
             <a href="/app/connections">Manage connection</a>
-          </p>
+          </Notice>
         ))}
 
       {selected?.id && !selected.readOnly && (
@@ -271,6 +272,7 @@ export function CalendarCenter() {
           }}
         />
       )}
+      </div>
     </SuiteShell>
   );
 }

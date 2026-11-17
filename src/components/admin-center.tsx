@@ -7,6 +7,7 @@ import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminUserActions } from "./admin-user-actions";
 import { useAdminAccess, useCan } from "./admin-access";
+import { Notice, PageHeader } from "./ds";
 import { money } from "@/lib/billing-types";
 type Account = {
   id: string;
@@ -527,57 +528,44 @@ export function AdminCenter({
             </button>
           }
         />
-        <main className="av-content" aria-busy={loading}>
-          <div className="av-page-heading">
-            <div>
-              <p className="av-eyebrow">MASTER ADMIN</p>
-              <h1>{titles[view]}</h1>
-              <p>
-                {view === "overview"
-                  ? "Live platform, revenue, and integration signals from Zenvio’s databases — never placeholder success."
-                  : view === "accounts"
-                    ? "Find a workspace, review its booking links, and keep the platform moving."
-                    : "Review the who, what, and why behind platform administration."}
-              </p>
-            </div>
-            <div className="av-refresh">
-              <button
-                className="button secondary small"
-                disabled={loading}
-                onClick={() => setRevision((r) => r + 1)}
-              >
-                <Icon name="clock" size={15} />
-                {loading ? "Refreshing…" : "Refresh data"}
-              </button>
-              {refreshedAt && <span>Updated {refreshedAt}</span>}
-            </div>
-          </div>
-          {message && (
-            <p className="notice" role="status">
-              {message}
-            </p>
-          )}
-          {detailError && !detail && (
-            <p className="notice error" role="alert">
-              {detailError}
-            </p>
-          )}
+        <main className="av-content ds-root" aria-busy={loading}>
+          <PageHeader
+            eyebrow="Master Admin"
+            title={titles[view]}
+            description={
+              view === "overview"
+                ? "Live platform, revenue, and integration signals from Zenvio’s databases — never placeholder success."
+                : view === "accounts"
+                  ? "Find a workspace, review its booking links, and keep the platform moving."
+                  : "Review the who, what, and why behind platform administration."
+            }
+            actions={
+              <>
+                <button className="ds-btn" disabled={loading} onClick={() => setRevision((r) => r + 1)}>
+                  <Icon name="clock" size={15} />
+                  {loading ? "Refreshing…" : "Refresh data"}
+                </button>
+                {refreshedAt && <span className="ds-muted">Updated {refreshedAt}</span>}
+              </>
+            }
+          />
+          {message && <Notice tone="success">{message}</Notice>}
+          {detailError && !detail && <Notice tone="danger">{detailError}</Notice>}
           {forbidden ? (
             <section className="av-panel av-empty">
               <Icon name="shield" size={30} />
               <h2>Master-admin access required.</h2>
               <p>This account does not have a platform role.</p>
-              <Link className="button primary" href="/app">
+              <Link className="ds-btn primary" href="/app">
                 Open my workspace
               </Link>
             </section>
           ) : (
             <>
               {error && (
-                <div className="notice error" role="alert">
-                  <b>We couldn’t refresh platform data.</b>
-                  <p>{error} Use Refresh data to try again.</p>
-                </div>
+                <Notice tone="danger">
+                  <b>We couldn’t refresh platform data.</b> {error} Use Refresh data to try again.
+                </Notice>
               )}
               {loading ? (
                 <section className="av-panel av-loading" aria-live="polite">
@@ -1128,9 +1116,9 @@ export function AdminCenter({
                               )}
                             </form>
                           )}
-                          <section className="panel admin-table-wrap">
+                          <section className="panel admin-table-wrap ds-table-wrap">
                             {view === "accounts" ? (
-                              <table className="admin-table">
+                              <table className="admin-table ds-table">
                                 <caption className="sr-only">
                                   Zenvio platform account directory
                                 </caption>
@@ -1193,7 +1181,7 @@ export function AdminCenter({
                                 </tbody>
                               </table>
                             ) : (
-                              <table className="admin-table">
+                              <table className="admin-table ds-table">
                                 <caption className="sr-only">
                                   Platform administration audit log
                                 </caption>
