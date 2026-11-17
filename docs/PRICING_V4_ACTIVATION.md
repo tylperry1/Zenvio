@@ -23,10 +23,13 @@
 2. Configure read-only provider billing credentials where available (Vercel, Resend, Anthropic, Stripe, DB host). Leave `not_configured` otherwise — never invent actual costs.
 3. Stripe **test mode**: create v4 products/prices (`starter`, `professional`, `business`, `business_extra`, annual counterparts). Map into `private.subscription_prices` with `catalog_version='2026-11-v4'`. Do not overwrite v3 mappings.
 4. **Outside this PR:** finish Stripe test-mode checkout wiring and run checkout, upgrade/downgrade, renewal, failure, refund, and seat-change acceptance. This PR does not ship v4 checkout paths — do not set `PRICING_V4_VALIDATED` until that acceptance is complete.
-5. Set `PRICING_V4_VALIDATED=true` only after step 4 acceptance.
-6. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Admin keeps `enrollmentEnabled: false` until live billing is ready.
-7. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration in this PR.**
-8. **Before any live v4 sales:** provision live Stripe products/prices, complete live webhook acceptance, and only then consider `enrollmentEnabled` + checkout flags. Test-mode steps above are not live sales.
+5. Optional test-mode Stripe product/price provision (idempotent, refuses live keys):
+   `PRICING_V4_STRIPE_SYNC=true node scripts/provision-pricing-v4.mjs`
+   Review Admin → Billing → Sync & audit for mapping status before any enrollment flip.
+6. Set `PRICING_V4_VALIDATED=true` only after step 4–5 acceptance.
+7. Master admin enables preview (`pricing_v4.previewEnabled`) and optionally `publicCatalog=v4` for marketing preview. Admin keeps `enrollmentEnabled: false` until live billing is ready.
+8. Owner approves subscriber migration policy (grandfather vs. invite-to-switch). **No automatic migration in this PR.**
+9. **Before any live v4 sales:** provision live Stripe products/prices, complete live webhook acceptance, and only then consider `enrollmentEnabled` + checkout flags. Test-mode steps above are not live sales.
 
 ## Financial definitions
 

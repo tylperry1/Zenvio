@@ -5,7 +5,6 @@ import {
   billingDetails,
   changeSubscription,
 } from "@/lib/subscription-management";
-import { integrationValue } from "@/lib/platform-settings";
 import { NextRequest } from "next/server";
 import { stripeClient } from "@/lib/billing";
 import { pricing } from "@/lib/platform-settings";
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
-    const { token, user } = await session(),
+    const { token } = await session(),
       input = await body(request);
     if (input.action === "cancel" || input.action === "resume") {
       await changeSubscription(
@@ -72,9 +71,8 @@ export async function POST(request: NextRequest) {
         "Review a plan and billing period using Plan & billing before enrolling.",
         409,
       );
+    if (input.action !== "portal") throw new ApiError("Invalid billing action.");
     const stripe = await stripeClient();
-    if (!["portal", "checkout"].includes(String(input.action)))
-      throw new ApiError("Invalid billing action.");
     const client = await getPool().connect();
     let customer: string;
     try {
@@ -87,35 +85,9 @@ export async function POST(request: NextRequest) {
         [token],
       );
       customer = rows[0]?.customer_id;
-      if (!customer && input.action === "portal")
+      if (!customer)
         throw new ApiError(
           "No billing account yet. Your Free plan needs no payment method.",
-          409,
-        );
-      if (!customer) {
-        customer = (
-          await stripe.customers.create(
-            {
-              email: user.email,
-              name: user.name,
-              metadata: { zenvio_user_id: token },
-            },
-            { idempotencyKey: `zenvio-customer-${token}` },
-          )
-        ).id;
-        await client.query(
-          "INSERT INTO private.subscriptions(user_id,customer_id) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET customer_id=$2",
-          [token, customer],
-        );
-      }
-      if (
-        input.action === "checkout" &&
-        ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(
-          rows[0]?.status,
-        )
-      )
-        throw new ApiError(
-          "Manage your existing subscription in the billing portal.",
           409,
         );
       await client.query("COMMIT");
@@ -126,55 +98,11 @@ export async function POST(request: NextRequest) {
       client.release();
     }
     const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    if (input.action === "portal") {
-      const portal = await stripe.billingPortal.sessions.create({
-        customer,
-        return_url: `${origin}/app/billing`,
-      });
-      return Response.json({ url: portal.url });
-    }
-    if (
-      input.action === "checkout" &&
-      process.env.BILLING_CHECKOUT_ENABLED !== "true"
-    )
-      throw new ApiError(
-        "Paid checkout is being prepared. No payment has been taken.",
-        503,
-      );
-    if (
-      input.action !== "checkout" ||
-      input.plan !== "pro" ||
-      !["monthly", "annual"].includes(String(input.period))
-    )
-      throw new ApiError("This plan is not available for checkout yet.");
-    const plans = await pricing(),
-      plan = plans.find((p: any) => p.id === "pro"),
-      amount = plan[input.period as string];
-    if (!Number.isInteger(amount) || amount <= 0)
-      throw new ApiError("This price needs administrator review.", 503);
-    const checkout = await stripe.checkout.sessions.create({
+    const portal = await stripe.billingPortal.sessions.create({
       customer,
-      mode: "subscription",
-      client_reference_id: token,
-      metadata: { user_id: token, plan: "pro" },
-      subscription_data: { metadata: { user_id: token, plan: "pro" } },
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            unit_amount: amount,
-            recurring: {
-              interval: input.period === "annual" ? "year" : "month",
-            },
-            product_data: { name: "Zenvio Pro" },
-          },
-        },
-      ],
-      success_url: `${origin}/app/billing?checkout=complete`,
-      cancel_url: `${origin}/app/billing`,
+      return_url: `${origin}/app/billing`,
     });
-    return Response.json({ url: checkout.url });
+    return Response.json({ url: portal.url });
   } catch (e) {
     return failure(e);
   }

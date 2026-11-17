@@ -20,19 +20,43 @@ export async function saveSubscription(
     "SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[]) UNION SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_price_history WHERE stripe_price_id=ANY($1::text[])",
     [items.map((item) => item.price.id)],
   )).rows;
-  const base = items.find((item) => mappings.some((m) => m.stripe_price_id === item.price.id && ["individual", "team"].includes(m.plan)));
+  const isV4Catalog = (catalogVersion: string | null | undefined) =>
+    Boolean(catalogVersion && (catalogVersion === "2026-11-v4" || catalogVersion.startsWith("2026-11-v4")));
+  /** v3 Individual/Teams plus v4 Starter/Professional/Business only — never legacy solo Business. */
+  const isPackagedMapping = (m: { plan: string; catalog_version?: string | null }) => {
+    if (["individual", "team"].includes(m.plan)) return true;
+    return ["starter", "professional", "business"].includes(m.plan) && isV4Catalog(m.catalog_version);
+  };
+  const base = items.find((item) =>
+    mappings.some((m) => m.stripe_price_id === item.price.id && isPackagedMapping(m)),
+  );
   const legacy = items[0];
   const mapping = mappings.find((m) => m.stripe_price_id === (base || legacy)?.price.id);
-  const mappedPlan = mapping?.plan || subscription.metadata.plan;
+  const mappedPlan = String(mapping?.plan || subscription.metadata.plan || "");
   let seats = legacy?.quantity || 1;
-  if (["individual", "team"].includes(mappedPlan)) {
+  if (mapping && isPackagedMapping(mapping)) {
     if (!base || base.quantity !== 1) throw new Error("Invalid base subscription quantity.");
     const extras = items.filter((item) => item !== base);
-    if (extras.length > 1 || (mappedPlan === "individual" && extras.length)) throw new Error("Invalid subscription items.");
+    const singleSeat = mappedPlan === "individual" || mappedPlan === "starter" || mappedPlan === "professional";
+    if (extras.length > 1 || (singleSeat && extras.length)) throw new Error("Invalid subscription items.");
     const extra = extras[0];
     const extraMap = extra && mappings.find((m) => m.stripe_price_id === extra.price.id);
-    if (extra && (extraMap?.plan !== "team_extra" || extraMap.period !== mapping.period || !Number.isInteger(extra.quantity) || extra.quantity! < 1 || extra.quantity! > 997)) throw new Error("Invalid additional seat price or quantity.");
-    seats = mappedPlan === "team" ? 3 + (extra?.quantity || 0) : 1;
+    const expectedExtra = mappedPlan === "business" ? "business_extra" : "team_extra";
+    if (
+      extra &&
+      (extraMap?.plan !== expectedExtra ||
+        extraMap.period !== mapping.period ||
+        !Number.isInteger(extra.quantity) ||
+        extra.quantity! < 1 ||
+        extra.quantity! > 997)
+    ) {
+      throw new Error("Invalid additional seat price or quantity.");
+    }
+    seats = mappedPlan === "team" || mappedPlan === "business" ? 3 + (extra?.quantity || 0) : 1;
+  } else if (["individual", "team", "starter", "professional"].includes(mappedPlan)) {
+    // Metadata cannot forge a packaged plan without a mapped Stripe base price.
+    // Legacy solo `business` (and other grandfathered ids) keep quantity-based seats.
+    throw new Error("Invalid base subscription quantity.");
   }
   const end = (base || legacy)?.current_period_end;
   const version = mapping?.catalog_version || "legacy";
@@ -41,12 +65,23 @@ export async function saveSubscription(
   const promoEnd = discounts.reduce((end,d)=>Math.max(end,d.end||0),0);
   const monthlyAmount = mapping?.period === "monthly" && items.every(i=>Number.isInteger(i.price.unit_amount)) ? items.reduce((n,i)=>n+i.price.unit_amount!*(i.quantity||1),0) : null;
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["entitlements:"+userId]);
-  const plan =
-    paid && ["pro", "business", "teams", "individual", "team"].includes(mappedPlan)
-      ? mappedPlan
-      : "free";
+  const paidPlans = [
+    "pro",
+    "business",
+    "teams",
+    "individual",
+    "team",
+    "starter",
+    "professional",
+    "enterprise",
+  ];
+  const plan = paid && paidPlans.includes(mappedPlan) ? mappedPlan : "free";
+  const v4Envelope =
+    version === "2026-11-v4" || version.startsWith("2026-11-v4")
+      ? null
+      : undefined;
   await client.query(
-    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN $8='2026-11-v4' THEN CASE WHEN $2='business' THEN 50 WHEN $2='professional' THEN 20 WHEN $2='starter' THEN 5 ELSE 0 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team','starter','professional','business')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       plan,
@@ -54,10 +89,10 @@ export async function saveSubscription(
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
-      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? null,
+      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? v4Envelope ?? null,
     ],
   );
-  if (paid && ["individual", "team"].includes(plan)) {
+  if (paid && ["individual", "team", "starter", "professional", "business"].includes(plan)) {
     await rewardReferralOnPaidSubscription(client, userId);
   }
 }

@@ -1,4 +1,53 @@
-import {NextRequest} from "next/server";import {adminSession} from "@/lib/admin";import {getPool} from "@/lib/db";import {body,sameOrigin,failure} from "@/lib/server";import {adminBilling} from "@/lib/admin-billing";import {currentCatalog} from "@/lib/billing-catalog";
-export const maxDuration=120;
-export async function GET(){try{await adminSession();const db=getPool();return Response.json({catalog:await currentCatalog(),versions:(await db.query("SELECT * FROM private.billing_catalog_versions ORDER BY created_at DESC LIMIT 20")).rows,operations:(await db.query("SELECT id,action,state,result,error,updated_at FROM private.billing_admin_operations ORDER BY updated_at DESC LIMIT 30")).rows},{headers:{"Cache-Control":"no-store"}});}catch(e){return failure(e);}}
-export async function POST(req:NextRequest){try{sameOrigin(req);const {token}=await adminSession();return Response.json(await adminBilling(token,await body(req)));}catch(e){return failure(e);}}
+import { NextRequest } from "next/server";
+import { adminSession } from "@/lib/admin";
+import { getPool } from "@/lib/db";
+import { body, sameOrigin, failure } from "@/lib/server";
+import { adminBilling } from "@/lib/admin-billing";
+import { currentCatalog } from "@/lib/billing-catalog";
+import { catalogSyncReport } from "@/lib/pricing-sync";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
+
+export const maxDuration = 120;
+
+export async function GET() {
+  try {
+    await adminSession();
+    const db = getPool();
+    const [catalog, versions, operations, sync, publicSurface] = await Promise.all([
+      currentCatalog(),
+      db.query("SELECT * FROM private.billing_catalog_versions ORDER BY created_at DESC LIMIT 20"),
+      db.query(
+        "SELECT id,action,state,result,error,updated_at FROM private.billing_admin_operations ORDER BY updated_at DESC LIMIT 30",
+      ),
+      catalogSyncReport(),
+      publicPricingSurface(),
+    ]);
+    return Response.json(
+      {
+        catalog,
+        versions: versions.rows,
+        operations: operations.rows,
+        sync,
+        publicSurface: {
+          family: publicSurface.family,
+          previewOnly: publicSurface.previewOnly,
+          enrollment: publicSurface.enrollment,
+          displayVersion: publicSurface.display.version,
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    sameOrigin(req);
+    const { token } = await adminSession();
+    return Response.json(await adminBilling(token, await body(req)));
+  } catch (e) {
+    return failure(e);
+  }
+}

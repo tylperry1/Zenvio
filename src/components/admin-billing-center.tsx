@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { BillingCatalog } from "@/lib/billing-catalog";
+import type { CatalogSyncReport } from "@/lib/pricing-sync";
 import { money } from "@/lib/billing-types";
 import { formatAllowance } from "@/lib/allowance-display";
 import {
@@ -124,7 +125,18 @@ function opTone(state: string): "success" | "warning" | "danger" | "neutral" | "
 
 export function AdminBillingCenter() {
   const params = useSearchParams();
-  const [data, setData] = useState<{ versions: Version[]; operations: Operation[]; catalog: BillingCatalog } | null>(null);
+  const [data, setData] = useState<{
+    versions: Version[];
+    operations: Operation[];
+    catalog: BillingCatalog;
+    sync?: CatalogSyncReport;
+    publicSurface?: {
+      family: string;
+      previewOnly: boolean;
+      displayVersion: string;
+      enrollment: { enabled: boolean; catalogVersion: string; plans: string[] };
+    };
+  } | null>(null);
   const [catalog, setCatalog] = useState<BillingCatalog | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -715,57 +727,169 @@ export function AdminBillingCenter() {
       )}
 
       {section === "audit" && (
-        <div className="ds-grid-2">
-          <Panel title="Sync status & financial audit" description="Provider failures stay visible. Retry the same operation to preserve idempotency.">
-            {!recentOps.length ? (
-              <EmptyState icon="clock" title="No billing operations yet" />
+        <div className="ds-stack">
+          <Panel
+            title="Catalog ↔ Stripe mapping"
+            description="Read-only sync status for the live published catalog and the proposed v4 catalog. This view never mutates Stripe."
+          >
+            {data.sync ? (
+              <div className="ds-stack">
+                <div className="ds-kpis">
+                  <Kpi
+                    label="Live synchronized"
+                    value={data.sync.summary.liveSynchronized}
+                    tone={data.sync.summary.liveMissing || data.sync.summary.liveMismatched ? "warning" : "success"}
+                    detail={`Catalog ${data.sync.liveCatalogVersion}`}
+                  />
+                  <Kpi
+                    label="Live gaps"
+                    value={data.sync.summary.liveMissing + data.sync.summary.liveMismatched}
+                    tone={data.sync.summary.liveMissing || data.sync.summary.liveMismatched ? "danger" : "success"}
+                    detail="Missing or version-mismatched mappings"
+                  />
+                  <Kpi
+                    label="v4 pending"
+                    value={data.sync.summary.v4Pending}
+                    tone="info"
+                    detail={`Proposed ${data.sync.v4ProposedVersion} — provision only with approved test sync`}
+                  />
+                  <Kpi
+                    label="Public surface"
+                    value={data.publicSurface?.family?.toUpperCase() || "—"}
+                    detail={
+                      data.publicSurface?.previewOnly
+                        ? `Preview ${data.publicSurface.displayVersion} (not enrollable)`
+                        : `Enrollment ${data.publicSurface?.enrollment.enabled ? "open" : "gated"}`
+                    }
+                  />
+                </div>
+                <div className="bc-packages">
+                  <section>
+                    <h3>Live checkout mappings</h3>
+                    <ul className="bc-versions">
+                      {data.sync.live.map((row) => (
+                        <li key={`${row.plan}-${row.period}`}>
+                          <div>
+                            <b>
+                              {row.plan} · {row.period}
+                            </b>
+                            <small>
+                              {row.productId || "—"} · {row.stripePriceId || "unmapped"}
+                              {row.note ? ` · ${row.note}` : ""}
+                            </small>
+                          </div>
+                          <Badge
+                            tone={
+                              row.status === "synchronized"
+                                ? "success"
+                                : row.status === "missing" || row.status === "version_mismatch"
+                                  ? "danger"
+                                  : "neutral"
+                            }
+                            dot
+                          >
+                            {row.status}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h3>Proposed v4 mappings</h3>
+                    <ul className="bc-versions">
+                      {data.sync.proposedV4.map((row) => (
+                        <li key={`v4-${row.plan}-${row.period}`}>
+                          <div>
+                            <b>
+                              {row.plan} · {row.period}
+                            </b>
+                            <small>
+                              {row.expectedCents != null ? money(row.expectedCents) : "Custom"} ·{" "}
+                              {row.productId || "—"}
+                              {row.note ? ` · ${row.note}` : ""}
+                            </small>
+                          </div>
+                          <Badge
+                            tone={
+                              row.status === "synchronized"
+                                ? "success"
+                                : row.status === "pending_provision"
+                                  ? "warning"
+                                  : "neutral"
+                            }
+                            dot
+                          >
+                            {row.status}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              </div>
             ) : (
-              <Timeline
-                items={recentOps.map((o) => ({
-                  id: o.id,
-                  title: (
-                    <>
-                      {o.action} · <Badge tone={opTone(o.state)}>{o.state}</Badge>
-                    </>
-                  ),
-                  detail: o.error || o.result?.message || o.result?.code || o.result?.version || undefined,
-                  meta: (
-                    <>
-                      <code>{o.id}</code>
-                      {o.updated_at ? ` · ${formatDate(o.updated_at, { dateStyle: "medium", timeStyle: "short" })}` : ""}
-                    </>
-                  ),
-                  icon: o.state === "failed" ? "shield" : o.state === "succeeded" ? "check" : "clock",
-                  tone: opTone(o.state),
-                }))}
-              />
+              <EmptyState icon="layers" title="Sync report unavailable" />
             )}
           </Panel>
-          <Panel title="Safeguards" description="Production prices are never changed by this UI alone.">
-            <ul className="bc-safeguards">
-              <li>
-                <Icon name="shield" size={16} />
-                <div>
-                  <b>Sandbox acceptance gate</b>
-                  <p>Publish, coupon, and subscription mutations require Stripe sandbox lifecycle acceptance.</p>
-                </div>
-              </li>
-              <li>
-                <Icon name="layers" size={16} />
-                <div>
-                  <b>Draft → publish</b>
-                  <p>Catalog edits save as drafts. Publishing is explicit and only affects new enrollments.</p>
-                </div>
-              </li>
-              <li>
-                <Icon name="users" size={16} />
-                <div>
-                  <b>Existing contracts preserved</b>
-                  <p>Seat and package changes require a fresh Stripe proration preview and confirmation.</p>
-                </div>
-              </li>
-            </ul>
-          </Panel>
+          <div className="ds-grid-2">
+            <Panel title="Sync status & financial audit" description="Provider failures stay visible. Retry the same operation to preserve idempotency.">
+              {!recentOps.length ? (
+                <EmptyState icon="clock" title="No billing operations yet" />
+              ) : (
+                <Timeline
+                  items={recentOps.map((o) => ({
+                    id: o.id,
+                    title: (
+                      <>
+                        {o.action} · <Badge tone={opTone(o.state)}>{o.state}</Badge>
+                      </>
+                    ),
+                    detail: o.error || o.result?.message || o.result?.code || o.result?.version || undefined,
+                    meta: (
+                      <>
+                        <code>{o.id}</code>
+                        {o.updated_at ? ` · ${formatDate(o.updated_at, { dateStyle: "medium", timeStyle: "short" })}` : ""}
+                      </>
+                    ),
+                    icon: o.state === "failed" ? "shield" : o.state === "succeeded" ? "check" : "clock",
+                    tone: opTone(o.state),
+                  }))}
+                />
+              )}
+            </Panel>
+            <Panel title="Safeguards" description="Production prices are never changed by this UI alone.">
+              <ul className="bc-safeguards">
+                <li>
+                  <Icon name="shield" size={16} />
+                  <div>
+                    <b>Sandbox acceptance gate</b>
+                    <p>Publish, coupon, and subscription mutations require Stripe sandbox lifecycle acceptance.</p>
+                  </div>
+                </li>
+                <li>
+                  <Icon name="layers" size={16} />
+                  <div>
+                    <b>Draft → publish</b>
+                    <p>Catalog edits save as drafts. Publishing is explicit and only affects new enrollments.</p>
+                  </div>
+                </li>
+                <li>
+                  <Icon name="users" size={16} />
+                  <div>
+                    <b>Existing contracts preserved</b>
+                    <p>Seat and package changes require a fresh Stripe proration preview and confirmation.</p>
+                  </div>
+                </li>
+                <li>
+                  <Icon name="card" size={16} />
+                  <div>
+                    <b>No silent Stripe mutations</b>
+                    <p>Missing or pending mappings are reported here. Live price migration requires explicit approval.</p>
+                  </div>
+                </li>
+              </ul>
+            </Panel>
+          </div>
         </div>
       )}
     </div>

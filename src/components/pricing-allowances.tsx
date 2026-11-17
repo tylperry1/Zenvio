@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Icon } from "./icons";
-import { monthlyAllowances, addonOffers } from "@/lib/subscription-offers.mjs";
+import { monthlyAllowances } from "@/lib/subscription-offers.mjs";
 import { money } from "@/lib/billing-types";
+import { publicAddonsForDisplay, type PublicAddon } from "@/lib/public-pricing-display";
 
 type Allowances = import("@/lib/billing-catalog").BillingCatalog["allowances"];
 
@@ -27,9 +28,11 @@ const ROW_META = [
 
 export function PricingAllowances({
   allowances = monthlyAllowances,
+  addons = publicAddonsForDisplay(),
   variant = "full",
 }: {
   allowances?: Allowances;
+  addons?: PublicAddon[];
   variant?: "full" | "compact";
 } = {}) {
   const i = allowances.individual;
@@ -105,11 +108,11 @@ export function PricingAllowances({
           </div>
           <p className="allowance-availability">Purchasing is not yet enabled. These prices are for reference; no add-on is charged or activated here.</p>
           <ul className="allowance-addons">
-            {addonOffers.map((offer) => (
+            {addons.map((offer) => (
               <li key={offer.id}>
                 <div>
                   <h4>{offer.name}</h4>
-                  <span>{offer.id.startsWith("sms") ? "US SMS · sender and pricing review required" : offer.recurring ? "Monthly capacity" : "Prepaid capacity"}</span>
+                  <span>{offer.recurring ? "Monthly capacity" : "Prepaid capacity"}</span>
                 </div>
                 <p>
                   <strong>{money(offer.amount)}</strong>
@@ -119,9 +122,9 @@ export function PricingAllowances({
             ))}
           </ul>
           <details className="allowance-details">
-            <summary>Credit, storage and SMS terms</summary>
-            <p>Purchased consumable credits do not silently expire. Refund adjustments account for consumed credits. Monthly storage and SMS packages do not roll over. Existing subscribers retain their contracted benefits.</p>
-            <p>SMS is separate. International SMS, MMS and premium destinations are unavailable.</p>
+            <summary>Credit and storage terms</summary>
+            <p>Purchased consumable credits do not silently expire. Refund adjustments account for consumed credits. Monthly storage packages do not roll over. Existing subscribers retain their contracted benefits.</p>
+            <p>SMS messaging is not offered for purchase on this catalog.</p>
           </details>
         </>
       )}

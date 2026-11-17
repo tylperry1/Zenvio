@@ -10,5 +10,6 @@ export async function launchControls():Promise<LaunchControls>{
  return {...launchDefaults,...row,features:{...launchDefaults.features,...row?.features}};
 }
 export async function sandboxAccepted(){
+ if(!databaseConfigured())return false;
  return Boolean((await getPool().query("SELECT 1 FROM private.operation_log WHERE action='stripe_sandbox_acceptance_passed' AND details->>'scope'='subscription_lifecycle' AND created_at>now()-interval '30 days' LIMIT 1")).rowCount);
 }
