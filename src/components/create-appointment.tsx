@@ -368,7 +368,11 @@ export function CreateAppointment({
                   name="locationMode"
                   checked={locationMode === mode}
                   disabled={busy}
-                  onChange={() => setLocationMode(mode)}
+                  onChange={() => {
+                    setLocationMode(mode);
+                    setServiceAddress(emptyAddress());
+                    setAccessInstructions("");
+                  }}
                 />
                 {locationLabel(mode, event?.location || "")}
               </label>
@@ -405,6 +409,7 @@ export function CreateAppointment({
         {needsGuestAddress && (
           <>
             <AddressAutocomplete
+              key={`${eventId}-${locationMode}`}
               host={data.profile.slug}
               value={serviceAddress}
               onChange={setServiceAddress}

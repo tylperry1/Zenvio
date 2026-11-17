@@ -713,6 +713,7 @@ function ClientDetail({
           </div>
           {editing ? (
             <ClientEditForm
+              key={c.id}
               contact={c}
               addresses={detail.addresses || []}
               busy={busy}

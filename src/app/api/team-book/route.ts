@@ -78,13 +78,26 @@ export async function GET(r: NextRequest) {
         /* An unavailable staff calendar is never offered. */
       }
     }
+    const sample = d.staff[0];
+    const ownerSlug = (
+      await getPool().query("SELECT slug FROM public.profiles WHERE id=$1", [
+        d.event.owner_id,
+      ])
+    ).rows[0]?.slug;
     return Response.json(
       {
         event: {
           title: d.event.title,
           organization: d.event.organization_name,
           duration: d.event.duration,
+          location_mode: sample?.location_mode || "custom",
+          allowed_location_modes: sample?.allowed_location_modes || [
+            sample?.location_mode || "custom",
+          ],
+          virtual_instructions: sample?.virtual_instructions || "",
+          location: sample?.event_location || "",
         },
+        host: ownerSlug || sample?.host_slug || "",
         slots: [...slots].sort(),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -151,6 +164,8 @@ export async function POST(req: NextRequest) {
               ],
             )
           ).rows[0].result;
+          // Keep the reservation if enrichment fails; do not reuse the candidate savepoint.
+          await db.query("SAVEPOINT enrichment");
           try {
             const location = resolveBookingLocation({
               event: {
@@ -160,7 +175,11 @@ export async function POST(req: NextRequest) {
                 virtual_instructions: s.virtual_instructions || "",
               },
               businessAddress: await businessAddressForWorkspace(db, s.user_id),
-              guest: {},
+              guest: {
+                locationMode: v.locationMode,
+                serviceAddress: v.serviceAddress,
+                accessInstructions: v.accessInstructions,
+              },
             });
             await persistBookingAddress(db, {
               workspaceId: s.user_id,
@@ -173,8 +192,11 @@ export async function POST(req: NextRequest) {
               accessInstructions: location.accessInstructions,
               saveAsResidential: false,
             });
-          } catch {
-            // at_customer defaults still need a guest address; keep phone + location text.
+          } catch (enrichmentError) {
+            await db.query("ROLLBACK TO SAVEPOINT enrichment");
+            // Missing/invalid guest address must fail confirmation (rolls back reservation via candidate).
+            if (enrichmentError instanceof ApiError) throw enrichmentError;
+            // Unexpected enrichment failure: keep reservation, restore phone + location text.
             await db.query(
               "UPDATE public.bookings SET guest_phone=$2, location=CASE WHEN $3<>'' THEN $3 ELSE location END WHERE id=$1 AND user_id=$4",
               [booking.id, guestPhone, String(s.event_location || "").slice(0, 500), s.user_id],

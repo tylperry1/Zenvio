@@ -106,6 +106,22 @@ test("structured address formatting keeps components separate", () => {
   assert.equal(summary.title, "At customer location");
   assert.match(summary.body, /456 Oak Avenue/);
   assert.equal(summary.access, "Ring 3B");
+  assert.equal(
+    addresses.bookingLocationSummary({
+      locationMode: "custom",
+      location: "Fallback hall",
+      serviceAddress: { formatted: "123 Main St only" },
+    }).body,
+    "123 Main St only",
+  );
+  assert.equal(
+    addresses.bookingLocationSummary({
+      locationMode: "custom",
+      location: "Fallback hall",
+      serviceAddress: {},
+    }).body,
+    "Fallback hall",
+  );
   const migrated = "A".repeat(250) + ", Cincinnati, OH 45202";
   assert.equal(
     addresses.displayStructuredAddress({
@@ -347,6 +363,21 @@ test("platform business address write path and CRM typed addresses", () => {
   const createAppt = fs.readFileSync("src/components/create-appointment.tsx", "utf8");
   assert.match(createAppt, /Meeting link for this appointment/);
   assert.match(createAppt, /virtualMeetingLink/);
+  assert.match(createAppt, /key=\{`\$\{eventId\}-\$\{locationMode\}`\}/);
+  assert.match(crm, /key=\{c\.id\}/);
+  const teamBook = fs.readFileSync("src/app/api/team-book/route.ts", "utf8");
+  assert.match(teamBook, /SAVEPOINT enrichment/);
+  assert.match(teamBook, /ROLLBACK TO SAVEPOINT enrichment/);
+  assert.match(teamBook, /serviceAddress: v\.serviceAddress/);
+  assert.match(teamBook, /if \(enrichmentError instanceof ApiError\) throw enrichmentError/);
+  assert.match(workspace, /locationPending: true/);
+  assert.match(workspace, /Appointment was reserved, but the service address could not be saved/);
+  const teamUi = fs.readFileSync("src/components/team-booking.tsx", "utf8");
+  assert.match(teamUi, /AddressAutocomplete/);
+  assert.match(teamUi, /serviceAddress/);
+  const bookingPage = fs.readFileSync("src/components/booking-page.tsx", "utf8");
+  assert.match(bookingPage, /location_mode: locationMode/);
+  assert.match(bookingPage, /service_address: resolvedServiceAddress/);
   const autocomplete = fs.readFileSync("src/app/api/address/autocomplete/route.ts", "utf8");
   assert.match(autocomplete, /resolveAddressWorkspace/);
   const validate = fs.readFileSync("src/app/api/address/validate/route.ts", "utf8");

@@ -27,10 +27,23 @@ m.require = (id) =>
   id === "@/lib/availability-rules.mjs" ? {availabilityRules,availabilityPeriods} :
   id === "@/lib/manual-booking" ? { createManualBooking: async () => { throw new ApiError("Unconfigured override fixture", 400); } } :
   id === "@/lib/marketplace-visibility" ? { marketplaceVisible: async () => false } :
-  id === "@/lib/microsoft-calendar"
+  id === "@/lib/booking-address"
+    ? {
+        businessAddressForWorkspace: async () => null,
+        persistBookingAddress: async () => {},
+        resolveBookingLocation: () => ({
+          locationMode: "custom",
+          locationText: "Fixture",
+          serviceAddress: null,
+          accessInstructions: "",
+        }),
+      }
+  : id === "@/lib/phone"
+    ? { normalizeBookingPhone: (v) => (v ? String(v) : "+15551234567") }
+  : id === "@/lib/microsoft-calendar"
     ? { filterMicrosoftSlots: async (_h, _e, slots) => microsoftBlocked ? [] : slots }
     : id === "@/lib/db"
-    ? { getPool: () => ({ query: async () => ({ rows: [] }) }) }
+    ? { getPool: () => ({ query: async () => ({ rows: [] }), connect: async () => ({ query: async () => ({ rows: [] }), release() {} }) }) }
     : id === "@/lib/intake"
     ? { intakeAnswers: () => [] }
     : id === "@/lib/lifecycle"
@@ -49,6 +62,7 @@ m.require = (id) =>
                     return blocked ? [] : slots;
                   },
                   runGoogleJobsForHost: async () => {},
+                  runGoogleJobs: async () => {},
                 }
               : id === "@/lib/server"
                 ? {
@@ -71,7 +85,7 @@ m.require = (id) =>
                         assert.equal(t, uid);
                         return foreign
                           ? []
-                          : [{ id: "event", slug: "intro", active: true }];
+                          : [{ id: "event", slug: "intro", active: true, location: "Studio", location_mode: "custom" }];
                       }
                       if (p.includes("profiles?")) {
                         assert.equal(t, uid);
@@ -112,6 +126,8 @@ const request = () =>
       starts_at: "2026-11-02T15:00:00Z",
       name: "Guest",
       email: "guest@example.com",
+      phone: "+15551234567",
+      locationMode: "custom",
     }),
   });
 beforeEach(() => {

@@ -197,6 +197,16 @@ export function BookingPage({
           ends_at = new Date(
             +new Date(selectedTime) + type.duration * 60000,
           ).toISOString();
+        const resolvedLocation =
+          locationMode === "at_customer" || locationMode === "custom"
+            ? serviceAddress.formatted || type.location
+            : type.location;
+        const resolvedAccess =
+          locationMode === "at_customer" || locationMode === "custom"
+            ? serviceAddress.accessInstructions || ""
+            : "";
+        const resolvedServiceAddress =
+          locationMode === "at_customer" || locationMode === "custom" ? serviceAddress : null;
         const booking = {
           id,
           event_id: type.id,
@@ -210,6 +220,10 @@ export function BookingPage({
           ends_at,
           status: "confirmed" as const,
           cancel_token,
+          location: resolvedLocation,
+          location_mode: locationMode,
+          access_instructions: resolvedAccess,
+          service_address: resolvedServiceAddress,
         };
         data.bookings.push(booking);
         if (!data.contacts.some((c) => c.email === email))
@@ -228,17 +242,10 @@ export function BookingPage({
           starts_at: selectedTime,
           ends_at,
           title: type.title,
-          location:
-            locationMode === "at_customer" || locationMode === "custom"
-              ? serviceAddress.formatted || type.location
-              : type.location,
+          location: resolvedLocation,
           location_mode: locationMode,
-          access_instructions:
-            locationMode === "at_customer" || locationMode === "custom"
-              ? serviceAddress.accessInstructions || ""
-              : "",
-          service_address:
-            locationMode === "at_customer" || locationMode === "custom" ? serviceAddress : null,
+          access_instructions: resolvedAccess,
+          service_address: resolvedServiceAddress,
           guest_phone: String(f.get("phone") || ""),
         };
       } else {

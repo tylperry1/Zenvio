@@ -111,13 +111,16 @@ export function bookingLocationSummary(input: {
 }): { title: string; body: string; access: string } {
   const mode = isLocationMode(input.locationMode) ? input.locationMode : null;
   const title = mode ? locationLabel(mode, String(input.location || "")) : String(input.location || "Location");
-  const formatted =
-    input.serviceAddress && (input.serviceAddress.street || input.serviceAddress.formatted)
-      ? formatAddressMultiline(input.serviceAddress)
-      : String(input.location || "").trim();
+  const rebuilt = input.serviceAddress
+    ? formatAddressMultiline(input.serviceAddress)
+    : "";
+  const body =
+    rebuilt ||
+    String(input.serviceAddress?.formatted || "").trim() ||
+    String(input.location || "").trim();
   return {
     title,
-    body: formatted,
+    body,
     access: String(input.accessInstructions || "").trim().slice(0, 1000),
   };
 }

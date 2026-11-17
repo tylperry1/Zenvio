@@ -207,21 +207,66 @@ export async function POST(request: NextRequest) {
           }),
         }, token);
         if (result?.id) {
-          const db = await getPool().connect();
+          let db;
           try {
-            await persistBookingAddress(db, {
-              workspaceId: token,
-              bookingId: result.id,
-              guestEmail,
-              guestPhone: phone,
-              locationMode: location.locationMode,
-              locationText: location.locationText,
-              serviceAddress: location.serviceAddress,
-              accessInstructions: location.accessInstructions,
-              saveAsResidential: false,
-            });
+            db = await getPool().connect();
           } catch {
-            // Reservation stands; location enrichment is best-effort after confirm.
+            // Reservation already committed; pool outage must not report booking failure.
+            return Response.json(
+              {
+                ok: true,
+                message: "Appointment created.",
+                locationPending: true,
+              },
+              { status: 201 },
+            );
+          }
+          try {
+            try {
+              await persistBookingAddress(db, {
+                workspaceId: token,
+                bookingId: result.id,
+                guestEmail,
+                guestPhone: phone,
+                locationMode: location.locationMode,
+                locationText: location.locationText,
+                serviceAddress: location.serviceAddress,
+                accessInstructions: location.accessInstructions,
+                saveAsResidential: false,
+              });
+            } catch {
+              if (location.locationMode === "at_customer") {
+                // Durable recovery: required booking snapshot only (no CRM side effects).
+                try {
+                  await db.query(
+                    `UPDATE public.bookings
+                        SET location=$3,
+                            location_mode=$4,
+                            service_address=$5::jsonb,
+                            access_instructions=$6,
+                            guest_phone=CASE WHEN $7<>'' THEN $7 ELSE guest_phone END
+                      WHERE id=$1 AND user_id=$2`,
+                    [
+                      result.id,
+                      token,
+                      location.locationText.slice(0, 500),
+                      location.locationMode,
+                      location.serviceAddress
+                        ? JSON.stringify(location.serviceAddress)
+                        : null,
+                      location.accessInstructions,
+                      phone,
+                    ],
+                  );
+                } catch {
+                  throw new ApiError(
+                    "Appointment was reserved, but the service address could not be saved. Open the appointment to add the address.",
+                    502,
+                  );
+                }
+              }
+              // Non-required modes: reservation stands without enrichment.
+            }
           } finally {
             db.release();
           }
