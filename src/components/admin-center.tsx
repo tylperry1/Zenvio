@@ -1450,21 +1450,17 @@ export function AdminCenter({
                       placeholder="Record the reason for the audit log."
                     />
                   </label>
-                  {detailError && (
-                    <p className="notice error" role="alert">
-                      {detailError}
-                    </p>
-                  )}
+                  {detailError && <Notice tone="danger">{detailError}</Notice>}
                   <div className="admin-actions">
                     <button
                       type="button"
-                      className="button secondary small"
+                      className="ds-btn sm"
                       disabled={saving}
                       onClick={() => setChange(null)}
                     >
                       Keep current status
                     </button>
-                    <button className="button primary small" disabled={saving}>
+                    <button className="ds-btn primary sm" disabled={saving}>
                       {saving
                         ? "Saving…"
                         : change.active
