@@ -1,6 +1,6 @@
 import { getPool, databaseConfigured } from "./db";
 import { providerEconomics } from "./provider-economics";
-import { pricingV4PlanningCostCents, pricingV4Offers } from "./pricing-v4-catalog.mjs";
+import { pricingV4PlanningCostCents, pricingV4Offers, pricingV4Version } from "./pricing-v4-catalog.mjs";
 import { planningCostCents } from "./subscription-offers.mjs";
 
 export type CostClassification = "actual" | "estimated" | "forecast" | "manual" | "unknown";
@@ -30,6 +30,42 @@ function microsToCents(micros: string | number | null | undefined) {
   return Math.round(n / 10000);
 }
 
+function daysInUtcMonth(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+}
+
+function planningCostForTenant(plan: string, seats: number, catalogVersion: string | null) {
+  const seatCount = Number(seats) || 1;
+  if (catalogVersion === pricingV4Version) {
+    const base = pricingV4PlanningCostCents[plan as keyof typeof pricingV4PlanningCostCents];
+    if (base == null) return 0;
+    if (plan === "business" && seatCount > 3) {
+      return base + (seatCount - 3) * pricingV4PlanningCostCents.business_extra;
+    }
+    return base;
+  }
+  const base = planningCostCents[plan as keyof typeof planningCostCents];
+  if (base == null) return 0;
+  if (plan === "team" && seatCount > 3) {
+    return base + (seatCount - 3) * planningCostCents.team_extra;
+  }
+  return base;
+}
+
+function revenueForTenant(
+  plan: string,
+  monthlyAmountCents: number | null,
+  catalogVersion: string | null,
+) {
+  if (monthlyAmountCents != null) return { cents: Number(monthlyAmountCents), classification: "actual" as const };
+  // Never backfill legacy plans with proposed v4 list prices.
+  if (catalogVersion === pricingV4Version) {
+    const offer = pricingV4Offers.find((o) => o.id === plan);
+    if (offer?.monthly != null) return { cents: offer.monthly, classification: "estimated" as const };
+  }
+  return { cents: null as number | null, classification: "unknown" as const };
+}
+
 export async function financialIntelligenceOverview() {
   if (!databaseConfigured()) {
     return {
@@ -53,7 +89,7 @@ export async function financialIntelligenceOverview() {
       `SELECT provider, coalesce(sum(amount_cents),0)::int cents
        FROM private.provider_cost_manual_expenses
        WHERE voided_at IS NULL
-         AND period_start <= date_trunc('month', now())::date
+         AND period_start < (date_trunc('month', now()) + interval '1 month')::date
          AND period_end >= date_trunc('month', now())::date
        GROUP BY provider`,
     ),
@@ -68,17 +104,31 @@ export async function financialIntelligenceOverview() {
     ),
   ]);
 
-  const budgetMap = new Map(budgets.rows.map((r) => [r.provider, Number(r.monthly_budget_cents)]));
-  const manualMap = new Map(manual.rows.map((r) => [r.provider, Number(r.cents)]));
-  const reservationMap = new Map(
-    economics.providerReservations.map((r) => [
-      String(r.provider).split("/")[0] || r.provider,
-      microsToCents(r.estimated_micros),
+  const budgetMap = new Map(budgets.rows.map((r) => [r.provider as string, Number(r.monthly_budget_cents)]));
+  const manualMap = new Map(manual.rows.map((r) => [r.provider as string, Number(r.cents)]));
+  const syncMap = new Map(
+    sync.rows.map((r) => [
+      r.provider as string,
+      {
+        connection_status: r.connection_status as string,
+        last_sync_at: r.last_sync_at as string | null,
+        last_error: r.last_error as string | null,
+      },
     ]),
   );
+
+  // Sum model-level reservation rows that share a provider prefix (e.g. openai/gpt-4 + openai/…).
+  const reservationMap = new Map<string, number>();
+  for (const r of economics.providerReservations) {
+    const provider = String(r.provider).split("/")[0] || String(r.provider);
+    const cents = microsToCents(r.estimated_micros);
+    if (cents == null) continue;
+    reservationMap.set(provider, (reservationMap.get(provider) || 0) + cents);
+  }
+
   const eventMap = new Map(
     economics.otherProviderEvents.map((r) => [
-      r.provider,
+      r.provider as string,
       {
         estimated: microsToCents(r.estimated_micros),
         actual: microsToCents(r.actual_micros),
@@ -86,47 +136,64 @@ export async function financialIntelligenceOverview() {
     ]),
   );
 
-  const providers: ProviderCostRow[] = sync.rows.map((row) => {
-    const provider = row.provider as string;
+  const providerIds = new Set<string>([
+    ...syncMap.keys(),
+    ...budgetMap.keys(),
+    ...manualMap.keys(),
+    ...eventMap.keys(),
+    ...reservationMap.keys(),
+  ]);
+
+  const dayOfMonth = Math.max(1, new Date().getUTCDate());
+  const monthLength = daysInUtcMonth();
+
+  const providers: ProviderCostRow[] = [...providerIds].sort().map((provider) => {
+    const syncRow = syncMap.get(provider);
     const events = eventMap.get(provider);
     const reserved = reservationMap.get(provider) ?? null;
     const manualCents = manualMap.get(provider) ?? 0;
+    const meteredActual = events?.actual ?? null;
     const actual =
-      events?.actual != null
-        ? events.actual + manualCents
+      meteredActual != null
+        ? meteredActual + manualCents
         : manualCents > 0
           ? manualCents
           : null;
-    const running =
+    const meteredRunning =
       events?.estimated != null || reserved != null
-        ? (events?.estimated || 0) + (reserved || 0) + manualCents
+        ? (events?.estimated || 0) + (reserved || 0)
+        : null;
+    const running =
+      meteredRunning != null
+        ? meteredRunning + manualCents
         : manualCents > 0
           ? manualCents
           : null;
-    // Forecast is a separate projection from running burn — not summed as a third expense.
+    // Extrapolate metered burn only; fixed manual expenses stay at their month amount.
     const forecast =
-      running != null
-        ? Math.round(running * (new Date().getUTCDate() > 0 ? 30 / Math.max(1, new Date().getUTCDate()) : 1))
-        : null;
+      meteredRunning != null
+        ? Math.round(meteredRunning * (monthLength / dayOfMonth)) + manualCents
+        : manualCents > 0
+          ? manualCents
+          : null;
     const budget = budgetMap.has(provider) ? budgetMap.get(provider)! : null;
     return {
       provider,
-      connection: row.connection_status,
+      connection: syncRow?.connection_status || (manualCents > 0 || budget != null ? "manual" : "unknown"),
       actualBilledCents: actual,
       runningEstimateCents: running,
       monthlyForecastCents: forecast,
       budgetCents: budget,
-      remainingBudgetCents:
-        budget == null || running == null ? null : budget - running,
-      lastSyncAt: row.last_sync_at,
-      lastError: row.last_error,
+      remainingBudgetCents: budget == null || running == null ? null : budget - running,
+      lastSyncAt: syncRow?.last_sync_at || null,
+      lastError: syncRow?.last_error || null,
       classification: {
-        actual: events?.actual != null ? "actual" : manualCents > 0 ? "manual" : "unknown",
+        actual: meteredActual != null ? "actual" : manualCents > 0 ? "manual" : "unknown",
         running: "estimated",
         forecast: "forecast",
       },
       notes:
-        "Actual billed, running estimate, and monthly forecast are separate views of the same period — do not add them together.",
+        "Actual billed, running estimate, and monthly forecast are separate views of the same period — do not add them together. Forecast extrapolates metered burn only; manual expenses are included at face value.",
     };
   });
 
@@ -136,31 +203,25 @@ export async function financialIntelligenceOverview() {
 
   const tenantRows = tenants.rows.map((t) => {
     const plan = String(t.plan);
-    const planning =
-      pricingV4PlanningCostCents[plan as keyof typeof pricingV4PlanningCostCents] ??
-      planningCostCents[plan as keyof typeof planningCostCents] ??
-      0;
-    const revenueCents =
-      t.monthly_amount_cents != null
-        ? Number(t.monthly_amount_cents)
-        : plan === "team"
-          ? null
-          : pricingV4Offers.find((o) => o.id === plan)?.monthly ?? null;
+    const seats = Number(t.seats) || 1;
+    const catalogVersion = t.catalog_version == null ? null : String(t.catalog_version);
+    const planning = planningCostForTenant(plan, seats, catalogVersion);
+    const revenue = revenueForTenant(plan, t.monthly_amount_cents, catalogVersion);
     return {
       userId: t.user_id,
       email: t.email,
       name: t.name,
       plan,
       status: t.status,
-      seats: t.seats,
-      catalogVersion: t.catalog_version,
-      subscriptionRevenueCents: revenueCents,
+      seats,
+      catalogVersion,
+      subscriptionRevenueCents: revenue.cents,
       estimatedOperatingCostCents: planning,
       estimatedContributionCents:
-        revenueCents == null ? null : revenueCents - planning,
+        revenue.cents == null ? null : revenue.cents - planning,
       classification: {
-        revenue: t.monthly_amount_cents != null ? "actual" : "estimated",
-        cost: "estimated",
+        revenue: revenue.classification,
+        cost: "estimated" as const,
       },
     };
   });

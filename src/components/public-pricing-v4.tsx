@@ -76,8 +76,10 @@ export function PublicPricingV4({
                   </>
                 )}
               </p>
-              {annual && offer.monthly ? (
-                <p className="premium-note">Billed once yearly · equals {money(offer.monthly)}/mo</p>
+              {annual && offer.annual != null ? (
+                <p className="premium-note">
+                  Billed once yearly · equals {money(Math.round(offer.annual / 12))}/mo
+                </p>
               ) : null}
               <ul>
                 {pricingV4Features[offer.id as keyof typeof pricingV4Features].map((line) => (

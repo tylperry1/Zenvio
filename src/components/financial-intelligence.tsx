@@ -197,7 +197,12 @@ export function FinancialIntelligence() {
                         <tr key={p.provider}>
                           <th>{p.provider}</th>
                           <td>{p.connection}</td>
-                          <td>{cents(p.actualBilledCents)}</td>
+                          <td>
+                            {cents(p.actualBilledCents)}
+                            {p.actualBilledCents != null ? (
+                              <small className="premium-note"> · {p.classification.actual}</small>
+                            ) : null}
+                          </td>
                           <td>{cents(p.runningEstimateCents)}</td>
                           <td>{cents(p.monthlyForecastCents)}</td>
                           <td>{cents(p.budgetCents)}</td>

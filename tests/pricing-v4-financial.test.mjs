@@ -60,6 +60,84 @@ test("financial intelligence migration and admin surfaces are wired", () => {
   assert.match(pricing, /publicCatalog === "v4"/);
 });
 
+test("financial intelligence sums model reservations and avoids v4 price fallback for legacy catalogs", async () => {
+  const fi = load("src/lib/financial-intelligence.ts", {
+    "./db": {
+      databaseConfigured: () => true,
+      getPool: () => ({
+        query: async (sql) => {
+          if (sql.includes("provider_cost_budgets"))
+            return { rows: [{ provider: "openai", monthly_budget_cents: 50000 }] };
+          if (sql.includes("provider_cost_sync_state")) return { rows: [] };
+          if (sql.includes("provider_cost_manual_expenses"))
+            return { rows: [{ provider: "openai", cents: 1200 }] };
+          if (sql.includes("FROM private.subscriptions"))
+            return {
+              rows: [
+                {
+                  user_id: "u1",
+                  plan: "individual",
+                  status: "active",
+                  seats: 1,
+                  catalog_version: "2026-11-v3",
+                  monthly_amount_cents: null,
+                  email: "a@example.com",
+                  name: "A",
+                },
+                {
+                  user_id: "u2",
+                  plan: "team",
+                  status: "active",
+                  seats: 5,
+                  catalog_version: "2026-11-v3",
+                  monthly_amount_cents: 4997,
+                  email: "b@example.com",
+                  name: "B",
+                },
+              ],
+            };
+          return { rows: [] };
+        },
+      }),
+    },
+    "./provider-economics": {
+      providerEconomics: async () => ({
+        period: "fixture",
+        providerReservations: [
+          { provider: "openai/gpt-4", estimated_micros: "10000000" },
+          { provider: "openai/gpt-4o", estimated_micros: "20000000" },
+        ],
+        otherProviderEvents: [],
+        revenue: [{ currency: "usd", mrr_cents: 1000, incomplete: 0 }],
+        accountsByPlan: [],
+        anomalies: [],
+        planning: { costCents: 0 },
+        coverage: "fixture",
+      }),
+    },
+    "./pricing-v4-catalog.mjs": catalog,
+    "./subscription-offers.mjs": {
+      planningCostCents: { individual: 850, team: 1600, team_extra: 350 },
+    },
+  });
+  const overview = await fi.financialIntelligenceOverview();
+  const openai = overview.providers.find((p) => p.provider === "openai");
+  assert.ok(openai);
+  assert.equal(openai.runningEstimateCents, 3000 + 1200); // 10+20 micros→cents + manual
+  assert.equal(openai.classification.actual, "manual");
+  const legacy = overview.tenants.find((t) => t.userId === "u1");
+  assert.equal(legacy.subscriptionRevenueCents, null);
+  assert.equal(legacy.classification.revenue, "unknown");
+  const team = overview.tenants.find((t) => t.userId === "u2");
+  assert.equal(team.estimatedOperatingCostCents, 1600 + 2 * 350);
+});
+
+test("annual pricing caption uses yearly total divided by twelve", () => {
+  const src = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
+  assert.match(src, /offer\.annual \/ 12/);
+  assert.doesNotMatch(src, /equals \{money\(offer\.monthly\)\}/);
+});
+
 test("live entitlement ceilings for free remain unchanged until v4 activation", () => {
   const policy = load("src/lib/entitlement-policy.ts", {
     "./subscription-offers.mjs": {
