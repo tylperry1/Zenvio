@@ -37,7 +37,7 @@ type Data = {
     period: string;
     meters: {
       meter: string;
-      included: number;
+      included: number | null;
       used: number;
       remaining: number;
       purchasedRemaining: number;
@@ -448,7 +448,7 @@ export function Billing() {
                             value={allowanceValue(m.meter, m.used)}
                             detail={
                               enforced
-                                ? `${allowanceValue(m.meter, m.remaining)} remaining · ${allowanceValue(m.meter, m.included)} included · ${allowanceValue(m.meter, m.purchasedRemaining)} in extra credits`
+                                ? `${allowanceValue(m.meter, m.remaining)} remaining · ${m.included === null ? "Unlimited" : allowanceValue(m.meter, m.included)} included · ${allowanceValue(m.meter, m.purchasedRemaining)} in extra credits`
                                 : m.meter === "storageBytes"
                                   ? `${allowanceValue(m.meter, m.used)} stored`
                                   : "Included allowance follows your existing contract"

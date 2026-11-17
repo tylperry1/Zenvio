@@ -106,7 +106,8 @@ export function ClientPortal({ token }: { token: string }) {
   const past = data?.appointments.filter((a) => !(a.status === "confirmed" && Date.parse(a.starts_at) > now)) || [];
   const openEstimates = data?.estimates.filter((e) => e.status === "sent").length || 0;
   const openPayments = data?.payments.filter((p) => p.status === "requested").length || 0;
-  const pendingDocs = data?.documents.filter((d) => d.signer_status !== "signed" && d.status === "sent").length || 0;
+  const pendingDocs =
+    data?.documents.filter((d) => d.signer_status !== "signed" && d.status === "sent" && d.sign_state !== "expired").length || 0;
   return (
     <div className="portal-page" style={{ "--profile-accent": data?.host.accent || "#365CFF" } as CSSProperties}>
       <header className="portal-top">
