@@ -139,6 +139,29 @@ export default async function Home() {
                 {join.label}
               </Link>
             </div>
+            <a
+              className="mk-product-hunt"
+              href="https://www.producthunt.com/products/zenvio?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-zenvio"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                className="mk-product-hunt-light"
+                alt="Zenvio - Run, manage, and grow your business—all in one platform. | Product Hunt"
+                width={250}
+                height={54}
+                decoding="async"
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1319023&theme=light&t=1794875424271"
+              />
+              <img
+                className="mk-product-hunt-dark"
+                alt="Zenvio - Run, manage, and grow your business—all in one platform. | Product Hunt"
+                width={250}
+                height={54}
+                decoding="async"
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1319023&theme=dark&t=1794875424271"
+              />
+            </a>
             <p className="mk-fine">
               <Icon name="check" size={14} /> Sample data in the demo <span>·</span> No credit card needed
             </p>
