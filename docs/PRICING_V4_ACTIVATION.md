@@ -19,7 +19,7 @@
 
 ## Activation sequence (production)
 
-1. Apply migration `085_pricing_v4_financial_intelligence.sql` via normal deploy migrate path.
+1. Apply migration `086_pricing_v4_financial_intelligence.sql` via normal deploy migrate path.
 2. Configure read-only provider billing credentials where available (Vercel, Resend, Anthropic, Stripe, DB host). Leave `not_configured` otherwise — never invent actual costs.
 3. Stripe **test mode**: create v4 products/prices (`starter`, `professional`, `business`, `business_extra`, annual counterparts). Map into `private.subscription_prices` with `catalog_version='2026-11-v4'`. Do not overwrite v3 mappings.
 4. Run test-mode checkout, upgrade/downgrade, renewal, failure, refund, and seat-change acceptance.

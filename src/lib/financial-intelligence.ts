@@ -3,7 +3,7 @@ import { providerEconomics } from "./provider-economics";
 import { pricingV4PlanningCostCents, pricingV4Offers, pricingV4Version } from "./pricing-v4-catalog.mjs";
 import { planningCostCents } from "./subscription-offers.mjs";
 
-export type CostClassification = "actual" | "estimated" | "forecast" | "manual" | "unknown";
+export type CostClassification = "actual" | "estimated" | "forecast" | "manual" | "mixed" | "unknown";
 
 export type ProviderCostRow = {
   provider: string;
@@ -188,7 +188,14 @@ export async function financialIntelligenceOverview() {
       lastSyncAt: syncRow?.last_sync_at || null,
       lastError: syncRow?.last_error || null,
       classification: {
-        actual: meteredActual != null ? "actual" : manualCents > 0 ? "manual" : "unknown",
+        actual:
+          meteredActual != null && manualCents > 0
+            ? "mixed"
+            : meteredActual != null
+              ? "actual"
+              : manualCents > 0
+                ? "manual"
+                : "unknown",
         running: "estimated",
         forecast: "forecast",
       },

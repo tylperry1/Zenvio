@@ -44,7 +44,7 @@ test("v4 add-ons stay unpublished and SMS is not promised as available", () => {
 });
 
 test("financial intelligence migration and admin surfaces are wired", () => {
-  const sql = fs.readFileSync("postgres/migrations/085_pricing_v4_financial_intelligence.sql", "utf8");
+  const sql = fs.readFileSync("postgres/migrations/086_pricing_v4_financial_intelligence.sql", "utf8");
   const nav = fs.readFileSync("src/components/admin-navigation.tsx", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
@@ -107,7 +107,13 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
           { provider: "openai/gpt-4", estimated_micros: "10000000" },
           { provider: "openai/gpt-4o", estimated_micros: "20000000" },
         ],
-        otherProviderEvents: [],
+        otherProviderEvents: [
+          {
+            provider: "openai",
+            estimated_micros: "5000000",
+            actual_micros: "100000000", // 10,000 cents
+          },
+        ],
         revenue: [{ currency: "usd", mrr_cents: 1000, incomplete: 0 }],
         accountsByPlan: [],
         anomalies: [],
@@ -123,8 +129,9 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
   const overview = await fi.financialIntelligenceOverview();
   const openai = overview.providers.find((p) => p.provider === "openai");
   assert.ok(openai);
-  assert.equal(openai.runningEstimateCents, 3000 + 1200); // 10+20 micros→cents + manual
-  assert.equal(openai.classification.actual, "manual");
+  assert.equal(openai.actualBilledCents, 10000 + 1200);
+  assert.equal(openai.runningEstimateCents, 3000 + 500 + 1200); // reservations + metered estimate + manual
+  assert.equal(openai.classification.actual, "mixed");
   const legacy = overview.tenants.find((t) => t.userId === "u1");
   assert.equal(legacy.subscriptionRevenueCents, null);
   assert.equal(legacy.classification.revenue, "unknown");
