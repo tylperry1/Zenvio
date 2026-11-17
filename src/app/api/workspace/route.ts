@@ -178,7 +178,10 @@ export async function POST(request: NextRequest) {
         } finally {
           dbClient.release();
         }
-        if (location.locationMode === "virtual") {
+        if (
+          location.locationMode === "virtual" ||
+          location.locationMode === "custom"
+        ) {
           const override = string(input.location ?? "", "meeting location", 500, 0);
           if (override) location = { ...location, locationText: override };
         }

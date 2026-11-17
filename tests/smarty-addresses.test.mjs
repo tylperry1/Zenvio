@@ -336,7 +336,7 @@ test("platform business address write path and CRM typed addresses", () => {
   assert.match(workspace, /case "business-address"/);
   assert.match(workspace, /saveBusinessAddress/);
   assert.match(workspace, /businessAddressForWorkspace/);
-  assert.match(workspace, /locationMode === "virtual"/);
+  assert.match(workspace, /locationMode === "virtual" \|\|[\s\S]*locationMode === "custom"/);
   const booking = fs.readFileSync("src/lib/booking-address.ts", "utf8");
   assert.match(booking, /export async function saveBusinessAddress/);
   assert.match(booking, /ON CONFLICT \(workspace_id\) WHERE address_type='business'/);

@@ -57,7 +57,10 @@ export async function createManualBooking(owner: string, input: Record<string, u
         accessInstructions: input.accessInstructions,
       },
     });
-    if (location.locationMode === "virtual") {
+    if (
+      location.locationMode === "virtual" ||
+      location.locationMode === "custom"
+    ) {
       const override = string(input.location ?? "", "meeting location", 500, 0);
       if (override) location = { ...location, locationText: override };
     }

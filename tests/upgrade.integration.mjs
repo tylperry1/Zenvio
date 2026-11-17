@@ -994,7 +994,7 @@ try {
   assert.equal((await customizedSlots()).length,0,"Date closure overrides weekly hours");
   assert.equal((await request("/api/workspace",{action:"availability-rules",rules:{...customRules,exceptions:[{date:customDay,periods:[{start:"19:00",end:"20:00"}]}]}},alice.cookie)).status,200);
   customSlots=await customizedSlots();assert.equal(customSlots.length,2);
-  const normalLocation=await request("/api/workspace",{action:"create-appointment",event_id:manualEvent.id,starts_at:new Date(customSlots[0].starts_at).toISOString(),name:"Location Guest",email:"location-fixture@example.com",phone:"+15551234567",location:"120 Main Street, Suite 5",answers:{}},alice.cookie);
+  const normalLocation=await request("/api/workspace",{action:"create-appointment",event_id:manualEvent.id,starts_at:new Date(customSlots[0].starts_at).toISOString(),name:"Location Guest",email:"location-fixture@example.com",phone:"+15551234567",locationMode:"custom",location:"120 Main Street, Suite 5",serviceAddress:{street:"120 Main Street",street2:"Suite 5",city:"",state:"",postalCode:"",formatted:"120 Main Street, Suite 5"},answers:{}},alice.cookie);
   assert.equal(normalLocation.status,201,JSON.stringify(normalLocation.data));
   const locationBooking=(await db.query("SELECT id,location FROM public.bookings WHERE user_id=$1 AND guest_email='location-fixture@example.com'",[aid])).rows[0];
   assert.equal(locationBooking.location,"120 Main Street, Suite 5");
