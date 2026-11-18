@@ -112,7 +112,14 @@ export function Billing() {
       );
       await load();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to refresh subscription status.");
+      const raw = error instanceof Error ? error.message : "";
+      setError(
+        /Stripe/i.test(raw)
+          ? /team owner/i.test(raw)
+            ? customerMessages.billing.enrollmentPausedTeamMember
+            : "Unable to update the billing profile."
+          : raw || "Unable to update the billing profile.",
+      );
     } finally {
       setBusy(false);
     }
@@ -307,7 +314,13 @@ export function Billing() {
                       <Kpi
                         label="Billing control"
                         value={managedByTeam ? "Team owner" : "Your account"}
-                        detail={ownBillingActive ? customerMessages.billing.paidSubscriptionDetail : "No recurring charge"}
+                        detail={
+                          ownBillingActive
+                            ? ["active", "trialing"].includes(sub.status)
+                              ? customerMessages.billing.paidSubscriptionDetail
+                              : customerMessages.billing.subscriptionDetail
+                            : "No recurring charge"
+                        }
                         icon="card"
                       />
                     </div>
@@ -407,7 +420,9 @@ export function Billing() {
                       <Link href="/pricing">pricing page</Link>.
                     </>
                   ) : tab === "plans" ? (
-                    <>Review packages below.</>
+                    <>
+                      Review packages <a href="#packages">above</a>.
+                    </>
                   ) : (
                     <>
                       <button type="button" className="ds-btn sm" onClick={() => setTab("plans")}>

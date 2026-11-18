@@ -140,21 +140,24 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
           <ul className="ui-list">
             {data.connections.map((c) => {
               const ok = c.status === "connected" && !c.last_error;
-              const apiDisabled = Boolean(
+              const legacyApiDisabled = Boolean(
                 c.last_error &&
-                  (/Google Calendar isn’t available to connect/i.test(c.last_error) ||
-                    /Google Calendar API is disabled/i.test(c.last_error) ||
+                  (/Google Calendar API is disabled/i.test(c.last_error) ||
                     /platform administrator must enable/i.test(c.last_error) ||
                     /same project/i.test(c.last_error)),
+              );
+              const sanitizeCustomerError = Boolean(
+                c.last_error &&
+                  (legacyApiDisabled ||
+                    /Google Calendar isn’t available to connect/i.test(c.last_error) ||
+                    /platform administrator|OAuth client|Google Cloud project|API key|webhook/i.test(c.last_error)),
               );
               // Sanitize legacy stored diagnostics so customers never see OAuth-project admin copy.
               const displayError = !c.last_error
                 ? ""
-                : apiDisabled
+                : sanitizeCustomerError
                   ? "Google Calendar isn’t available to connect right now. Please try again later or contact support."
-                  : /platform administrator|OAuth client|Google Cloud project|API key|webhook/i.test(c.last_error)
-                    ? "Google Calendar needs attention. Please try reconnecting or contact support."
-                    : c.last_error;
+                  : c.last_error;
               return (
                 <li key={c.account_sub} className="gc-account">
                   <span className="ui-list-icon">
@@ -166,7 +169,7 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                       Primary calendar · {c.last_sync_at ? `last synced ${formatDateTime(c.last_sync_at)}` : "not synced yet"}
                     </small>
                     {displayError && <small className="pay-error" role="status">{displayError}</small>}
-                    {apiDisabled && data.isAdmin && (
+                    {legacyApiDisabled && data.isAdmin && (
                       <a className="gc-setup-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noreferrer">
                         Enable Google Calendar API in the OAuth project ↗
                       </a>

@@ -14,12 +14,13 @@ export const customerMessages = {
       "Your plan and seat are managed by your team. Ask your team owner if you have billing questions.",
     billingUnavailable:
       "Billing management isn’t available for this workspace right now. Your current access is unchanged.",
-    syncSuccessFallback: "Subscription status refreshed.",
-    syncButton: "Refresh subscription status",
-    invoicesEmptyFree: "Free workspaces have no recurring bill.",
+    syncSuccessFallback: "Billing profile updated.",
+    syncButton: "Update billing profile",
+    invoicesEmptyFree: "There are no invoices for this account.",
+    subscriptionDetail: "Subscription on file",
+    paidSubscriptionDetail: "Paid subscription",
     invoicesLoadPrompt: "Load your latest invoices from your billing account.",
     invoicesFromProvider: "See your invoice for the exact amount",
-    paidSubscriptionDetail: "Paid subscription",
     platformIncluded:
       "Teams access is included with this account, with unlimited teammates. No paid seat upgrade is required.",
     teamPlanManaged:
