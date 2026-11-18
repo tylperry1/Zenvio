@@ -299,13 +299,15 @@ export function InboxCenter() {
               title={
                 query || filter !== "mine"
                   ? "No matching conversations"
-                  : "Nothing assigned to you yet"
+                  : "No conversations in My Inbox yet"
               }
             >
               {query || (filter !== "mine" && filter !== "all")
                 ? "Try another search or filter."
                 : filter === "mine"
-                  ? "Open Workspace Inbox to claim unassigned conversations, or start a new one."
+                  ? list?.capabilities?.workspaceInbox
+                    ? "Open Workspace Inbox to claim unassigned conversations, or start a new one."
+                    : "Start a new conversation with a client. Replies land here when assigned to you."
                   : "Start one with a client, or send a booking link. Client replies from their portal land here."}
             </EmptyState>
           )}
@@ -495,7 +497,7 @@ function ThreadView({
               </Link>
             </>
           )}
-          {members.length > 1 && (
+          {members.length >= 1 && thread.canAdminister && (
             <select
               className="ui-input inbox-assign"
               aria-label="Assign conversation"

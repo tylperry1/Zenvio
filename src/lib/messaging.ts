@@ -71,13 +71,26 @@ export async function ensureContactThread(
   ).rows[0];
   if (!contact) throw new ApiError("Client not found.", 404);
   const reopen = opts?.reopen !== false;
+  // Solo operators auto-assign to themselves so My Inbox is not empty by default.
+  const solo = await isSoloInboxOperator(db, userId);
   const { rows } = await db.query(
-    `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject)
-     VALUES($1,(SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),$2,$3)
+    `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject,assigned_to)
+     VALUES(
+       $1,
+       (SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),
+       $2,
+       $3,
+       CASE WHEN $5::boolean THEN $1 ELSE NULL END
+     )
      ON CONFLICT (user_id,contact_id) WHERE contact_id IS NOT NULL AND booking_id IS NULL
-     DO UPDATE SET status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END
+     DO UPDATE SET
+       status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END,
+       assigned_to=CASE
+         WHEN private.message_threads.assigned_to IS NULL AND $5::boolean THEN $1
+         ELSE private.message_threads.assigned_to
+       END
      RETURNING id`,
-    [userId, contactId, contact.name, reopen],
+    [userId, contactId, contact.name, reopen, solo],
   );
   return rows[0].id as string;
 }
@@ -506,15 +519,27 @@ export async function notifyThreadStatusChange(
   }
 }
 
+/** SQL WHERE fragment for personal inbox threads (param $1 = user id). */
+export async function personalInboxWhere(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  // Solo operators also see owned unassigned threads so My Inbox is usable out of the box.
+  if (await isSoloInboxOperator(db, userId)) {
+    return `(t.assigned_to=$1 OR (t.user_id=$1 AND t.assigned_to IS NULL))`;
+  }
+  return `t.assigned_to=$1`;
+}
+
 export async function inboxMetrics(
   db: PoolClient | ReturnType<typeof getPool>,
   userId: string,
   scope: "personal" | "workspace" = "workspace",
 ) {
-  // Personal metrics: only conversations assigned to the signed-in user.
+  // Personal metrics: assignment-based (+ owned unassigned for solo operators).
   // Workspace metrics: full threadAccess (owner/admin + assignee + own).
   const scopeWhere =
-    scope === "personal" ? "t.assigned_to=$1" : threadAccess;
+    scope === "personal" ? await personalInboxWhere(db, userId) : threadAccess;
   const { rows } = await db.query(
     `SELECT
        count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
@@ -549,6 +574,25 @@ export async function canAccessWorkspaceInbox(
     [userId],
   );
   return !!owned.rowCount;
+}
+
+/** Solo operator: no other active org members share a workspace with this user. */
+export async function isSoloInboxOperator(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (
+       SELECT 1 FROM private.memberships mine
+         JOIN private.memberships other
+           ON other.organization_id = mine.organization_id
+          AND other.active
+          AND other.user_id <> mine.user_id
+        WHERE mine.user_id = $1 AND mine.active
+     ) AS has_teammates`,
+    [userId],
+  );
+  return !rows[0]?.has_teammates;
 }
 
 // Display status combines the stored message status with the delivery queue's result.

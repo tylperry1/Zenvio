@@ -12,7 +12,9 @@ import {
 import { formatPhoneDisplay } from "@/lib/phone-display";
 import { localBookingStart } from "@/lib/recurrence.mjs";
 import { inZone } from "@/lib/scheduling.mjs";
+import { calendarDownload } from "@/lib/client";
 import { AddressAutocomplete } from "./address-autocomplete";
+import { IntakeAnswers } from "./intake-answers";
 import { Badge, Field, FormActions, Notice, Panel, Timeline } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -45,6 +47,8 @@ type DetailPayload = {
     slug?: string;
     allowed_location_modes?: string[] | null;
     virtual_instructions?: string;
+    description?: string;
+    intake_snapshot?: unknown;
   };
   history: { id: string; action: string; details: Record<string, unknown>; created_at: string }[];
   notifications: {
@@ -337,6 +341,10 @@ export function AppointmentDetailModal({
                 <dd>{booking.notes || "—"}</dd>
               </div>
             </dl>
+            <IntakeAnswers
+              answers={booking.intake_snapshot as never}
+              className="client-answers booking-answers"
+            />
           </Panel>
 
           {booking.status === "confirmed" && (
@@ -358,9 +366,32 @@ export function AppointmentDetailModal({
               <button type="button" className="ds-btn ghost" disabled={busy} onClick={() => void cancelAppointment()}>
                 Cancel appointment
               </button>
-              <a className="ds-btn ghost" href={`/api/bookings?ics=${booking.id}`}>
+              <button
+                type="button"
+                className="ds-btn ghost"
+                disabled={busy}
+                onClick={() =>
+                  calendarDownload(
+                    {
+                      id: booking.id,
+                      event_id: booking.event_id,
+                      guest_name: booking.guest_name,
+                      guest_email: booking.guest_email,
+                      starts_at: booking.starts_at,
+                      ends_at: booking.ends_at,
+                      status: booking.status === "cancelled" ? "cancelled" : "confirmed",
+                      notes: booking.notes || "",
+                      location: booking.location,
+                      intake_snapshot: booking.intake_snapshot as never,
+                    },
+                    booking.title || "Appointment",
+                    booking.location || "",
+                    booking.description || "",
+                  )
+                }
+              >
                 Add to calendar
-              </a>
+              </button>
             </FormActions>
           )}
 

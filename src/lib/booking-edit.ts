@@ -762,7 +762,8 @@ export async function bookingEditDetail(workspaceId: string, bookingId: string) 
       `SELECT b.id, b.event_id, b.guest_name, b.guest_email, b.guest_phone, b.guest_company,
               b.meeting_purpose, b.notes, b.location, b.location_mode, b.service_address,
               b.access_instructions, b.starts_at, b.ends_at, b.status, b.revision, b.contact_id,
-              e.title, e.duration, e.buffer, e.location_mode AS event_location_mode,
+              b.intake_snapshot,
+              e.title, e.description, e.duration, e.buffer, e.location_mode AS event_location_mode,
               e.allowed_location_modes, e.virtual_instructions, p.timezone, p.slug
          FROM public.bookings b
          JOIN public.event_types e ON e.id = b.event_id

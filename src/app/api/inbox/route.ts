@@ -13,10 +13,12 @@ import {
   ensureContactThread,
   canAccessWorkspaceInbox,
   inboxMetrics,
+  isSoloInboxOperator,
   markThreadReadForUser,
   markThreadUnreadForUser,
   notifyThreadAssignment,
   notifyThreadStatusChange,
+  personalInboxWhere,
   recordThreadActivity,
   sendThreadMessage,
   softDeleteThreadMessage,
@@ -178,13 +180,14 @@ export async function GET(request: NextRequest) {
     const filter = params.get("filter") || "mine";
     if (!(LIST_FILTERS as readonly string[]).includes(filter)) throw new ApiError("Invalid filter.");
     const workspaceAllowed = await canAccessWorkspaceInbox(pool, user.id);
-    // Personal default: only conversations assigned to the signed-in user.
+    // Personal default: conversations assigned to the signed-in user (+ owned unassigned when solo).
     // Workspace ("all") and Unassigned require owner/administrator (or solo owner).
     if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
       throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
+    const personalWhere = await personalInboxWhere(pool, user.id);
     const where = [threadAccess],
       values: unknown[] = [user.id];
-    if (filter === "mine" || filter === "unread") where.push("t.assigned_to=$1");
+    if (filter === "mine" || filter === "unread") where.push(personalWhere);
     if (filter === "unassigned") where.push("t.assigned_to IS NULL AND t.status IN ('open','pending_response')");
     if (filter === "open") where.push("t.status IN ('open','pending_response')");
     if (filter === "pending_response") where.push("t.status='pending_response'");
@@ -233,7 +236,7 @@ export async function GET(request: NextRequest) {
       pool.query("SELECT id,name,body FROM private.message_templates WHERE user_id=$1 ORDER BY name", [user.id]),
       pool.query(
         `SELECT count(*)::int n FROM private.message_threads t
-          WHERE ${metricsScope === "personal" ? "t.assigned_to=$1" : threadAccess} AND ${threadUnreadCountSql} > 0`,
+          WHERE ${metricsScope === "personal" ? personalWhere : threadAccess} AND ${threadUnreadCountSql} > 0`,
         [user.id],
       ),
       inboxMetrics(pool, user.id, metricsScope),
@@ -297,14 +300,25 @@ export async function POST(request: NextRequest) {
                 ])
               ).rows[0];
               if (!contact) throw new ApiError("Client not found.", 404);
+              const solo = await isSoloInboxOperator(db, user.id);
               const inserted = (
                 await db.query(
-                  `INSERT INTO private.message_threads(user_id,organization_id,contact_id,booking_id,subject)
-                   VALUES($1,(SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),$2,$3,$4)
+                  `INSERT INTO private.message_threads(user_id,organization_id,contact_id,booking_id,subject,assigned_to)
+                   VALUES(
+                     $1,
+                     (SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),
+                     $2,$3,$4,
+                     CASE WHEN $5::boolean THEN $1 ELSE NULL END
+                   )
                    ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL
-                   DO UPDATE SET subject=private.message_threads.subject
+                   DO UPDATE SET
+                     subject=private.message_threads.subject,
+                     assigned_to=CASE
+                       WHEN private.message_threads.assigned_to IS NULL AND $5::boolean THEN $1
+                       ELSE private.message_threads.assigned_to
+                     END
                    RETURNING id, (xmax = 0) AS inserted`,
-                  [user.id, contactId, bookingId, contact.name],
+                  [user.id, contactId, bookingId, contact.name, solo],
                 )
               ).rows[0];
               id = inserted.id as string;
