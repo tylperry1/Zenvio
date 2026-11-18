@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   bookingLocationSummary,
   emptyAddress,
@@ -12,7 +13,10 @@ import {
 import { formatPhoneDisplay } from "@/lib/phone-display";
 import { localBookingStart } from "@/lib/recurrence.mjs";
 import { inZone } from "@/lib/scheduling.mjs";
+import { calendarDownload } from "@/lib/client";
 import { AddressAutocomplete } from "./address-autocomplete";
+import { AskZenvio } from "./assistant";
+import { IntakeAnswers } from "./intake-answers";
 import { Badge, Field, FormActions, Notice, Panel, Timeline } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
@@ -45,6 +49,9 @@ type DetailPayload = {
     slug?: string;
     allowed_location_modes?: string[] | null;
     virtual_instructions?: string;
+    description?: string;
+    intake_snapshot?: unknown;
+    contact_id?: string | null;
   };
   history: { id: string; action: string; details: Record<string, unknown>; created_at: string }[];
   notifications: {
@@ -100,17 +107,9 @@ export function AppointmentDetailModal({
     accessInstructions: "",
   });
 
-  async function load() {
-    setError("");
-    const r = await fetch(`/api/bookings/edit?id=${encodeURIComponent(bookingId)}`, {
-      cache: "no-store",
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Unable to load appointment.");
-    setData(d);
-    const b = d.booking;
+  function formFromBooking(b: DetailPayload["booking"]) {
     const zone = b.timezone || "UTC";
-    setForm({
+    return {
       guestName: b.guest_name || "",
       guestEmail: b.guest_email || "",
       guestPhone: b.guest_phone || "",
@@ -122,7 +121,24 @@ export function AppointmentDetailModal({
       locationMode: (b.location_mode as LocationMode) || "custom",
       serviceAddress: b.service_address || emptyAddress(),
       accessInstructions: b.access_instructions || "",
+    };
+  }
+
+  function discardEditDraft() {
+    if (data?.booking) setForm(formFromBooking(data.booking));
+    setEditing(false);
+    setRescheduling(false);
+  }
+
+  async function load() {
+    setError("");
+    const r = await fetch(`/api/bookings/edit?id=${encodeURIComponent(bookingId)}`, {
+      cache: "no-store",
     });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Unable to load appointment.");
+    setData(d);
+    setForm(formFromBooking(d.booking));
   }
 
   useEffect(() => {
@@ -162,9 +178,21 @@ export function AppointmentDetailModal({
           };
         }
       }
-      if (rescheduling) {
-        body.startsAt = localBookingStart(form.startsAt, zone);
-        body.endsAt = localBookingStart(form.endsAt, zone);
+      // Always send schedule when the host changed start/end (Edit and Reschedule share this form).
+      const originalStartLocal = original ? toLocalInput(original.starts_at, zone) : "";
+      const originalEndLocal = original ? toLocalInput(original.ends_at, zone) : "";
+      const scheduleChanged =
+        !!original && (form.startsAt !== originalStartLocal || form.endsAt !== originalEndLocal);
+      if (rescheduling || scheduleChanged) {
+        // Keep the stored ISO instant for unchanged fields so DST/ambiguous wall times do not fail.
+        body.startsAt =
+          original && form.startsAt === originalStartLocal
+            ? new Date(original.starts_at).toISOString()
+            : localBookingStart(form.startsAt, zone);
+        body.endsAt =
+          original && form.endsAt === originalEndLocal
+            ? new Date(original.ends_at).toISOString()
+            : localBookingStart(form.endsAt, zone);
       }
       const r = await fetch("/api/bookings/edit", {
         method: "POST",
@@ -175,8 +203,16 @@ export function AppointmentDetailModal({
       if (!r.ok) throw new Error(d.error || "Unable to save appointment.");
       setEditing(false);
       setRescheduling(false);
-      await load();
       onChanged?.();
+      try {
+        await load();
+      } catch (reloadError) {
+        setError(
+          reloadError instanceof Error
+            ? reloadError.message
+            : "Saved, but the appointment details could not be refreshed.",
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to save appointment.");
     } finally {
@@ -196,8 +232,16 @@ export function AppointmentDetailModal({
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unable to cancel.");
-      await load();
       onChanged?.();
+      try {
+        await load();
+      } catch (reloadError) {
+        setError(
+          reloadError instanceof Error
+            ? reloadError.message
+            : "Cancelled, but the appointment details could not be refreshed.",
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to cancel.");
     } finally {
@@ -332,6 +376,10 @@ export function AppointmentDetailModal({
                 <dd>{booking.notes || "—"}</dd>
               </div>
             </dl>
+            <IntakeAnswers
+              answers={booking.intake_snapshot as never}
+              className="client-answers booking-answers"
+            />
           </Panel>
 
           {booking.status === "confirmed" && (
@@ -350,12 +398,53 @@ export function AppointmentDetailModal({
               >
                 Reschedule
               </button>
-              <button type="button" className="ds-btn ghost" disabled={busy} onClick={() => void cancelAppointment()}>
-                Cancel appointment
-              </button>
-              <a className="ds-btn ghost" href={`/api/bookings?ics=${booking.id}`}>
+              {new Date(booking.starts_at).getTime() > Date.now() && (
+                <button
+                  type="button"
+                  className="ds-btn ghost"
+                  disabled={busy}
+                  onClick={() => void cancelAppointment()}
+                >
+                  Cancel appointment
+                </button>
+              )}
+              {booking.contact_id && (
+                <Link className="ds-btn ghost" href={`/app/inbox?contact=${booking.contact_id}`}>
+                  Message
+                </Link>
+              )}
+              <AskZenvio
+                className="ds-btn ghost"
+                label="Ask Zenvio"
+                context={{ type: "appointment", id: booking.id, label: booking.title || "Appointment" }}
+                prompt="Help me prepare for or update this appointment."
+              />
+              <button
+                type="button"
+                className="ds-btn ghost"
+                disabled={busy}
+                onClick={() =>
+                  calendarDownload(
+                    {
+                      id: booking.id,
+                      event_id: booking.event_id,
+                      guest_name: booking.guest_name,
+                      guest_email: booking.guest_email,
+                      starts_at: booking.starts_at,
+                      ends_at: booking.ends_at,
+                      status: booking.status === "cancelled" ? "cancelled" : "confirmed",
+                      notes: booking.notes || "",
+                      location: booking.location,
+                      intake_snapshot: booking.intake_snapshot as never,
+                    },
+                    booking.title || "Appointment",
+                    booking.location || "",
+                    booking.description || "",
+                  )
+                }
+              >
                 Add to calendar
-              </a>
+              </button>
             </FormActions>
           )}
 
@@ -424,7 +513,7 @@ export function AppointmentDetailModal({
       {editing && booking && (
         <Modal
           title={rescheduling ? "Reschedule appointment" : "Edit appointment"}
-          onClose={() => !busy && (setEditing(false), setRescheduling(false))}
+          onClose={() => !busy && discardEditDraft()}
         >
           <div className="ds-stack" style={{ gap: 12 }}>
             {error && <Notice tone="danger">{error}</Notice>}
@@ -466,29 +555,32 @@ export function AppointmentDetailModal({
               />
             </Field>
 
-            {rescheduling && (
-              <>
-                <Field
-                  label="Start"
-                  hint={`Times in ${(booking.timezone || zone).replaceAll("_", " ")}.`}
-                >
-                  <input
-                    type="datetime-local"
-                    value={form.startsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
-                    disabled={busy}
-                  />
-                </Field>
-                <Field label="End">
-                  <input
-                    type="datetime-local"
-                    value={form.endsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
-                    disabled={busy}
-                  />
-                </Field>
-              </>
-            )}
+            <Field
+              label="Start"
+              hint={`Times in ${(booking.timezone || zone).replaceAll("_", " ")}.`}
+            >
+              <input
+                type="datetime-local"
+                value={form.startsAt}
+                onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
+            <Field label="End" hint="Duration is the difference between start and end.">
+              <input
+                type="datetime-local"
+                value={form.endsAt}
+                onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
+            <Field label="Company">
+              <input
+                value={form.guestCompany}
+                onChange={(e) => setForm((f) => ({ ...f, guestCompany: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
             <p className="ds-muted" style={{ margin: 0, fontSize: 13 }}>
               To reassign this appointment to another teammate, use Team → Appointments.
             </p>
@@ -573,15 +665,7 @@ export function AppointmentDetailModal({
               <button type="button" className="ds-btn" disabled={busy} onClick={() => void save()}>
                 {busy ? "Saving…" : "Save changes"}
               </button>
-              <button
-                type="button"
-                className="ds-btn ghost"
-                disabled={busy}
-                onClick={() => {
-                  setEditing(false);
-                  setRescheduling(false);
-                }}
-              >
+              <button type="button" className="ds-btn ghost" disabled={busy} onClick={discardEditDraft}>
                 Back
               </button>
             </FormActions>

@@ -35,6 +35,28 @@ test("inbox API exposes lifecycle filters, metrics, edit/delete actions", () => 
   assert.match(inbox, /deleted_at IS NULL/);
 });
 
+test("personal inbox is the default and workspace filters require admin capability", () => {
+  assert.match(inbox, /params\.get\("filter"\) \|\| "mine"/);
+  assert.match(inbox, /canAccessWorkspaceInbox/);
+  assert.match(inbox, /Workspace inbox requires owner or administrator access/);
+  assert.match(inbox, /personalOnly/);
+  assert.match(messaging, /export async function canAccessWorkspaceInbox/);
+  assert.match(messaging, /scope === "personal"/);
+  assert.match(messaging, /anyMembership/);
+  assert.match(messaging, /assigned_to=\$1 OR \(t\.user_id=\$1 AND t\.assigned_to IS NULL\)/);
+  assert.match(messaging, /assigned_to\)\s*\n\s*VALUES\(/);
+  assert.doesNotMatch(
+    messaging,
+    /ON CONFLICT \(user_id,contact_id\)[\s\S]{0,280}assigned_to=COALESCE/,
+  );
+  const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
+  assert.match(ui, /useState<Filter>\("mine"\)/);
+  assert.match(ui, /label: "My Inbox"/);
+  assert.match(ui, /label: "Workspace"/);
+  assert.match(ui, /workspaceInbox === true/);
+  assert.match(ui, /if \(activeListKey\.current !== identity\) return;\s*\n\s*const still = freshList\(\)/);
+});
+
 test("portal excludes internal notes, SMS, and soft-deleted messages", () => {
   assert.match(portal, /m\.direction<>'internal'/);
   assert.match(portal, /m\.channel<>'sms'/);

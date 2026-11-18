@@ -3,11 +3,10 @@ import { TimezoneSelect } from "./timezone-select";
 import { AvailabilityEditor } from "./availability-editor";
 import { ProfilePhoto } from "./profile-photo";
 import { BookingDesign } from "./booking-design";
-import { IntakeAnswers } from "./intake-answers";
-import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
 import { ShareLinkActions } from "./share-link";
 import { CreateAppointment } from "./create-appointment";
+import { AppointmentDetailModal } from "./appointment-detail";
 import { useEffect, useRef, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,14 +28,11 @@ import type {
 import { DEMO_KEY, readDemo } from "@/lib/demo";
 import {
   api,
-  calendarDownload,
   dayNames,
   download,
   initials,
   timezones,
 } from "@/lib/client";
-import { bookingLocationSummary } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone-display";
 type View =
   | "Overview"
   | "Event types"
@@ -468,10 +464,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <span className="booking-time">
                 {formatTime(b.starts_at)}
                 <small>
-                  {event?.duration ||
-                    Math.round(
-                      (+new Date(b.ends_at) - +new Date(b.starts_at)) / 60000,
-                    )}{" "}
+                  {Math.round((+new Date(b.ends_at) - +new Date(b.starts_at)) / 60000)}{" "}
                   minutes
                 </small>
               </span>
@@ -1393,7 +1386,18 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           </form>
         </Modal>
       )}
-      {selectedBooking && (
+      {selectedBooking && !demo && (
+        <AppointmentDetailModal
+          bookingId={selectedBooking.id}
+          hostSlug={data?.profile?.slug || ""}
+          onClose={() => setSelectedBooking(null)}
+          onChanged={() => {
+            setSelectedBooking(null);
+            void load();
+          }}
+        />
+      )}
+      {selectedBooking && demo && (
         <Modal
           title={
             eventFor(selectedBooking.event_id)?.title || "Appointment details"
@@ -1405,157 +1409,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               {initials(selectedBooking.guest_name)}
             </span>
             <h3>{selectedBooking.guest_name}</h3>
-            <a href={`mailto:${selectedBooking.guest_email}`}>
-              {selectedBooking.guest_email}
-            </a>
-            <dl>
-              <div>
-                <dt>
-                  <Icon name="calendar" size={17} />
-                  When
-                </dt>
-                <dd>
-                  {formatDate(selectedBooking.starts_at)},{" "}
-                  {formatTime(selectedBooking.starts_at)} –{" "}
-                  {formatTime(selectedBooking.ends_at)}
-                  <small>{data.profile.timezone}</small>
-                </dd>
-              </div>
-              {(() => {
-                const place = bookingLocationSummary({
-                  locationMode: selectedBooking.location_mode,
-                  location:
-                    selectedBooking.location ??
-                    eventFor(selectedBooking.event_id)?.location ??
-                    "",
-                  serviceAddress: selectedBooking.service_address,
-                  accessInstructions: selectedBooking.access_instructions,
-                });
-                return (
-                  <>
-                    <div>
-                      <dt>
-                        <Icon name="video" size={17} />
-                        Where
-                      </dt>
-                      <dd>
-                        <strong>{place.title}</strong>
-                        {place.body && place.body !== place.title && (
-                          <span style={{ display: "block", whiteSpace: "pre-line" }}>
-                            {place.body}
-                          </span>
-                        )}
-                      </dd>
-                    </div>
-                    {place.access ? (
-                      <div>
-                        <dt>Access</dt>
-                        <dd style={{ whiteSpace: "pre-wrap" }}>{place.access}</dd>
-                      </div>
-                    ) : null}
-                  </>
-                );
-              })()}
-              <div>
-                <dt>
-                  <Icon name="users" size={17} />
-                  Notes
-                </dt>
-                <dd>{selectedBooking.notes || "No notes added."}</dd>
-              </div>
-              {selectedBooking.guest_phone && (
-                <div>
-                  <dt>Phone</dt>
-                  <dd>{formatPhoneDisplay(selectedBooking.guest_phone)}</dd>
-                </div>
-              )}
-              {selectedBooking.guest_company && (
-                <div>
-                  <dt>Company</dt>
-                  <dd>{selectedBooking.guest_company}</dd>
-                </div>
-              )}
-              {selectedBooking.meeting_purpose && (
-                <div>
-                  <dt>Meeting purpose</dt>
-                  <dd
-                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-                  >
-                    {selectedBooking.meeting_purpose}
-                  </dd>
-                </div>
-              )}
-            </dl>
-            <IntakeAnswers answers={selectedBooking.intake_snapshot} className="client-answers booking-answers" />
-            {!demo && (
-              <div className="booking-detail-actions">
-                <AskZenvio
-                  className="ui-btn ui-btn-secondary ui-btn-sm"
-                  context={{ type: "appointment", id: selectedBooking.id, label: selectedBooking.guest_name }}
-                />
-                {selectedBooking.contact_id && (
-                  <Link className="ui-btn ui-btn-secondary ui-btn-sm" href={`/app/inbox?contact=${selectedBooking.contact_id}`}>
-                    <Icon name="message" size={14} /> Message
-                  </Link>
-                )}
-              </div>
-            )}
-            <button
-              className="button secondary full"
-              onClick={() =>
-                calendarDownload(
-                  selectedBooking,
-                  eventFor(selectedBooking.event_id)?.title || "Appointment",
-                  selectedBooking.location ?? eventFor(selectedBooking.event_id)?.location ?? "",
-                  eventFor(selectedBooking.event_id)?.description || "",
-                )
-              }
-            >
-              <Icon name="download" size={17} />
-              Add to your calendar
-            </button>
-            {selectedBooking.status === "confirmed" &&
-            new Date(selectedBooking.starts_at) > now ? (
-              <button
-                className="button danger full"
-                disabled={busy}
-                onClick={async () => {
-                  if (
-                    !window.confirm(
-                      "Cancel this appointment? A cancellation email is queued when platform email delivery is connected.",
-                    )
-                  )
-                    return;
-                  if (
-                    await mutate(
-                      { action: "cancel", id: selectedBooking.id },
-                      (d) => ({
-                        ...d,
-                        bookings: d.bookings.map((b) =>
-                          b.id === selectedBooking.id
-                            ? { ...b, status: "cancelled" }
-                            : b,
-                        ),
-                      }),
-                      "Appointment cancelled. If email delivery is unavailable, please notify your guest.",
-                    )
-                  )
-                    setSelectedBooking(null);
-                }}
-              >
-                Cancel appointment
-              </button>
-            ) : (
-              <p className="helper-text">
-                {selectedBooking.status === "cancelled"
-                  ? "This appointment has been cancelled."
-                  : "This conversation is in the past."}
-              </p>
-            )}
-            <p className="helper-text">
-              Calendar invitations are downloaded, and email reminders aren’t
-              available yet.
-            </p>
+            <p className="helper-text">Demo mode — editing is available after sign-in.</p>
           </div>
         </Modal>
       )}

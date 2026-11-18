@@ -71,11 +71,20 @@ export async function ensureContactThread(
   ).rows[0];
   if (!contact) throw new ApiError("Client not found.", 404);
   const reopen = opts?.reopen !== false;
+  // Assign the creator on insert so new conversations appear in My Inbox.
+  // Do not claim existing unassigned threads on conflict (portal/inbound reuse this path).
   const { rows } = await db.query(
-    `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject)
-     VALUES($1,(SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),$2,$3)
+    `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject,assigned_to)
+     VALUES(
+       $1,
+       (SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),
+       $2,
+       $3,
+       $1
+     )
      ON CONFLICT (user_id,contact_id) WHERE contact_id IS NOT NULL AND booking_id IS NULL
-     DO UPDATE SET status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END
+     DO UPDATE SET
+       status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END
      RETURNING id`,
     [userId, contactId, contact.name, reopen],
   );
@@ -506,7 +515,27 @@ export async function notifyThreadStatusChange(
   }
 }
 
-export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, userId: string) {
+/** SQL WHERE fragment for personal inbox threads (param $1 = user id). */
+export async function personalInboxWhere(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  // Solo operators also see owned unassigned threads so My Inbox is usable out of the box.
+  if (await isSoloInboxOperator(db, userId)) {
+    return `(t.assigned_to=$1 OR (t.user_id=$1 AND t.assigned_to IS NULL))`;
+  }
+  return `t.assigned_to=$1`;
+}
+
+export async function inboxMetrics(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+  scope: "personal" | "workspace" = "workspace",
+) {
+  // Personal metrics: assignment-based (+ owned unassigned for solo operators).
+  // Workspace metrics: full threadAccess (owner/admin + assignee + own).
+  const scopeWhere =
+    scope === "personal" ? await personalInboxWhere(db, userId) : threadAccess;
   const { rows } = await db.query(
     `SELECT
        count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
@@ -517,10 +546,55 @@ export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, 
        count(*) FILTER (WHERE t.status='closed')::int AS closed,
        count(*) FILTER (WHERE t.status='archived')::int AS archived
      FROM private.message_threads t
-     WHERE ${threadAccess}`,
+     WHERE ${scopeWhere}`,
     [userId],
   );
   return rows[0];
+}
+
+/** True when the user may open the workspace-wide inbox (owner / administrator). */
+export async function canAccessWorkspaceInbox(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  const privileged = await db.query(
+    `SELECT 1 FROM private.memberships
+      WHERE user_id=$1 AND active AND role IN ('owner','administrator')
+      LIMIT 1`,
+    [userId],
+  );
+  if (privileged.rowCount) return true;
+  // Owned-thread fallback is only for solo operators with no membership row.
+  // Ordinary members must not unlock Workspace via thread ownership alone.
+  const anyMembership = await db.query(
+    `SELECT 1 FROM private.memberships WHERE user_id=$1 AND active LIMIT 1`,
+    [userId],
+  );
+  if (anyMembership.rowCount) return false;
+  const owned = await db.query(
+    `SELECT 1 FROM private.message_threads WHERE user_id=$1 LIMIT 1`,
+    [userId],
+  );
+  return !!owned.rowCount;
+}
+
+/** Solo operator: no other active org members share a workspace with this user. */
+export async function isSoloInboxOperator(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (
+       SELECT 1 FROM private.memberships mine
+         JOIN private.memberships other
+           ON other.organization_id = mine.organization_id
+          AND other.active
+          AND other.user_id <> mine.user_id
+        WHERE mine.user_id = $1 AND mine.active
+     ) AS has_teammates`,
+    [userId],
+  );
+  return !rows[0]?.has_teammates;
 }
 
 // Display status combines the stored message status with the delivery queue's result.
