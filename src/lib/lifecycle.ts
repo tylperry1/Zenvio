@@ -162,7 +162,10 @@ export async function scheduleBooking(
       },
     });
   }
-  if (b.revision > 0 && !options?.skipChangeEmails) {
+  // Host field edits refresh reminders only — never re-send confirmation or "moved" mail.
+  if (options?.skipChangeEmails) return;
+
+  if (b.revision > 0) {
     const changedText = `Your appointment has moved to ${when} (${b.timezone}).${links}`;
     for (const to of [b.guest_email, b.host_email]) {
       const emailKey = `changed:${b.id}:${b.revision}:${to}`;
@@ -205,34 +208,36 @@ export async function scheduleBooking(
         },
       });
     }
-  } else {
-    // Confirmation: SMS + push only (email confirmation still from email_outbox bridge).
-    const confirmChannels = ["push", ...(phone ? (["sms"] as const) : [])] as ("sms" | "push")[];
-    await enqueueNotification(db, {
-      workspaceId: b.user_id,
-      idempotencyKey: `notify:confirm:${b.id}:${b.revision}`,
-      category: "appointment_confirmation",
-      templateId: "appointment_confirmation",
-      channels: confirmChannels,
-      recipientAddress: b.guest_email,
-      recipientContactId: b.contact_id,
-      bookingId: b.id,
-      bookingRevision: b.revision,
-      sms: phone
-        ? {
-            to: phone,
-            body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
-            reference: `confirm:${b.id}:${b.revision}`,
-            bookingId: b.id,
-            bookingRevision: b.revision,
-          }
-        : undefined,
-      push: {
-        title: "Appointment confirmed",
-        body: `${b.title} · ${when}`,
-      },
-    });
+    return;
   }
+
+  // Confirmation: SMS + push only (email confirmation still from email_outbox bridge).
+  // revision === 0 means the booking has never been moved / field-bumped.
+  const confirmChannels = ["push", ...(phone ? (["sms"] as const) : [])] as ("sms" | "push")[];
+  await enqueueNotification(db, {
+    workspaceId: b.user_id,
+    idempotencyKey: `notify:confirm:${b.id}:${b.revision}`,
+    category: "appointment_confirmation",
+    templateId: "appointment_confirmation",
+    channels: confirmChannels,
+    recipientAddress: b.guest_email,
+    recipientContactId: b.contact_id,
+    bookingId: b.id,
+    bookingRevision: b.revision,
+    sms: phone
+      ? {
+          to: phone,
+          body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
+          reference: `confirm:${b.id}:${b.revision}`,
+          bookingId: b.id,
+          bookingRevision: b.revision,
+        }
+      : undefined,
+    push: {
+      title: "Appointment confirmed",
+      body: `${b.title} · ${when}`,
+    },
+  });
 }
 export async function materializeReminders(user?: string) {
   const db = await getPool().connect();
@@ -283,7 +288,8 @@ export async function materializeReminders(user?: string) {
         LIMIT 500`,
       user ? [user] : [],
     );
-    for (const r of rows) await scheduleBooking(db, r.id);
+    // Reminder materialization must never enqueue "appointment moved" emails.
+    for (const r of rows) await scheduleBooking(db, r.id, { skipChangeEmails: true });
     await db.query("COMMIT");
   } catch (e) {
     await db.query("ROLLBACK");
@@ -313,7 +319,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       // Persist the first attempt before contacting the provider. A rollback after an
       // accepted send must not erase the start of its provider idempotency window.
       const claim = await db.query(
-        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),sender=coalesce(sender,$2) WHERE id=$1 AND status='queued' RETURNING claimed_at,sender",
+        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),sender=coalesce(sender,$2) WHERE id=$1 AND status='queued' AND run_at<=now() RETURNING claimed_at,sender",
         [j.id, j.attempts > 0 ? from.trim() : deliverySender(j.kind, from, bookingFrom)],
       );
       if (!claim.rowCount) continue;
@@ -344,18 +350,25 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         earlyAccessExists = !!(await db.query(
           "SELECT id FROM private.early_access_signups WHERE id=$1 FOR SHARE", [j.early_access_id],
         )).rowCount;
-      if (
-        !(
-          await db.query(
-            "SELECT id FROM private.delivery_jobs WHERE id=$1 AND status='queued' FOR UPDATE SKIP LOCKED",
-            [j.id],
-          )
-        ).rowCount
-      ) {
+      const lockedJob = (
+        await db.query(
+          "SELECT * FROM private.delivery_jobs WHERE id=$1 AND status='queued' AND run_at<=now() FOR UPDATE SKIP LOCKED",
+          [j.id],
+        )
+      ).rows[0];
+      if (!lockedJob) {
         await db.query("COMMIT");
         continue;
       }
-      let valid = teamInviteValid && earlyAccessExists && new Date(j.expires_at).getTime() > Date.now();
+      // Prefer the locked row — an edit may have advanced booking_revision / cancelled while we waited.
+      Object.assign(j, lockedJob, {
+        claimed_at: j.claimed_at || lockedJob.claimed_at,
+        sender: j.sender || lockedJob.sender,
+      });
+      let valid =
+        teamInviteValid &&
+        earlyAccessExists &&
+        new Date(j.expires_at).getTime() > Date.now();
       if (j.booking_id) {
         const b = (
           await db.query(

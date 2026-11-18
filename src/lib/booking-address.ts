@@ -91,12 +91,15 @@ export function resolveBookingLocation(input: {
       serviceAddress.formatted ||
       input.event.location ||
       locationLabel(requested);
+    // When the guest explicitly sends accessInstructions (including ""), honor that
+    // value so hosts can clear gate codes. Otherwise fall back to nested address notes.
     const accessInstructions =
-      guestAccessInstructions ||
-      String(serviceAddress.accessInstructions || "")
-        .replace(/[\x00-\x1f\x7f]/g, " ")
-        .trim()
-        .slice(0, 1000);
+      input.guest.accessInstructions != null
+        ? guestAccessInstructions
+        : String(serviceAddress.accessInstructions || "")
+            .replace(/[\x00-\x1f\x7f]/g, " ")
+            .trim()
+            .slice(0, 1000);
     return {
       locationMode: requested,
       locationText: locationText.slice(0, 500),

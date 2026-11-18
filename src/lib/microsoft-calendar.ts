@@ -272,8 +272,17 @@ export async function runMicrosoftJobs(userId?:string,limit=10){
       "update private.microsoft_calendar_connections set last_sync_at=now(),last_error=null where user_id=$1 and account_id=$2",
       [booking.user_id,booking.account_id]);
    }
-   await getPool().query("delete from private.microsoft_calendar_jobs where booking_id=$1 and claim_token=$2 and revision=$3",
-    [job.booking_id,claim,job.revision]);completed++;
+   const deleted=await getPool().query(
+    "delete from private.microsoft_calendar_jobs where booking_id=$1 and claim_token=$2 and revision=$3 returning booking_id",
+    [job.booking_id,claim,job.revision]);
+   // If a newer host edit bumped revision while this worker ran, the delete matches
+   // no row. Clear only this worker's claim so the superseding job is not stuck for
+   // the full five-minute lease (mirrors Google calendar job cleanup).
+   if(!deleted.rows.length)
+    await getPool().query(
+     "update private.microsoft_calendar_jobs set locked_until=null,claim_token=null where booking_id=$1 and claim_token=$2",
+     [job.booking_id,claim]);
+   completed++;
   }catch{
    await getPool().query(
     `update private.microsoft_calendar_jobs set attempts=case when revision=$3 then attempts+1 else attempts end,

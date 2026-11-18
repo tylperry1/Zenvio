@@ -17,6 +17,7 @@ import { appOrigin, drainDeliveries, scheduleBooking } from "./lifecycle";
 import { microsoftBusyForHost, runMicrosoftJobs } from "./microsoft-calendar";
 import { deliverBookingEmails } from "./mail";
 import { enqueueNotification } from "./notifications/engine";
+import { syncNotificationAttemptFromDeliveryJob } from "./notifications/delivery-sync";
 import { ApiError } from "./server";
 
 export { detectBookingChangesImpl as detectBookingChanges };
@@ -110,6 +111,46 @@ function formatWhen(startsAt: string | Date, timezone: string) {
   }).format(new Date(startsAt));
 }
 
+function locationLabelFallback(mode: string) {
+  if (mode === "virtual") return "Virtual meeting";
+  if (mode === "at_business") return "Business location";
+  if (mode === "at_customer") return "Customer location";
+  if (mode === "custom") return "Custom meeting location";
+  return mode || "Not specified";
+}
+
+async function queueCalendarSync(db: PoolClient, bookingId: string, userId: string) {
+  await db.query(
+    `INSERT INTO private.google_calendar_jobs(booking_id, user_id)
+     SELECT $1, $2
+      WHERE EXISTS (
+        SELECT 1 FROM private.google_calendar_connections
+         WHERE user_id = $2 AND sync_events
+      )
+     ON CONFLICT (booking_id) DO UPDATE
+       SET attempts = 0,
+           not_before = now(),
+           last_error = NULL,
+           revision = private.google_calendar_jobs.revision + 1,
+           updated_at = now()`,
+    [bookingId, userId],
+  );
+  await db.query(
+    `INSERT INTO private.microsoft_calendar_jobs(booking_id, user_id)
+     SELECT $1, $2
+      WHERE EXISTS (
+        SELECT 1 FROM private.microsoft_calendar_connections
+         WHERE user_id = $2 AND sync_events
+      )
+     ON CONFLICT (booking_id) DO UPDATE
+       SET attempts = 0,
+           not_before = now(),
+           last_error = NULL,
+           revision = private.microsoft_calendar_jobs.revision + 1`,
+    [bookingId, userId],
+  );
+}
+
 async function loadEditableBooking(db: PoolClient, workspaceId: string, bookingId: string) {
   const { rows } = await db.query(
     `SELECT b.*, e.title, e.buffer, e.location AS event_location, e.location_mode AS event_location_mode,
@@ -141,11 +182,13 @@ async function notifyBookingEdit(
     { to: booking.host_email || "", contactId: null, role: "employee" as const },
   ].filter((r) => r.to);
 
-  const locationChange = changes.find(
-    (c) => c.field === "location" || c.field === "location_mode" || c.field === "access_instructions",
-  );
+  const locationTextChange = changes.find((c) => c.field === "location");
+  const locationModeChange = changes.find((c) => c.field === "location_mode");
+  const accessChange = changes.find((c) => c.field === "access_instructions");
+  const locationChange = locationTextChange || locationModeChange || accessChange;
   const timeChange = changes.some((c) => c.field === "starts_at" || c.field === "ends_at");
   const cancelled = changes.some((c) => c.field === "status" && c.next === "cancelled");
+  const guestEmailChanged = changes.some((c) => c.field === "guest_email");
   const assigneeChange = changes.find((c) => c.field === "assigned_employee");
   // Internal notes must never appear in customer-facing copy.
   const customerVisibleFields = new Set([
@@ -165,18 +208,50 @@ async function notifyBookingEdit(
 
     if (locationChange) {
       const emailKey = `location:${booking.id}:${revision}:${recipient.to}`;
-      const previous = String(locationChange.previous || "Not specified");
-      const next = String(locationChange.next || booking.location || "Not specified");
-      const instructions = booking.access_instructions
-        ? `\nLocation instructions: ${booking.access_instructions}`
+      // Prefer real location snapshots; for instruction-only edits keep the current address.
+      const currentLocation = String(booking.location || "").trim() || "Not specified";
+      // Empty previous location snapshot must stay "Not specified" — never borrow the new address.
+      const previousAddress = locationTextChange
+        ? String(locationTextChange.previous || "").trim() || "Not specified"
+        : locationModeChange
+          ? locationLabelFallback(String(locationModeChange.previous || "")) || "Not specified"
+          : currentLocation;
+      const nextAddress = locationTextChange
+        ? String(locationTextChange.next || "").trim() || currentLocation
+        : locationModeChange
+          ? locationLabelFallback(String(locationModeChange.next || "")) || currentLocation
+          : currentLocation;
+      // When the guest identity changed, do not reveal prior gate codes / entry notes.
+      const instructionLines = accessChange
+        ? guestEmailChanged
+          ? `\nLocation instructions: ${String(accessChange.next || "None")}`
+          : `\nPrevious instructions: ${String(accessChange.previous || "None")}\nNew instructions: ${String(accessChange.next || "None")}`
+        : booking.access_instructions
+          ? `\nLocation instructions: ${booking.access_instructions}`
+          : "";
+      const modeLine = locationModeChange
+        ? `\nLocation type: ${locationLabelFallback(String(locationModeChange.previous || ""))} → ${locationLabelFallback(String(locationModeChange.next || ""))}`
         : "";
+      const isHostRecipient =
+        recipient.role === "employee" ||
+        recipient.to === (booking.host_email || "").toLowerCase();
+      // Replacement guests must not see the former customer's previous address.
+      // Mode-only / instruction-only edits: current address once (modeLine covers type).
+      const addressLines =
+        guestEmailChanged && !isHostRecipient
+          ? `Address: ${currentLocation}`
+          : locationTextChange
+            ? `Previous address: ${previousAddress}\nNew address: ${nextAddress}`
+            : locationModeChange || accessChange
+              ? `Address: ${currentLocation}`
+              : `Previous address: ${previousAddress}\nNew address: ${nextAddress}`;
       const text =
         `Appointment Location Updated\n\n` +
         `Service: ${title}\n` +
         `When: ${when} (${booking.timezone || "UTC"})\n` +
-        `Previous address: ${previous}\n` +
-        `New address: ${next}` +
-        instructions +
+        addressLines +
+        modeLine +
+        instructionLines +
         links;
       await enqueueNotification(db, {
         workspaceId: booking.user_id,
@@ -198,7 +273,7 @@ async function notifyBookingEdit(
         },
         push: {
           title: "Appointment Location Updated",
-          body: `${title} · ${next}`,
+          body: `${title} · ${nextAddress}`,
         },
       });
     }
@@ -282,7 +357,16 @@ export async function hostEditBooking(
     const nextGuestName = patch.guestName != null ? clean(patch.guestName, 120) : booking.guest_name;
     const nextGuestEmail =
       patch.guestEmail != null ? clean(patch.guestEmail, 254).toLowerCase() : booking.guest_email;
-    const nextGuestPhone = patch.guestPhone != null ? clean(patch.guestPhone, 40) : booking.guest_phone || "";
+    const replacingGuest =
+      nextGuestEmail !== (booking.guest_email || "").toLowerCase();
+    // Guest replacement must not keep the former customer's phone unless the host
+    // explicitly supplies one for the new guest (avoids SMS with the rotated cancel_token).
+    const nextGuestPhone =
+      patch.guestPhone != null
+        ? clean(patch.guestPhone, 40)
+        : replacingGuest
+          ? ""
+          : booking.guest_phone || "";
     const nextGuestCompany =
       patch.guestCompany != null ? clean(patch.guestCompany, 120) : booking.guest_company || "";
     const nextPurpose =
@@ -319,16 +403,26 @@ export async function hostEditBooking(
           ])
         )
           throw new ApiError("That time is no longer available.", 409);
+        const durationMs = Date.parse(end) - Date.parse(start);
+        if (durationMs < 5 * 60000 || durationMs > 24 * 60 * 60000)
+          throw new ApiError("Choose an end time between 5 minutes and 24 hours after the start.");
+        // move_booking stores whole minutes; reject fractional so availability and save match.
+        if (durationMs % 60000 !== 0)
+          throw new ApiError("Choose an end time on a whole minute.");
+        const durationMins = durationMs / 60000;
+        // Pass duration into move_booking so the destination window is validated without
+        // first extending the booking at its current start (exclusion is not deferrable).
         const result = (
-          await db.query("SELECT private.move_booking($1,$2,$3,$4) result", [
+          await db.query("SELECT private.move_booking($1,$2,$3,$4,$5) result", [
             booking.id,
             start,
             workspaceId,
             null,
+            durationMins,
           ])
         ).rows[0].result;
-        nextStarts = result.starts_at;
-        nextEnds = result.ends_at;
+        nextStarts = iso(result.starts_at);
+        nextEnds = iso(result.ends_at);
         moved = true;
       }
     }
@@ -356,11 +450,24 @@ export async function hostEditBooking(
         allowed_location_modes: booking.allowed_location_modes,
         virtual_instructions: booking.virtual_instructions || "",
       };
+      // Precedence: top-level patch.accessInstructions (incl. "") → nested serviceAddress
+      // accessInstructions on a nested-only patch → preserve stored booking instructions.
+      const nestedAccess =
+        patch.serviceAddress !== undefined &&
+        patch.serviceAddress &&
+        typeof patch.serviceAddress === "object" &&
+        (patch.serviceAddress as StructuredAddress).accessInstructions != null
+          ? String((patch.serviceAddress as StructuredAddress).accessInstructions)
+          : null;
       const guest: BookingLocationInput = {
         locationMode: patch.locationMode ?? booking.location_mode,
         serviceAddress: patch.serviceAddress !== undefined ? patch.serviceAddress : booking.service_address,
         accessInstructions:
-          patch.accessInstructions != null ? patch.accessInstructions : booking.access_instructions,
+          patch.accessInstructions != null
+            ? patch.accessInstructions
+            : nestedAccess != null
+              ? nestedAccess
+              : booking.access_instructions,
       };
       if (patch.locationMode != null && !isLocationMode(patch.locationMode))
         throw new ApiError("Choose a valid location type.");
@@ -440,38 +547,178 @@ export async function hostEditBooking(
       });
     }
 
-    await db.query(
-      `UPDATE public.bookings
-          SET guest_name = $3,
-              guest_email = $4,
-              guest_phone = $5,
-              guest_company = $6,
-              meeting_purpose = $7,
-              notes = $8
-        WHERE id = $1 AND user_id = $2`,
-      [
-        booking.id,
-        workspaceId,
-        nextGuestName,
-        nextGuestEmail,
-        nextGuestPhone,
-        nextGuestCompany,
-        nextPurpose,
-        nextNotes,
-      ],
-    );
+    const emailChanged = nextGuestEmail !== (booking.guest_email || "").toLowerCase();
+    // Replacing the customer must not leave the previous contact able to open the portal.
+    if (emailChanged) {
+      const linked = (
+        await db.query(
+          `SELECT id FROM public.contacts
+            WHERE user_id = $1 AND email = lower(trim($2))
+            LIMIT 1`,
+          [workspaceId, nextGuestEmail],
+        )
+      ).rows[0]?.id as string | undefined;
+      await db.query(
+        `UPDATE public.bookings
+            SET guest_name = $3,
+                guest_email = $4,
+                guest_phone = $5,
+                guest_company = $6,
+                meeting_purpose = $7,
+                notes = $8,
+                contact_id = $9,
+                cancel_token = gen_random_uuid()
+          WHERE id = $1 AND user_id = $2`,
+        [
+          booking.id,
+          workspaceId,
+          nextGuestName,
+          nextGuestEmail,
+          nextGuestPhone,
+          nextGuestCompany,
+          nextPurpose,
+          nextNotes,
+          linked || null,
+        ],
+      );
+    } else {
+      await db.query(
+        `UPDATE public.bookings
+            SET guest_name = $3,
+                guest_email = $4,
+                guest_phone = $5,
+                guest_company = $6,
+                meeting_purpose = $7,
+                notes = $8
+          WHERE id = $1 AND user_id = $2`,
+        [
+          booking.id,
+          workspaceId,
+          nextGuestName,
+          nextGuestEmail,
+          nextGuestPhone,
+          nextGuestCompany,
+          nextPurpose,
+          nextNotes,
+        ],
+      );
+    }
 
     // Time moves already bump revision via move_booking / lifecycle. Cancel bumps above.
-    // Location + field-only edits need an explicit bump for notification idempotency keys.
+    // Only bump for customer-visible / location fields so internal-note edits do not
+    // orphan pending confirmation emails keyed to the prior revision.
+    const customerFacingChange = changes.some((c) =>
+      [
+        "location",
+        "location_mode",
+        "access_instructions",
+        "guest_name",
+        "guest_email",
+        "guest_phone",
+        "guest_company",
+        "meeting_purpose",
+        "event_id",
+        "assigned_employee",
+      ].includes(c.field),
+    );
+    const previousGuestEmail = (booking.guest_email || "").toLowerCase();
+    // Guest email change: never revive pending confirmations addressed to the old customer.
+    if (emailChanged) {
+      await db.query(
+        `UPDATE private.email_outbox
+            SET migrated_at = now(), message = ''
+          WHERE booking_id = $1
+            AND sent_at IS NULL
+            AND migrated_at IS NULL
+            AND lower(recipient) = $2`,
+        [booking.id, previousGuestEmail],
+      );
+      const retired = (
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET status = 'cancelled',
+                  payload_ciphertext = NULL,
+                  calendar_ciphertext = NULL
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND kind IN ('booking_confirmation', 'booking_reminder')
+              AND lower(recipient) = $2
+        RETURNING id, notification_attempt_id`,
+          [booking.id, previousGuestEmail],
+        )
+      ).rows;
+      for (const row of retired) {
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: row.id,
+          notification_attempt_id: row.notification_attempt_id,
+          status: "cancelled",
+          last_error: "Delivery cancelled because the guest was replaced.",
+        });
+      }
+    }
+
+    // Location edits must not carry forward a confirmation that still embeds the old address.
+    // Location-update email covers the guest; scheduleBooking refreshes reminders.
+    if (locationChanged) {
+      const retired = (
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET status = 'cancelled',
+                  payload_ciphertext = NULL,
+                  calendar_ciphertext = NULL
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND kind = 'booking_confirmation'
+          RETURNING id, notification_attempt_id`,
+          [booking.id],
+        )
+      ).rows;
+      for (const row of retired) {
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: row.id,
+          notification_attempt_id: row.notification_attempt_id,
+          status: "cancelled",
+          last_error: "Delivery cancelled because the appointment location changed.",
+        });
+      }
+    }
+
     const needsRevisionBump =
-      !moved &&
-      patch.status !== "cancelled" &&
-      changes.some((c) => !["starts_at", "ends_at", "duration"].includes(c.field));
+      !moved && patch.status !== "cancelled" && customerFacingChange;
     if (needsRevisionBump) {
-      await db.query(`UPDATE public.bookings SET revision = revision + 1 WHERE id = $1 AND user_id = $2`, [
-        booking.id,
-        workspaceId,
-      ]);
+      const priorRevision = booking.revision;
+      const bumped = (
+        await db.query(
+          `UPDATE public.bookings SET revision = revision + 1 WHERE id = $1 AND user_id = $2 RETURNING revision`,
+          [booking.id, workspaceId],
+        )
+      ).rows[0];
+      // Keep unsent confirmations (outbox + queued delivery_jobs) on the live revision,
+      // except old-guest / stale-location mail already cancelled above.
+      // Do not carry reminders — scheduleBooking enqueues fresh ones for this revision.
+      if (bumped?.revision != null) {
+        await db.query(
+          `UPDATE private.email_outbox
+              SET booking_revision = $2
+            WHERE booking_id = $1
+              AND sent_at IS NULL
+              AND migrated_at IS NULL`,
+          [booking.id, bumped.revision],
+        );
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET booking_revision = $2
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND booking_revision = $3
+              AND kind = 'booking_confirmation'`,
+          [booking.id, bumped.revision, priorRevision],
+        );
+      }
+    }
+
+    if (changes.some((c) => c.field === "guest_name")) {
+      await queueCalendarSync(db, booking.id, workspaceId);
     }
 
     const refreshed = await loadEditableBooking(db, workspaceId, bookingId);
