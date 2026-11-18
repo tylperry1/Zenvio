@@ -13,6 +13,6 @@ test("Microsoft adapter synchronizes booking lifecycle and exposes read-only ove
  // Superseded revision: success-path delete returns no row → clear only this claim.
  assert.match(
   s,
-  /delete from private\.microsoft_calendar_jobs where booking_id=\$1 and claim_token=\$2 and revision=\$3 returning booking_id[\s\S]*?if\(!deleted\.rows\.length\)[\s\S]*?locked_until=null,claim_token=null where booking_id=\$1 and claim_token=\$2/,
+  /delete from private\.microsoft_calendar_jobs where booking_id=\$1 and claim_token=\$2 and revision=\$3 returning booking_id[\s\S]*?if\(!deleted\.rows\.length\)[\s\S]*?locked_until=null,claim_token=null where booking_id=\$1 and claim_token=\$2[\s\S]*?\[job\.booking_id,claim\]/,
  );
 });

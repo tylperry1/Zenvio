@@ -232,13 +232,19 @@ async function notifyBookingEdit(
       const modeLine = locationModeChange
         ? `\nLocation type: ${locationLabelFallback(String(locationModeChange.previous || ""))} → ${locationLabelFallback(String(locationModeChange.next || ""))}`
         : "";
-      // Instruction-only edits: show current address once, not a Previous/New address diff.
+      const isHostRecipient =
+        recipient.role === "employee" ||
+        recipient.to === (booking.host_email || "").toLowerCase();
+      // Replacement guests must not see the former customer's previous address.
+      // Mode-only / instruction-only edits: current address once (modeLine covers type).
       const addressLines =
-        locationTextChange || locationModeChange
-          ? `Previous address: ${previousAddress}\nNew address: ${nextAddress}`
-          : accessChange
-            ? `Address: ${currentLocation}`
-            : `Previous address: ${previousAddress}\nNew address: ${nextAddress}`;
+        guestEmailChanged && !isHostRecipient
+          ? `Address: ${currentLocation}`
+          : locationTextChange
+            ? `Previous address: ${previousAddress}\nNew address: ${nextAddress}`
+            : locationModeChange || accessChange
+              ? `Address: ${currentLocation}`
+              : `Previous address: ${previousAddress}\nNew address: ${nextAddress}`;
       const text =
         `Appointment Location Updated\n\n` +
         `Service: ${title}\n` +
@@ -351,7 +357,16 @@ export async function hostEditBooking(
     const nextGuestName = patch.guestName != null ? clean(patch.guestName, 120) : booking.guest_name;
     const nextGuestEmail =
       patch.guestEmail != null ? clean(patch.guestEmail, 254).toLowerCase() : booking.guest_email;
-    const nextGuestPhone = patch.guestPhone != null ? clean(patch.guestPhone, 40) : booking.guest_phone || "";
+    const replacingGuest =
+      nextGuestEmail !== (booking.guest_email || "").toLowerCase();
+    // Guest replacement must not keep the former customer's phone unless the host
+    // explicitly supplies one for the new guest (avoids SMS with the rotated cancel_token).
+    const nextGuestPhone =
+      patch.guestPhone != null
+        ? clean(patch.guestPhone, 40)
+        : replacingGuest
+          ? ""
+          : booking.guest_phone || "";
     const nextGuestCompany =
       patch.guestCompany != null ? clean(patch.guestCompany, 120) : booking.guest_company || "";
     const nextPurpose =
