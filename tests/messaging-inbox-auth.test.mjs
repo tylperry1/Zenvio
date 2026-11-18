@@ -44,13 +44,17 @@ test("personal inbox is the default and workspace filters require admin capabili
   assert.match(messaging, /scope === "personal"/);
   assert.match(messaging, /anyMembership/);
   assert.match(messaging, /assigned_to=\$1 OR \(t\.user_id=\$1 AND t\.assigned_to IS NULL\)/);
-  assert.match(messaging, /assigned_to=COALESCE\(private\.message_threads\.assigned_to, \$1\)/);
+  assert.match(messaging, /assigned_to\)\s*\n\s*VALUES\(/);
+  assert.doesNotMatch(
+    messaging,
+    /ON CONFLICT \(user_id,contact_id\)[\s\S]{0,280}assigned_to=COALESCE/,
+  );
   const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
   assert.match(ui, /useState<Filter>\("mine"\)/);
   assert.match(ui, /label: "My Inbox"/);
   assert.match(ui, /label: "Workspace"/);
   assert.match(ui, /workspaceInbox === true/);
-  assert.match(ui, /activeListKey\.current !== identity/);
+  assert.match(ui, /if \(activeListKey\.current !== identity\) return;\s*\n\s*const still = freshList\(\)/);
 });
 
 test("portal excludes internal notes, SMS, and soft-deleted messages", () => {

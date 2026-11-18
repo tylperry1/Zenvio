@@ -320,9 +320,7 @@ export async function POST(request: NextRequest) {
                      $1
                    )
                    ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL
-                   DO UPDATE SET
-                     subject=private.message_threads.subject,
-                     assigned_to=COALESCE(private.message_threads.assigned_to, $1)
+                   DO UPDATE SET subject=private.message_threads.subject
                    RETURNING id, (xmax = 0) AS inserted`,
                   [user.id, contactId, bookingId, contact.name],
                 )

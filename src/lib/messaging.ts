@@ -71,7 +71,8 @@ export async function ensureContactThread(
   ).rows[0];
   if (!contact) throw new ApiError("Client not found.", 404);
   const reopen = opts?.reopen !== false;
-  // Assign the creator so the conversation appears in their default My Inbox.
+  // Assign the creator on insert so new conversations appear in My Inbox.
+  // Do not claim existing unassigned threads on conflict (portal/inbound reuse this path).
   const { rows } = await db.query(
     `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject,assigned_to)
      VALUES(
@@ -83,8 +84,7 @@ export async function ensureContactThread(
      )
      ON CONFLICT (user_id,contact_id) WHERE contact_id IS NOT NULL AND booking_id IS NULL
      DO UPDATE SET
-       status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END,
-       assigned_to=COALESCE(private.message_threads.assigned_to, $1)
+       status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END
      RETURNING id`,
     [userId, contactId, contact.name, reopen],
   );

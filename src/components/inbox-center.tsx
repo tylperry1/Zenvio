@@ -141,6 +141,8 @@ export function InboxCenter() {
   const loadList = useCallback(async (opts?: { page?: number; append?: boolean }) => {
     const nextPage = opts?.page ?? 0;
     const identity = `${filter}\0${query}`;
+    // Skip before invalidating fresher in-flight loads for the currently visible view.
+    if (activeListKey.current !== identity) return;
     const still = freshList();
     try {
       if (opts?.append) setLoadingMore(true);
