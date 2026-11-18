@@ -146,10 +146,15 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                     /platform administrator must enable/i.test(c.last_error) ||
                     /same project/i.test(c.last_error)),
               );
+              // New api_disabled writes store the customer-safe message (no OAuth-project wording).
+              const currentApiDisabled = Boolean(
+                c.last_error &&
+                  /^Google Calendar isn’t available to connect right now\./i.test(c.last_error),
+              );
               const sanitizeCustomerError = Boolean(
                 c.last_error &&
                   (legacyApiDisabled ||
-                    /Google Calendar isn’t available to connect/i.test(c.last_error) ||
+                    currentApiDisabled ||
                     /platform administrator|OAuth client|Google Cloud project|API key|webhook/i.test(c.last_error)),
               );
               // Sanitize legacy stored diagnostics so customers never see OAuth-project admin copy.
@@ -158,6 +163,7 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                 : sanitizeCustomerError
                   ? "Google Calendar isn’t available to connect right now. Please try again later or contact support."
                   : c.last_error;
+              const showAdminApiLink = data.isAdmin && (legacyApiDisabled || currentApiDisabled);
               return (
                 <li key={c.account_sub} className="gc-account">
                   <span className="ui-list-icon">
@@ -169,7 +175,7 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                       Primary calendar · {c.last_sync_at ? `last synced ${formatDateTime(c.last_sync_at)}` : "not synced yet"}
                     </small>
                     {displayError && <small className="pay-error" role="status">{displayError}</small>}
-                    {legacyApiDisabled && data.isAdmin && (
+                    {showAdminApiLink && (
                       <a className="gc-setup-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noreferrer">
                         Enable Google Calendar API in the OAuth project ↗
                       </a>

@@ -110,7 +110,12 @@ export function Billing() {
           ? result.message
           : customerMessages.billing.syncSuccessFallback,
       );
-      await load();
+      try {
+        await load();
+      } catch {
+        // Profile update already succeeded — do not treat a status refresh failure as an update failure.
+        setError("Billing profile updated, but the latest status couldn’t be loaded. Select Refresh status.");
+      }
     } catch (error) {
       const raw = error instanceof Error ? error.message : "";
       setError(
