@@ -206,19 +206,20 @@ async function notifyBookingEdit(
 
     if (locationChange) {
       const emailKey = `location:${booking.id}:${revision}:${recipient.to}`;
-      // Prefer real location snapshots over mode/instruction field diffs for address lines.
+      // Prefer real location snapshots; for instruction-only edits keep the current address.
+      const currentLocation = String(booking.location || "").trim() || "Not specified";
       const previousAddress =
         String(locationTextChange?.previous || "").trim() ||
         (locationModeChange
           ? locationLabelFallback(String(locationModeChange.previous || ""))
           : "") ||
-        "Not specified";
+        currentLocation;
       const nextAddress =
-        String(locationTextChange?.next || booking.location || "").trim() ||
+        String(locationTextChange?.next || "").trim() ||
         (locationModeChange
           ? locationLabelFallback(String(locationModeChange.next || ""))
           : "") ||
-        "Not specified";
+        currentLocation;
       const instructionLines = accessChange
         ? `\nPrevious instructions: ${String(accessChange.previous || "None")}\nNew instructions: ${String(accessChange.next || "None")}`
         : booking.access_instructions
@@ -227,12 +228,15 @@ async function notifyBookingEdit(
       const modeLine = locationModeChange
         ? `\nLocation type: ${locationLabelFallback(String(locationModeChange.previous || ""))} → ${locationLabelFallback(String(locationModeChange.next || ""))}`
         : "";
+      const addressLines =
+        locationTextChange || locationModeChange || !accessChange
+          ? `Previous address: ${previousAddress}\nNew address: ${nextAddress}`
+          : `Address: ${currentLocation}`;
       const text =
         `Appointment Location Updated\n\n` +
         `Service: ${title}\n` +
         `When: ${when} (${booking.timezone || "UTC"})\n` +
-        `Previous address: ${previousAddress}\n` +
-        `New address: ${nextAddress}` +
+        addressLines +
         modeLine +
         instructionLines +
         links;
@@ -377,7 +381,39 @@ export async function hostEditBooking(
           ])
         )
           throw new ApiError("That time is no longer available.", 409);
-        // move_booking preserves prior duration; apply requested end afterward when duration changes.
+        const durationMins = Math.round((Date.parse(end) - Date.parse(start)) / 60000);
+        if (durationMins < 5 || durationMins > 24 * 60)
+          throw new ApiError("Choose an end time between 5 minutes and 24 hours after the start.");
+        const previousDurationMins = Math.round(
+          (Date.parse(iso(booking.ends_at)) - Date.parse(iso(booking.starts_at))) / 60000,
+        );
+        // move_booking derives duration from ends_at-starts_at. Align duration first so
+        // opening-hours and overlap checks use the final window the host requested.
+        if (durationMins !== previousDurationMins) {
+          const alignedEnd = new Date(
+            Date.parse(iso(booking.starts_at)) + durationMins * 60000,
+          ).toISOString();
+          const alignedBlocked = new Date(Date.parse(alignedEnd) + bufferMs).toISOString();
+          const aligned = (
+            await db.query(
+              `UPDATE public.bookings
+                  SET ends_at = $3::timestamptz,
+                      blocked_until = $4::timestamptz
+                WHERE id = $1 AND user_id = $2
+                  AND NOT EXISTS (
+                    SELECT 1 FROM public.bookings x
+                     WHERE x.user_id = $2
+                       AND x.id <> $1
+                       AND x.status = 'confirmed'
+                       AND tstzrange(starts_at, $4::timestamptz, '[)')
+                         && tstzrange(x.starts_at, x.blocked_until, '[)')
+                  )
+              RETURNING id`,
+              [booking.id, workspaceId, alignedEnd, alignedBlocked],
+            )
+          ).rows[0];
+          if (!aligned) throw new ApiError("That time is no longer available.", 409);
+        }
         const result = (
           await db.query("SELECT private.move_booking($1,$2,$3,$4) result", [
             booking.id,
@@ -388,34 +424,6 @@ export async function hostEditBooking(
         ).rows[0].result;
         nextStarts = iso(result.starts_at);
         nextEnds = iso(result.ends_at);
-        if (iso(result.ends_at) !== end) {
-          const durationMins = Math.round((Date.parse(end) - Date.parse(start)) / 60000);
-          if (durationMins < 5 || durationMins > 24 * 60)
-            throw new ApiError("Choose an end time between 5 minutes and 24 hours after the start.");
-          const blocked = new Date(Date.parse(end) + bufferMs).toISOString();
-          const resized = (
-            await db.query(
-              `UPDATE public.bookings
-                  SET ends_at = $3::timestamptz,
-                      blocked_until = $4::timestamptz,
-                      revision = revision + 1
-                WHERE id = $1 AND user_id = $2
-                  AND NOT EXISTS (
-                    SELECT 1 FROM public.bookings x
-                     WHERE x.user_id = $2
-                       AND x.id <> $1
-                       AND x.status = 'confirmed'
-                       AND tstzrange($3::timestamptz, $4::timestamptz, '[)')
-                         && tstzrange(x.starts_at, x.blocked_until, '[)')
-                  )
-              RETURNING starts_at, ends_at`,
-              [booking.id, workspaceId, end, blocked],
-            )
-          ).rows[0];
-          if (!resized) throw new ApiError("That time is no longer available.", 409);
-          nextStarts = iso(resized.starts_at);
-          nextEnds = iso(resized.ends_at);
-        }
         moved = true;
       }
     }
@@ -600,16 +608,41 @@ export async function hostEditBooking(
         "assigned_employee",
       ].includes(c.field),
     );
+    const previousGuestEmail = (booking.guest_email || "").toLowerCase();
+    // Guest email change: never revive pending confirmations addressed to the old customer.
+    if (emailChanged) {
+      await db.query(
+        `UPDATE private.email_outbox
+            SET migrated_at = now(), message = ''
+          WHERE booking_id = $1
+            AND sent_at IS NULL
+            AND migrated_at IS NULL
+            AND lower(recipient) = $2`,
+        [booking.id, previousGuestEmail],
+      );
+      await db.query(
+        `UPDATE private.delivery_jobs
+            SET status = 'cancelled', payload_ciphertext = NULL
+          WHERE booking_id = $1
+            AND status = 'queued'
+            AND kind = 'booking_confirmation'
+            AND lower(recipient) = $2`,
+        [booking.id, previousGuestEmail],
+      );
+    }
+
     const needsRevisionBump =
       !moved && patch.status !== "cancelled" && customerFacingChange;
     if (needsRevisionBump) {
+      const priorRevision = booking.revision;
       const bumped = (
         await db.query(
           `UPDATE public.bookings SET revision = revision + 1 WHERE id = $1 AND user_id = $2 RETURNING revision`,
           [booking.id, workspaceId],
         )
       ).rows[0];
-      // Keep unsent confirmation mail tied to the live revision so materialize can deliver it.
+      // Keep unsent confirmations (outbox + queued delivery_jobs) on the live revision,
+      // except old-guest mail already cancelled above when the email changed.
       if (bumped?.revision != null) {
         await db.query(
           `UPDATE private.email_outbox
@@ -618,6 +651,15 @@ export async function hostEditBooking(
               AND sent_at IS NULL
               AND migrated_at IS NULL`,
           [booking.id, bumped.revision],
+        );
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET booking_revision = $2
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND booking_revision = $3
+              AND kind IN ('booking_confirmation', 'booking_reminder')`,
+          [booking.id, bumped.revision, priorRevision],
         );
       }
     }
