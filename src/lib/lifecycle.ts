@@ -162,7 +162,10 @@ export async function scheduleBooking(
       },
     });
   }
-  if (b.revision > 0 && !options?.skipChangeEmails) {
+  // Host field edits refresh reminders only — never re-send confirmation or "moved" mail.
+  if (options?.skipChangeEmails) return;
+
+  if (b.revision > 0) {
     const changedText = `Your appointment has moved to ${when} (${b.timezone}).${links}`;
     for (const to of [b.guest_email, b.host_email]) {
       const emailKey = `changed:${b.id}:${b.revision}:${to}`;
@@ -205,34 +208,36 @@ export async function scheduleBooking(
         },
       });
     }
-  } else {
-    // Confirmation: SMS + push only (email confirmation still from email_outbox bridge).
-    const confirmChannels = ["push", ...(phone ? (["sms"] as const) : [])] as ("sms" | "push")[];
-    await enqueueNotification(db, {
-      workspaceId: b.user_id,
-      idempotencyKey: `notify:confirm:${b.id}:${b.revision}`,
-      category: "appointment_confirmation",
-      templateId: "appointment_confirmation",
-      channels: confirmChannels,
-      recipientAddress: b.guest_email,
-      recipientContactId: b.contact_id,
-      bookingId: b.id,
-      bookingRevision: b.revision,
-      sms: phone
-        ? {
-            to: phone,
-            body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
-            reference: `confirm:${b.id}:${b.revision}`,
-            bookingId: b.id,
-            bookingRevision: b.revision,
-          }
-        : undefined,
-      push: {
-        title: "Appointment confirmed",
-        body: `${b.title} · ${when}`,
-      },
-    });
+    return;
   }
+
+  // Confirmation: SMS + push only (email confirmation still from email_outbox bridge).
+  // revision === 0 means the booking has never been moved / field-bumped.
+  const confirmChannels = ["push", ...(phone ? (["sms"] as const) : [])] as ("sms" | "push")[];
+  await enqueueNotification(db, {
+    workspaceId: b.user_id,
+    idempotencyKey: `notify:confirm:${b.id}:${b.revision}`,
+    category: "appointment_confirmation",
+    templateId: "appointment_confirmation",
+    channels: confirmChannels,
+    recipientAddress: b.guest_email,
+    recipientContactId: b.contact_id,
+    bookingId: b.id,
+    bookingRevision: b.revision,
+    sms: phone
+      ? {
+          to: phone,
+          body: `Confirmed: ${b.title} on ${when}. Manage: ${appOrigin()}/reschedule#token=${b.cancel_token}`,
+          reference: `confirm:${b.id}:${b.revision}`,
+          bookingId: b.id,
+          bookingRevision: b.revision,
+        }
+      : undefined,
+    push: {
+      title: "Appointment confirmed",
+      body: `${b.title} · ${when}`,
+    },
+  });
 }
 export async function materializeReminders(user?: string) {
   const db = await getPool().connect();

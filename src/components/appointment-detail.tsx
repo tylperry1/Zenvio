@@ -145,17 +145,21 @@ export function AppointmentDetailModal({
         notes: form.notes,
         ...extra,
       };
-      // Only send location fields when they differ — avoids phantom revision bumps.
+      // Form field is canonical (may be explicitly empty to clear). Keep nested address in sync.
+      const accessInstructions = form.accessInstructions;
       const locationChanged =
         form.locationMode !== ((original?.location_mode as LocationMode) || "custom") ||
-        (form.accessInstructions || "") !== (original?.access_instructions || "") ||
+        accessInstructions !== (original?.access_instructions || "") ||
         ((form.locationMode === "at_customer" || form.locationMode === "custom") &&
           (form.serviceAddress?.formatted || "") !== (original?.service_address?.formatted || ""));
       if (locationChanged) {
         body.locationMode = form.locationMode;
-        body.accessInstructions = form.accessInstructions;
+        body.accessInstructions = accessInstructions;
         if (form.locationMode === "at_customer" || form.locationMode === "custom") {
-          body.serviceAddress = form.serviceAddress;
+          body.serviceAddress = {
+            ...form.serviceAddress,
+            accessInstructions,
+          };
         }
       }
       if (rescheduling) {
@@ -509,8 +513,20 @@ export function AppointmentDetailModal({
             {(form.locationMode === "at_customer" || form.locationMode === "custom") && (
               <AddressAutocomplete
                 host={hostSlug || booking.slug || ""}
-                value={form.serviceAddress}
-                onChange={(serviceAddress) => setForm((f) => ({ ...f, serviceAddress }))}
+                value={{
+                  ...form.serviceAddress,
+                  accessInstructions: form.accessInstructions,
+                }}
+                onChange={(serviceAddress) =>
+                  setForm((f) => ({
+                    ...f,
+                    serviceAddress,
+                    accessInstructions:
+                      serviceAddress.accessInstructions != null
+                        ? serviceAddress.accessInstructions
+                        : f.accessInstructions,
+                  }))
+                }
                 required={form.locationMode === "at_customer"}
                 disabled={busy}
                 label={form.locationMode === "at_customer" ? "Customer location" : "Meeting address"}
@@ -527,7 +543,13 @@ export function AppointmentDetailModal({
             <Field label="Location instructions">
               <textarea
                 value={form.accessInstructions}
-                onChange={(e) => setForm((f) => ({ ...f, accessInstructions: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    accessInstructions: e.target.value,
+                    serviceAddress: { ...f.serviceAddress, accessInstructions: e.target.value },
+                  }))
+                }
                 disabled={busy || form.locationMode === "at_business"}
                 rows={2}
               />
