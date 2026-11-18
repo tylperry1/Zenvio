@@ -17,6 +17,7 @@ import { appOrigin, drainDeliveries, scheduleBooking } from "./lifecycle";
 import { microsoftBusyForHost, runMicrosoftJobs } from "./microsoft-calendar";
 import { deliverBookingEmails } from "./mail";
 import { enqueueNotification } from "./notifications/engine";
+import { syncNotificationAttemptFromDeliveryJob } from "./notifications/delivery-sync";
 import { ApiError } from "./server";
 
 export { detectBookingChangesImpl as detectBookingChanges };
@@ -390,29 +391,19 @@ export async function hostEditBooking(
         const durationMs = Date.parse(end) - Date.parse(start);
         if (durationMs < 5 * 60000 || durationMs > 24 * 60 * 60000)
           throw new ApiError("Choose an end time between 5 minutes and 24 hours after the start.");
-        const previousDurationMs =
-          Date.parse(iso(booking.ends_at)) - Date.parse(iso(booking.starts_at));
-        // move_booking derives duration from ends_at-starts_at. Align duration first so
-        // opening-hours and destination overlap checks use the requested window.
-        // Do not overlap-check at the original start — a longer duration there can 409
-        // even when the destination slot is free. move_booking validates the move.
-        if (durationMs !== previousDurationMs) {
-          const alignedEnd = new Date(Date.parse(iso(booking.starts_at)) + durationMs).toISOString();
-          const alignedBlocked = new Date(Date.parse(alignedEnd) + bufferMs).toISOString();
-          await db.query(
-            `UPDATE public.bookings
-                SET ends_at = $3::timestamptz,
-                    blocked_until = $4::timestamptz
-              WHERE id = $1 AND user_id = $2`,
-            [booking.id, workspaceId, alignedEnd, alignedBlocked],
-          );
-        }
+        // move_booking stores whole minutes; reject fractional so availability and save match.
+        if (durationMs % 60000 !== 0)
+          throw new ApiError("Choose an end time on a whole minute.");
+        const durationMins = durationMs / 60000;
+        // Pass duration into move_booking so the destination window is validated without
+        // first extending the booking at its current start (exclusion is not deferrable).
         const result = (
-          await db.query("SELECT private.move_booking($1,$2,$3,$4) result", [
+          await db.query("SELECT private.move_booking($1,$2,$3,$4,$5) result", [
             booking.id,
             start,
             workspaceId,
             null,
+            durationMins,
           ])
         ).rows[0].result;
         nextStarts = iso(result.starts_at);
@@ -627,32 +618,54 @@ export async function hostEditBooking(
             AND lower(recipient) = $2`,
         [booking.id, previousGuestEmail],
       );
-      await db.query(
-        `UPDATE private.delivery_jobs
-            SET status = 'cancelled',
-                payload_ciphertext = NULL,
-                calendar_ciphertext = NULL
-          WHERE booking_id = $1
-            AND status = 'queued'
-            AND kind IN ('booking_confirmation', 'booking_reminder')
-            AND lower(recipient) = $2`,
-        [booking.id, previousGuestEmail],
-      );
+      const retired = (
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET status = 'cancelled',
+                  payload_ciphertext = NULL,
+                  calendar_ciphertext = NULL
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND kind IN ('booking_confirmation', 'booking_reminder')
+              AND lower(recipient) = $2
+        RETURNING id, notification_attempt_id`,
+          [booking.id, previousGuestEmail],
+        )
+      ).rows;
+      for (const row of retired) {
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: row.id,
+          notification_attempt_id: row.notification_attempt_id,
+          status: "cancelled",
+          last_error: "Delivery cancelled because the guest was replaced.",
+        });
+      }
     }
 
     // Location edits must not carry forward a confirmation that still embeds the old address.
     // Location-update email covers the guest; scheduleBooking refreshes reminders.
     if (locationChanged) {
-      await db.query(
-        `UPDATE private.delivery_jobs
-            SET status = 'cancelled',
-                payload_ciphertext = NULL,
-                calendar_ciphertext = NULL
-          WHERE booking_id = $1
-            AND status = 'queued'
-            AND kind = 'booking_confirmation'`,
-        [booking.id],
-      );
+      const retired = (
+        await db.query(
+          `UPDATE private.delivery_jobs
+              SET status = 'cancelled',
+                  payload_ciphertext = NULL,
+                  calendar_ciphertext = NULL
+            WHERE booking_id = $1
+              AND status = 'queued'
+              AND kind = 'booking_confirmation'
+          RETURNING id, notification_attempt_id`,
+          [booking.id],
+        )
+      ).rows;
+      for (const row of retired) {
+        await syncNotificationAttemptFromDeliveryJob(db, {
+          id: row.id,
+          notification_attempt_id: row.notification_attempt_id,
+          status: "cancelled",
+          last_error: "Delivery cancelled because the appointment location changed.",
+        });
+      }
     }
 
     const needsRevisionBump =

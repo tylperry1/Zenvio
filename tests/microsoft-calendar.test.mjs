@@ -10,7 +10,9 @@ test("Microsoft migration queues additive booking updates without changing prior
 test("Microsoft adapter synchronizes booking lifecycle and exposes read-only overlays",()=>{const s=fs.readFileSync("src/lib/microsoft-calendar.ts","utf8");
  assert.match(s,/export async function runMicrosoftJobs/);assert.match(s,/method:mapped\?"PATCH":"POST"/);assert.match(s,/method:"DELETE"/);assert.match(s,/zenvioBookingId/);
  assert.match(s,/export async function microsoftEvents/);assert.match(s,/readOnly:true as const/);
- // Superseded revision: release only this worker's claim when delete matches no row.
- assert.match(s,/returning booking_id/);
- assert.match(s,/locked_until=null,claim_token=null where booking_id=\$1 and claim_token=\$2/);
+ // Superseded revision: success-path delete returns no row → clear only this claim.
+ assert.match(
+  s,
+  /delete from private\.microsoft_calendar_jobs where booking_id=\$1 and claim_token=\$2 and revision=\$3 returning booking_id[\s\S]*?if\(!deleted\.rows\.length\)[\s\S]*?locked_until=null,claim_token=null where booking_id=\$1 and claim_token=\$2/,
+ );
 });

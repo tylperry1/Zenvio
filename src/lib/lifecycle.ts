@@ -319,7 +319,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
       // Persist the first attempt before contacting the provider. A rollback after an
       // accepted send must not erase the start of its provider idempotency window.
       const claim = await db.query(
-        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),sender=coalesce(sender,$2) WHERE id=$1 AND status='queued' RETURNING claimed_at,sender",
+        "UPDATE private.delivery_jobs SET claimed_at=coalesce(claimed_at,now()),sender=coalesce(sender,$2) WHERE id=$1 AND status='queued' AND run_at<=now() RETURNING claimed_at,sender",
         [j.id, j.attempts > 0 ? from.trim() : deliverySender(j.kind, from, bookingFrom)],
       );
       if (!claim.rowCount) continue;
@@ -352,7 +352,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         )).rowCount;
       const lockedJob = (
         await db.query(
-          "SELECT * FROM private.delivery_jobs WHERE id=$1 AND status='queued' FOR UPDATE SKIP LOCKED",
+          "SELECT * FROM private.delivery_jobs WHERE id=$1 AND status='queued' AND run_at<=now() FOR UPDATE SKIP LOCKED",
           [j.id],
         )
       ).rows[0];
