@@ -31,6 +31,6 @@ export async function syncBillingPlan(user: {id:string;email:string;name:string}
   }
   await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'billing_plan_sync',$2)",[user.id,JSON.stringify({plan:usage.plan,unlimitedSeats:usage.unlimitedSeats,customer})]);
   await db.query("COMMIT");
-  return {ok:true,message:"Plan and seat entitlement synced to Stripe. No subscription or charge was created."};
+  return {ok:true,message:"Subscription status refreshed. No new subscription or charge was created."};
  } catch(error) {await db.query("ROLLBACK");throw error;} finally {db.release();}
 }

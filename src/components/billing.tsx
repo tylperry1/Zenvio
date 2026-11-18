@@ -105,10 +105,14 @@ export function Billing() {
       const response = await fetch("/api/billing/plan-sync", { method: "POST" }),
         result = await response.json();
       if (!response.ok) throw Error(result.error);
-      setMessage(result.message);
+      setMessage(
+        typeof result.message === "string" && result.message && !/Stripe/i.test(result.message)
+          ? result.message
+          : customerMessages.billing.syncSuccessFallback,
+      );
       await load();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to sync the plan.");
+      setError(error instanceof Error ? error.message : "Unable to refresh subscription status.");
     } finally {
       setBusy(false);
     }
