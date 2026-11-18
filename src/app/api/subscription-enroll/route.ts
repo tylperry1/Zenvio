@@ -18,6 +18,7 @@ import {
 } from "@/lib/pricing-v4-catalog.mjs";
 import { pricingV4EnvGates, pricingV4Settings } from "@/lib/pricing-activation";
 import { appOrigin } from "@/lib/lifecycle";
+import { customerMessages } from "@/lib/customer-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,6 @@ export async function POST(req: NextRequest) {
     }
 
     const readiness = await billingReadiness();
-    const { customerMessages } = await import("@/lib/customer-messages");
     if (family === "v3" && !readiness.checkoutEnabled) {
       throw new ApiError(customerMessages.billing.enrollPreparing, 503);
     }
