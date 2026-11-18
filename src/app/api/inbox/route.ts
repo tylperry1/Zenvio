@@ -13,7 +13,6 @@ import {
   ensureContactThread,
   canAccessWorkspaceInbox,
   inboxMetrics,
-  isSoloInboxOperator,
   markThreadReadForUser,
   markThreadUnreadForUser,
   notifyThreadAssignment,
@@ -62,6 +61,8 @@ export async function GET(request: NextRequest) {
     }
     if (params.get("metrics") === "1") {
       const scope = params.get("scope") === "personal" ? "personal" : "workspace";
+      if (scope === "workspace" && !(await canAccessWorkspaceInbox(pool, user.id)))
+        throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
       return Response.json(
         { metrics: await inboxMetrics(pool, user.id, scope) },
         { headers: { "Cache-Control": "no-store" } },
@@ -185,9 +186,17 @@ export async function GET(request: NextRequest) {
     if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
       throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
     const personalWhere = await personalInboxWhere(pool, user.id);
+    const personalOnly =
+      filter === "mine" ||
+      filter === "unread" ||
+      (!workspaceAllowed &&
+        (filter === "open" ||
+          filter === "pending_response" ||
+          filter === "closed" ||
+          filter === "archived"));
     const where = [threadAccess],
       values: unknown[] = [user.id];
-    if (filter === "mine" || filter === "unread") where.push(personalWhere);
+    if (personalOnly) where.push(personalWhere);
     if (filter === "unassigned") where.push("t.assigned_to IS NULL AND t.status IN ('open','pending_response')");
     if (filter === "open") where.push("t.status IN ('open','pending_response')");
     if (filter === "pending_response") where.push("t.status='pending_response'");
@@ -204,7 +213,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(0, Math.min(200, Number(params.get("page") || 0) || 0));
     // Match pre-repair inbox depth; UI can page via `page` when total exceeds this.
     const pageSize = 100;
-    const metricsScope = filter === "mine" || filter === "unread" ? "personal" : "workspace";
+    const metricsScope = personalOnly ? "personal" : "workspace";
     const { rows } = await pool.query(
       `SELECT * FROM (
          SELECT y.*, count(*) OVER()::int total FROM (
@@ -251,6 +260,7 @@ export async function GET(request: NextRequest) {
         templates: templates.rows,
         unread: unread.rows[0].n,
         metrics,
+        scope: metricsScope,
         capabilities: { workspaceInbox: workspaceAllowed },
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -300,7 +310,6 @@ export async function POST(request: NextRequest) {
                 ])
               ).rows[0];
               if (!contact) throw new ApiError("Client not found.", 404);
-              const solo = await isSoloInboxOperator(db, user.id);
               const inserted = (
                 await db.query(
                   `INSERT INTO private.message_threads(user_id,organization_id,contact_id,booking_id,subject,assigned_to)
@@ -308,17 +317,14 @@ export async function POST(request: NextRequest) {
                      $1,
                      (SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),
                      $2,$3,$4,
-                     CASE WHEN $5::boolean THEN $1 ELSE NULL END
+                     $1
                    )
                    ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL
                    DO UPDATE SET
                      subject=private.message_threads.subject,
-                     assigned_to=CASE
-                       WHEN private.message_threads.assigned_to IS NULL AND $5::boolean THEN $1
-                       ELSE private.message_threads.assigned_to
-                     END
+                     assigned_to=COALESCE(private.message_threads.assigned_to, $1)
                    RETURNING id, (xmax = 0) AS inserted`,
-                  [user.id, contactId, bookingId, contact.name, solo],
+                  [user.id, contactId, bookingId, contact.name],
                 )
               ).rows[0];
               id = inserted.id as string;

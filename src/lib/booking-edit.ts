@@ -353,6 +353,12 @@ export async function hostEditBooking(
     if (!booking) throw new ApiError("Appointment not found.", 404);
     if (booking.status === "cancelled" && patch.status !== "cancelled")
       throw new ApiError("Cancelled appointments cannot be edited.", 409);
+    if (
+      patch.status === "cancelled" &&
+      booking.status !== "cancelled" &&
+      new Date(booking.starts_at).getTime() <= Date.now()
+    )
+      throw new ApiError("Past appointments cannot be cancelled.", 409);
 
     const nextGuestName = patch.guestName != null ? clean(patch.guestName, 120) : booking.guest_name;
     const nextGuestEmail =

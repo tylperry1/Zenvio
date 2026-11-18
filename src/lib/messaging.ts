@@ -71,8 +71,7 @@ export async function ensureContactThread(
   ).rows[0];
   if (!contact) throw new ApiError("Client not found.", 404);
   const reopen = opts?.reopen !== false;
-  // Solo operators auto-assign to themselves so My Inbox is not empty by default.
-  const solo = await isSoloInboxOperator(db, userId);
+  // Assign the creator so the conversation appears in their default My Inbox.
   const { rows } = await db.query(
     `INSERT INTO private.message_threads(user_id,organization_id,contact_id,subject,assigned_to)
      VALUES(
@@ -80,17 +79,14 @@ export async function ensureContactThread(
        (SELECT organization_id FROM private.memberships WHERE user_id=$1 AND active AND role='owner' LIMIT 1),
        $2,
        $3,
-       CASE WHEN $5::boolean THEN $1 ELSE NULL END
+       $1
      )
      ON CONFLICT (user_id,contact_id) WHERE contact_id IS NOT NULL AND booking_id IS NULL
      DO UPDATE SET
        status=CASE WHEN $4::boolean THEN 'open' ELSE private.message_threads.status END,
-       assigned_to=CASE
-         WHEN private.message_threads.assigned_to IS NULL AND $5::boolean THEN $1
-         ELSE private.message_threads.assigned_to
-       END
+       assigned_to=COALESCE(private.message_threads.assigned_to, $1)
      RETURNING id`,
-    [userId, contactId, contact.name, reopen, solo],
+    [userId, contactId, contact.name, reopen],
   );
   return rows[0].id as string;
 }
@@ -561,14 +557,20 @@ export async function canAccessWorkspaceInbox(
   db: PoolClient | ReturnType<typeof getPool>,
   userId: string,
 ) {
-  const { rowCount } = await db.query(
+  const privileged = await db.query(
     `SELECT 1 FROM private.memberships
       WHERE user_id=$1 AND active AND role IN ('owner','administrator')
       LIMIT 1`,
     [userId],
   );
-  // Solo operators own threads via user_id without a membership row.
-  if (rowCount) return true;
+  if (privileged.rowCount) return true;
+  // Owned-thread fallback is only for solo operators with no membership row.
+  // Ordinary members must not unlock Workspace via thread ownership alone.
+  const anyMembership = await db.query(
+    `SELECT 1 FROM private.memberships WHERE user_id=$1 AND active LIMIT 1`,
+    [userId],
+  );
+  if (anyMembership.rowCount) return false;
   const owned = await db.query(
     `SELECT 1 FROM private.message_threads WHERE user_id=$1 LIMIT 1`,
     [userId],

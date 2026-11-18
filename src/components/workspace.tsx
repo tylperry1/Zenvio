@@ -464,10 +464,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <span className="booking-time">
                 {formatTime(b.starts_at)}
                 <small>
-                  {event?.duration ||
-                    Math.round(
-                      (+new Date(b.ends_at) - +new Date(b.starts_at)) / 60000,
-                    )}{" "}
+                  {Math.round((+new Date(b.ends_at) - +new Date(b.starts_at)) / 60000)}{" "}
                   minutes
                 </small>
               </span>

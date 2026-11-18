@@ -121,6 +121,7 @@ export function InboxCenter() {
       templates: Template[];
       unread: number;
       metrics?: Metrics;
+      scope?: "personal" | "workspace";
       capabilities?: { workspaceInbox?: boolean };
     } | null>(null),
     [listError, setListError] = useState(""),
@@ -132,6 +133,8 @@ export function InboxCenter() {
     [loadingMore, setLoadingMore] = useState(false);
   const toast = useToast();
   const listKey = `${filter}\0${query}`;
+  const activeListKey = useRef(listKey);
+  activeListKey.current = listKey;
 
   const freshList = useFreshRequest();
   const freshThread = useFreshRequest();
@@ -146,7 +149,8 @@ export function InboxCenter() {
         { cache: "no-store" },
       );
       const d = await r.json();
-      if (!still()) return;
+      // Drop results that no longer match the visible filter/search (stale after a view switch).
+      if (!still() || activeListKey.current !== identity) return;
       if (!r.ok) throw Error(d.error);
       setPage(nextPage);
       setList((prev) => {
@@ -230,11 +234,11 @@ export function InboxCenter() {
   return (
     <div className="platform-page inbox-page ds-root">
       <PageHeader
-        title={filter === "mine" || filter === "unread" ? "My Inbox" : "Workspace Inbox"}
+        title={list?.scope === "workspace" ? "Workspace Inbox" : "My Inbox"}
         description={
-          filter === "mine" || filter === "unread"
-            ? "Conversations assigned to you — email, text, portal replies, and private notes."
-            : "Workspace-wide conversations for owners and administrators."
+          list?.scope === "workspace"
+            ? "Workspace-wide conversations for owners and administrators."
+            : "Conversations assigned to you — email, text, portal replies, and private notes."
         }
         actions={
           <>
@@ -279,7 +283,7 @@ export function InboxCenter() {
               tabs={[
                 { id: "mine", label: "My Inbox" },
                 { id: "unread", label: "Unread", count: list?.unread || undefined },
-                ...(list?.capabilities?.workspaceInbox !== false
+                ...(list?.capabilities?.workspaceInbox === true
                   ? ([
                       { id: "all", label: "Workspace" },
                       { id: "unassigned", label: "Unassigned" },
@@ -824,7 +828,9 @@ function Composer({
       </div>
       {hasContact && !sms.ok && (
         <Notice tone="warning">
-          Text messaging isn’t available. Send by email or client portal instead.
+          {sms.detail?.trim()
+            ? `${sms.detail.trim()} Send by email or client portal instead.`
+            : "SMS messaging isn’t available. Send by email or client portal instead."}
         </Notice>
       )}
       {channel === "sms" && sms.ok && (
