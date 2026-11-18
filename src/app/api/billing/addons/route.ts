@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       v = await body(req);
     // Gate before pool checkout so ungated envs return 503 (not 409) and avoid holding a client.
     if (!(await checkoutReady())) {
-      throw new ApiError("Add-on billing is being validated. No payment has been taken.", 503);
+      throw new ApiError("Add-on purchases aren’t available right now. No payment has been taken.", 503);
     }
     if (v.confirm !== true) {
       throw new ApiError("This add-on is not available for purchase.", 409);

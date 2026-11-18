@@ -54,12 +54,12 @@ export function SignupUnavailable({
     ? "Registration is temporarily unavailable."
     : invitationOnly
       ? "Registration is by invitation right now."
-      : "Public registration is paused.";
+      : "New signups aren’t open right now.";
   const detail = maintenance
     ? "Zenvio is undergoing scheduled maintenance. Existing members can still sign in."
     : invitationOnly
-      ? "New workspaces open with a team invitation or when public registration is turned on. Existing members can sign in anytime."
-      : "New workspace creation is turned off. Existing members can still sign in, and team invitations still work.";
+      ? "New workspaces open with a team invitation or when public registration resumes. Existing members can sign in anytime."
+      : "New workspace creation isn’t available right now. Existing members can still sign in, and team invitations still work.";
   return (
     <main className="auth-layout auth-layout-register">
       <section className="auth-main">

@@ -26,7 +26,7 @@ export function calendarIssue(
       code: "api_disabled",
       status,
       message:
-        "Google Calendar API is disabled for the OAuth client’s Google Cloud project. The platform administrator must enable Google Calendar API in that same project.",
+        "Google Calendar isn’t available to connect right now. Please try again later or contact support.",
     };
   if (status === 401)
     return {

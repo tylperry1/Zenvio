@@ -108,7 +108,7 @@ try {
   assert.equal(proof.headers()["content-type"], "application/pdf");
   assert.equal((await proof.body()).subarray(0, 5).toString(), "%PDF-");
   // Live fulfillment is off (and this server has no public HTTPS origin), so purchase is withheld.
-  await page.getByText(/not open for purchase|not available in this environment/).waitFor();
+  await page.getByText(/not open for purchase|isn’t available right now|not available right now/).waitFor();
   assert.equal(await page.getByRole("button", { name: "Add to cart" }).count(), 0);
   await shot(page, "studio-approved");
   const designId = new URL(page.url()).searchParams.get("design");

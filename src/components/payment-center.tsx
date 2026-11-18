@@ -133,8 +133,8 @@ export function PaymentCenter() {
           <div className="ds-stack">
             {!data.configured && (
               <Notice tone="info">
-                Payments aren’t switched on yet. The platform administrator needs to finish payment setup before you can
-                connect Stripe. Nothing is charged in the meantime.
+                Appointment payments aren’t available to connect right now. Your workspace is unchanged, and nothing is
+                charged in the meantime. Please try again later or contact support if you need this enabled.
               </Notice>
             )}
 

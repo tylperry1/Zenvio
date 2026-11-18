@@ -118,8 +118,14 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
       {data && !data.configured && (
         <div className="ui-card-body">
           <Alert tone="info" title="Google Calendar isn’t available yet">
-            The platform administrator needs to finish Google setup first.{" "}
-            {data.isAdmin && <Link href="/admin/operations?section=integrations">Open admin setup</Link>}
+            {data.isAdmin ? (
+              <>
+                Finish Google setup in Connections, then return here to connect accounts.{" "}
+                <Link href="/admin/operations?section=integrations">Open Connections</Link>
+              </>
+            ) : (
+              <>Google Calendar isn’t ready to connect yet. Please try again later or contact support.</>
+            )}
           </Alert>
         </div>
       )}
@@ -134,7 +140,11 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
           <ul className="ui-list">
             {data.connections.map((c) => {
               const ok = c.status === "connected" && !c.last_error;
-              const apiDisabled = c.last_error?.includes("Google Calendar API is disabled");
+              const apiDisabled = Boolean(
+                c.last_error &&
+                  (/Google Calendar isn’t available to connect/i.test(c.last_error) ||
+                    /Google Calendar API is disabled/i.test(c.last_error)),
+              );
               return (
                 <li key={c.account_sub} className="gc-account">
                   <span className="ui-list-icon">

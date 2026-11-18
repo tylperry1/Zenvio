@@ -11,7 +11,7 @@ export class ApiError extends Error {
 export const configured = databaseConfigured;
 export function configuration() {
     if (!configured())
-        throw new ApiError("Account services are not connected in this environment.", 503);
+        throw new ApiError("We couldn’t reach account services right now. Please try again shortly.", 503);
 }
 export async function backend(path: string, options: RequestInit = {}, userId?: string, adminScope?: string): Promise<any> {
     configuration();

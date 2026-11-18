@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
             response = await auth.api.signOut(common);
         else if (input.action === "recover") {
             if (!await mailReady())
-                throw new ApiError("Password reset email is not available yet. Please contact the platform owner.", 503);
+                throw new ApiError("We couldn’t send a password reset email right now. Please try again later or contact support.", 503);
             response = await auth.api.requestPasswordReset({ ...common, body: { email: email(input.email), redirectTo: `${request.nextUrl.origin}/reset-password` } });
         }
         else if (input.action === "reset") {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         else if (input.action === "sign-up" || input.action === "sign-in") {
             const address = email(input.email);
             if (input.action === "sign-up") {
-                const controls=await launchControls();if(!publicRegistrationOpen(controls))throw new ApiError("Public signup is paused. Existing members can still sign in; invited users should use their private invitation link.",403);
+                const controls=await launchControls();if(!publicRegistrationOpen(controls))throw new ApiError("New public signups aren’t open right now. Existing members can still sign in; invited users should use their invitation link.",403);
                 if (address === (process.env.MASTER_ADMIN_EMAIL || "").trim().toLowerCase())
                     throw new ApiError("Use your private owner setup link to create this account.", 403);
                 response = await auth.api.signUpEmail({ ...common, body: { email: address, password: password(input.password), name: string(input.name, "name", 100, 2) } });

@@ -454,8 +454,8 @@ export function AssistantChat({
         )}
       </div>
       {status && !status.configured && (
-        <Alert tone="info" title="The assistant isn’t set up yet">
-          A platform administrator needs to add the Anthropic API key in Admin → Operations → Integrations.
+        <Alert tone="info" title="The assistant isn’t available yet">
+          We’re finishing setup for Zenvio Assistant. Please check back soon, or contact support if you need help now.
         </Alert>
       )}
       {status && status.configured && !status.limits.enabled && (

@@ -444,14 +444,14 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         Date.now() - new Date(j.claimed_at).getTime() > 23 * 3600000
       ) {
         await db.query(
-          "UPDATE private.delivery_jobs SET status='uncertain',last_error='Provider idempotency window elapsed. Verify delivery before resending.' WHERE id=$1",
+          "UPDATE private.delivery_jobs SET status='uncertain',last_error='Delivery confirmation timed out. Check whether the message arrived before sending again.' WHERE id=$1",
           [j.id],
         );
         await syncNotificationAttemptFromDeliveryJob(db, {
           id: j.id,
           notification_attempt_id: j.notification_attempt_id,
           status: "uncertain",
-          last_error: "Provider idempotency window elapsed. Verify delivery before resending.",
+          last_error: "Delivery confirmation timed out. Check whether the message arrived before sending again.",
         });
         await db.query("COMMIT");
         continue;

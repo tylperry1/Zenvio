@@ -188,7 +188,7 @@ try {
     jobs: { pending: 0, failed: 0 },
     connections: [{ account_sub: "fixture", account_email: "a-long-google-calendar-address@example.com",
       status: "connected", check_conflicts: true, sync_events: true, last_sync_at: null,
-      last_error: "Google Calendar API is disabled for the OAuth client’s Google Cloud project. The platform administrator must enable Google Calendar API in that same project." }],
+      last_error: "Google Calendar isn’t available to connect right now. Please try again later or contact support." }],
   } }));
   for (const width of [375, 390, 768, 1440]) {
     await calendarPage.setViewportSize({ width, height: 900 });

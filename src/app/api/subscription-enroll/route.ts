@@ -86,23 +86,25 @@ export async function POST(req: NextRequest) {
     }
 
     const readiness = await billingReadiness();
+    const { customerMessages } = await import("@/lib/customer-messages");
     if (family === "v3" && !readiness.checkoutEnabled) {
-      throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+      throw new ApiError(customerMessages.billing.enrollPreparing, 503);
     }
     if (family === "v4") {
       // Check the launch checkout switch directly — do not reuse v3 price-mapping readiness.
       const { launchControls } = await import("@/lib/launch-controls");
       if (!(await launchControls()).checkoutEnabled) {
-        throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
       }
       if (!readiness.connected) {
-        throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
       }
       if (readiness.blockers.some((b) => /credential|webhook|sandbox/i.test(b))) {
-        throw new ApiError("Online enrollment is being prepared. No payment has been taken.", 503);
+        // Internal blockers stay server-side; customers only see enrollment status.
+        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
       }
       if (process.env.PRICING_V4_VALIDATED !== "true") {
-        throw new ApiError("Pricing v4 acceptance is pending. No payment has been taken.", 503);
+        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
       }
       // v4 price readiness is independent of v3 individual/team/team_extra mappings.
       const maps = await getPool().query(
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
         maps.rows.some((r) => r.plan === plan && r.period === per),
       );
       if (!ready) {
-        throw new ApiError("Pricing v4 Stripe price mappings are incomplete. No payment has been taken.", 503);
+        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
       }
     }
 
