@@ -184,6 +184,8 @@ test("stale reminder revisions cancel without sending or decrypting provider pay
   const db = {
     query: async (sql, args) => {
       if (sql.startsWith("SELECT * FROM private.delivery_jobs")) {
+        // Initial queue pick vs post-lock reload (FOR UPDATE SKIP LOCKED).
+        if (sql.includes("FOR UPDATE")) return { rows: [job] };
         if (selected) return { rows: [] };
         selected = true;
         return { rows: [job] };
