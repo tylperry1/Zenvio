@@ -128,6 +128,8 @@ export async function persistBookingAddress(
     serviceAddress: StructuredAddress | null;
     accessInstructions: string;
     saveAsResidential?: boolean;
+    /** Host edits update the booking snapshot only; do not append CRM service_saved rows. */
+    skipContactAddressSave?: boolean;
   },
 ) {
   await db.query(
@@ -158,7 +160,7 @@ export async function persistBookingAddress(
       )
     ).rows[0]?.id || null;
   }
-  if (!contactId) return;
+  if (!contactId || input.skipContactAddressSave) return;
 
   // Public guests are not authenticated for that contact. Only fill blank phone; never overwrite.
   if (input.guestPhone) {

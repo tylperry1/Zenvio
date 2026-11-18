@@ -3,13 +3,11 @@ import { useEffect, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { SuiteShell } from "./suite-shell";
 import { TimezoneSelect } from "./timezone-select";
+import { AppointmentDetailModal } from "./appointment-detail";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
-import { Modal } from "./modal";
-import { Alert, Badge, Field, useConfirm } from "./ui";
+import { Alert } from "./ui";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
-import { bookingLocationSummary } from "@/lib/addresses";
-import { formatPhoneDisplay } from "@/lib/phone-display";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
   return `${p.year}-${p.month}-${p.day}`;
@@ -35,7 +33,6 @@ export function CalendarCenter() {
     [creating, setCreating] = useState(false),
     [selected, setSelected] = useState<any>(null),
     [message, setMessage] = useState("");
-  const { confirm, node: confirmNode } = useConfirm();
   const start = view === "month" ? date.slice(0, 8) + "01" : date,
     days =
       view === "month"
@@ -97,34 +94,6 @@ export function CalendarCenter() {
       (type === "all" || e.event_id === type) &&
       (e.readOnly || status === "all" || e.status === status),
   );
-  async function move(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      const f = new FormData(event.currentTarget),
-        raw = String(f.get("time")).split("T"),
-        at = zonedDate(raw[0], raw[1], zone);
-      if (!at) throw Error("Choose a valid local time.");
-      const r = await fetch("/api/reschedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "move",
-            id: selected.id,
-            starts_at: at.toISOString(),
-          }),
-        }),
-        d = await r.json();
-      if (!r.ok) throw Error(d.error);
-      setSelected(null);
-      setMessage("Appointment rescheduled.");
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <SuiteShell
       title="Calendar"
@@ -209,114 +178,17 @@ export function CalendarCenter() {
           </p>
         ))}
 
-      {selected && (
-        <Modal title={selected.title} onClose={() => !busy && setSelected(null)}>
-          <div className="ui-form">
-            <dl className="ui-dl">
-              <dt>Guest</dt>
-              <dd>{selected.guest_name}</dd>
-              <dt>When</dt>
-              <dd>
-                {new Date(selected.starts_at).toLocaleString([], {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  timeZone: zone,
-                })}
-              </dd>
-              {(() => {
-                const place = bookingLocationSummary({
-                  locationMode: selected.location_mode,
-                  location: selected.location,
-                  serviceAddress: selected.service_address,
-                  accessInstructions: selected.access_instructions,
-                });
-                return (
-                  <>
-                    <dt>Location</dt>
-                    <dd>
-                      <strong>{place.title}</strong>
-                      {place.body && place.body !== place.title ? (
-                        <span style={{ display: "block", whiteSpace: "pre-line" }}>{place.body}</span>
-                      ) : null}
-                      {!place.title && !place.body ? "Not specified" : null}
-                    </dd>
-                    {place.access ? (
-                      <>
-                        <dt>Access</dt>
-                        <dd style={{ whiteSpace: "pre-wrap" }}>{place.access}</dd>
-                      </>
-                    ) : null}
-                  </>
-                );
-              })()}
-              {selected.guest_phone ? (
-                <>
-                  <dt>Phone</dt>
-                  <dd>{formatPhoneDisplay(selected.guest_phone)}</dd>
-                </>
-              ) : null}
-              <dt>Status</dt>
-              <dd>
-                <Badge tone={selected.status === "confirmed" ? "success" : "neutral"}>{selected.status}</Badge>
-              </dd>
-            </dl>
-            {selected.status === "confirmed" && (
-              <form className="cal-move" onSubmit={move}>
-                <Field label="Move to" hint={`Times in ${zone.replaceAll("_", " ")}. Availability is checked first.`}>
-                  <input name="time" type="datetime-local" required />
-                </Field>
-                <button className="ui-btn ui-btn-primary" disabled={busy}>
-                  Reschedule
-                </button>
-              </form>
-            )}
-            <div className="ui-modal-actions">
-              {selected.status === "confirmed" && (
-                <button
-                  className="ui-btn ui-btn-danger"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (
-                      !(await confirm({
-                        title: "Cancel this appointment?",
-                        body: `${selected.guest_name} will be notified.`,
-                        confirmLabel: "Cancel appointment",
-                        danger: true,
-                      }))
-                    )
-                      return;
-                    setBusy(true);
-                    try {
-                      const r = await fetch("/api/workspace", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "cancel", id: selected.id }),
-                      });
-                      if (!r.ok) throw Error((await r.json()).error);
-                      setSelected(null);
-                      setMessage("Appointment cancelled.");
-                      await load();
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  Cancel appointment
-                </button>
-              )}
-              <button className="ui-btn ui-btn-secondary" onClick={() => setSelected(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </Modal>
+      {selected?.id && !selected.readOnly && (
+        <AppointmentDetailModal
+          bookingId={selected.id}
+          hostSlug={workspace?.profile?.slug || ""}
+          onClose={() => setSelected(null)}
+          onChanged={() => {
+            setMessage("Appointment updated.");
+            void load();
+          }}
+        />
       )}
-      {confirmNode}
       {view === "day" || view === "week" ? (
         <TimeGrid
           days={Array.from({ length: days }, (_, i) => shift(start, i))}
