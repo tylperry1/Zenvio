@@ -11,7 +11,7 @@ export async function syncBillingPlan(user: {id:string;email:string;name:string}
   await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["billing:"+user.id]);
   await db.query("SELECT pg_advisory_xact_lock(hashtext($1))",["billing:"+user.id]);
   const usage=await entitlementUsage(user.id,db);
-  if(usage.shared.length && !usage.canManageTeamBilling) throw new ApiError("Your team owner manages the Stripe billing account.",403);
+  if(usage.shared.length && !usage.canManageTeamBilling) throw new ApiError("Your team owner manages billing for this account.",403);
   const local=(await db.query("SELECT customer_id,subscription_id FROM private.subscriptions WHERE user_id=$1 FOR UPDATE",[user.id])).rows[0];
   const metadata={
    zenvio_user_id:user.id, zenvio_effective_plan:usage.plan,
@@ -21,7 +21,7 @@ export async function syncBillingPlan(user: {id:string;email:string;name:string}
   let customer=local?.customer_id;
   if(customer) {
    const current=await stripe.customers.retrieve(customer);
-   if(current.deleted || current.metadata.zenvio_user_id!==user.id) throw new ApiError("Stripe customer ownership could not be verified.",409);
+   if(current.deleted || current.metadata.zenvio_user_id!==user.id) throw new ApiError("Billing account ownership could not be verified.",409);
    await stripe.customers.update(customer,{metadata});
   } else {
    customer=(await stripe.customers.create({email:user.email,name:user.name,metadata},{idempotencyKey:"zenvio-customer-"+user.id})).id;
@@ -31,6 +31,6 @@ export async function syncBillingPlan(user: {id:string;email:string;name:string}
   }
   await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'billing_plan_sync',$2)",[user.id,JSON.stringify({plan:usage.plan,unlimitedSeats:usage.unlimitedSeats,customer})]);
   await db.query("COMMIT");
-  return {ok:true,message:"Plan and seat entitlement synced to Stripe. No subscription or charge was created."};
+  return {ok:true,message:"Billing profile updated. No new subscription or charge was created."};
  } catch(error) {await db.query("ROLLBACK");throw error;} finally {db.release();}
 }

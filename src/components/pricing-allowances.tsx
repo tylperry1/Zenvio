@@ -97,16 +97,16 @@ export function PricingAllowances({
           <details className="allowance-details">
             <summary>How usage is measured</summary>
             <p>Consumable allowances reset each calendar month at 00:00 UTC. Storage is concurrent capacity. One person connected to video for one minute uses one participant-minute.</p>
-            <p>AI usage is rounded up per execution; one credit covers up to $0.01 of provider cost. Features become available when their integrations are ready.</p>
+            <p>AI usage is rounded up per execution; one credit covers up to $0.01 of provider cost.</p>
           </details>
           <div className="allowance-addons-heading" id="allowances">
             <div>
               <h3>Optional capacity</h3>
               <p>Additional capacity at predictable prices.</p>
             </div>
-            <span className="allowance-coming-soon">Coming soon</span>
+            <span className="allowance-coming-soon">Reference pricing</span>
           </div>
-          <p className="allowance-availability">Purchasing is not yet enabled. These prices are for reference; no add-on is charged or activated here.</p>
+          <p className="allowance-availability">Extra capacity purchases aren’t open here yet. These prices are shown for planning; nothing is charged from this page.</p>
           <ul className="allowance-addons">
             {addons.map((offer) => (
               <li key={offer.id}>

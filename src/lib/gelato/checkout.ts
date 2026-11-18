@@ -71,7 +71,7 @@ export async function gelatoCheckoutGate(db: DB = getPool()) {
   if (!i?.enabled || !i.fulfillment_enabled) return "Custom Gelato products are not open for purchase yet. No payment has been taken.";
   // Transient states (rate limited/unavailable) still allow a live quote attempt.
   if (!["connected", "rate_limited", "unavailable"].includes(i.status)) return "Our print partner connection is being checked. Please try again shortly. No payment has been taken.";
-  if (!publicOrigin()) return "Custom product checkout is not available in this environment.";
+  if (!publicOrigin()) return "Custom product checkout isn’t available right now. No payment has been taken.";
   return null;
 }
 

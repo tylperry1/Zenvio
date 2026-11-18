@@ -43,7 +43,7 @@ export function NotificationsCenter() {
     <main className="platform-page notifications-page">
       <PageHeader
         title="Browser alerts"
-        description="Device-local browser permission only. Appointment email, SMS, and server push preferences are not edited here."
+        description="Control browser alerts on this device. Email and SMS for bookings are managed separately under Automations and your services."
       />
       {error && <Notice tone="danger">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
@@ -52,8 +52,7 @@ export function NotificationsCenter() {
         <header>
           <h2>Browser notifications</h2>
           <p>
-            Asks this browser for permission and registers the existing Zenvio service worker. This is device-local —
-            it does not subscribe a remote push endpoint or change email delivery.
+            Asks this browser for permission so Zenvio can show alerts while the app is open on this device.
           </p>
         </header>
         <p className="notif-status">
@@ -77,14 +76,13 @@ export function NotificationsCenter() {
         <header>
           <h2>Customer email & SMS</h2>
           <p>
-            Booking confirmations, reminders, and follow-ups are sent by the Resend lifecycle queue and Automations.
-            SMS stays provider-gated and is not controlled by this browser permission. Timing lives on Automations —
-            not as toggles on this page.
+            Manage booking email and, where available, SMS in Automations and your service settings. Those channels are
+            separate from this browser permission.
           </p>
         </header>
         <p className="notif-note">
-          Security, billing, and account emails always send. Marketing mail stays opt-in through Growth tools. Remote
-          push delivery is not available yet.
+          Security, billing, and account emails send when email delivery is available. Marketing email stays opt-in.
+          Phone alerts use your Automations and messaging settings—not this browser switch.
         </p>
         <div className="notif-actions">
           <Link className="ui-btn ui-btn-primary" href="/app/automation">

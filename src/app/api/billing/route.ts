@@ -10,6 +10,7 @@ import { stripeClient } from "@/lib/billing";
 import { pricing } from "@/lib/platform-settings";
 import { getPool } from "@/lib/db";
 import { session, sameOrigin, body, ApiError, failure } from "@/lib/server";
+import { customerMessages } from "@/lib/customer-messages";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
@@ -22,13 +23,15 @@ export async function GET(request: NextRequest) {
       "SELECT plan,seats,status,catalog_version,monthly_amount_cents,promotion_ends_at,current_period_end,cancel_at_period_end,(customer_id IS NOT NULL) AS has_customer,(subscription_id IS NOT NULL) AS has_subscription FROM private.subscriptions WHERE user_id=$1",
       [token],
     );
-    const { connected, pricesReady, checkoutEnabled } = await billingReadiness();
+    // Expose only customer-safe flags — never readiness blockers, sandbox, or webhook state.
+    const { connected, checkoutEnabled } = await billingReadiness();
     return Response.json(
       {
         catalog: await (await import("@/lib/billing-catalog")).currentCatalog(),
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
-        connected, pricesReady, checkoutEnabled,
+        connected,
+        checkoutEnabled,
         usage: await entitlementUsage(token),
         meteredUsage: await subscriptionUsage(token),
       },
@@ -62,10 +65,7 @@ export async function POST(request: NextRequest) {
       input.action === "checkout" &&
       process.env.BILLING_CHECKOUT_ENABLED !== "true"
     )
-      throw new ApiError(
-        "Paid checkout is not available yet. No payment has been taken.",
-        503,
-      );
+      throw new ApiError(customerMessages.billing.checkoutUnavailable, 503);
     if (input.action === "checkout")
       throw new ApiError(
         "Review a plan and billing period using Plan & billing before enrolling.",
@@ -86,10 +86,7 @@ export async function POST(request: NextRequest) {
       );
       customer = rows[0]?.customer_id;
       if (!customer)
-        throw new ApiError(
-          "No billing account yet. Your Free plan needs no payment method.",
-          409,
-        );
+        throw new ApiError(customerMessages.billing.noBillingAccount, 409);
       await client.query("COMMIT");
     } catch (e) {
       await client.query("ROLLBACK");

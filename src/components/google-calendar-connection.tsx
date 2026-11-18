@@ -118,8 +118,14 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
       {data && !data.configured && (
         <div className="ui-card-body">
           <Alert tone="info" title="Google Calendar isn’t available yet">
-            The platform administrator needs to finish Google setup first.{" "}
-            {data.isAdmin && <Link href="/admin/operations?section=integrations">Open admin setup</Link>}
+            {data.isAdmin ? (
+              <>
+                Finish Google setup in Connections, then return here to connect accounts.{" "}
+                <Link href="/admin/operations?section=integrations">Open Connections</Link>
+              </>
+            ) : (
+              <>Google Calendar isn’t ready to connect yet. Please try again later or contact support.</>
+            )}
           </Alert>
         </div>
       )}
@@ -134,7 +140,30 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
           <ul className="ui-list">
             {data.connections.map((c) => {
               const ok = c.status === "connected" && !c.last_error;
-              const apiDisabled = c.last_error?.includes("Google Calendar API is disabled");
+              const legacyApiDisabled = Boolean(
+                c.last_error &&
+                  (/Google Calendar API is disabled/i.test(c.last_error) ||
+                    /platform administrator must enable/i.test(c.last_error) ||
+                    /same project/i.test(c.last_error)),
+              );
+              // New api_disabled writes store the customer-safe message (no OAuth-project wording).
+              const currentApiDisabled = Boolean(
+                c.last_error &&
+                  /^Google Calendar isn’t available to connect right now\./i.test(c.last_error),
+              );
+              const sanitizeCustomerError = Boolean(
+                c.last_error &&
+                  (legacyApiDisabled ||
+                    currentApiDisabled ||
+                    /platform administrator|OAuth client|Google Cloud project|API key|webhook/i.test(c.last_error)),
+              );
+              // Sanitize legacy stored diagnostics so customers never see OAuth-project admin copy.
+              const displayError = !c.last_error
+                ? ""
+                : sanitizeCustomerError
+                  ? "Google Calendar isn’t available to connect right now. Please try again later or contact support."
+                  : c.last_error;
+              const showAdminApiLink = data.isAdmin && (legacyApiDisabled || currentApiDisabled);
               return (
                 <li key={c.account_sub} className="gc-account">
                   <span className="ui-list-icon">
@@ -145,8 +174,8 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                     <small>
                       Primary calendar · {c.last_sync_at ? `last synced ${formatDateTime(c.last_sync_at)}` : "not synced yet"}
                     </small>
-                    {c.last_error && <small className="pay-error" role="status">{c.last_error}</small>}
-                    {apiDisabled && data.isAdmin && (
+                    {displayError && <small className="pay-error" role="status">{displayError}</small>}
+                    {showAdminApiLink && (
                       <a className="gc-setup-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noreferrer">
                         Enable Google Calendar API in the OAuth project ↗
                       </a>

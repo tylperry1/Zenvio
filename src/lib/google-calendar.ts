@@ -38,7 +38,7 @@ async function oauthClient(redirectUri?: string) {
   ]);
   if (!clientId || !clientSecret)
     throw new ApiError(
-      "Google Calendar is not configured by the platform administrator yet.",
+      "Google Calendar isn’t available to connect right now. Please try again later or contact support.",
       503,
     );
   return new OAuth2Client({
@@ -51,7 +51,7 @@ async function oauthClient(redirectUri?: string) {
 export async function beginGoogleConnection(userId: string, origin: string) {
   if (!(await googleConfigured()))
     throw new ApiError(
-      "Google Calendar setup is required in master admin.",
+      "Google Calendar isn’t ready to connect yet. Please try again later or contact support.",
       503,
     );
   const redirect = googleRedirect(origin),

@@ -19,12 +19,21 @@ test("v4 public pricing does not deep-link unenrollable plan ids while preview-o
   assert.match(pricing, /previewOnly=\{surface\.previewOnly\}/);
 });
 
-test("billing overview discloses paused checkout when Stripe is configured", () => {
+test("billing overview uses customer-safe paused-enrollment copy without Stripe readiness internals", () => {
   const billing = read("src/components/billing.tsx");
+  const messages = read("src/lib/customer-messages.ts");
   assert.match(billing, /data\.connected && !data\.checkoutEnabled/);
-  assert.match(billing, /paid plan enrollment is paused/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPaused/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPausedWithBillingAccount/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPausedTeamMember/);
+  assert.match(messages, /enrollmentPaused:\s*\n\s*"Online plan enrollment isn’t open right now/);
   assert.match(billing, /sub\.has_customer/);
   assert.match(billing, /href="\/pricing"/);
+  assert.doesNotMatch(billing, /Stripe is configured/);
+  assert.doesNotMatch(billing, /checkout readiness/);
+  assert.doesNotMatch(billing, /paid plan enrollment is paused/);
+  assert.doesNotMatch(billing, /Sync plan to Stripe/);
+  assert.doesNotMatch(billing, /master admin/);
 });
 
 test("portal documents expose a recipient sign URL when available", () => {
@@ -57,9 +66,25 @@ test("smoke script fails on pageerror and retains them in the report", () => {
   assert.match(smoke, /pageErrors,/);
 });
 
-test("notifications page is titled as browser alerts and does not imply server push", () => {
+test("notifications page is titled as browser alerts and avoids internal delivery jargon", () => {
   const page = read("src/components/notifications-center.tsx");
   assert.match(page, /Browser alerts/);
-  assert.match(page, /Remote\s+push delivery is not available yet/);
-  assert.match(page, /SMS stays provider-gated/);
+  assert.match(page, /where available, SMS/);
+  assert.match(page, /Automations and your[\s\S]*service settings/);
+  assert.doesNotMatch(page, /Resend lifecycle queue/);
+  assert.doesNotMatch(page, /provider-gated/);
+  assert.doesNotMatch(page, /Remote\s+push delivery is not available yet/);
+  assert.doesNotMatch(page, /remote push endpoint/);
+  // Implementation may still register a SW; customer-visible copy must not mention it.
+  assert.doesNotMatch(page, /registers the existing Zenvio service worker/);
+});
+
+test("assistant unavailable state does not expose Anthropic admin setup instructions", () => {
+  const assistant = read("src/components/assistant.tsx");
+  const messages = read("src/lib/customer-messages.ts");
+  assert.match(assistant, /customerMessages\.assistant\.notReadyTitle/);
+  assert.match(assistant, /customerMessages\.assistant\.notReadyBody/);
+  assert.match(messages, /notReadyTitle:\s*"The assistant isn’t available yet"/);
+  assert.doesNotMatch(assistant, /Anthropic API key/);
+  assert.doesNotMatch(assistant, /Admin → Operations/);
 });

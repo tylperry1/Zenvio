@@ -28,6 +28,7 @@ import {
   Skeleton,
   type Tone,
 } from "./ds";
+import { customerMessages } from "@/lib/customer-messages";
 
 type Data = {
   catalog?: import("@/lib/billing-catalog").BillingCatalog;
@@ -104,10 +105,26 @@ export function Billing() {
       const response = await fetch("/api/billing/plan-sync", { method: "POST" }),
         result = await response.json();
       if (!response.ok) throw Error(result.error);
-      setMessage(result.message);
-      await load();
+      setMessage(
+        typeof result.message === "string" && result.message && !/Stripe/i.test(result.message)
+          ? result.message
+          : customerMessages.billing.syncSuccessFallback,
+      );
+      try {
+        await load();
+      } catch {
+        // Profile update already succeeded — do not treat a status refresh failure as an update failure.
+        setError("Billing profile updated, but the latest status couldn’t be loaded. Select Refresh status.");
+      }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to sync the plan.");
+      const raw = error instanceof Error ? error.message : "";
+      setError(
+        /Stripe/i.test(raw)
+          ? /team owner/i.test(raw)
+            ? customerMessages.billing.enrollmentPausedTeamMember
+            : "Unable to update the billing profile."
+          : raw || "Unable to update the billing profile.",
+      );
     } finally {
       setBusy(false);
     }
@@ -216,7 +233,7 @@ export function Billing() {
           ? `${data!.usage.seats} included`
           : "—";
   const periodDetail = managedByTeam
-    ? "Your seat is managed by the team owner."
+    ? customerMessages.billing.teamSeatManaged
     : ownBillingActive
       ? sub!.cancel_at_period_end
         ? `Paid access continues until ${billingDate(sub!.current_period_end)}.`
@@ -285,7 +302,7 @@ export function Billing() {
                           <strong>
                             {sub.monthly_amount_cents != null
                               ? money(sub.monthly_amount_cents)
-                              : "See your Stripe invoice"}
+                              : customerMessages.billing.invoicesFromProvider}
                           </strong>
                           <span>subscription amount · taxes and active discounts shown on invoices</span>
                         </div>
@@ -302,7 +319,13 @@ export function Billing() {
                       <Kpi
                         label="Billing control"
                         value={managedByTeam ? "Team owner" : "Your account"}
-                        detail={ownBillingActive ? "Stripe subscription" : "No recurring charge"}
+                        detail={
+                          ownBillingActive
+                            ? ["active", "trialing"].includes(sub.status)
+                              ? customerMessages.billing.paidSubscriptionDetail
+                              : customerMessages.billing.subscriptionDetail
+                            : "No recurring charge"
+                        }
                         icon="card"
                       />
                     </div>
@@ -314,7 +337,7 @@ export function Billing() {
                           disabled={busy || !data.connected}
                           onClick={() => void syncPlan()}
                         >
-                          Sync plan to Stripe
+                          {customerMessages.billing.syncButton}
                         </button>
                       )}
                       <button
@@ -368,9 +391,7 @@ export function Billing() {
               )}
 
               {tab === "plans" && data.usage.platformIncluded && (
-                <Notice tone="info">
-                  Teams is included for the master admin with unlimited teammates. No paid seat upgrade is required.
-                </Notice>
+                <Notice tone="info">{customerMessages.billing.platformIncluded}</Notice>
               )}
               {tab === "plans" && !data.usage.platformIncluded && !managedByTeam && (
                 <Enrollment
@@ -385,30 +406,34 @@ export function Billing() {
                 />
               )}
               {tab === "plans" && managedByTeam && (
-                <Notice tone="info">Your team owner manages your plan. Your seat is included in the team subscription.</Notice>
+                <Notice tone="info">{customerMessages.billing.teamPlanManaged}</Notice>
               )}
 
               {!data.connected && (
-                <Notice tone="warning">
-                  Online billing is not connected yet. Your current workspace remains available.
-                </Notice>
+                <Notice tone="info">{customerMessages.billing.billingUnavailable}</Notice>
               )}
               {data.connected && !data.checkoutEnabled && (
                 <Notice tone="info">
-                  Stripe is configured, but paid plan enrollment is paused until checkout readiness is
-                  complete.
                   {managedByTeam
-                    ? " Your team owner manages billing."
+                    ? customerMessages.billing.enrollmentPausedTeamMember
                     : sub.has_customer
-                      ? " You can still sync an existing subscription and open Payment details for invoices."
-                      : " You can still sync an existing subscription once one is linked."}{" "}
+                      ? customerMessages.billing.enrollmentPausedWithBillingAccount
+                      : customerMessages.billing.enrollmentPaused}{" "}
                   {managedByTeam || data.usage.platformIncluded ? (
                     <>
-                      Review the published catalog on the{" "}
-                      <Link href="/pricing">public pricing page</Link>.
+                      Review published packages on the{" "}
+                      <Link href="/pricing">pricing page</Link>.
+                    </>
+                  ) : tab === "plans" ? (
+                    <>
+                      Review packages <a href="#packages">above</a>.
                     </>
                   ) : (
-                    <>Use Compare plans to review the published catalog in this workspace.</>
+                    <>
+                      <button type="button" className="ds-btn sm" onClick={() => setTab("plans")}>
+                        Compare plans
+                      </button>
+                    </>
                   )}
                 </Notice>
               )}
@@ -494,13 +519,19 @@ export function Billing() {
                   ) : (
                     <EmptyState
                       icon="card"
-                      title={sub.has_customer ? "Invoices not loaded yet" : "No invoices yet"}
+                      title={
+                        !sub.has_customer
+                          ? "No invoices yet"
+                          : data.connected
+                            ? "Invoices not loaded yet"
+                            : "Invoices unavailable"
+                      }
                       action={
-                        sub.has_customer ? (
+                        sub.has_customer && data.connected ? (
                           <button
                             type="button"
                             className="ds-btn primary sm"
-                            disabled={invoiceBusy || !data.connected}
+                            disabled={invoiceBusy}
                             onClick={() => void history()}
                           >
                             Load invoices
@@ -508,9 +539,11 @@ export function Billing() {
                         ) : undefined
                       }
                     >
-                      {sub.has_customer
-                        ? "Load your latest invoices from Stripe."
-                        : "Free workspaces have no recurring bill."}
+                      {!sub.has_customer
+                        ? customerMessages.billing.invoicesEmptyFree
+                        : data.connected
+                          ? customerMessages.billing.invoicesLoadPrompt
+                          : customerMessages.billing.invoicesUnavailable}
                     </EmptyState>
                   )}
                 </Panel>

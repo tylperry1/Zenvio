@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     }
     if (!(await appointmentPaymentsReady()))
       throw new ApiError(
-        "Stripe Connect is not configured for appointment payments.",
+        "Payment setup isn’t available right now. Please try again later or contact support.",
         503,
       );
     const stripe = await stripeClient(),
