@@ -209,18 +209,17 @@ async function notifyBookingEdit(
       const emailKey = `location:${booking.id}:${revision}:${recipient.to}`;
       // Prefer real location snapshots; for instruction-only edits keep the current address.
       const currentLocation = String(booking.location || "").trim() || "Not specified";
-      const previousAddress =
-        String(locationTextChange?.previous || "").trim() ||
-        (locationModeChange
-          ? locationLabelFallback(String(locationModeChange.previous || ""))
-          : "") ||
-        currentLocation;
-      const nextAddress =
-        String(locationTextChange?.next || "").trim() ||
-        (locationModeChange
-          ? locationLabelFallback(String(locationModeChange.next || ""))
-          : "") ||
-        currentLocation;
+      // Empty previous location snapshot must stay "Not specified" — never borrow the new address.
+      const previousAddress = locationTextChange
+        ? String(locationTextChange.previous || "").trim() || "Not specified"
+        : locationModeChange
+          ? locationLabelFallback(String(locationModeChange.previous || "")) || "Not specified"
+          : currentLocation;
+      const nextAddress = locationTextChange
+        ? String(locationTextChange.next || "").trim() || currentLocation
+        : locationModeChange
+          ? locationLabelFallback(String(locationModeChange.next || "")) || currentLocation
+          : currentLocation;
       // When the guest identity changed, do not reveal prior gate codes / entry notes.
       const instructionLines = accessChange
         ? guestEmailChanged
@@ -394,29 +393,19 @@ export async function hostEditBooking(
         const previousDurationMs =
           Date.parse(iso(booking.ends_at)) - Date.parse(iso(booking.starts_at));
         // move_booking derives duration from ends_at-starts_at. Align duration first so
-        // opening-hours and overlap checks use the final window the host requested.
+        // opening-hours and destination overlap checks use the requested window.
+        // Do not overlap-check at the original start — a longer duration there can 409
+        // even when the destination slot is free. move_booking validates the move.
         if (durationMs !== previousDurationMs) {
           const alignedEnd = new Date(Date.parse(iso(booking.starts_at)) + durationMs).toISOString();
           const alignedBlocked = new Date(Date.parse(alignedEnd) + bufferMs).toISOString();
-          const aligned = (
-            await db.query(
-              `UPDATE public.bookings
-                  SET ends_at = $3::timestamptz,
-                      blocked_until = $4::timestamptz
-                WHERE id = $1 AND user_id = $2
-                  AND NOT EXISTS (
-                    SELECT 1 FROM public.bookings x
-                     WHERE x.user_id = $2
-                       AND x.id <> $1
-                       AND x.status = 'confirmed'
-                       AND tstzrange(starts_at, $4::timestamptz, '[)')
-                         && tstzrange(x.starts_at, x.blocked_until, '[)')
-                  )
-              RETURNING id`,
-              [booking.id, workspaceId, alignedEnd, alignedBlocked],
-            )
-          ).rows[0];
-          if (!aligned) throw new ApiError("That time is no longer available.", 409);
+          await db.query(
+            `UPDATE public.bookings
+                SET ends_at = $3::timestamptz,
+                    blocked_until = $4::timestamptz
+              WHERE id = $1 AND user_id = $2`,
+            [booking.id, workspaceId, alignedEnd, alignedBlocked],
+          );
         }
         const result = (
           await db.query("SELECT private.move_booking($1,$2,$3,$4) result", [
@@ -640,12 +629,29 @@ export async function hostEditBooking(
       );
       await db.query(
         `UPDATE private.delivery_jobs
-            SET status = 'cancelled', payload_ciphertext = NULL
+            SET status = 'cancelled',
+                payload_ciphertext = NULL,
+                calendar_ciphertext = NULL
           WHERE booking_id = $1
             AND status = 'queued'
-            AND kind = 'booking_confirmation'
+            AND kind IN ('booking_confirmation', 'booking_reminder')
             AND lower(recipient) = $2`,
         [booking.id, previousGuestEmail],
+      );
+    }
+
+    // Location edits must not carry forward a confirmation that still embeds the old address.
+    // Location-update email covers the guest; scheduleBooking refreshes reminders.
+    if (locationChanged) {
+      await db.query(
+        `UPDATE private.delivery_jobs
+            SET status = 'cancelled',
+                payload_ciphertext = NULL,
+                calendar_ciphertext = NULL
+          WHERE booking_id = $1
+            AND status = 'queued'
+            AND kind = 'booking_confirmation'`,
+        [booking.id],
       );
     }
 
@@ -660,7 +666,8 @@ export async function hostEditBooking(
         )
       ).rows[0];
       // Keep unsent confirmations (outbox + queued delivery_jobs) on the live revision,
-      // except old-guest mail already cancelled above when the email changed.
+      // except old-guest / stale-location mail already cancelled above.
+      // Do not carry reminders — scheduleBooking enqueues fresh ones for this revision.
       if (bumped?.revision != null) {
         await db.query(
           `UPDATE private.email_outbox
@@ -676,7 +683,7 @@ export async function hostEditBooking(
             WHERE booking_id = $1
               AND status = 'queued'
               AND booking_revision = $3
-              AND kind IN ('booking_confirmation', 'booking_reminder')`,
+              AND kind = 'booking_confirmation'`,
           [booking.id, bumped.revision, priorRevision],
         );
       }

@@ -350,18 +350,25 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         earlyAccessExists = !!(await db.query(
           "SELECT id FROM private.early_access_signups WHERE id=$1 FOR SHARE", [j.early_access_id],
         )).rowCount;
-      if (
-        !(
-          await db.query(
-            "SELECT id FROM private.delivery_jobs WHERE id=$1 AND status='queued' FOR UPDATE SKIP LOCKED",
-            [j.id],
-          )
-        ).rowCount
-      ) {
+      const lockedJob = (
+        await db.query(
+          "SELECT * FROM private.delivery_jobs WHERE id=$1 AND status='queued' FOR UPDATE SKIP LOCKED",
+          [j.id],
+        )
+      ).rows[0];
+      if (!lockedJob) {
         await db.query("COMMIT");
         continue;
       }
-      let valid = teamInviteValid && earlyAccessExists && new Date(j.expires_at).getTime() > Date.now();
+      // Prefer the locked row — an edit may have advanced booking_revision / cancelled while we waited.
+      Object.assign(j, lockedJob, {
+        claimed_at: j.claimed_at || lockedJob.claimed_at,
+        sender: j.sender || lockedJob.sender,
+      });
+      let valid =
+        teamInviteValid &&
+        earlyAccessExists &&
+        new Date(j.expires_at).getTime() > Date.now();
       if (j.booking_id) {
         const b = (
           await db.query(
