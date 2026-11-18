@@ -288,7 +288,8 @@ export async function materializeReminders(user?: string) {
         LIMIT 500`,
       user ? [user] : [],
     );
-    for (const r of rows) await scheduleBooking(db, r.id);
+    // Reminder materialization must never enqueue "appointment moved" emails.
+    for (const r of rows) await scheduleBooking(db, r.id, { skipChangeEmails: true });
     await db.query("COMMIT");
   } catch (e) {
     await db.query("ROLLBACK");

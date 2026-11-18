@@ -518,14 +518,28 @@ export function AppointmentDetailModal({
                   accessInstructions: form.accessInstructions,
                 }}
                 onChange={(serviceAddress) =>
-                  setForm((f) => ({
-                    ...f,
-                    serviceAddress,
-                    accessInstructions:
-                      serviceAddress.accessInstructions != null
+                  setForm((f) => {
+                    // Keep the Location instructions field authoritative. Smarty
+                    // validation can return a stale nested accessInstructions value
+                    // and must not overwrite what the host just typed or cleared.
+                    const streetChanged =
+                      serviceAddress.street !== f.serviceAddress.street ||
+                      serviceAddress.formatted !== f.serviceAddress.formatted ||
+                      serviceAddress.validated !== f.serviceAddress.validated;
+                    const instructions = streetChanged
+                      ? f.accessInstructions
+                      : serviceAddress.accessInstructions != null
                         ? serviceAddress.accessInstructions
-                        : f.accessInstructions,
-                  }))
+                        : f.accessInstructions;
+                    return {
+                      ...f,
+                      accessInstructions: instructions,
+                      serviceAddress: {
+                        ...serviceAddress,
+                        accessInstructions: instructions,
+                      },
+                    };
+                  })
                 }
                 required={form.locationMode === "at_customer"}
                 disabled={busy}

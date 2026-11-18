@@ -324,11 +324,48 @@ test("workspace backend allows Smarty event_types columns", () => {
   assert.match(backend, /"allowed_location_modes"/);
   assert.match(backend, /"virtual_instructions"/);
   assert.match(backend, /"custom_location_prompt"/);
-  const resolver = fs.readFileSync("src/lib/booking-address.ts", "utf8");
-  assert.match(
-    resolver,
-    /guestAccessInstructions \|\|[\s\S]*serviceAddress\.accessInstructions/,
-  );
+  // Explicit top-level accessInstructions (including "") must win over nested address notes.
+  const cleared = bookingAddress.resolveBookingLocation({
+    event: {
+      location: "On site",
+      location_mode: "at_customer",
+      allowed_location_modes: ["at_customer"],
+    },
+    guest: {
+      locationMode: "at_customer",
+      accessInstructions: "",
+      serviceAddress: {
+        street: "12 Oak Ave",
+        city: "Austin",
+        state: "TX",
+        postalCode: "78701",
+        country: "US",
+        formatted: "12 Oak Ave · Austin, TX 78701",
+        accessInstructions: "Old gate code from Smarty",
+      },
+    },
+  });
+  assert.equal(cleared.accessInstructions, "");
+  const nestedOnly = bookingAddress.resolveBookingLocation({
+    event: {
+      location: "On site",
+      location_mode: "at_customer",
+      allowed_location_modes: ["at_customer"],
+    },
+    guest: {
+      locationMode: "at_customer",
+      serviceAddress: {
+        street: "12 Oak Ave",
+        city: "Austin",
+        state: "TX",
+        postalCode: "78701",
+        country: "US",
+        formatted: "12 Oak Ave · Austin, TX 78701",
+        accessInstructions: "Use side gate",
+      },
+    },
+  });
+  assert.equal(nestedOnly.accessInstructions, "Use side gate");
 });
 
 test("platform business address write path and CRM typed addresses", () => {

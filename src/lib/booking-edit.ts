@@ -187,6 +187,7 @@ async function notifyBookingEdit(
   const locationChange = locationTextChange || locationModeChange || accessChange;
   const timeChange = changes.some((c) => c.field === "starts_at" || c.field === "ends_at");
   const cancelled = changes.some((c) => c.field === "status" && c.next === "cancelled");
+  const guestEmailChanged = changes.some((c) => c.field === "guest_email");
   const assigneeChange = changes.find((c) => c.field === "assigned_employee");
   // Internal notes must never appear in customer-facing copy.
   const customerVisibleFields = new Set([
@@ -220,18 +221,24 @@ async function notifyBookingEdit(
           ? locationLabelFallback(String(locationModeChange.next || ""))
           : "") ||
         currentLocation;
+      // When the guest identity changed, do not reveal prior gate codes / entry notes.
       const instructionLines = accessChange
-        ? `\nPrevious instructions: ${String(accessChange.previous || "None")}\nNew instructions: ${String(accessChange.next || "None")}`
+        ? guestEmailChanged
+          ? `\nLocation instructions: ${String(accessChange.next || "None")}`
+          : `\nPrevious instructions: ${String(accessChange.previous || "None")}\nNew instructions: ${String(accessChange.next || "None")}`
         : booking.access_instructions
           ? `\nLocation instructions: ${booking.access_instructions}`
           : "";
       const modeLine = locationModeChange
         ? `\nLocation type: ${locationLabelFallback(String(locationModeChange.previous || ""))} → ${locationLabelFallback(String(locationModeChange.next || ""))}`
         : "";
+      // Instruction-only edits: show current address once, not a Previous/New address diff.
       const addressLines =
-        locationTextChange || locationModeChange || !accessChange
+        locationTextChange || locationModeChange
           ? `Previous address: ${previousAddress}\nNew address: ${nextAddress}`
-          : `Address: ${currentLocation}`;
+          : accessChange
+            ? `Address: ${currentLocation}`
+            : `Previous address: ${previousAddress}\nNew address: ${nextAddress}`;
       const text =
         `Appointment Location Updated\n\n` +
         `Service: ${title}\n` +
@@ -381,18 +388,15 @@ export async function hostEditBooking(
           ])
         )
           throw new ApiError("That time is no longer available.", 409);
-        const durationMins = Math.round((Date.parse(end) - Date.parse(start)) / 60000);
-        if (durationMins < 5 || durationMins > 24 * 60)
+        const durationMs = Date.parse(end) - Date.parse(start);
+        if (durationMs < 5 * 60000 || durationMs > 24 * 60 * 60000)
           throw new ApiError("Choose an end time between 5 minutes and 24 hours after the start.");
-        const previousDurationMins = Math.round(
-          (Date.parse(iso(booking.ends_at)) - Date.parse(iso(booking.starts_at))) / 60000,
-        );
+        const previousDurationMs =
+          Date.parse(iso(booking.ends_at)) - Date.parse(iso(booking.starts_at));
         // move_booking derives duration from ends_at-starts_at. Align duration first so
         // opening-hours and overlap checks use the final window the host requested.
-        if (durationMins !== previousDurationMins) {
-          const alignedEnd = new Date(
-            Date.parse(iso(booking.starts_at)) + durationMins * 60000,
-          ).toISOString();
+        if (durationMs !== previousDurationMs) {
+          const alignedEnd = new Date(Date.parse(iso(booking.starts_at)) + durationMs).toISOString();
           const alignedBlocked = new Date(Date.parse(alignedEnd) + bufferMs).toISOString();
           const aligned = (
             await db.query(
@@ -451,11 +455,24 @@ export async function hostEditBooking(
         allowed_location_modes: booking.allowed_location_modes,
         virtual_instructions: booking.virtual_instructions || "",
       };
+      // Precedence: top-level patch.accessInstructions (incl. "") → nested serviceAddress
+      // accessInstructions on a nested-only patch → preserve stored booking instructions.
+      const nestedAccess =
+        patch.serviceAddress !== undefined &&
+        patch.serviceAddress &&
+        typeof patch.serviceAddress === "object" &&
+        (patch.serviceAddress as StructuredAddress).accessInstructions != null
+          ? String((patch.serviceAddress as StructuredAddress).accessInstructions)
+          : null;
       const guest: BookingLocationInput = {
         locationMode: patch.locationMode ?? booking.location_mode,
         serviceAddress: patch.serviceAddress !== undefined ? patch.serviceAddress : booking.service_address,
         accessInstructions:
-          patch.accessInstructions != null ? patch.accessInstructions : booking.access_instructions,
+          patch.accessInstructions != null
+            ? patch.accessInstructions
+            : nestedAccess != null
+              ? nestedAccess
+              : booking.access_instructions,
       };
       if (patch.locationMode != null && !isLocationMode(patch.locationMode))
         throw new ApiError("Choose a valid location type.");
@@ -554,7 +571,8 @@ export async function hostEditBooking(
                 guest_company = $6,
                 meeting_purpose = $7,
                 notes = $8,
-                contact_id = $9
+                contact_id = $9,
+                cancel_token = gen_random_uuid()
           WHERE id = $1 AND user_id = $2`,
         [
           booking.id,
