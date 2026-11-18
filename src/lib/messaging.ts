@@ -506,7 +506,15 @@ export async function notifyThreadStatusChange(
   }
 }
 
-export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, userId: string) {
+export async function inboxMetrics(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+  scope: "personal" | "workspace" = "workspace",
+) {
+  // Personal metrics: only conversations assigned to the signed-in user.
+  // Workspace metrics: full threadAccess (owner/admin + assignee + own).
+  const scopeWhere =
+    scope === "personal" ? "t.assigned_to=$1" : threadAccess;
   const { rows } = await db.query(
     `SELECT
        count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
@@ -517,10 +525,30 @@ export async function inboxMetrics(db: PoolClient | ReturnType<typeof getPool>, 
        count(*) FILTER (WHERE t.status='closed')::int AS closed,
        count(*) FILTER (WHERE t.status='archived')::int AS archived
      FROM private.message_threads t
-     WHERE ${threadAccess}`,
+     WHERE ${scopeWhere}`,
     [userId],
   );
   return rows[0];
+}
+
+/** True when the user may open the workspace-wide inbox (owner / administrator). */
+export async function canAccessWorkspaceInbox(
+  db: PoolClient | ReturnType<typeof getPool>,
+  userId: string,
+) {
+  const { rowCount } = await db.query(
+    `SELECT 1 FROM private.memberships
+      WHERE user_id=$1 AND active AND role IN ('owner','administrator')
+      LIMIT 1`,
+    [userId],
+  );
+  // Solo operators own threads via user_id without a membership row.
+  if (rowCount) return true;
+  const owned = await db.query(
+    `SELECT 1 FROM private.message_threads WHERE user_id=$1 LIMIT 1`,
+    [userId],
+  );
+  return !!owned.rowCount;
 }
 
 // Display status combines the stored message status with the delivery queue's result.

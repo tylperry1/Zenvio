@@ -108,7 +108,7 @@ const channelLabel = { email: "Email", sms: "Text", portal: "Client portal", not
 
 export function InboxCenter() {
   const params = useSearchParams();
-  const [filter, setFilter] = useState<Filter>("all"),
+  const [filter, setFilter] = useState<Filter>("mine"),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
     [list, setList] = useState<{
@@ -121,6 +121,7 @@ export function InboxCenter() {
       templates: Template[];
       unread: number;
       metrics?: Metrics;
+      capabilities?: { workspaceInbox?: boolean };
     } | null>(null),
     [listError, setListError] = useState(""),
     [selected, setSelected] = useState<string | null>(params.get("thread")),
@@ -229,8 +230,12 @@ export function InboxCenter() {
   return (
     <div className="platform-page inbox-page ds-root">
       <PageHeader
-        title="Inbox"
-        description="Secure customer conversations — email, text, portal replies, and private notes."
+        title={filter === "mine" || filter === "unread" ? "My Inbox" : "Workspace Inbox"}
+        description={
+          filter === "mine" || filter === "unread"
+            ? "Conversations assigned to you — email, text, portal replies, and private notes."
+            : "Workspace-wide conversations for owners and administrators."
+        }
         actions={
           <>
             <button type="button" className="ds-btn ghost" onClick={() => setShareLink(true)}>
@@ -247,7 +252,9 @@ export function InboxCenter() {
           <Kpi label="Open" value={String(metrics.open)} icon="message" />
           <Kpi label="Unread" value={String(metrics.unread)} icon="mail" tone="warning" />
           <Kpi label="Assigned to me" value={String(metrics.assigned_to_me)} icon="users" />
-          <Kpi label="Unassigned" value={String(metrics.unassigned)} icon="team" />
+          {(filter === "all" || filter === "unassigned") && (
+            <Kpi label="Unassigned" value={String(metrics.unassigned)} icon="team" />
+          )}
           <Kpi label="Pending response" value={String(metrics.pending_response)} icon="clock" />
           <Kpi label="Closed" value={String(metrics.closed)} icon="check" />
         </div>
@@ -270,10 +277,14 @@ export function InboxCenter() {
               value={filter}
               onChange={setFilter}
               tabs={[
-                { id: "all", label: "All" },
+                { id: "mine", label: "My Inbox" },
                 { id: "unread", label: "Unread", count: list?.unread || undefined },
-                { id: "mine", label: "Assigned to me" },
-                { id: "unassigned", label: "Unassigned" },
+                ...(list?.capabilities?.workspaceInbox !== false
+                  ? ([
+                      { id: "all", label: "Workspace" },
+                      { id: "unassigned", label: "Unassigned" },
+                    ] as { id: Filter; label: string }[])
+                  : []),
                 { id: "pending_response", label: "Pending" },
                 { id: "closed", label: "Closed" },
                 { id: "archived", label: "Archived" },
@@ -283,10 +294,19 @@ export function InboxCenter() {
           {listError && <Alert tone="danger">{listError}</Alert>}
           {!list && !listError && <Skeleton rows={6} />}
           {list && !list.threads.length && (
-            <EmptyState icon="message" title={query || filter !== "all" ? "No matching conversations" : "No conversations yet"}>
-              {query || filter !== "all"
+            <EmptyState
+              icon="message"
+              title={
+                query || filter !== "mine"
+                  ? "No matching conversations"
+                  : "Nothing assigned to you yet"
+              }
+            >
+              {query || (filter !== "mine" && filter !== "all")
                 ? "Try another search or filter."
-                : "Start one with a client, or send a booking link. Client replies from their portal land here."}
+                : filter === "mine"
+                  ? "Open Workspace Inbox to claim unassigned conversations, or start a new one."
+                  : "Start one with a client, or send a booking link. Client replies from their portal land here."}
             </EmptyState>
           )}
           <ul className="inbox-threads">
@@ -802,7 +822,7 @@ function Composer({
       </div>
       {hasContact && !sms.ok && (
         <Notice tone="warning">
-          Text messaging isn’t connected for this workspace yet. {sms.detail || "Send by email or through the client portal instead."}
+          Text messaging isn’t available. Send by email or client portal instead.
         </Notice>
       )}
       {channel === "sms" && sms.ok && (

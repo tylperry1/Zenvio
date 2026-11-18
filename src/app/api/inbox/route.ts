@@ -11,6 +11,7 @@ import {
   deliveryStatus,
   editThreadMessage,
   ensureContactThread,
+  canAccessWorkspaceInbox,
   inboxMetrics,
   markThreadReadForUser,
   markThreadUnreadForUser,
@@ -58,8 +59,9 @@ export async function GET(request: NextRequest) {
       );
     }
     if (params.get("metrics") === "1") {
+      const scope = params.get("scope") === "personal" ? "personal" : "workspace";
       return Response.json(
-        { metrics: await inboxMetrics(pool, user.id) },
+        { metrics: await inboxMetrics(pool, user.id, scope) },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -173,11 +175,16 @@ export async function GET(request: NextRequest) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    const filter = params.get("filter") || "all";
+    const filter = params.get("filter") || "mine";
     if (!(LIST_FILTERS as readonly string[]).includes(filter)) throw new ApiError("Invalid filter.");
+    const workspaceAllowed = await canAccessWorkspaceInbox(pool, user.id);
+    // Personal default: only conversations assigned to the signed-in user.
+    // Workspace ("all") and Unassigned require owner/administrator (or solo owner).
+    if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
+      throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
     const where = [threadAccess],
       values: unknown[] = [user.id];
-    if (filter === "mine") where.push("t.assigned_to=$1");
+    if (filter === "mine" || filter === "unread") where.push("t.assigned_to=$1");
     if (filter === "unassigned") where.push("t.assigned_to IS NULL AND t.status IN ('open','pending_response')");
     if (filter === "open") where.push("t.status IN ('open','pending_response')");
     if (filter === "pending_response") where.push("t.status='pending_response'");
@@ -194,6 +201,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(0, Math.min(200, Number(params.get("page") || 0) || 0));
     // Match pre-repair inbox depth; UI can page via `page` when total exceeds this.
     const pageSize = 100;
+    const metricsScope = filter === "mine" || filter === "unread" ? "personal" : "workspace";
     const { rows } = await pool.query(
       `SELECT * FROM (
          SELECT y.*, count(*) OVER()::int total FROM (
@@ -225,10 +233,10 @@ export async function GET(request: NextRequest) {
       pool.query("SELECT id,name,body FROM private.message_templates WHERE user_id=$1 ORDER BY name", [user.id]),
       pool.query(
         `SELECT count(*)::int n FROM private.message_threads t
-          WHERE ${threadAccess} AND ${threadUnreadCountSql} > 0`,
+          WHERE ${metricsScope === "personal" ? "t.assigned_to=$1" : threadAccess} AND ${threadUnreadCountSql} > 0`,
         [user.id],
       ),
-      inboxMetrics(pool, user.id),
+      inboxMetrics(pool, user.id, metricsScope),
     ]);
     return Response.json(
       {
@@ -240,6 +248,7 @@ export async function GET(request: NextRequest) {
         templates: templates.rows,
         unread: unread.rows[0].n,
         metrics,
+        capabilities: { workspaceInbox: workspaceAllowed },
       },
       { headers: { "Cache-Control": "no-store" } },
     );

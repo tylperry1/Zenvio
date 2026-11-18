@@ -35,6 +35,18 @@ test("inbox API exposes lifecycle filters, metrics, edit/delete actions", () => 
   assert.match(inbox, /deleted_at IS NULL/);
 });
 
+test("personal inbox is the default and workspace filters require admin capability", () => {
+  assert.match(inbox, /params\.get\("filter"\) \|\| "mine"/);
+  assert.match(inbox, /canAccessWorkspaceInbox/);
+  assert.match(inbox, /Workspace inbox requires owner or administrator access/);
+  assert.match(messaging, /export async function canAccessWorkspaceInbox/);
+  assert.match(messaging, /scope === "personal"/);
+  const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
+  assert.match(ui, /useState<Filter>\("mine"\)/);
+  assert.match(ui, /label: "My Inbox"/);
+  assert.match(ui, /label: "Workspace"/);
+});
+
 test("portal excludes internal notes, SMS, and soft-deleted messages", () => {
   assert.match(portal, /m\.direction<>'internal'/);
   assert.match(portal, /m\.channel<>'sms'/);

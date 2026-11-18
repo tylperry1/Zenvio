@@ -162,7 +162,12 @@ export function AppointmentDetailModal({
           };
         }
       }
-      if (rescheduling) {
+      // Always send schedule when the host changed start/end (Edit and Reschedule share this form).
+      const scheduleChanged =
+        !!original &&
+        (form.startsAt !== toLocalInput(original.starts_at, zone) ||
+          form.endsAt !== toLocalInput(original.ends_at, zone));
+      if (rescheduling || scheduleChanged) {
         body.startsAt = localBookingStart(form.startsAt, zone);
         body.endsAt = localBookingStart(form.endsAt, zone);
       }
@@ -466,29 +471,32 @@ export function AppointmentDetailModal({
               />
             </Field>
 
-            {rescheduling && (
-              <>
-                <Field
-                  label="Start"
-                  hint={`Times in ${(booking.timezone || zone).replaceAll("_", " ")}.`}
-                >
-                  <input
-                    type="datetime-local"
-                    value={form.startsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
-                    disabled={busy}
-                  />
-                </Field>
-                <Field label="End">
-                  <input
-                    type="datetime-local"
-                    value={form.endsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
-                    disabled={busy}
-                  />
-                </Field>
-              </>
-            )}
+            <Field
+              label="Start"
+              hint={`Times in ${(booking.timezone || zone).replaceAll("_", " ")}.`}
+            >
+              <input
+                type="datetime-local"
+                value={form.startsAt}
+                onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
+            <Field label="End" hint="Duration is the difference between start and end.">
+              <input
+                type="datetime-local"
+                value={form.endsAt}
+                onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
+            <Field label="Company">
+              <input
+                value={form.guestCompany}
+                onChange={(e) => setForm((f) => ({ ...f, guestCompany: e.target.value }))}
+                disabled={busy}
+              />
+            </Field>
             <p className="ds-muted" style={{ margin: 0, fontSize: 13 }}>
               To reassign this appointment to another teammate, use Team → Appointments.
             </p>
