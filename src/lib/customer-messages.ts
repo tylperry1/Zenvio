@@ -32,7 +32,9 @@ export const customerMessages = {
     enrollPricingUnavailable:
       "This plan isn’t ready for enrollment yet. No payment has been taken.",
     noBillingAccount:
-      "No billing account yet. Your Free plan doesn’t need a payment method.",
+      "This account doesn’t have a billing profile yet, so payment details aren’t available.",
+    invoicesUnavailable:
+      "Invoices aren’t available to load right now. Try again later or contact support.",
   },
   auth: {
     resetEmailUnavailable:
@@ -66,9 +68,9 @@ export const customerMessages = {
     browserBlurb:
       "Asks this browser for permission so Zenvio can show alerts while the app is open on this device.",
     emailSmsBlurb:
-      "Booking confirmations, reminders, and follow-ups are sent by email and SMS through Automations and your service settings. Those channels are separate from this browser permission.",
+      "Manage booking email and, where available, SMS in Automations and your service settings. Those channels are separate from this browser permission.",
     emailSmsNote:
-      "Security, billing, and account emails always send. Marketing email stays opt-in. Phone alerts use your Automations and messaging settings—not this browser switch.",
+      "Security, billing, and account emails send when email delivery is available. Marketing email stays opt-in. Phone alerts use your Automations and messaging settings—not this browser switch.",
   },
   commerce: {
     purchasesPausedOwner:

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { Alert, Badge, EmptyState, Meter, Skeleton, formatDateTime, useConfirm, useToast } from "./ui";
+import { customerMessages } from "@/lib/customer-messages";
 
 export type AssistantContextRef = { type: "client" | "appointment" | "job" | "document"; id: string; label?: string };
 type Preview = {
@@ -454,8 +455,8 @@ export function AssistantChat({
         )}
       </div>
       {status && !status.configured && (
-        <Alert tone="info" title="The assistant isn’t available yet">
-          We’re finishing setup for Zenvio Assistant. Please check back soon, or contact support if you need help now.
+        <Alert tone="info" title={customerMessages.assistant.notReadyTitle}>
+          {customerMessages.assistant.notReadyBody}
         </Alert>
       )}
       {status && status.configured && !status.limits.enabled && (

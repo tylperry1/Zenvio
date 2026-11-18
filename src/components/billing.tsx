@@ -406,8 +406,14 @@ export function Billing() {
                       Review published packages on the{" "}
                       <Link href="/pricing">pricing page</Link>.
                     </>
+                  ) : tab === "plans" ? (
+                    <>Review packages below.</>
                   ) : (
-                    <>Use Compare plans to review packages in this workspace.</>
+                    <>
+                      <button type="button" className="ds-btn sm" onClick={() => setTab("plans")}>
+                        Compare plans
+                      </button>
+                    </>
                   )}
                 </Notice>
               )}
@@ -493,13 +499,19 @@ export function Billing() {
                   ) : (
                     <EmptyState
                       icon="card"
-                      title={sub.has_customer ? "Invoices not loaded yet" : "No invoices yet"}
+                      title={
+                        !sub.has_customer
+                          ? "No invoices yet"
+                          : data.connected
+                            ? "Invoices not loaded yet"
+                            : "Invoices unavailable"
+                      }
                       action={
-                        sub.has_customer ? (
+                        sub.has_customer && data.connected ? (
                           <button
                             type="button"
                             className="ds-btn primary sm"
-                            disabled={invoiceBusy || !data.connected}
+                            disabled={invoiceBusy}
                             onClick={() => void history()}
                           >
                             Load invoices
@@ -507,9 +519,11 @@ export function Billing() {
                         ) : undefined
                       }
                     >
-                      {sub.has_customer
-                        ? customerMessages.billing.invoicesLoadPrompt
-                        : customerMessages.billing.invoicesEmptyFree}
+                      {!sub.has_customer
+                        ? customerMessages.billing.invoicesEmptyFree
+                        : data.connected
+                          ? customerMessages.billing.invoicesLoadPrompt
+                          : customerMessages.billing.invoicesUnavailable}
                     </EmptyState>
                   )}
                 </Panel>

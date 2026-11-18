@@ -76,13 +76,13 @@ export function NotificationsCenter() {
         <header>
           <h2>Customer email & SMS</h2>
           <p>
-            Booking confirmations, reminders, and follow-ups are sent by email and SMS through Automations and your
-            service settings. Those channels are separate from this browser permission.
+            Manage booking email and, where available, SMS in Automations and your service settings. Those channels are
+            separate from this browser permission.
           </p>
         </header>
         <p className="notif-note">
-          Security, billing, and account emails always send. Marketing email stays opt-in. Phone alerts use your
-          Automations and messaging settings—not this browser switch.
+          Security, billing, and account emails send when email delivery is available. Marketing email stays opt-in.
+          Phone alerts use your Automations and messaging settings—not this browser switch.
         </p>
         <div className="notif-actions">
           <Link className="ui-btn ui-btn-primary" href="/app/automation">

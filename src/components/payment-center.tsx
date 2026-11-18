@@ -133,8 +133,8 @@ export function PaymentCenter() {
           <div className="ds-stack">
             {!data.configured && (
               <Notice tone="info">
-                Appointment payments aren’t available to connect right now. Your workspace is unchanged, and nothing is
-                charged in the meantime. Please try again later or contact support if you need this enabled.
+                Appointment payments aren’t available to connect right now. Your workspace is unchanged. Please try again
+                later or contact support if you need this enabled.
               </Notice>
             )}
 
@@ -149,7 +149,7 @@ export function PaymentCenter() {
                       ? "Finish Stripe onboarding"
                       : data.configured
                         ? "Connect to accept payments"
-                        : "Waiting on platform setup"
+                        : "Online payments aren’t available right now"
                 }
                 icon="card"
                 tone={ready ? "success" : account ? "warning" : "neutral"}

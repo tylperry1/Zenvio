@@ -23,8 +23,10 @@ test("billing overview uses customer-safe paused-enrollment copy without Stripe 
   const billing = read("src/components/billing.tsx");
   const messages = read("src/lib/customer-messages.ts");
   assert.match(billing, /data\.connected && !data\.checkoutEnabled/);
-  assert.match(billing, /customerMessages\.billing/);
-  assert.match(messages, /Online plan enrollment isn’t open right now/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPaused/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPausedWithBillingAccount/);
+  assert.match(billing, /customerMessages\.billing\.enrollmentPausedTeamMember/);
+  assert.match(messages, /enrollmentPaused:\s*\n\s*"Online plan enrollment isn’t open right now/);
   assert.match(billing, /sub\.has_customer/);
   assert.match(billing, /href="\/pricing"/);
   assert.doesNotMatch(billing, /Stripe is configured/);
@@ -67,6 +69,7 @@ test("smoke script fails on pageerror and retains them in the report", () => {
 test("notifications page is titled as browser alerts and avoids internal delivery jargon", () => {
   const page = read("src/components/notifications-center.tsx");
   assert.match(page, /Browser alerts/);
+  assert.match(page, /where available, SMS/);
   assert.match(page, /Automations and your[\s\S]*service settings/);
   assert.doesNotMatch(page, /Resend lifecycle queue/);
   assert.doesNotMatch(page, /provider-gated/);
@@ -78,7 +81,10 @@ test("notifications page is titled as browser alerts and avoids internal deliver
 
 test("assistant unavailable state does not expose Anthropic admin setup instructions", () => {
   const assistant = read("src/components/assistant.tsx");
-  assert.match(assistant, /The assistant isn’t available yet/);
+  const messages = read("src/lib/customer-messages.ts");
+  assert.match(assistant, /customerMessages\.assistant\.notReadyTitle/);
+  assert.match(assistant, /customerMessages\.assistant\.notReadyBody/);
+  assert.match(messages, /notReadyTitle:\s*"The assistant isn’t available yet"/);
   assert.doesNotMatch(assistant, /Anthropic API key/);
   assert.doesNotMatch(assistant, /Admin → Operations/);
 });

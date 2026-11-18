@@ -49,6 +49,10 @@ const FORBIDDEN = [
   /setup is required in master admin/i,
   /platform administrator needs to finish/i,
   /Purchasing is not yet enabled/i,
+  /Waiting on platform setup/i,
+  /Checkout activation remains independently controlled/i,
+  /Stripe confirmed cancellation at period end/i,
+  /Stripe billing is not connected yet/i,
 ];
 
 test("customer-facing surfaces avoid internal development and configuration language", () => {
