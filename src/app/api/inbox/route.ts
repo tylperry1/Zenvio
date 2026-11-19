@@ -142,6 +142,14 @@ export async function GET(request: NextRequest) {
       }
       const sms = await smsReadiness(t.user_id, phone || t.contact_phone || "", "");
       const admin = await canAdministerThread(pool, user.id, t);
+      const assignee = t.assigned_to
+        ? (
+            await pool.query<{ name: string | null; email: string | null }>(
+              `SELECT name, email FROM public."user" WHERE id=$1`,
+              [t.assigned_to],
+            )
+          ).rows[0]
+        : null;
       return Response.json(
         {
           thread: {
@@ -149,6 +157,7 @@ export async function GET(request: NextRequest) {
             subject: t.subject,
             status: t.status,
             assigned_to: t.assigned_to,
+            assigned_name: assignee?.name || assignee?.email || null,
             booking_id: t.booking_id,
             contact: t.contact_id
               ? {
@@ -186,9 +195,14 @@ export async function GET(request: NextRequest) {
     if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
       throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
     const personalWhere = await personalInboxWhere(pool, user.id);
+    // Overview stats in My Inbox are personal; callers can pass scope=personal so status
+    // filters (open/pending/closed/archived) stay in that same count scope for admins.
+    const preferPersonal =
+      params.get("scope") === "personal" && filter !== "all" && filter !== "unassigned";
     const personalOnly =
       filter === "mine" ||
       filter === "unread" ||
+      preferPersonal ||
       (!workspaceAllowed &&
         (filter === "open" ||
           filter === "pending_response" ||

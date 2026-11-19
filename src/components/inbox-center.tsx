@@ -44,6 +44,7 @@ type Detail = {
     subject: string;
     status: ThreadStatus;
     assigned_to: string | null;
+    assigned_name?: string | null;
     booking_id?: string | null;
     canAdminister?: boolean;
     contact: { id: string; name: string; email: string; phone: string } | null;
@@ -191,10 +192,13 @@ export function InboxCenter() {
     [picker, setPicker] = useState(false),
     [shareLink, setShareLink] = useState(false),
     [loadingMore, setLoadingMore] = useState(false),
-    [contextOpen, setContextOpen] = useState(true),
-    [metricsOpen, setMetricsOpen] = useState(true);
+    [contextOpen, setContextOpen] = useState(() =>
+      typeof window !== "undefined" ? window.matchMedia("(min-width: 1101px)").matches : false,
+    ),
+    [metricsOpen, setMetricsOpen] = useState(true),
+    [preferPersonal, setPreferPersonal] = useState(false);
   const toast = useToast();
-  const listKey = `${filter}\0${query}`;
+  const listKey = `${filter}\0${query}\0${preferPersonal ? "p" : ""}`;
   const activeListKey = useRef(listKey);
   activeListKey.current = listKey;
   const workspace = list?.capabilities?.workspaceInbox === true;
@@ -204,13 +208,14 @@ export function InboxCenter() {
   const loadList = useCallback(
     async (opts?: { page?: number; append?: boolean }) => {
       const nextPage = opts?.page ?? 0;
-      const identity = `${filter}\0${query}`;
+      const identity = `${filter}\0${query}\0${preferPersonal ? "p" : ""}`;
       if (activeListKey.current !== identity) return;
       const still = freshList();
       try {
         if (opts?.append) setLoadingMore(true);
+        const scopeQ = preferPersonal ? "&scope=personal" : "";
         const r = await fetch(
-          `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}`,
+          `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}${scopeQ}`,
           { cache: "no-store" },
         );
         const d = await r.json();
@@ -238,7 +243,7 @@ export function InboxCenter() {
         if (opts?.append) setLoadingMore(false);
       }
     },
-    [filter, query, freshList],
+    [filter, query, preferPersonal, freshList],
   );
   const loadThread = useCallback(
     async (id: string) => {
@@ -266,6 +271,10 @@ export function InboxCenter() {
   useEffect(() => {
     if (!selected) return setDetail(null);
     setDetail(null);
+    // Drawer-width: keep the conversation readable; open Details only on demand.
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1101px)").matches) {
+      setContextOpen(false);
+    }
     void loadThread(selected).then(() => loadList({ page: 0 }));
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -310,11 +319,20 @@ export function InboxCenter() {
     { id: "archived", label: "Archived" },
   ];
 
-  function applyFilter(next: Filter) {
+  function applyFilter(next: Filter, opts?: { personal?: boolean }) {
     setFilter(next);
+    if (next === "all" || next === "unassigned") setPreferPersonal(false);
+    else if (opts?.personal) setPreferPersonal(true);
+    else if (next === "mine" || next === "unread") setPreferPersonal(false);
+    else setPreferPersonal(false);
     setSelected(null);
     setDetail(null);
     window.history.replaceState(null, "", "/app/inbox");
+  }
+
+  function applyOverviewFilter(next: Filter) {
+    // Keep overview clicks in the same scope as the displayed counts.
+    applyFilter(next, { personal: list?.scope === "personal" && next !== "mine" && next !== "unread" });
   }
 
   const showContext =
@@ -363,21 +381,36 @@ export function InboxCenter() {
           </div>
           {metricsOpen && (
             <div className="inbox-stats" role="toolbar" aria-label="Inbox overview">
-              <StatButton label="Open" value={metrics.open} active={filter === "open"} onClick={() => applyFilter("open")} />
-              <StatButton label="Unread" value={metrics.unread} active={filter === "unread"} onClick={() => applyFilter("unread")} />
+              <StatButton
+                label="Open"
+                value={metrics.open}
+                active={filter === "open"}
+                onClick={() => applyOverviewFilter("open")}
+              />
+              <StatButton
+                label="Unread"
+                value={metrics.unread}
+                active={filter === "unread"}
+                onClick={() => applyOverviewFilter("unread")}
+              />
               <StatButton
                 label="Assigned to me"
                 value={metrics.assigned_to_me}
                 active={filter === "mine"}
-                onClick={() => applyFilter("mine")}
+                onClick={() => applyOverviewFilter("mine")}
               />
               <StatButton
                 label="Pending response"
                 value={metrics.pending_response}
                 active={filter === "pending_response"}
-                onClick={() => applyFilter("pending_response")}
+                onClick={() => applyOverviewFilter("pending_response")}
               />
-              <StatButton label="Closed" value={metrics.closed} active={filter === "closed"} onClick={() => applyFilter("closed")} />
+              <StatButton
+                label="Closed"
+                value={metrics.closed}
+                active={filter === "closed"}
+                onClick={() => applyOverviewFilter("closed")}
+              />
             </div>
           )}
         </div>
@@ -615,6 +648,12 @@ function CustomerContext({
   const booking = thread.booking;
   const recentBookings = thread.recentBookings || [];
   const assignee = members.find((m) => m.id === thread.assigned_to);
+  const assignedLabel =
+    assignee?.name ||
+    assignee?.email ||
+    thread.assigned_name ||
+    (thread.assigned_to ? "Assigned" : "Unassigned");
+  const appointmentHref = (id: string) => `/app?view=bookings&booking=${encodeURIComponent(id)}`;
 
   return (
     <aside className="inbox-rail" aria-label="Customer context">
@@ -655,7 +694,7 @@ function CustomerContext({
           </div>
           <div>
             <dt>Assigned</dt>
-            <dd>{assignee?.name || assignee?.email || "Unassigned"}</dd>
+            <dd>{assignedLabel}</dd>
           </div>
         </dl>
 
@@ -665,7 +704,7 @@ function CustomerContext({
               Open profile
             </Link>
             {thread.booking_id && (
-              <Link className="ds-btn ghost sm" href={`/app/bookings?id=${thread.booking_id}`}>
+              <Link className="ds-btn ghost sm" href={appointmentHref(thread.booking_id)}>
                 Open appointment
               </Link>
             )}
@@ -687,6 +726,9 @@ function CustomerContext({
               ) : null}
             </p>
             <Badge tone={booking.status === "confirmed" ? "success" : "neutral"}>{booking.status}</Badge>
+            <Link className="ds-btn ghost sm" href={appointmentHref(booking.id)}>
+              Open appointment
+            </Link>
           </section>
         )}
 
@@ -696,7 +738,7 @@ function CustomerContext({
             <ul className="inbox-context-bookings">
               {recentBookings.slice(0, 5).map((b) => (
                 <li key={b.id}>
-                  <Link href={`/app/bookings?id=${b.id}`}>
+                  <Link href={appointmentHref(b.id)}>
                     <span>
                       {b.title || "Service"}
                       <small>
