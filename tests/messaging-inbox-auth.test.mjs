@@ -52,7 +52,7 @@ test("personal inbox is the default and workspace filters require admin capabili
   const ui = fs.readFileSync("src/components/inbox-center.tsx", "utf8");
   assert.match(ui, /useState<Filter>\("mine"\)/);
   assert.match(ui, /label: "My Inbox"/);
-  assert.match(ui, /label: "Workspace"/);
+  assert.match(ui, /label: "All"/);
   assert.match(ui, /workspaceInbox === true/);
   assert.match(ui, /if \(activeListKey\.current !== identity\) return;\s*\n\s*const still = freshList\(\)/);
 });
