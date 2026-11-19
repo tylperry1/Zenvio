@@ -142,6 +142,14 @@ export async function GET(request: NextRequest) {
       }
       const sms = await smsReadiness(t.user_id, phone || t.contact_phone || "", "");
       const admin = await canAdministerThread(pool, user.id, t);
+      const assignee = t.assigned_to
+        ? (
+            await pool.query<{ name: string | null; email: string | null }>(
+              `SELECT name, email FROM public."user" WHERE id=$1`,
+              [t.assigned_to],
+            )
+          ).rows[0]
+        : null;
       return Response.json(
         {
           thread: {
@@ -149,6 +157,7 @@ export async function GET(request: NextRequest) {
             subject: t.subject,
             status: t.status,
             assigned_to: t.assigned_to,
+            assigned_name: assignee?.name || assignee?.email || null,
             booking_id: t.booking_id,
             contact: t.contact_id
               ? {
@@ -186,10 +195,18 @@ export async function GET(request: NextRequest) {
     if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
       throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
     const personalWhere = await personalInboxWhere(pool, user.id);
+    // Overview stats pass scope so Open/Unread/Pending/Closed open the same set as the count.
+    // Unread defaults to personal; scope=workspace unlocks workspace-wide unread for admins.
+    const scopeParam = params.get("scope");
+    const preferPersonal =
+      scopeParam === "personal" && filter !== "all" && filter !== "unassigned";
+    const preferWorkspace = scopeParam === "workspace" && workspaceAllowed && filter !== "mine";
     const personalOnly =
       filter === "mine" ||
-      filter === "unread" ||
-      (!workspaceAllowed &&
+      (filter === "unread" && !preferWorkspace) ||
+      preferPersonal ||
+      (!preferWorkspace &&
+        !workspaceAllowed &&
         (filter === "open" ||
           filter === "pending_response" ||
           filter === "closed" ||

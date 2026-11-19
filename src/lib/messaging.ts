@@ -540,7 +540,7 @@ export async function inboxMetrics(
     `SELECT
        count(*) FILTER (WHERE t.status IN ('open','pending_response'))::int AS open,
        count(*) FILTER (WHERE ${threadUnreadCountSql} > 0)::int AS unread,
-       count(*) FILTER (WHERE t.assigned_to=$1 AND t.status IN ('open','pending_response'))::int AS assigned_to_me,
+       count(*) FILTER (WHERE t.assigned_to=$1)::int AS assigned_to_me,
        count(*) FILTER (WHERE t.assigned_to IS NULL AND t.status IN ('open','pending_response'))::int AS unassigned,
        count(*) FILTER (WHERE t.status='pending_response')::int AS pending_response,
        count(*) FILTER (WHERE t.status='closed')::int AS closed,

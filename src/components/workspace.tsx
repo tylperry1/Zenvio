@@ -64,6 +64,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
   const params = useSearchParams();
   const view = viewFor(params.get("view"));
   const intent = params.get("new");
+  const deepBookingId = params.get("booking");
   const [data, setData] = useState<WorkspaceData | null>(null),
     [loading, setLoading] = useState(true),
     [fatal, setFatal] = useState(""),
@@ -225,6 +226,25 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
     if (intent === "appointment" && !demo) setCreatingAppointment(true);
     router.replace((demo ? "/demo" : "/app") + (viewSlugs[view] ? `?view=${viewSlugs[view]}` : ""));
   }, [intent, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Deep links from Inbox (`?view=bookings&booking=<id>`) open the appointment detail.
+    if (!deepBookingId || demo || view !== "Bookings") return;
+    const fromLists = [...(data?.bookings || []), ...(remote?.bookings || [])].find((b) => b.id === deepBookingId);
+    setSelectedBooking(
+      fromLists ||
+        ({
+          id: deepBookingId,
+          event_id: "",
+          guest_name: "",
+          guest_email: "",
+          notes: "",
+          starts_at: new Date().toISOString(),
+          ends_at: new Date().toISOString(),
+          status: "confirmed",
+        } satisfies Booking),
+    );
+    router.replace("/app?view=bookings");
+  }, [deepBookingId, demo, view, data, remote, router]);
   useEffect(() => {
     // Contacts live on the Clients page in a real workspace.
     if (view === "Contacts" && !demo) router.replace("/app/clients");

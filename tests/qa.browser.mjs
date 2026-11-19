@@ -65,18 +65,16 @@ try {
           await dialog.waitFor({state:"hidden"});
         }
         if(route === "/app/inbox") {
-          const filters = page.getByRole("tablist", {name: "Filter conversations"});
-          await filters.getByRole("tab", {name: "Closed", exact: true}).waitFor();
-          const layout = await filters.evaluate(node => {
-            const parent = node.getBoundingClientRect();
-            return {overflow: node.scrollWidth - node.clientWidth, tabsFit: [...node.querySelectorAll('[role="tab"]')].every(tab => {
-              const box = tab.getBoundingClientRect();
-              return box.left >= parent.left - 1 && box.right <= parent.right + 1 && box.top >= parent.top - 1 && box.bottom <= parent.bottom + 1;
-            })};
-          });
-          assert.ok(layout.overflow <= 1 && layout.tabsFit, `Inbox filters must fit at ${width}px: ${JSON.stringify(layout)}`);
-          await filters.getByRole("tab", {name: "Closed", exact: true}).click();
-          assert.equal(await filters.getByRole("tab", {name: "Closed", exact: true}).getAttribute("aria-selected"), "true");
+          // Compact filter chips use a navigable button strip (may scroll on narrow widths).
+          const filters = page.getByRole("navigation", {name: "Filter conversations"});
+          const closed = filters.getByRole("button", {name: "Closed", exact: true});
+          await closed.waitFor();
+          await closed.click();
+          assert.equal(await closed.getAttribute("aria-pressed"), "true");
+          assert.ok(
+            await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1),
+            `Inbox page must not overflow horizontally at ${width}px`,
+          );
           await page.screenshot({path: `test-results/inbox-filters-${width}.png`});
         }
         if(route === "/admin/suppliers?view=integrations") {

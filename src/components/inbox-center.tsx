@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { AskZenvio } from "./assistant";
 import { SendBookingLinkDialog } from "./send-booking-link";
-import { Kpi, Notice, PageHeader } from "./ds";
-import { Alert, Badge, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
+import { Notice, PageHeader } from "./ds";
+import { Alert, Badge, EmptyState, Field, Skeleton, formatDateTime, useToast } from "./ui";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { Modal } from "./modal";
 
@@ -44,6 +44,7 @@ type Detail = {
     subject: string;
     status: ThreadStatus;
     assigned_to: string | null;
+    assigned_name?: string | null;
     booking_id?: string | null;
     canAdminister?: boolean;
     contact: { id: string; name: string; email: string; phone: string } | null;
@@ -105,6 +106,66 @@ const statusLabel: Record<string, string> = {
   blocked: "Blocked",
 };
 const channelLabel = { email: "Email", sms: "Text", portal: "Client portal", note: "Internal note" };
+const threadStatusLabel: Record<ThreadStatus, string> = {
+  open: "Open",
+  pending_response: "Pending",
+  closed: "Closed",
+  archived: "Archived",
+};
+
+function initials(name: string | null | undefined) {
+  const parts = (name || "?").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function dayKey(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (dayKey(iso) === dayKey(today.toISOString())) return "Today";
+  if (dayKey(iso) === dayKey(yesterday.toISOString())) return "Yesterday";
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function emptyCopy(filter: Filter, query: string, workspace: boolean): { title: string; body: string } {
+  if (query.trim()) {
+    return { title: "No search results", body: "Try another name, email, phone, or keyword." };
+  }
+  switch (filter) {
+    case "unread":
+      return { title: "No unread messages", body: "You’re caught up. New replies will appear here." };
+    case "mine":
+      return {
+        title: "No conversations assigned to you",
+        body: workspace
+          ? "Claim an unassigned conversation from All, or start a new one."
+          : "Start a conversation with a client. Replies land here when assigned to you.",
+      };
+    case "unassigned":
+      return { title: "No unassigned conversations", body: "Everything currently has an owner." };
+    case "pending_response":
+      return { title: "Nothing pending a response", body: "No conversations are waiting on a reply." };
+    case "closed":
+      return { title: "No closed conversations", body: "Closed threads will show up here." };
+    case "archived":
+      return { title: "No archived conversations", body: "Archive a conversation to keep this list tidy." };
+    case "open":
+      return { title: "No open conversations", body: "Open threads will appear in this view." };
+    default:
+      return {
+        title: "No conversations yet",
+        body: "Start one with a client, or send a booking link. Portal replies land here.",
+      };
+  }
+}
 
 export function InboxCenter() {
   const params = useSearchParams();
@@ -130,67 +191,77 @@ export function InboxCenter() {
     [detailError, setDetailError] = useState(""),
     [picker, setPicker] = useState(false),
     [shareLink, setShareLink] = useState(false),
-    [loadingMore, setLoadingMore] = useState(false);
+    [loadingMore, setLoadingMore] = useState(false),
+    [contextOpen, setContextOpen] = useState(() =>
+      typeof window !== "undefined" ? window.matchMedia("(min-width: 1101px)").matches : false,
+    ),
+    [metricsOpen, setMetricsOpen] = useState(true),
+    [scopePref, setScopePref] = useState<"" | "personal" | "workspace">("");
   const toast = useToast();
-  const listKey = `${filter}\0${query}`;
+  const listKey = `${filter}\0${query}\0${scopePref}`;
   const activeListKey = useRef(listKey);
   activeListKey.current = listKey;
+  const workspace = list?.capabilities?.workspaceInbox === true;
 
   const freshList = useFreshRequest();
   const freshThread = useFreshRequest();
-  const loadList = useCallback(async (opts?: { page?: number; append?: boolean }) => {
-    const nextPage = opts?.page ?? 0;
-    const identity = `${filter}\0${query}`;
-    // Skip before invalidating fresher in-flight loads for the currently visible view.
-    if (activeListKey.current !== identity) return;
-    const still = freshList();
-    try {
-      if (opts?.append) setLoadingMore(true);
-      const r = await fetch(
-        `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}`,
-        { cache: "no-store" },
-      );
-      const d = await r.json();
-      // Drop results that no longer match the visible filter/search (stale after a view switch).
-      if (!still() || activeListKey.current !== identity) return;
-      if (!r.ok) throw Error(d.error);
-      setPage(nextPage);
-      setList((prev) => {
-        if (opts?.append) {
-          // Reject appends that would mix rows from a different filter/search.
-          if (!prev || prev.listKey !== identity) return prev;
-          return {
-            ...d,
-            listKey: identity,
-            threads: [...prev.threads, ...d.threads],
-            members: d.members,
-            templates: d.templates,
-          };
-        }
-        return { ...d, listKey: identity };
-      });
-      setListError("");
-    } catch (e) {
-      if (!still()) return;
-      setListError(e instanceof Error ? e.message : "The inbox couldn’t be loaded.");
-    } finally {
-      if (opts?.append) setLoadingMore(false);
-    }
-  }, [filter, query, freshList]);
-  const loadThread = useCallback(async (id: string) => {
-    const still = freshThread();
-    try {
-      const r = await fetch(`/api/inbox?thread=${id}`, { cache: "no-store" });
-      const d = await r.json();
-      if (!still() || selected !== id) return;
-      if (!r.ok) throw Error(d.error);
-      setDetail(d);
-      setDetailError("");
-    } catch (e) {
-      if (!still() || selected !== id) return;
-      setDetailError(e instanceof Error ? e.message : "The conversation couldn’t be loaded.");
-    }
-  }, [freshThread, selected]);
+  const loadList = useCallback(
+    async (opts?: { page?: number; append?: boolean }) => {
+      const nextPage = opts?.page ?? 0;
+      const identity = `${filter}\0${query}\0${scopePref}`;
+      if (activeListKey.current !== identity) return;
+      const still = freshList();
+      try {
+        if (opts?.append) setLoadingMore(true);
+        const scopeQ = scopePref ? `&scope=${scopePref}` : "";
+        const r = await fetch(
+          `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}${scopeQ}`,
+          { cache: "no-store" },
+        );
+        const d = await r.json();
+        if (!still() || activeListKey.current !== identity) return;
+        if (!r.ok) throw Error(d.error);
+        setPage(nextPage);
+        setList((prev) => {
+          if (opts?.append) {
+            if (!prev || prev.listKey !== identity) return prev;
+            return {
+              ...d,
+              listKey: identity,
+              threads: [...prev.threads, ...d.threads],
+              members: d.members,
+              templates: d.templates,
+            };
+          }
+          return { ...d, listKey: identity };
+        });
+        setListError("");
+      } catch (e) {
+        if (!still()) return;
+        setListError(e instanceof Error ? e.message : "The inbox couldn’t be loaded.");
+      } finally {
+        if (opts?.append) setLoadingMore(false);
+      }
+    },
+    [filter, query, scopePref, freshList],
+  );
+  const loadThread = useCallback(
+    async (id: string) => {
+      const still = freshThread();
+      try {
+        const r = await fetch(`/api/inbox?thread=${id}`, { cache: "no-store" });
+        const d = await r.json();
+        if (!still() || selected !== id) return;
+        if (!r.ok) throw Error(d.error);
+        setDetail(d);
+        setDetailError("");
+      } catch (e) {
+        if (!still() || selected !== id) return;
+        setDetailError(e instanceof Error ? e.message : "The conversation couldn’t be loaded.");
+      }
+    },
+    [freshThread, selected],
+  );
 
   useEffect(() => {
     setPage(0);
@@ -200,6 +271,10 @@ export function InboxCenter() {
   useEffect(() => {
     if (!selected) return setDetail(null);
     setDetail(null);
+    // Drawer-width: keep the conversation readable; open Details only on demand.
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1101px)").matches) {
+      setContextOpen(false);
+    }
     void loadThread(selected).then(() => loadList({ page: 0 }));
     window.history.replaceState(null, "", `/app/inbox?thread=${selected}`);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -233,13 +308,47 @@ export function InboxCenter() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const metrics = list?.metrics;
+  const empty = emptyCopy(filter, query, workspace);
+  const filters: { id: Filter; label: string; count?: number }[] = [
+    ...(workspace ? [{ id: "all" as const, label: "All" }] : []),
+    { id: "mine", label: "My Inbox" },
+    { id: "unread", label: "Unread", count: list?.unread || undefined },
+    ...(workspace ? [{ id: "unassigned" as const, label: "Unassigned" }] : []),
+    { id: "pending_response", label: "Pending" },
+    { id: "closed", label: "Closed" },
+    { id: "archived", label: "Archived" },
+  ];
+
+  function applyFilter(next: Filter, opts?: { scope?: "" | "personal" | "workspace" }) {
+    setFilter(next);
+    if (opts?.scope !== undefined) setScopePref(opts.scope);
+    else if (next === "all" || next === "unassigned" || next === "mine") setScopePref("");
+    else setScopePref("");
+    setSelected(null);
+    setDetail(null);
+    window.history.replaceState(null, "", "/app/inbox");
+  }
+
+  function applyOverviewFilter(next: Filter) {
+    // Keep overview clicks in the same scope as the displayed counts.
+    const countsPersonal = list?.scope === "personal";
+    if (next === "mine") applyFilter(next, { scope: "" });
+    else if (next === "unread") applyFilter(next, { scope: countsPersonal ? "personal" : "workspace" });
+    else applyFilter(next, { scope: countsPersonal ? "personal" : "" });
+  }
+
+  const showContext =
+    !!selected &&
+    !!detail &&
+    (!!detail.thread.contact || (detail.thread.recentBookings || []).length > 0 || !!detail.thread.booking);
+
   return (
     <div className="platform-page inbox-page ds-root">
       <PageHeader
-        title={list?.scope === "workspace" ? "Workspace Inbox" : "My Inbox"}
+        title={list?.scope === "workspace" ? "Workspace Inbox" : "Inbox"}
         description={
           list?.scope === "workspace"
-            ? "Workspace-wide conversations for owners and administrators."
+            ? "Workspace conversations — email, text, portal replies, and private notes."
             : "Conversations assigned to you — email, text, portal replies, and private notes."
         }
         actions={
@@ -253,69 +362,140 @@ export function InboxCenter() {
           </>
         }
       />
+
       {metrics && (
-        <div className="ds-kpis inbox-metrics">
-          <Kpi label="Open" value={String(metrics.open)} icon="message" />
-          <Kpi label="Unread" value={String(metrics.unread)} icon="mail" tone="warning" />
-          <Kpi label="Assigned to me" value={String(metrics.assigned_to_me)} icon="users" />
-          {(filter === "all" || filter === "unassigned") && (
-            <Kpi label="Unassigned" value={String(metrics.unassigned)} icon="team" />
+        <div className="inbox-overview">
+          <div className="inbox-overview-head">
+            <span className="inbox-overview-label">Overview</span>
+            <button
+              type="button"
+              className="inbox-icon-btn"
+              aria-expanded={metricsOpen}
+              aria-label={metricsOpen ? "Hide overview" : "Show overview"}
+              onClick={() => setMetricsOpen((v) => !v)}
+            >
+              <Icon
+                name="chevronDown"
+                size={14}
+                style={metricsOpen ? undefined : { transform: "rotate(-90deg)" }}
+              />
+            </button>
+          </div>
+          {metricsOpen && (
+            <div className="inbox-stats" role="toolbar" aria-label="Inbox overview">
+              <StatButton
+                label="Open"
+                value={metrics.open}
+                active={filter === "open"}
+                onClick={() => applyOverviewFilter("open")}
+              />
+              <StatButton
+                label="Unread"
+                value={metrics.unread}
+                active={filter === "unread"}
+                onClick={() => applyOverviewFilter("unread")}
+              />
+              <StatButton
+                label="Assigned to me"
+                value={metrics.assigned_to_me}
+                active={filter === "mine"}
+                onClick={() => applyOverviewFilter("mine")}
+              />
+              <StatButton
+                label="Pending response"
+                value={metrics.pending_response}
+                active={filter === "pending_response"}
+                onClick={() => applyOverviewFilter("pending_response")}
+              />
+              <StatButton
+                label="Closed"
+                value={metrics.closed}
+                active={filter === "closed"}
+                onClick={() => applyOverviewFilter("closed")}
+              />
+            </div>
           )}
-          <Kpi label="Pending response" value={String(metrics.pending_response)} icon="clock" />
-          <Kpi label="Closed" value={String(metrics.closed)} icon="check" />
         </div>
       )}
-      <div className={`inbox${selected ? " has-thread" : ""}`}>
+
+      <div
+        className={`inbox${selected ? " has-thread" : ""}${showContext && contextOpen ? " has-context" : ""}${showContext && !contextOpen ? " context-collapsed" : ""}`}
+      >
         <section className="inbox-list" aria-label="Conversations">
           <div className="inbox-list-tools">
             <div className="inbox-search">
               <Icon name="search" size={15} />
               <input
                 type="search"
-                placeholder="Search name, email, phone, or message"
+                placeholder="Search conversations"
                 aria-label="Search conversations"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
+              {query && (
+                <button type="button" className="inbox-icon-btn" aria-label="Clear search" onClick={() => setQuery("")}>
+                  <Icon name="close" size={13} />
+                </button>
+              )}
             </div>
-            <Tabs<Filter>
-              label="Filter conversations"
-              value={filter}
-              onChange={setFilter}
-              tabs={[
-                { id: "mine", label: "My Inbox" },
-                { id: "unread", label: "Unread", count: list?.unread || undefined },
-                ...(list?.capabilities?.workspaceInbox === true
-                  ? ([
-                      { id: "all", label: "Workspace" },
-                      { id: "unassigned", label: "Unassigned" },
-                    ] as { id: Filter; label: string }[])
-                  : []),
-                { id: "pending_response", label: "Pending" },
-                { id: "closed", label: "Closed" },
-                { id: "archived", label: "Archived" },
-              ]}
-            />
+            <nav className="inbox-filters" aria-label="Filter conversations">
+              {filters.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={filter === f.id ? "active" : ""}
+                  aria-pressed={filter === f.id}
+                  onClick={() =>
+                    applyFilter(
+                      f.id,
+                      f.id === "unread" && list?.scope === "workspace"
+                        ? { scope: "workspace" }
+                        : f.id === "unread" && list?.scope === "personal"
+                          ? { scope: "personal" }
+                          : undefined,
+                    )
+                  }
+                >
+                  {f.label}
+                  {typeof f.count === "number" && f.count > 0 ? <span className="inbox-filter-count">{f.count}</span> : null}
+                </button>
+              ))}
+            </nav>
           </div>
           {listError && <Alert tone="danger">{listError}</Alert>}
-          {!list && !listError && <Skeleton rows={6} />}
+          {!list && !listError && (
+            <div className="inbox-pad">
+              <Skeleton rows={6} />
+            </div>
+          )}
           {list && !list.threads.length && (
-            <EmptyState
-              icon="message"
-              title={
-                query || filter !== "mine"
-                  ? "No matching conversations"
-                  : "No conversations in My Inbox yet"
-              }
-            >
-              {query || (filter !== "mine" && filter !== "all")
-                ? "Try another search or filter."
-                : filter === "mine"
-                  ? list?.capabilities?.workspaceInbox
-                    ? "Open Workspace Inbox to claim unassigned conversations, or start a new one."
-                    : "Start a new conversation with a client. Replies land here when assigned to you."
-                  : "Start one with a client, or send a booking link. Client replies from their portal land here."}
-            </EmptyState>
+            <div className="inbox-empty">
+              <EmptyState icon="message" title={empty.title}>
+                {empty.body}
+              </EmptyState>
+              <div className="inbox-empty-actions">
+                {!query && (
+                  <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
+                    <Icon name="plus" size={14} /> New conversation
+                  </button>
+                )}
+                {query && (
+                  <button type="button" className="ds-btn ghost sm" onClick={() => setQuery("")}>
+                    Clear search
+                  </button>
+                )}
+                {filter !== "mine" && !query && (
+                  <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("mine")}>
+                    Open My Inbox
+                  </button>
+                )}
+                {workspace && filter === "mine" && !query && (
+                  <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("all")}>
+                    Open All
+                  </button>
+                )}
+              </div>
+            </div>
           )}
           <ul className="inbox-threads">
             {list?.threads.map((t) => (
@@ -327,12 +507,12 @@ export function InboxCenter() {
                   aria-current={t.id === selected ? "true" : undefined}
                 >
                   <span className="inbox-avatar" aria-hidden="true">
-                    {(t.contact_name || t.subject || "?").slice(0, 1).toUpperCase()}
+                    {initials(t.contact_name || t.subject)}
                   </span>
                   <span className="inbox-thread-main">
                     <span className="inbox-thread-top">
                       <b>{t.contact_name || t.subject || "Conversation"}</b>
-                      <time>{formatDateTime(t.last_message_at)}</time>
+                      <time dateTime={t.last_message_at}>{formatDateTime(t.last_message_at)}</time>
                     </span>
                     <span className="inbox-thread-preview">
                       {t.last ? (
@@ -348,16 +528,16 @@ export function InboxCenter() {
                     <span className="inbox-thread-meta">
                       {t.status !== "open" && (
                         <Badge tone={t.status === "pending_response" ? "warning" : "neutral"}>
-                          {t.status.replaceAll("_", " ")}
+                          {threadStatusLabel[t.status] || t.status.replaceAll("_", " ")}
                         </Badge>
                       )}
                       {t.booking_id && <Badge tone="info">Booking</Badge>}
-                      {t.assigned_name && <Badge tone="info">{t.assigned_name}</Badge>}
+                      {t.assigned_name && <span className="inbox-assignee">{t.assigned_name}</span>}
                     </span>
                   </span>
                   {t.unread > 0 && (
                     <span className="inbox-unread" aria-label={`${t.unread} unread`}>
-                      {t.unread}
+                      {t.unread > 99 ? "99+" : t.unread}
                     </span>
                   )}
                 </button>
@@ -377,11 +557,19 @@ export function InboxCenter() {
             </div>
           )}
         </section>
+
         <section className="inbox-view" aria-label="Conversation">
           {!selected ? (
-            <EmptyState icon="message" title="Select a conversation">
-              Choose a conversation to read and reply.
-            </EmptyState>
+            <div className="inbox-empty inbox-empty-select">
+              <EmptyState icon="message" title="Select a conversation">
+                Choose a thread from the list, or start a new conversation.
+              </EmptyState>
+              <div className="inbox-empty-actions">
+                <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
+                  <Icon name="plus" size={14} /> New conversation
+                </button>
+              </div>
+            </div>
           ) : !detail ? (
             <div className="inbox-pad">
               {detailError ? <Alert tone="danger">{detailError}</Alert> : <Skeleton rows={5} />}
@@ -391,13 +579,18 @@ export function InboxCenter() {
               detail={detail}
               members={list?.members || []}
               templates={list?.templates || []}
-              onBack={() => setSelected(null)}
+              contextOpen={contextOpen}
+              onToggleContext={() => setContextOpen((v) => !v)}
+              showContextToggle={showContext}
+              onBack={() => {
+                setSelected(null);
+                window.history.replaceState(null, "", "/app/inbox");
+              }}
               onChange={async () => {
                 await loadThread(detail.thread.id);
                 await loadList({ page: 0 });
               }}
               onMarkedUnread={async () => {
-                // Leave the thread so GET ?thread=… does not immediately re-mark it read.
                 setSelected(null);
                 setDetail(null);
                 window.history.replaceState(null, "", "/app/inbox");
@@ -408,7 +601,16 @@ export function InboxCenter() {
             />
           )}
         </section>
+
+        {showContext && detail && contextOpen && (
+          <CustomerContext
+            detail={detail}
+            members={list?.members || []}
+            onClose={() => setContextOpen(false)}
+          />
+        )}
       </div>
+
       {picker && <ClientPicker onPick={startWith} onClose={() => setPicker(false)} />}
       {shareLink && (
         <SendBookingLinkDialog
@@ -424,10 +626,155 @@ export function InboxCenter() {
   );
 }
 
+function StatButton({
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className={`inbox-stat${active ? " active" : ""}`} onClick={onClick} aria-pressed={active}>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function CustomerContext({
+  detail,
+  members,
+  onClose,
+}: {
+  detail: Detail;
+  members: { id: string; name: string; email: string }[];
+  onClose: () => void;
+}) {
+  const { thread } = detail;
+  const contact = thread.contact;
+  const booking = thread.booking;
+  const recentBookings = thread.recentBookings || [];
+  const assignee = members.find((m) => m.id === thread.assigned_to);
+  const assignedLabel =
+    assignee?.name ||
+    assignee?.email ||
+    thread.assigned_name ||
+    (thread.assigned_to ? "Assigned" : "Unassigned");
+  const appointmentHref = (id: string) => `/app?view=bookings&booking=${encodeURIComponent(id)}`;
+
+  return (
+    <aside className="inbox-rail" aria-label="Customer context">
+      <div className="inbox-rail-head">
+        <h2>Customer</h2>
+        <button type="button" className="inbox-icon-btn" aria-label="Close customer panel" onClick={onClose}>
+          <Icon name="close" size={14} />
+        </button>
+      </div>
+      <div className="inbox-rail-body">
+        {contact ? (
+          <div className="inbox-rail-card">
+            <span className="inbox-avatar lg" aria-hidden="true">
+              {initials(contact.name)}
+            </span>
+            <div>
+              <b>{contact.name}</b>
+              {contact.email && (
+                <a className="inbox-rail-link" href={`mailto:${contact.email}`}>
+                  {contact.email}
+                </a>
+              )}
+              {contact.phone && (
+                <a className="inbox-rail-link" href={`tel:${contact.phone}`}>
+                  {contact.phone}
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="ds-muted">No customer linked to this conversation.</p>
+        )}
+
+        <dl className="inbox-rail-meta">
+          <div>
+            <dt>Status</dt>
+            <dd>{threadStatusLabel[thread.status]}</dd>
+          </div>
+          <div>
+            <dt>Assigned</dt>
+            <dd>{assignedLabel}</dd>
+          </div>
+        </dl>
+
+        {contact && (
+          <div className="inbox-rail-actions">
+            <Link className="ds-btn ghost sm" href={`/app/clients?client=${contact.id}`}>
+              Open profile
+            </Link>
+            {thread.booking_id && (
+              <Link className="ds-btn ghost sm" href={appointmentHref(thread.booking_id)}>
+                Open appointment
+              </Link>
+            )}
+          </div>
+        )}
+
+        {booking && (
+          <section className="inbox-rail-section">
+            <h3>Current appointment</h3>
+            <p>
+              <b>{booking.title || "Service"}</b>
+              <br />
+              {new Date(booking.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+              {booking.location ? (
+                <>
+                  <br />
+                  {booking.location}
+                </>
+              ) : null}
+            </p>
+            <Badge tone={booking.status === "confirmed" ? "success" : "neutral"}>{booking.status}</Badge>
+            <Link className="ds-btn ghost sm" href={appointmentHref(booking.id)}>
+              Open appointment
+            </Link>
+          </section>
+        )}
+
+        {recentBookings.length > 0 && (
+          <section className="inbox-rail-section">
+            <h3>Recent appointments</h3>
+            <ul className="inbox-context-bookings">
+              {recentBookings.slice(0, 5).map((b) => (
+                <li key={b.id}>
+                  <Link href={appointmentHref(b.id)}>
+                    <span>
+                      {b.title || "Service"}
+                      <small>
+                        {new Date(b.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                      </small>
+                    </span>
+                    <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 function ThreadView({
   detail,
   members,
   templates,
+  contextOpen,
+  onToggleContext,
+  showContextToggle,
   onBack,
   onChange,
   onMarkedUnread,
@@ -437,6 +784,9 @@ function ThreadView({
   detail: Detail;
   members: { id: string; name: string; email: string }[];
   templates: Template[];
+  contextOpen: boolean;
+  onToggleContext: () => void;
+  showContextToggle: boolean;
   onBack: () => void;
   onChange: () => Promise<void>;
   onMarkedUnread: () => Promise<void>;
@@ -446,14 +796,25 @@ function ThreadView({
   const { thread, messages, sms } = detail;
   const contact = thread.contact;
   const booking = thread.booking;
-  const recentBookings = thread.recentBookings || [];
   const scroller = useRef<HTMLDivElement>(null);
   const [shareLink, setShareLink] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [messages.length]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!moreRef.current?.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [moreOpen]);
 
   async function setStatus(status: ThreadStatus) {
     try {
@@ -467,9 +828,17 @@ function ThreadView({
   return (
     <>
       <header className="inbox-view-head">
-        <button type="button" className="ui-btn ui-btn-ghost ui-btn-icon ui-btn-sm inbox-back" aria-label="Back to conversations" onClick={onBack}>
+        <button
+          type="button"
+          className="ui-btn ui-btn-ghost ui-btn-icon ui-btn-sm inbox-back"
+          aria-label="Back to conversations"
+          onClick={onBack}
+        >
           <Icon name="arrow" size={16} style={{ transform: "rotate(180deg)" }} />
         </button>
+        <span className="inbox-avatar" aria-hidden="true">
+          {initials(contact?.name || thread.subject)}
+        </span>
         <div className="inbox-view-title">
           <b>{contact?.name || thread.subject || "Conversation"}</b>
           {contact && (
@@ -482,27 +851,13 @@ function ThreadView({
             <small>
               Appointment: {booking.title || "Service"} ·{" "}
               {new Date(booking.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
-              {booking.location ? ` · ${booking.location}` : ""}
             </small>
           )}
         </div>
         <div className="inbox-view-actions">
-          {contact && (
-            <>
-              <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setShareLink(true)}>
-                <Icon name="link" size={14} /> Booking link
-              </button>
-              <AskZenvio
-                className="ui-btn ui-btn-ghost ui-btn-sm"
-                label="Ask Zenvio"
-                context={{ type: "client", id: contact.id, label: contact.name }}
-                prompt="Draft a reply to this client's latest message."
-              />
-              <Link className="ui-btn ui-btn-ghost ui-btn-sm" href={`/app/clients?client=${contact.id}`}>
-                Profile
-              </Link>
-            </>
-          )}
+          <Badge tone={thread.status === "pending_response" ? "warning" : thread.status === "open" ? "info" : "neutral"}>
+            {threadStatusLabel[thread.status]}
+          </Badge>
           {members.length >= 1 && thread.canAdminister && (
             <select
               className="ui-input inbox-assign"
@@ -525,21 +880,6 @@ function ThreadView({
               ))}
             </select>
           )}
-          <button
-            type="button"
-            className="ui-btn ui-btn-ghost ui-btn-sm"
-            onClick={async () => {
-              try {
-                await post({ action: "unread", threadId: thread.id });
-                await onMarkedUnread();
-                notify("Marked unread.");
-              } catch (err) {
-                notify(err instanceof Error ? err.message : "Couldn’t mark unread.", true);
-              }
-            }}
-          >
-            Mark unread
-          </button>
           <select
             className="ui-input inbox-assign"
             aria-label="Conversation status"
@@ -551,132 +891,191 @@ function ThreadView({
             <option value="closed">Closed</option>
             <option value="archived">Archived</option>
           </select>
-        </div>
-      </header>
-      {(contact || recentBookings.length > 0) && (
-        <aside className="inbox-context" aria-label="Customer context">
-          {contact && (
-            <div>
-              <b>{contact.name}</b>
-              <p className="ds-muted">
-                {contact.email}
-                {contact.phone ? ` · ${contact.phone}` : ""}
-              </p>
-              <Link className="ds-btn ghost sm" href={`/app/clients?client=${contact.id}`}>
-                Open customer record
-              </Link>
-            </div>
+          {showContextToggle && (
+            <button
+              type="button"
+              className={`ui-btn ui-btn-ghost ui-btn-sm${contextOpen ? " active" : ""}`}
+              aria-pressed={contextOpen}
+              onClick={onToggleContext}
+            >
+              <Icon name="users" size={14} /> Details
+            </button>
           )}
-          {recentBookings.length > 0 && (
-            <div>
-              <small className="ds-eyebrow">Appointments</small>
-              <ul className="inbox-context-bookings">
-                {recentBookings.slice(0, 5).map((b) => (
-                  <li key={b.id}>
-                    <span>
-                      {b.title || "Service"} ·{" "}
-                      {new Date(b.starts_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
-                    </span>
-                    <Badge tone={b.status === "confirmed" ? "success" : "neutral"}>{b.status}</Badge>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </aside>
-      )}
-      <div className="inbox-messages" ref={scroller} role="log" aria-label="Messages">
-        {!messages.length && <p className="inbox-empty-thread">No messages yet. Write the first one below.</p>}
-        {messages.map((m) => (
-          <article key={m.id} className={`inbox-msg inbox-msg-${m.direction}`}>
-            <div className="inbox-msg-bubble">
-              {m.direction === "internal" && <Badge tone="warning">Internal note</Badge>}
-              {editingId === m.id ? (
-                <div className="inbox-edit">
-                  <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={4} />
-                  {(m.channel === "email" || m.channel === "sms") && (
-                    <Notice tone="info">
-                      Saving updates Zenvio’s copy only. The recipient’s already-delivered message cannot be changed.
-                    </Notice>
-                  )}
-                  <div className="inbox-edit-actions">
+          <div className="inbox-menu" ref={moreRef}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-ghost ui-btn-icon ui-btn-sm"
+              aria-label="More actions"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              <Icon name="more" size={16} />
+            </button>
+            {moreOpen && (
+              <div className="inbox-popover inbox-popover-head" role="menu">
+                {contact && (
+                  <>
                     <button
                       type="button"
-                      className="ds-btn sm"
-                      onClick={async () => {
-                        try {
-                          await post({ action: "edit-message", messageId: m.id, body: editBody });
-                          setEditingId(null);
-                          await onChange();
-                        } catch (err) {
-                          notify(err instanceof Error ? err.message : "Couldn’t edit.", true);
-                        }
+                      role="menuitem"
+                      onClick={() => {
+                        setShareLink(true);
+                        setMoreOpen(false);
                       }}
                     >
-                      Save edit
+                      <Icon name="link" size={14} /> Send booking link
                     </button>
-                    <button type="button" className="ds-btn ghost sm" onClick={() => setEditingId(null)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p>{m.body}</p>
-              )}
-              {m.attachments.length > 0 && (
-                <ul className="inbox-attachments">
-                  {m.attachments.map((a) => (
-                    <li key={a.id}>
-                      <a href={`/api/inbox/attachments?id=${a.id}`}>
-                        <Icon name="paperclip" size={13} /> {a.filename}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <footer>
-              <span>
-                {m.direction === "inbound" ? contact?.name || "Client" : m.author_name || "You"} · {channelLabel[m.channel]} ·{" "}
-                {formatDateTime(m.created_at)}
-                {m.edited ? " · Edited" : ""}
-              </span>
-              {m.direction === "outbound" && (
-                <Badge tone={statusTone[m.status] || "neutral"}>{statusLabel[m.status] || m.status}</Badge>
-              )}
-              {m.direction !== "inbound" && editingId !== m.id && (
+                    <AskZenvio
+                      className="inbox-popover-ask"
+                      label="Ask Zenvio"
+                      context={{ type: "client", id: contact.id, label: contact.name }}
+                      prompt="Draft a reply to this client's latest message."
+                    />
+                    <Link
+                      className="inbox-popover-link"
+                      role="menuitem"
+                      href={`/app/clients?client=${contact.id}`}
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      <Icon name="users" size={14} /> Open customer profile
+                    </Link>
+                  </>
+                )}
                 <button
                   type="button"
-                  className="ui-btn ui-btn-ghost ui-btn-sm"
-                  onClick={() => {
-                    setEditingId(m.id);
-                    setEditBody(m.body);
+                  role="menuitem"
+                  onClick={async () => {
+                    setMoreOpen(false);
+                    try {
+                      await post({ action: "unread", threadId: thread.id });
+                      await onMarkedUnread();
+                      notify("Marked unread.");
+                    } catch (err) {
+                      notify(err instanceof Error ? err.message : "Couldn’t mark unread.", true);
+                    }
                   }}
                 >
-                  Edit
+                  <Icon name="mail" size={14} /> Mark unread
                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="inbox-messages" ref={scroller} role="log" aria-label="Messages">
+        {!messages.length && <p className="inbox-empty-thread">No messages yet. Write the first one below.</p>}
+        {messages.map((m, i) => {
+          const prev = messages[i - 1];
+          const showDay = !prev || dayKey(prev.created_at) !== dayKey(m.created_at);
+          const grouped =
+            !!prev &&
+            prev.direction === m.direction &&
+            prev.channel === m.channel &&
+            dayKey(prev.created_at) === dayKey(m.created_at) &&
+            Math.abs(new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < 5 * 60 * 1000;
+          return (
+            <div key={m.id}>
+              {showDay && (
+                <div className="inbox-day" role="separator">
+                  <span>{dayLabel(m.created_at)}</span>
+                </div>
               )}
-              <button
-                type="button"
-                className="ui-btn ui-btn-ghost ui-btn-sm"
-                onClick={async () => {
-                  if (!confirm("Remove this message from the inbox? Delivery records are preserved.")) return;
-                  try {
-                    await post({ action: "delete-message", messageId: m.id });
-                    await onChange();
-                  } catch (err) {
-                    notify(err instanceof Error ? err.message : "Couldn’t delete.", true);
-                  }
-                }}
-              >
-                Delete
-              </button>
-            </footer>
-            {m.status_detail && m.direction === "outbound" && <small className="inbox-msg-detail">{m.status_detail}</small>}
-          </article>
-        ))}
+              <article className={`inbox-msg inbox-msg-${m.direction}${grouped ? " grouped" : ""}`}>
+                <div className="inbox-msg-bubble">
+                  {m.direction === "internal" && <Badge tone="warning">Internal note</Badge>}
+                  {editingId === m.id ? (
+                    <div className="inbox-edit">
+                      <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={4} />
+                      {(m.channel === "email" || m.channel === "sms") && (
+                        <Notice tone="info">
+                          Saving updates Zenvio’s copy only. The recipient’s already-delivered message cannot be changed.
+                        </Notice>
+                      )}
+                      <div className="inbox-edit-actions">
+                        <button
+                          type="button"
+                          className="ds-btn sm"
+                          onClick={async () => {
+                            try {
+                              await post({ action: "edit-message", messageId: m.id, body: editBody });
+                              setEditingId(null);
+                              await onChange();
+                            } catch (err) {
+                              notify(err instanceof Error ? err.message : "Couldn’t edit.", true);
+                            }
+                          }}
+                        >
+                          Save edit
+                        </button>
+                        <button type="button" className="ds-btn ghost sm" onClick={() => setEditingId(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p>{m.body}</p>
+                  )}
+                  {m.attachments.length > 0 && (
+                    <ul className="inbox-attachments">
+                      {m.attachments.map((a) => (
+                        <li key={a.id}>
+                          <a href={`/api/inbox/attachments?id=${a.id}`}>
+                            <Icon name="paperclip" size={13} /> {a.filename}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <footer>
+                  <span>
+                    {m.direction === "inbound" ? contact?.name || "Client" : m.author_name || "You"} · {channelLabel[m.channel]} ·{" "}
+                    {formatDateTime(m.created_at)}
+                    {m.edited ? " · Edited" : ""}
+                  </span>
+                  {m.direction === "outbound" && (
+                    <Badge tone={statusTone[m.status] || "neutral"}>{statusLabel[m.status] || m.status}</Badge>
+                  )}
+                  {m.direction !== "inbound" && editingId !== m.id && (
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn-ghost ui-btn-sm"
+                      onClick={() => {
+                        setEditingId(m.id);
+                        setEditBody(m.body);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-ghost ui-btn-sm"
+                    onClick={async () => {
+                      if (!confirm("Remove this message from the inbox? Delivery records are preserved.")) return;
+                      try {
+                        await post({ action: "delete-message", messageId: m.id });
+                        await onChange();
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : "Couldn’t delete.", true);
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </footer>
+                {m.status_detail && m.direction === "outbound" && (
+                  <small className="inbox-msg-detail">{m.status_detail}</small>
+                )}
+              </article>
+            </div>
+          );
+        })}
       </div>
+
       <Composer thread={thread.id} hasContact={!!contact} sms={sms} templates={templates} post={post} onSent={onChange} notify={notify} />
+
       {shareLink && contact && (
         <SendBookingLinkDialog
           client={contact}
@@ -782,7 +1181,6 @@ function Composer({
       try {
         localStorage.removeItem(draftKey);
       } catch {}
-      // Only claim queued/sent from provider-backed statuses returned by the API.
       notify(
         channel === "note"
           ? "Note added."
@@ -807,7 +1205,13 @@ function Composer({
     <div className={`inbox-composer${channel === "note" ? " note" : ""}`}>
       <div className="inbox-composer-channels" role="radiogroup" aria-label="Send as">
         {hasContact && (
-          <button type="button" role="radio" aria-checked={channel === "email"} className={channel === "email" ? "active" : ""} onClick={() => setChannel("email")}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={channel === "email"}
+            className={channel === "email" ? "active" : ""}
+            onClick={() => setChannel("email")}
+          >
             <Icon name="mail" size={14} /> Email
           </button>
         )}
@@ -824,7 +1228,13 @@ function Composer({
             <Icon name="message" size={14} /> Text
           </button>
         )}
-        <button type="button" role="radio" aria-checked={channel === "note"} className={channel === "note" ? "active" : ""} onClick={() => setChannel("note")}>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={channel === "note"}
+          className={channel === "note" ? "active" : ""}
+          onClick={() => setChannel("note")}
+        >
           <Icon name="file" size={14} /> Internal note
         </button>
       </div>
@@ -844,7 +1254,7 @@ function Composer({
         <Notice tone="info">Internal notes stay in Zenvio. They are never emailed, texted, or shown in the client portal.</Notice>
       )}
       <textarea
-        className="ui-input"
+        className="ui-input inbox-composer-input"
         rows={3}
         maxLength={max}
         value={body}
@@ -887,7 +1297,12 @@ function Composer({
       <div className="inbox-composer-bar">
         <div className="inbox-composer-tools">
           <div className="inbox-menu">
-            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-expanded={menu === "templates"} onClick={() => setMenu(menu === "templates" ? "" : "templates")}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-ghost ui-btn-sm"
+              aria-expanded={menu === "templates"}
+              onClick={() => setMenu(menu === "templates" ? "" : "templates")}
+            >
               Templates
             </button>
             {menu === "templates" && (
@@ -919,7 +1334,12 @@ function Composer({
             )}
           </div>
           <div className="inbox-menu">
-            <button type="button" className="ui-btn ui-btn-ghost ui-btn-sm" aria-expanded={menu === "links"} onClick={() => setMenu(menu === "links" ? "" : "links")}>
+            <button
+              type="button"
+              className="ui-btn ui-btn-ghost ui-btn-sm"
+              aria-expanded={menu === "links"}
+              onClick={() => setMenu(menu === "links" ? "" : "links")}
+            >
               Insert link
             </button>
             {menu === "links" && (
