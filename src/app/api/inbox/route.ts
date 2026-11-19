@@ -195,15 +195,18 @@ export async function GET(request: NextRequest) {
     if ((filter === "all" || filter === "unassigned") && !workspaceAllowed)
       throw new ApiError("Workspace inbox requires owner or administrator access.", 403);
     const personalWhere = await personalInboxWhere(pool, user.id);
-    // Overview stats in My Inbox are personal; callers can pass scope=personal so status
-    // filters (open/pending/closed/archived) stay in that same count scope for admins.
+    // Overview stats pass scope so Open/Unread/Pending/Closed open the same set as the count.
+    // Unread defaults to personal; scope=workspace unlocks workspace-wide unread for admins.
+    const scopeParam = params.get("scope");
     const preferPersonal =
-      params.get("scope") === "personal" && filter !== "all" && filter !== "unassigned";
+      scopeParam === "personal" && filter !== "all" && filter !== "unassigned";
+    const preferWorkspace = scopeParam === "workspace" && workspaceAllowed && filter !== "mine";
     const personalOnly =
       filter === "mine" ||
-      filter === "unread" ||
+      (filter === "unread" && !preferWorkspace) ||
       preferPersonal ||
-      (!workspaceAllowed &&
+      (!preferWorkspace &&
+        !workspaceAllowed &&
         (filter === "open" ||
           filter === "pending_response" ||
           filter === "closed" ||

@@ -196,9 +196,9 @@ export function InboxCenter() {
       typeof window !== "undefined" ? window.matchMedia("(min-width: 1101px)").matches : false,
     ),
     [metricsOpen, setMetricsOpen] = useState(true),
-    [preferPersonal, setPreferPersonal] = useState(false);
+    [scopePref, setScopePref] = useState<"" | "personal" | "workspace">("");
   const toast = useToast();
-  const listKey = `${filter}\0${query}\0${preferPersonal ? "p" : ""}`;
+  const listKey = `${filter}\0${query}\0${scopePref}`;
   const activeListKey = useRef(listKey);
   activeListKey.current = listKey;
   const workspace = list?.capabilities?.workspaceInbox === true;
@@ -208,12 +208,12 @@ export function InboxCenter() {
   const loadList = useCallback(
     async (opts?: { page?: number; append?: boolean }) => {
       const nextPage = opts?.page ?? 0;
-      const identity = `${filter}\0${query}\0${preferPersonal ? "p" : ""}`;
+      const identity = `${filter}\0${query}\0${scopePref}`;
       if (activeListKey.current !== identity) return;
       const still = freshList();
       try {
         if (opts?.append) setLoadingMore(true);
-        const scopeQ = preferPersonal ? "&scope=personal" : "";
+        const scopeQ = scopePref ? `&scope=${scopePref}` : "";
         const r = await fetch(
           `/api/inbox?filter=${filter}&q=${encodeURIComponent(query)}&page=${nextPage}${scopeQ}`,
           { cache: "no-store" },
@@ -243,7 +243,7 @@ export function InboxCenter() {
         if (opts?.append) setLoadingMore(false);
       }
     },
-    [filter, query, preferPersonal, freshList],
+    [filter, query, scopePref, freshList],
   );
   const loadThread = useCallback(
     async (id: string) => {
@@ -319,12 +319,11 @@ export function InboxCenter() {
     { id: "archived", label: "Archived" },
   ];
 
-  function applyFilter(next: Filter, opts?: { personal?: boolean }) {
+  function applyFilter(next: Filter, opts?: { scope?: "" | "personal" | "workspace" }) {
     setFilter(next);
-    if (next === "all" || next === "unassigned") setPreferPersonal(false);
-    else if (opts?.personal) setPreferPersonal(true);
-    else if (next === "mine" || next === "unread") setPreferPersonal(false);
-    else setPreferPersonal(false);
+    if (opts?.scope !== undefined) setScopePref(opts.scope);
+    else if (next === "all" || next === "unassigned" || next === "mine") setScopePref("");
+    else setScopePref("");
     setSelected(null);
     setDetail(null);
     window.history.replaceState(null, "", "/app/inbox");
@@ -332,7 +331,10 @@ export function InboxCenter() {
 
   function applyOverviewFilter(next: Filter) {
     // Keep overview clicks in the same scope as the displayed counts.
-    applyFilter(next, { personal: list?.scope === "personal" && next !== "mine" && next !== "unread" });
+    const countsPersonal = list?.scope === "personal";
+    if (next === "mine") applyFilter(next, { scope: "" });
+    else if (next === "unread") applyFilter(next, { scope: countsPersonal ? "personal" : "workspace" });
+    else applyFilter(next, { scope: countsPersonal ? "personal" : "" });
   }
 
   const showContext =
@@ -443,7 +445,16 @@ export function InboxCenter() {
                   type="button"
                   className={filter === f.id ? "active" : ""}
                   aria-pressed={filter === f.id}
-                  onClick={() => applyFilter(f.id)}
+                  onClick={() =>
+                    applyFilter(
+                      f.id,
+                      f.id === "unread" && list?.scope === "workspace"
+                        ? { scope: "workspace" }
+                        : f.id === "unread" && list?.scope === "personal"
+                          ? { scope: "personal" }
+                          : undefined,
+                    )
+                  }
                 >
                   {f.label}
                   {typeof f.count === "number" && f.count > 0 ? <span className="inbox-filter-count">{f.count}</span> : null}

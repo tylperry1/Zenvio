@@ -58,7 +58,9 @@ test("personal inbox is the default and workspace filters require admin capabili
   assert.match(ui, /view=bookings&booking=/);
   assert.match(ui, /applyOverviewFilter/);
   assert.match(inbox, /preferPersonal/);
+  assert.match(inbox, /preferWorkspace/);
   assert.match(inbox, /assigned_name/);
+  assert.match(messaging, /count\(\*\) FILTER \(WHERE t\.assigned_to=\$1\)::int AS assigned_to_me/);
 });
 
 test("portal excludes internal notes, SMS, and soft-deleted messages", () => {
