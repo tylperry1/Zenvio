@@ -597,6 +597,27 @@
   gap: 10px;
   overflow: hidden;
 }
+/* Short / phone viewports: allow page scroll so the composer (incl. Send) stays reachable
+   when overview + header leave too little room inside overflow:hidden. */
+@media (max-width: 860px), (max-height: 720px) {
+  .shell-main:has(.inbox-page) {
+    height: auto;
+    min-height: 100svh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .shell .shell-content:has(> .inbox-page) {
+    overflow: visible;
+    flex: 1 0 auto;
+  }
+  .inbox-page {
+    overflow: visible;
+    min-height: calc(100svh - var(--shell-topbar, 60px) - 28px);
+  }
+  .inbox.has-thread {
+    min-height: min(62svh, 560px);
+  }
+}
 .inbox-page .ds-page-header {
   margin-bottom: 0;
   flex: 0 0 auto;
@@ -2824,6 +2845,18 @@ html[data-theme="dark"] .inbox-threads .inbox-thread.inbox-thread.active {
   background: transparent;
   color: var(--text-primary);
   filter: none;
+}
+/* Match hover/active fills — the shell reset above out-specifies the base state rules. */
+.shell .platform-page .inbox-threads .inbox-thread.inbox-thread:hover {
+  background: var(--surface-hover);
+  filter: none;
+}
+.shell .platform-page .inbox-threads .inbox-thread.inbox-thread.active {
+  border-color: color-mix(in srgb, var(--action-primary) 28%, var(--border));
+  background: var(--surface-selected);
+}
+html[data-theme="dark"] .shell .platform-page .inbox-threads .inbox-thread.inbox-thread.active {
+  background: var(--action-selected);
 }
 .shell .platform-page .inbox-composer-channels button {
   min-height: 30px;
