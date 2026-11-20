@@ -125,9 +125,9 @@ export function ClientPortal({ token }: { token: string }) {
   return (
     <div className="portal-page" style={{ "--profile-accent": data?.host.accent || "#365CFF" } as CSSProperties}>
       <header className="portal-top">
-        <Link href="/" aria-label="Zenvio home">
+        <a href="/" aria-label="Zenvio home">
           <Logo />
-        </Link>
+        </a>
         <span className="portal-top-status">
           Client portal
           <LiveControls state={live} onRefresh={load} />

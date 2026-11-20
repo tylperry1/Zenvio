@@ -348,7 +348,7 @@ export function AppShell({
           </button>
         </div>
         <nav className="shell-nav">
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="route-loading route-loading-compact" aria-hidden="true" />}>
             <Navigation marketplace={marketplace} demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
           </Suspense>
         </nav>
@@ -452,9 +452,10 @@ export function AppShell({
                       <Icon name="feedback" size={16} /> Send feedback
                     </Link>
                   )}
-                  <Link role="menuitem" href="/" onClick={() => setMenu(false)}>
+                  {/* Hard navigation: soft Link from /app → / can paint a blank force-dynamic home on iOS Safari. */}
+                  <a role="menuitem" href="/" onClick={() => setMenu(false)}>
                     <Icon name="globe" size={16} /> Zenvio website
-                  </Link>
+                  </a>
                   {!demo && (
                     <button role="menuitem" onClick={signOut}>
                       <Icon name="logout" size={16} /> Sign out

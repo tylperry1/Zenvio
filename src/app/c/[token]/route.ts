@@ -5,12 +5,19 @@ import { recordProfileView, cleanCardDestination } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
 
+function redirectTo(request: NextRequest, destination: string) {
+  // Absolute Location URLs avoid empty-body relative 302 quirks on iOS Safari.
+  const target = destination.startsWith("http")
+    ? destination
+    : new URL(destination, request.url).toString();
+  return Response.redirect(target, 302);
+}
+
 // Stable destination encoded on physical NFC/QR products. It always resolves
 // through Zenvio so the owner can change, deactivate or reassign the card.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
-  if (!/^[A-Za-z0-9_-]{16,40}$/.test(token)) return Response.redirect(new URL("/c/inactive", request.url), 302);
+  if (!/^[A-Za-z0-9_-]{16,40}$/.test(token)) return redirectTo(request, "/c/inactive");
   const card = (
     await getPool().query(
       `SELECT c.status,c.destination_kind,c.destination_url,s.id profile_id,s.slug,s.published,p.slug booking_slug FROM private.smart_cards c
@@ -19,16 +26,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     )
   ).rows[0];
   if (!card || card.status !== "active" || !card.slug || !card.published)
-    return new Response(null, { status: 302, headers: { ...headers, Location: "/c/inactive" } });
+    return redirectTo(request, "/c/inactive");
   await recordProfileView(card.profile_id, "card", clientIp(request)).catch(() => {});
   let destination = `/p/${card.slug}?via=card`;
-  if(card.destination_kind === "booking") {
-    if (!card.booking_slug) return new Response(null, { status: 302, headers: { ...headers, Location: "/c/inactive" } });
+  if (card.destination_kind === "booking") {
+    if (!card.booking_slug) return redirectTo(request, "/c/inactive");
     destination = `/book/${card.booking_slug}?src=nfc`;
+  } else if (card.destination_kind === "review" || card.destination_kind === "website") {
+    try {
+      destination = cleanCardDestination(card.destination_kind, card.destination_url).url;
+    } catch {
+      return redirectTo(request, "/c/inactive");
+    }
   }
-  else if(card.destination_kind === "review" || card.destination_kind === "website") {
-    try {destination=cleanCardDestination(card.destination_kind,card.destination_url).url;}
-    catch {return new Response(null,{status:302,headers:{...headers,Location:"/c/inactive"}});}
-  }
-  return new Response(null, { status: 302, headers: { ...headers, Location: destination } });
+  return redirectTo(request, destination);
 }

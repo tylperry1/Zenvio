@@ -491,6 +491,76 @@
   }
 }
 
+/* Route loading — used by loading.tsx and Suspense fallbacks so soft-nav never paints blank. */
+.route-loading {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 14px;
+  min-height: min(52vh, 420px);
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.route-loading-compact {
+  min-height: 0;
+  padding: 12px;
+  justify-items: start;
+  text-align: left;
+}
+.route-loading p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--text-primary);
+}
+.route-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-strong, #d4dced);
+  border-top-color: var(--action-primary, #365cff);
+  border-radius: 50%;
+  animation: route-spin 0.8s linear infinite;
+}
+.route-loading-skeleton {
+  display: grid;
+  gap: 10px;
+  width: min(420px, 100%);
+  margin-top: 8px;
+}
+.route-loading-skeleton span {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-inset, #eef1f6) 0%, var(--surface-card, #f6f8fb) 50%, var(--surface-inset, #eef1f6) 100%);
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.2s infinite linear;
+}
+.route-loading-skeleton span:nth-child(2) {
+  width: 78%;
+}
+.route-loading-skeleton span:nth-child(3) {
+  width: 62%;
+}
+@keyframes route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-spinner,
+  .route-loading-skeleton span {
+    animation: none;
+  }
+}
+.route-error .route-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 /* Toast */
 .ui-toast {
   position: fixed;
