@@ -13,6 +13,8 @@ test("route loading and nested error boundaries exist", () => {
     "src/app/demo/loading.tsx",
     "src/app/portal/loading.tsx",
     "src/app/admin/loading.tsx",
+    "src/app/p/loading.tsx",
+    "src/app/p/error.tsx",
     "src/app/app/error.tsx",
     "src/app/admin/error.tsx",
     "src/app/global-error.tsx",
@@ -23,6 +25,15 @@ test("route loading and nested error boundaries exist", () => {
   assert.match(read("src/components/route-loading.tsx"), /RouteLoading/);
   assert.match(read("src/app/app/error.tsx"), /Back to dashboard/);
   assert.match(read("src/app/global-error.tsx"), /Try again/);
+});
+
+test("public digital profile pages SSR a missing-profile UI instead of blank notFound()", () => {
+  const page = read("src/app/p/[slug]/page.tsx");
+  assert.match(page, /MissingProfile/);
+  assert.match(page, /This profile isn’t available/);
+  assert.doesNotMatch(page, /from "next\/navigation"/);
+  assert.doesNotMatch(page, /\bnotFound\s*\(/);
+  assert.match(read("src/app/p/loading.tsx"), /Loading profile/);
 });
 
 test("Suspense around workspace surfaces provides a visible fallback", () => {
