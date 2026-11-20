@@ -37,6 +37,6 @@ test('custom public profiles retain the tracked booking redirect and contact pri
  m.require=id=>mocks[id]??normal(id);
  m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
  const render=async()=>renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-profile'}),searchParams:Promise.resolve({via:'card'})}));
- const html=await render();assert.match(html,/href="\/p\/qa-profile\/booking(\?via=card)?"/);assert.doesNotMatch(html,/https:\/\/example.com\/book|href="tel:|href="mailto:/);
+ const html=await render();assert.match(html,/href="\/p\/qa-profile\/booking\?via=card"/);assert.doesNotMatch(html,/https:\/\/example.com\/book|href="tel:|href="mailto:/);
  publicView.bookingUrl=undefined;assert.doesNotMatch(await render(),/\/booking/);
 });

@@ -28,15 +28,20 @@ export function PublicProfileActions({
 
   function track(action: string) {
     const payload = JSON.stringify({ action, via: channel });
+    let queued = false;
     try {
-      navigator.sendBeacon(`/p/${slug}/click`, new Blob([payload], { type: "application/json" }));
+      queued = navigator.sendBeacon(`/p/${slug}/click`, new Blob([payload], { type: "application/json" }));
     } catch {
+      queued = false;
+    }
+    // Beacon false means the request was not queued. Fall back without keepalive on an active
+    // page; never double-send when sendBeacon returns true.
+    if (!queued) {
       void fetch(`/p/${slug}/click`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payload,
-        keepalive: true,
-      });
+      }).catch(() => {});
     }
   }
 

@@ -103,10 +103,9 @@ try {
           await page.getByRole("button", { name: "Save design", exact: true }).waitFor({ state: "visible" });
         }
         if (route === "/app/business-profile?section=digital-card") {
-          // SmartCards mounts immediately; wait for the engagement select after profiles load.
-          // Prefer role+accessible name: label textContent includes option text, so exact
-          // getByText/getByLabel can miss even when the select is present.
-          await page.getByRole("combobox", { name: "Engagement period" }).waitFor({ state: "visible" });
+          // Digital Card hub now deep-links into the Digital Identity Management Center
+          // instead of embedding the SmartCards editor (Engagement period lives on /app/identity).
+          await page.getByRole("link", { name: "Open Digital Identity" }).waitFor({ state: "visible" });
         }
         // Await fonts/layout, without asserting a synthetic performance target.
         await page.evaluate(()=>document.fonts.ready);

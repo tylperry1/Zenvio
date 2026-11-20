@@ -17,15 +17,20 @@ export function PublicProfileClickTracker({ slug, via }: { slug: string; via?: s
       const action = anchor.getAttribute("data-di-action");
       if (!action) return;
       const payload = JSON.stringify({ action, via: channel });
+      let queued = false;
       try {
-        navigator.sendBeacon(`/p/${slug}/click`, new Blob([payload], { type: "application/json" }));
+        queued = navigator.sendBeacon(`/p/${slug}/click`, new Blob([payload], { type: "application/json" }));
       } catch {
+        queued = false;
+      }
+      // Beacon false means the request was not queued (quota/unavailable). Fall back without
+      // keepalive so an active page still records the click; never double-send when true.
+      if (!queued) {
         void fetch(`/p/${slug}/click`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: payload,
-          keepalive: true,
-        });
+        }).catch(() => {});
       }
     }
 

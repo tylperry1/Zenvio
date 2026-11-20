@@ -145,6 +145,22 @@ test("vCard and booking routes preserve visit channel", () => {
   assert.match(booking, /resolveViewChannel/);
   assert.match(vcard, /channel/);
   assert.match(booking, /channel/);
+  // Booking destination src must distinguish nfc/qr while keeping smart-card for card/default.
+  assert.match(booking, /bookingSourceParam|searchParams\.set\("src"/);
+  assert.match(booking, /"nfc"/);
+  assert.match(booking, /"qr"/);
+  assert.match(booking, /"smart-card"/);
+});
+
+test("click trackers fall back when sendBeacon returns false", () => {
+  const tracker = fs.readFileSync("src/components/public-profile-click-tracker.tsx", "utf8");
+  const actions = fs.readFileSync("src/components/public-profile-actions.tsx", "utf8");
+  for (const src of [tracker, actions]) {
+    assert.match(src, /sendBeacon/);
+    assert.match(src, /queued/);
+    assert.match(src, /if\s*\(\s*!queued\s*\)/);
+    assert.doesNotMatch(src, /keepalive:\s*true/);
+  }
 });
 
 test("analytics labels verified bookings as account-wide", () => {
