@@ -45,8 +45,10 @@ test("shell leaves the app with a hard navigation to marketing home", () => {
   assert.doesNotMatch(shell, /<Link role="menuitem" href="\/"/);
 });
 
-test("smart card NFC redirects use absolute Response.redirect", () => {
+test("smart card NFC redirects use absolute Location with privacy headers", () => {
   const route = read("src/app/c/[token]/route.ts");
-  assert.match(route, /Response\.redirect/);
-  assert.doesNotMatch(route, /new Response\(null,\s*\{\s*status:\s*302/);
+  assert.match(route, /new URL\(destination, request\.url\)/);
+  assert.match(route, /"Referrer-Policy": "no-referrer"/);
+  assert.match(route, /"Cache-Control": "no-store"/);
+  assert.match(route, /Location:\s*target/);
 });

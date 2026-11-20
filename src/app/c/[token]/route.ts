@@ -7,10 +7,18 @@ export const dynamic = "force-dynamic";
 
 function redirectTo(request: NextRequest, destination: string) {
   // Absolute Location URLs avoid empty-body relative 302 quirks on iOS Safari.
+  // Keep Cache-Control + Referrer-Policy — smart-cards tests and privacy require them.
   const target = destination.startsWith("http")
     ? destination
     : new URL(destination, request.url).toString();
-  return Response.redirect(target, 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target,
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
 // Stable destination encoded on physical NFC/QR products. It always resolves
