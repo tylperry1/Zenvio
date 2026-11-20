@@ -95,7 +95,12 @@ export function IdentityAnalytics() {
           </div>
           <div className="ds-kpis">
             <Kpi label="Booking link clicks" icon="calendar" value={actionSum("booking")} detail="Profile → scheduling" />
-            <Kpi label="Verified bookings" icon="check" value={bookingConversions} detail="From booking_sources only" />
+            <Kpi
+              label="Verified bookings"
+              icon="check"
+              value={bookingConversions}
+              detail={filter === "all" ? "Account-wide · booking_sources only" : "Account-wide (not profile-filtered) · booking_sources only"}
+            />
             <Kpi label="Contact downloads" icon="download" value={actionSum("vcard")} detail="vCard saves" />
             <Kpi label="Lead submissions" icon="users" value={actionSum("lead")} detail="Consenting visitors" />
           </div>

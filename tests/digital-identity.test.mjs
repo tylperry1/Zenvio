@@ -121,3 +121,33 @@ test("migration extends channels and actions without inventing pricing", () => {
   assert.match(sql, /smart_profile_attribution/);
   assert.doesNotMatch(sql, /stripe|price_id|\$\d+/i);
 });
+
+test("public profile does not embed via into raw script HTML", () => {
+  const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
+  assert.doesNotMatch(page, /dangerouslySetInnerHTML/);
+  assert.match(page, /PublicProfileClickTracker/);
+  assert.match(page, /allowlistedVia|VIEW_CHANNELS/);
+  assert.match(page, /sc-public-designed-actions/);
+});
+
+test("slug create reserves redirects and publish without visibility stays public", () => {
+  const api = fs.readFileSync("src/app/api/smart-profiles/route.ts", "utf8");
+  assert.match(api, /smart_profile_slug_redirects WHERE old_slug/);
+  assert.match(api, /else f\.visibility = published \? "public" : "private"/);
+  assert.ok(fs.existsSync("postgres/migrations/105_digital_identity_slug_guard.sql"));
+  assert.match(fs.readFileSync("postgres/migrations/105_digital_identity_slug_guard.sql", "utf8"), /guard_smart_profile_slug/);
+});
+
+test("vCard and booking routes preserve visit channel", () => {
+  const vcard = fs.readFileSync("src/app/p/[slug]/vcard/route.ts", "utf8");
+  const booking = fs.readFileSync("src/app/p/[slug]/booking/route.ts", "utf8");
+  assert.match(vcard, /resolveViewChannel/);
+  assert.match(booking, /resolveViewChannel/);
+  assert.match(vcard, /channel/);
+  assert.match(booking, /channel/);
+});
+
+test("analytics labels verified bookings as account-wide", () => {
+  const ui = fs.readFileSync("src/components/identity-analytics.tsx", "utf8");
+  assert.match(ui, /Account-wide/);
+});

@@ -4,10 +4,22 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { SmartCardLeadForm } from "@/components/smart-card-lead-form";
 import { PublicProfileActions } from "@/components/public-profile-actions";
+import { PublicProfileClickTracker } from "@/components/public-profile-click-tracker";
 import { Icon, Logo } from "@/components/icons";
+import { VIEW_CHANNELS, type ViewChannel } from "@/lib/digital-identity";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
+
+function allowlistedVia(via?: string): ViewChannel | undefined {
+  return typeof via === "string" && (VIEW_CHANNELS as readonly string[]).includes(via) ? (via as ViewChannel) : undefined;
+}
+
+function withVia(path: string, via?: ViewChannel) {
+  if (!via) return path;
+  const join = path.includes("?") ? "&" : "?";
+  return `${path}${join}via=${encodeURIComponent(via)}`;
+}
 
 /** SSR-visible missing profile — avoid navigation not-found (App Router can leave /p HTML blank until client flight). */
 function MissingProfile() {
@@ -36,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function Page({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ via?: string }> }) {
   const { slug } = await params;
-  const { via } = await searchParams;
+  const via = allowlistedVia((await searchParams).via);
   const profile = await loadPublicProfile(slug.toLowerCase());
   if (!profile) return <MissingProfile />;
   // Prior published addresses still resolve (slug redirects). Prefer the canonical path in links.
@@ -48,7 +60,43 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     await recordProfileView(profile.id, via === "qr" ? "qr" : "link", ip).catch(() => {});
   }
   const initials = v.displayName.split(/\s+/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
-  if (profile.design) return <main className="sc-public sc-public-designed"><ProfileExperience design={profile.design} identity={{name:v.displayName,tagline:[v.jobTitle,v.company].filter(Boolean).join(' · '),company:v.company,bio:v.bio,phone:v.phone,email:v.email,address:v.address,website:v.website,links:v.links,bookingUrl:v.bookingUrl?`/p/${v.slug}/booking`:undefined,vcardUrl:`/p/${v.slug}/vcard`,qrUrl:`/p/${v.slug}/qr?format=png`}} leadCapture={profile.captureLeads?<SmartCardLeadForm slug={v.slug}/>:undefined}/><footer className="sc-public-footer"><Link href="/">Smart profile by <Logo compact/></Link></footer></main>;
+  const bookingPath = v.bookingUrl ? withVia(`/p/${v.slug}/booking`, via) : "";
+  const vcardPath = withVia(`/p/${v.slug}/vcard`, via);
+  const actions = <PublicProfileActions slug={v.slug} via={via} bookingUrl={bookingPath} />;
+  const tracker = <PublicProfileClickTracker slug={v.slug} via={via} />;
+
+  if (profile.design) {
+    return (
+      <main className="sc-public sc-public-designed">
+        <ProfileExperience
+          design={profile.design}
+          identity={{
+            name: v.displayName,
+            tagline: [v.jobTitle, v.company].filter(Boolean).join(" · "),
+            company: v.company,
+            bio: v.bio,
+            phone: v.phone,
+            email: v.email,
+            address: v.address,
+            website: v.website,
+            links: v.links,
+            bookingUrl: bookingPath || undefined,
+            vcardUrl: vcardPath,
+            qrUrl: `/p/${v.slug}/qr?format=png`,
+          }}
+          leadCapture={profile.captureLeads ? <SmartCardLeadForm slug={v.slug} /> : undefined}
+        />
+        <div className="sc-public-designed-actions">{actions}</div>
+        <footer className="sc-public-footer">
+          <Link href="/">
+            Smart profile by <Logo compact />
+          </Link>
+        </footer>
+        {tracker}
+      </main>
+    );
+  }
+
   return (
     <main className="sc-public" style={{ ["--sc-accent" as string]: v.accent }}>
       <article className="sc-public-card">
@@ -59,7 +107,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h1>{v.displayName}</h1>
         {(v.jobTitle || v.company) && <p className="sc-public-role">{[v.jobTitle, v.company].filter(Boolean).join(" · ")}</p>}
         {v.bio && <p className="sc-public-bio">{v.bio}</p>}
-        <PublicProfileActions slug={v.slug} via={via} bookingUrl={v.bookingUrl ? `/p/${v.slug}/booking` : ""} />
+        {actions}
         <ul className="sc-public-list">
           {v.phone && (
             <li>
@@ -98,7 +146,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           ))}
         </ul>
         <div className="sc-public-actions">
-          <a className="sc-secondary" href={`/p/${v.slug}/qr?format=png`}>Download QR code</a>
+          <a className="sc-secondary" href={`/p/${v.slug}/qr?format=png`}>
+            Download QR code
+          </a>
         </div>
         {profile.captureLeads && <SmartCardLeadForm slug={v.slug} />}
       </article>
@@ -107,11 +157,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           Smart profile by <Logo compact />
         </Link>
       </footer>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `(function(){var s=${JSON.stringify(v.slug)},v=${JSON.stringify(via||"")};document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("[data-di-action]");if(!a)return;var action=a.getAttribute("data-di-action");if(!action)return;try{navigator.sendBeacon("/p/"+s+"/click",new Blob([JSON.stringify({action:action,via:v})],{type:"application/json"}));}catch(_){fetch("/p/"+s+"/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action,via:v}),keepalive:true}).catch(function(){});}});})();`,
-        }}
-      />
+      {tracker}
     </main>
   );
 }

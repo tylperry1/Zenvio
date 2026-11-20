@@ -1,5 +1,19 @@
 "use client";
 
+const CHANNELS = ["link", "card", "qr", "nfc"] as const;
+type Channel = (typeof CHANNELS)[number];
+
+function allowlistedVia(via?: string): Channel | "" {
+  return typeof via === "string" && (CHANNELS as readonly string[]).includes(via) ? (via as Channel) : "";
+}
+
+function withVia(path: string, via?: string) {
+  const channel = allowlistedVia(via);
+  if (!channel) return path;
+  const join = path.includes("?") ? "&" : "?";
+  return `${path}${join}via=${encodeURIComponent(channel)}`;
+}
+
 /** Primary CTAs on the public Digital Identity page with click attribution. */
 export function PublicProfileActions({
   slug,
@@ -10,8 +24,10 @@ export function PublicProfileActions({
   via?: string;
   bookingUrl: string;
 }) {
+  const channel = allowlistedVia(via);
+
   function track(action: string) {
-    const payload = JSON.stringify({ action, via: via || "" });
+    const payload = JSON.stringify({ action, via: channel });
     try {
       navigator.sendBeacon(`/p/${slug}/click`, new Blob([payload], { type: "application/json" }));
     } catch {
@@ -26,11 +42,11 @@ export function PublicProfileActions({
 
   return (
     <div className="sc-public-actions">
-      <a className="sc-primary" href={`/p/${slug}/vcard`}>
+      <a className="sc-primary" href={withVia(`/p/${slug}/vcard`, via)}>
         Save contact
       </a>
       {bookingUrl ? (
-        <a className="sc-secondary" href={bookingUrl}>
+        <a className="sc-secondary" href={withVia(bookingUrl, via)}>
           Book a time
         </a>
       ) : null}

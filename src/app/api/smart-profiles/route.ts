@@ -162,8 +162,9 @@ export async function POST(request: NextRequest) {
         capture_leads: input.capture_leads === true,
       };
       if (profileKind) f.profile_kind = profileKind;
+      // When visibility is omitted, keep the legacy published contract (published ⇒ public).
       if (visibility) f.visibility = visibility;
-      else if (!input.id) f.visibility = published ? "public" : "private";
+      else f.visibility = published ? "public" : "private";
 
       const entries = Object.entries(f).filter(([key]) => key !== "slug" || !input.id);
       const keys = entries.map(([key]) => key);
@@ -227,6 +228,14 @@ export async function POST(request: NextRequest) {
           const count = (await client.query("SELECT count(*)::int n FROM private.smart_profiles WHERE user_id=$1 AND archived_at IS NULL", [owner]))
             .rows[0].n;
           if (count >= MAX_PROFILES) throw new ApiError(upgradeMessageFor("profiles"), 409);
+          const createSlug = String(f.slug || "");
+          // Reserve prior published addresses so QR/NFC cannot be taken over after a rename.
+          const live = await client.query(`SELECT 1 FROM private.smart_profiles WHERE slug=$1 FOR UPDATE`, [createSlug]);
+          const redirected = await client.query(
+            `SELECT 1 FROM private.smart_profile_slug_redirects WHERE old_slug=$1 FOR UPDATE`,
+            [createSlug],
+          );
+          if (live.rowCount || redirected.rowCount) throw new ApiError("That profile address is taken. Choose another.", 409);
           const r = await client.query(
             `INSERT INTO private.smart_profiles(user_id,${keys.join(",")}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(",")}) RETURNING id`,
             [owner, ...values],
