@@ -301,6 +301,7 @@ try {
   assert.ok(await adminMenu.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await adminMenu.screenshot({path:"test-results/commerce-supplier-integrations-mobile.png",fullPage:true});
   await adminMenu.goto(origin+"/admin/gelato");
+  await adminMenu.waitForURL((url)=>url.pathname==="/admin/suppliers" && url.searchParams.get("view")==="integrations");
   assert.equal(new URL(adminMenu.url()).pathname,"/admin/suppliers");
   assert.equal(new URL(adminMenu.url()).searchParams.get("view"),"integrations");
 
