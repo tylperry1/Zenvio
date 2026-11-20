@@ -1,0 +1,4 @@
+<!-- Merge into Info.plist -->
+<key>NFCReaderUsageDescription</key>
+<string>Zenvio uses NFC to read and program Smart Card tags you choose to scan.</string>
+<!-- Entitlement com.apple.developer.nfc.readersession.formats = NDEF must also be present -->
