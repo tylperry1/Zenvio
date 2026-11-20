@@ -134,7 +134,7 @@ try {
     await browser.close();
   }
   assert.equal((await request("/api/smart-profiles", { action: "archive-profile", id }, owner)).status, 200);
-  assert.equal((await request(`/c/${token}`)).headers.get("location"), "/c/inactive");
+  assert.equal((await request(`/c/${token}`)).headers.get("location"), appLocation("/c/inactive"));
   assert.equal((await request(`/p/${slug}/lead`, lead)).status, 404);
   assert.equal((await request(`/p/${slug}/qr`)).status, 404);
   assert.equal((await request("/api/smart-profiles", profile, other)).status, 409);
