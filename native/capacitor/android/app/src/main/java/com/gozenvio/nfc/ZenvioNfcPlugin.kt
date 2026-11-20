@@ -23,8 +23,14 @@ class ZenvioNfcPlugin(private val activity: Activity) {
   private val adapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
   private val io = Executors.newSingleThreadExecutor()
   private val main = Handler(Looper.getMainLooper())
-  @Volatile private var cancelled = false
-  private val pendingCallback = AtomicReference<((Map<String, Any?>) -> Unit)?>(null)
+  private val pending = AtomicReference<PendingOp?>(null)
+  private val tokenSeq = java.util.concurrent.atomic.AtomicLong(0)
+
+  private data class PendingOp(
+    val token: Long,
+    val callback: (Map<String, Any?>) -> Unit,
+    @Volatile var cancelled: Boolean = false,
+  )
 
   fun getCapabilities(callback: (Map<String, Any?>) -> Unit) {
     val a = adapter
@@ -61,15 +67,14 @@ class ZenvioNfcPlugin(private val activity: Activity) {
   }
 
   fun startReading(callback: (Map<String, Any?>) -> Unit) {
-    if (!armPending(callback)) return
-    cancelled = false
-    enableReaderMode { tag ->
+    val op = armPending(callback) ?: return
+    enableReaderMode(op) { tag ->
       io.execute {
-        if (cancelled) {
-          completePending(mapOf("ok" to false, "errorCode" to "cancelled", "errorMessage" to "Cancelled."))
+        if (!isActive(op)) {
+          completePending(op.token, cancelledMap())
           return@execute
         }
-        completePending(readTag(tag))
+        completePending(op.token, readTag(tag))
       }
     }
   }
@@ -99,30 +104,28 @@ class ZenvioNfcPlugin(private val activity: Activity) {
       )
       return
     }
-    if (!armPending(callback)) return
-    cancelled = false
-    enableReaderMode { tag ->
+    val op = armPending(callback) ?: return
+    enableReaderMode(op) { tag ->
       io.execute {
-        if (cancelled) {
-          completePending(
-            mapOf(
-              "ok" to false,
-              "verified" to false,
-              "errorCode" to "cancelled",
-              "errorMessage" to "Cancelled.",
-            ),
-          )
+        if (!isActive(op)) {
+          completePending(op.token, cancelledMap(withVerified = true))
           return@execute
         }
         val write = writeTag(tag, bytes)
         if (write["ok"] != true) {
-          completePending(write)
+          completePending(op.token, write)
+          return@execute
+        }
+        if (!isActive(op)) {
+          // Physical write already happened — report success without stealing a newer callback.
+          completePending(op.token, write + mapOf("verified" to false))
           return@execute
         }
         val readBack = readTag(tag)
         val message = (readBack["tag"] as? Map<*, *>)?.get("message")
         val verified = write["payloadHash"] == readBack["payloadHash"]
         completePending(
+          op.token,
           write + mapOf(
             "verified" to verified,
             "tag" to readBack["tag"],
@@ -136,12 +139,11 @@ class ZenvioNfcPlugin(private val activity: Activity) {
   }
 
   fun makeReadOnly(callback: (Map<String, Any?>) -> Unit) {
-    if (!armPending(callback)) return
-    cancelled = false
-    enableReaderMode { tag ->
+    val op = armPending(callback) ?: return
+    enableReaderMode(op) { tag ->
       io.execute {
-        if (cancelled) {
-          completePending(mapOf("ok" to false, "errorCode" to "cancelled", "errorMessage" to "Cancelled."))
+        if (!isActive(op)) {
+          completePending(op.token, cancelledMap())
           return@execute
         }
         val ndef = Ndef.get(tag)
@@ -161,57 +163,66 @@ class ZenvioNfcPlugin(private val activity: Activity) {
         } finally {
           try { Ndef.get(tag)?.close() } catch (_: Exception) {}
         }
-        completePending(result)
+        completePending(op.token, result)
       }
     }
   }
 
   fun cancelOperation(callback: (Map<String, Any?>) -> Unit) {
-    cancelled = true
-    adapter?.disableReaderMode(activity)
-    completePending(
-      mapOf(
-        "ok" to false,
-        "verified" to false,
-        "errorCode" to "cancelled",
-        "errorMessage" to "Cancelled.",
-      ),
-    )
+    val current = pending.get()
+    if (current != null) {
+      current.cancelled = true
+      adapter?.disableReaderMode(activity)
+      completePending(current.token, cancelledMap(withVerified = true))
+    } else {
+      adapter?.disableReaderMode(activity)
+    }
     callback(mapOf("ok" to true))
   }
 
-  private fun armPending(callback: (Map<String, Any?>) -> Unit): Boolean {
-    if (!pendingCallback.compareAndSet(null, callback)) {
+  private fun armPending(callback: (Map<String, Any?>) -> Unit): PendingOp? {
+    val op = PendingOp(token = tokenSeq.incrementAndGet(), callback = callback)
+    if (!pending.compareAndSet(null, op)) {
       callback(mapOf("ok" to false, "errorCode" to "busy", "errorMessage" to "Another NFC operation is already in progress."))
-      return false
+      return null
     }
-    return true
+    return op
   }
 
-  private fun completePending(result: Map<String, Any?>) {
-    val cb = pendingCallback.getAndSet(null) ?: return
-    main.post { cb(result) }
+  private fun isActive(op: PendingOp): Boolean {
+    val current = pending.get()
+    return current != null && current.token == op.token && !current.cancelled
   }
 
-  private fun enableReaderMode(onTag: (Tag) -> Unit) {
+  private fun completePending(token: Long, result: Map<String, Any?>) {
+    val current = pending.get() ?: return
+    if (current.token != token) return
+    if (!pending.compareAndSet(current, null)) return
+    main.post { current.callback(result) }
+  }
+
+  private fun cancelledMap(withVerified: Boolean = false): Map<String, Any?> {
+    val base = mutableMapOf<String, Any?>(
+      "ok" to false,
+      "errorCode" to "cancelled",
+      "errorMessage" to "Cancelled.",
+    )
+    if (withVerified) base["verified"] = false
+    return base
+  }
+
+  private fun enableReaderMode(op: PendingOp, onTag: (Tag) -> Unit) {
     val a = adapter
     if (a == null) {
-      completePending(mapOf("ok" to false, "errorCode" to "unsupported", "errorMessage" to "This device has no NFC adapter."))
+      completePending(op.token, mapOf("ok" to false, "errorCode" to "unsupported", "errorMessage" to "This device has no NFC adapter."))
       return
     }
     a.enableReaderMode(
       activity,
       { tag ->
-        if (cancelled) {
+        if (!isActive(op)) {
           a.disableReaderMode(activity)
-          completePending(
-            mapOf(
-              "ok" to false,
-              "verified" to false,
-              "errorCode" to "cancelled",
-              "errorMessage" to "Cancelled.",
-            ),
-          )
+          completePending(op.token, cancelledMap(withVerified = true))
           return@enableReaderMode
         }
         a.disableReaderMode(activity)
@@ -372,7 +383,24 @@ class ZenvioNfcPlugin(private val activity: Activity) {
     val langLen = status and 0x3f
     val language = String(payload, 1, langLen, Charsets.US_ASCII).ifEmpty { "en" }
     val textBytes = payload.copyOfRange(1 + langLen, payload.size)
-    val text = if (utf16) String(textBytes, Charset.forName("UTF-16")) else String(textBytes, Charsets.UTF_8)
+    val text = if (utf16) decodeUtf16Ndef(textBytes) else String(textBytes, Charsets.UTF_8)
     return text to language
+  }
+
+  private fun decodeUtf16Ndef(textBytes: ByteArray): String {
+    var offset = 0
+    var charset = Charset.forName("UTF-16BE")
+    if (textBytes.size >= 2) {
+      val b0 = textBytes[0].toInt() and 0xff
+      val b1 = textBytes[1].toInt() and 0xff
+      if (b0 == 0xfe && b1 == 0xff) {
+        charset = Charset.forName("UTF-16BE")
+        offset = 2
+      } else if (b0 == 0xff && b1 == 0xfe) {
+        charset = Charset.forName("UTF-16LE")
+        offset = 2
+      }
+    }
+    return String(textBytes, offset, textBytes.size - offset, charset)
   }
 }

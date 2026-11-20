@@ -58,6 +58,20 @@ export function createCapacitorNfcAdapter(): NfcAdapter {
     return window.ZenvioNfc!;
   };
 
+  /** Invalidated by cancelOperation so awaits after cancel cannot start native work. */
+  let opGeneration = 0;
+  const beginOp = () => {
+    opGeneration += 1;
+    return opGeneration;
+  };
+  const ownsOp = (op: number) => op === opGeneration;
+  const cancelledResult = (): WriteResult => ({
+    ok: false,
+    verified: false,
+    errorCode: "cancelled",
+    errorMessage: "Cancelled.",
+  });
+
   return {
     async getCapabilities() {
       if (!hasCapacitorNfcBridge()) {
@@ -80,7 +94,9 @@ export function createCapacitorNfcAdapter(): NfcAdapter {
       await bridge().stopReading();
     },
     async writeNdef(request: WriteRequest) {
+      const op = beginOp();
       const caps = await bridge().getCapabilities();
+      if (!ownsOp(op)) return cancelledResult();
       if (!caps.canWrite) {
         return {
           ok: false,
@@ -90,10 +106,12 @@ export function createCapacitorNfcAdapter(): NfcAdapter {
         };
       }
       const ndefBase64 = bytesToBase64(serializeNdef(request.message.records));
+      if (!ownsOp(op)) return cancelledResult();
       const result = await bridge().writeNdef({
         ndefBase64,
         overwriteConfirmed: request.overwriteConfirmed,
       });
+      if (!ownsOp(op)) return cancelledResult();
       if (result.readBack || result.tag) {
         const hydrated = hydrateReadResult({
           ok: true,
@@ -122,6 +140,7 @@ export function createCapacitorNfcAdapter(): NfcAdapter {
       return bridge().makeReadOnly();
     },
     async cancelOperation() {
+      beginOp(); // invalidate in-flight adapter waits (e.g. getCapabilities before write)
       await bridge().cancelOperation();
     },
   };

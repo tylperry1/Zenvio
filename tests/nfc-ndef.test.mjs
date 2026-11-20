@@ -88,6 +88,18 @@ test("URI and text encoders use four-byte length for payloads >= 256", () => {
   assert.equal(parsed.records[0].value, longText);
 });
 
+test("UTF-16 text without BOM decodes as big-endian", () => {
+  // Status 0x82 = UTF-16 + langLen 2; language "en"; payload U+0041 as BE 00 41
+  const payload = Uint8Array.of(0x82, 0x65, 0x6e, 0x00, 0x41);
+  const type = new TextEncoder().encode("T");
+  const header = 0x80 | 0x40 | 0x10 | 0x01; // MB|ME|SR|TNF well-known
+  const bin = Uint8Array.of(header, type.length, payload.length, ...type, ...payload);
+  const parsed = N.parseNdef(bin);
+  assert.equal(parsed.records[0].type, "text");
+  assert.equal(parsed.records[0].value, "A");
+  assert.equal(parsed.records[0].language, "en");
+});
+
 test("recordFromReadValue keeps tel mailto sms vcard and unknown without editor throws", () => {
   assert.equal(N.recordFromReadValue("uri", "tel:+15551234567").type, "tel");
   assert.equal(N.recordFromReadValue("uri", "mailto:a@b.co").type, "mailto");

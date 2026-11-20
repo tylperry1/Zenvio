@@ -194,6 +194,24 @@ function parseUriPayload(payload: Uint8Array): string {
   return prefix + rest;
 }
 
+/** NDEF Text UTF-16 is big-endian by default; honor BOM when present. */
+function decodeUtf16Ndef(textBytes: Uint8Array): string {
+  let offset = 0;
+  let encoding: "utf-16be" | "utf-16le" = "utf-16be";
+  if (textBytes.length >= 2) {
+    const b0 = textBytes[0];
+    const b1 = textBytes[1];
+    if (b0 === 0xfe && b1 === 0xff) {
+      encoding = "utf-16be";
+      offset = 2;
+    } else if (b0 === 0xff && b1 === 0xfe) {
+      encoding = "utf-16le";
+      offset = 2;
+    }
+  }
+  return new TextDecoder(encoding).decode(textBytes.subarray(offset));
+}
+
 function parseTextPayload(payload: Uint8Array): { text: string; language: string } {
   if (!payload.length) return { text: "", language: "en" };
   const status = payload[0];
@@ -201,7 +219,7 @@ function parseTextPayload(payload: Uint8Array): { text: string; language: string
   const langLen = status & 0x3f;
   const language = dec.decode(payload.subarray(1, 1 + langLen)) || "en";
   const textBytes = payload.subarray(1 + langLen);
-  const text = utf16 ? new TextDecoder("utf-16").decode(textBytes) : dec.decode(textBytes);
+  const text = utf16 ? decodeUtf16Ndef(textBytes) : dec.decode(textBytes);
   return { text, language };
 }
 

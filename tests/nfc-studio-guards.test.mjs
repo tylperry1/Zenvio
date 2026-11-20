@@ -49,7 +49,10 @@ test("batch recording binds destination and clears completed batches", () => {
   assert.match(src, /destinationsMatch/);
   assert.match(src, /setActiveBatch\(null\)/);
   assert.match(src, /status: "failed"/);
-  assert.match(src, /Complete batch[\s\S]*?disabled=\{busy\}|disabled=\{busy\}[\s\S]*?Complete batch/);
+  assert.match(
+    src,
+    /className="ds-btn ghost"\s+disabled=\{busy\}\s+onClick=\{\(\) =>\s*\n\s*postJson\("\/api\/nfc\/batches", \{ action: "complete"/,
+  );
   assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_tags WHERE id=\$1 AND user_id/);
   assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_operations WHERE id=\$1 AND user_id/);
 });
@@ -73,8 +76,12 @@ test("Web NFC cancel settles waiting read and Android NDEF discovery is intact",
   const kotlin = read("native/capacitor/android/app/src/main/java/com/gozenvio/nfc/ZenvioNfcPlugin.kt");
   assert.doesNotMatch(kotlin, /NfcAdapter\.FLAG_READER_SKIP_NDEF_CHECK/);
   assert.match(kotlin, /!ndef\.makeReadOnly\(\)/);
-  assert.match(kotlin, /completePending/);
+  assert.match(kotlin, /completePending\(op\.token|completePending\(current\.token|completePending\(token/);
+  assert.match(kotlin, /PendingOp/);
+  assert.match(kotlin, /isActive\(op\)/);
   assert.match(kotlin, /"message"/);
+  assert.match(read("src/lib/nfc/capacitor-bridge.ts"), /opGeneration|ownsOp|beginOp/);
+  assert.match(read("src/lib/nfc/ndef.ts"), /utf-16be/);
   const swift = read("native/capacitor/ios/App/App/Plugins/ZenvioNfcPlugin.swift");
   assert.match(swift, /"canWrite": false/);
   assert.match(swift, /ns\.code == 200/);
