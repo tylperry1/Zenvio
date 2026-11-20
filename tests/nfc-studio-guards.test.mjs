@@ -49,8 +49,19 @@ test("batch recording binds destination and clears completed batches", () => {
   assert.match(src, /destinationsMatch/);
   assert.match(src, /setActiveBatch\(null\)/);
   assert.match(src, /status: "failed"/);
+  assert.match(src, /Complete batch[\s\S]*?disabled=\{busy\}|disabled=\{busy\}[\s\S]*?Complete batch/);
   assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_tags WHERE id=\$1 AND user_id/);
   assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_operations WHERE id=\$1 AND user_id/);
+});
+
+test("NFC Studio enable lookup does not fail open and abort links are operation-local", () => {
+  const helpers = read("src/lib/nfc-studio.ts");
+  assert.doesNotMatch(helpers, /catch\s*\{\s*return true/);
+  assert.match(helpers, /row\?\.value\?\.enabled !== false/);
+  const web = read("src/lib/nfc/web-nfc.ts");
+  assert.match(web, /linkExternalSignal/);
+  assert.match(web, /signal\.aborted/);
+  assert.match(web, /removeEventListener\("abort"/);
 });
 
 test("Web NFC cancel settles waiting read and Android NDEF discovery is intact", () => {

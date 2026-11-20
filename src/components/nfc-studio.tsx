@@ -689,6 +689,7 @@ export function NfcStudio() {
                 <button
                   type="button"
                   className="ds-btn ghost"
+                  disabled={busy}
                   onClick={() =>
                     postJson("/api/nfc/batches", { action: "complete", batchId: activeBatch.id })
                       .then(() => {

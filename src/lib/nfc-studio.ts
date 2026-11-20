@@ -6,14 +6,10 @@ import { normalizeHttpsUrl } from "./nfc/ndef";
 export const NFC_TAG_STATUSES = ["registered", "programmed", "assigned", "failed", "retired", "lost"] as const;
 export type NfcTagStatus = (typeof NFC_TAG_STATUSES)[number];
 
-/** Platform toggle from /admin/nfc — default enabled when the row is missing. */
+/** Platform toggle from /admin/nfc — default enabled when the row is missing. Lookup failures must not open Studio. */
 export async function isNfcStudioEnabled() {
-  try {
-    const row = (await getPool().query(`SELECT value FROM private.platform_settings WHERE key='nfc_studio'`)).rows[0];
-    return row?.value?.enabled !== false;
-  } catch {
-    return true;
-  }
+  const row = (await getPool().query(`SELECT value FROM private.platform_settings WHERE key='nfc_studio'`)).rows[0];
+  return row?.value?.enabled !== false;
 }
 
 export async function assertNfcStudioEnabled() {

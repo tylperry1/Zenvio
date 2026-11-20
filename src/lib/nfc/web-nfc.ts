@@ -50,6 +50,15 @@ function recordsFromWeb(message: NDEFReadingEvent["message"]) {
 export function createWebNfcAdapter(): NfcAdapter {
   let active: AbortController | null = null;
 
+  /** Bind a caller AbortSignal to an operation-local controller without leaking across ops. */
+  function linkExternalSignal(signal: AbortSignal | undefined, controller: AbortController) {
+    if (!signal) return () => {};
+    const onExternalAbort = () => controller.abort();
+    signal.addEventListener("abort", onExternalAbort, { once: true });
+    if (signal.aborted) controller.abort();
+    return () => signal.removeEventListener("abort", onExternalAbort);
+  }
+
   async function getCapabilities(): Promise<NfcCapabilities> {
     const Ctor = readerCtor();
     if (!Ctor) {
@@ -90,10 +99,10 @@ export function createWebNfcAdapter(): NfcAdapter {
     const Ctor = readerCtor();
     if (!Ctor) return { ok: false, errorCode: "unavailable", errorMessage: "Web NFC is not available." };
     await cancelOperation();
-    active = new AbortController();
-    if (signal) signal.addEventListener("abort", () => active?.abort(), { once: true });
+    const controller = new AbortController();
+    active = controller;
+    const unlink = linkExternalSignal(signal, controller);
     const reader = new Ctor();
-    const controller = active;
     try {
       const tag = await new Promise<ReadResult>((resolve, reject) => {
         let settled = false;
@@ -102,6 +111,7 @@ export function createWebNfcAdapter(): NfcAdapter {
           settled = true;
           reader.removeEventListener("reading", onReading);
           controller.signal.removeEventListener("abort", onAbort);
+          unlink();
           fn();
         };
         const onAbort = () =>
@@ -145,6 +155,7 @@ export function createWebNfcAdapter(): NfcAdapter {
         return { ok: false, errorCode: "permission", errorMessage: "NFC permission was denied." };
       return { ok: false, errorCode: "read_failed", errorMessage: err.message || "Unable to read this tag." };
     } finally {
+      unlink();
       if (active === controller) active = null;
     }
   }
@@ -156,8 +167,9 @@ export function createWebNfcAdapter(): NfcAdapter {
       return { ok: false, verified: false, errorCode: "confirm_overwrite", errorMessage: "Confirm overwrite before writing." };
     }
     await cancelOperation();
-    active = new AbortController();
-    if (signal) signal.addEventListener("abort", () => active?.abort(), { once: true });
+    const controller = new AbortController();
+    active = controller;
+    const unlink = linkExternalSignal(signal, controller);
     const reader = new Ctor();
     const binary = serializeNdef(request.message.records);
     try {
@@ -175,7 +187,7 @@ export function createWebNfcAdapter(): NfcAdapter {
             };
           }),
         },
-        { signal: active.signal, overwrite: true },
+        { signal: controller.signal, overwrite: true },
       );
       // Read-after-write
       const verify = await startReading(signal);
@@ -204,7 +216,8 @@ export function createWebNfcAdapter(): NfcAdapter {
       if (err.name === "AbortError") return { ok: false, verified: false, errorCode: "cancelled", errorMessage: "Write cancelled." };
       return { ok: false, verified: false, errorCode: "write_failed", errorMessage: err.message || "Unable to write this tag." };
     } finally {
-      active = null;
+      unlink();
+      if (active === controller) active = null;
       void binary;
     }
   }
@@ -222,17 +235,20 @@ export function createWebNfcAdapter(): NfcAdapter {
     if (!Ctor?.prototype.makeReadOnly)
       return { ok: false, errorCode: "unsupported", errorMessage: "This environment cannot permanently lock tags." };
     await cancelOperation();
-    active = new AbortController();
-    if (signal) signal.addEventListener("abort", () => active?.abort(), { once: true });
+    const controller = new AbortController();
+    active = controller;
+    const unlink = linkExternalSignal(signal, controller);
     try {
       const reader = new Ctor();
-      await reader.makeReadOnly!({ signal: active.signal });
+      await reader.makeReadOnly!({ signal: controller.signal });
       return { ok: true };
     } catch (e) {
-      const err = e as { message?: string };
+      const err = e as { message?: string; name?: string };
+      if (err.name === "AbortError") return { ok: false, errorCode: "cancelled", errorMessage: "Lock cancelled." };
       return { ok: false, errorCode: "lock_failed", errorMessage: err.message || "Unable to lock this tag." };
     } finally {
-      active = null;
+      unlink();
+      if (active === controller) active = null;
     }
   }
 
