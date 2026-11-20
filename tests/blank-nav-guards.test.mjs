@@ -52,6 +52,7 @@ test("missing public profile renders heading and About Zenvio link when loadPubl
     "next/link": ({ children, ...props }) => React.createElement("a", props, children),
     "next/headers": { headers: async () => new Headers() },
     "@/components/smart-card-lead-form": { SmartCardLeadForm: () => null },
+    "@/components/public-profile-actions": { PublicProfileActions: () => null },
     "@/components/icons": { Icon: () => null, Logo: () => React.createElement("span", null, "Logo") },
     "@/lib/smart-cards": {
       loadPublicProfile: async () => null,

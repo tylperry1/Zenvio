@@ -10,7 +10,7 @@ const links = [
   ["Leads & Contacts", "/app/clients"],
   ["Automations", "/app/automation"],
   ["Analytics", "/app/marketing?tab=sources"],
-  ["Digital Cards", "/app/business-profile?section=digital-card"],
+  ["Digital Identity", "/app/identity"],
   ["Offers & Classes", "/app/growth"],
 ] as const;
 
@@ -28,12 +28,14 @@ export function GrowthNavigation() {
           const tab = new URLSearchParams(query).get("tab");
           const section = new URLSearchParams(query).get("section");
           const active =
-            path === pathname &&
-            (pathname === "/app/business-profile"
-              ? (params.get("section") || "overview") === (section || "overview")
-              : pathname !== "/app/marketing" ||
-                (params.get("tab") || "share") === (tab || "share") ||
-                (name === "Campaigns" && !params.get("tab")));
+            pathname === "/app/identity"
+              ? path === "/app/identity" || path.startsWith("/app/identity/")
+              : path === pathname &&
+                (pathname === "/app/business-profile"
+                  ? (params.get("section") || "overview") === (section || "overview")
+                  : pathname !== "/app/marketing" ||
+                    (params.get("tab") || "share") === (tab || "share") ||
+                    (name === "Campaigns" && !params.get("tab")));
           return (
             <Link key={name} href={href} aria-current={active ? "page" : undefined}>
               {name}

@@ -1,7 +1,10 @@
 # Smart Cards release checklist
 
+Digital Identity is the product hub for profiles, cards, NFC, QR, contact exchange, and analytics. See [DIGITAL_IDENTITY.md](./DIGITAL_IDENTITY.md).
+
 - [x] Reuse the workspace Smart Cards editor, Better Auth sessions, private profile tables, contact CRM, and existing marketplace.
 - [x] Keep /p/{slug} and /c/{token} as the permanent URLs for profiles and physical links.
+- [x] Digital Identity Management Center at `/app/identity` with typed profiles, slug redirects, and NFC/QR attribution.
 - [x] Make new profiles private until explicitly published. Reserve archived addresses and preserve current published profiles.
 - [x] Export QR as PNG or SVG and generate vCard 3.0 from public fields only.
 - [x] Require visitor consent before accepting contact details. Limit submissions per IP and profile, deduplicate CRM contacts, and store the first submission date for attribution. This consent covers follow-up on the submitted request.

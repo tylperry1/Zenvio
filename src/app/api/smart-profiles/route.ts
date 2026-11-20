@@ -1,14 +1,21 @@
 import type { PoolClient } from "pg";
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
+import {
+  DIGITAL_IDENTITY_LIMITS,
+  cleanProfileKind,
+  cleanVisibility,
+  publishedFromVisibility,
+  upgradeMessageFor,
+} from "@/lib/digital-identity";
 import { ApiError, body, email, failure, sameOrigin, session, string, uuid } from "@/lib/server";
 import { cardKinds, cleanCardDestination, cleanLinks, cleanSlug, cleanWebsite, newCardToken } from "@/lib/smart-cards";
 
 import { configuredWallets } from "@/lib/smart-wallet";
 
 export const dynamic = "force-dynamic";
-const MAX_PROFILES = 5;
-const MAX_CARDS = 50;
+const MAX_PROFILES = DIGITAL_IDENTITY_LIMITS.profiles;
+const MAX_CARDS = DIGITAL_IDENTITY_LIMITS.cards;
 
 async function serialRegistration<T>(owner: string, run: (client: PoolClient) => Promise<T>) {
   const client = await getPool().connect();
@@ -32,30 +39,82 @@ export async function GET(request: NextRequest) {
     const db = getPool();
     const days = Number(request.nextUrl.searchParams.get("days") ?? 30);
     if (![7, 30, 90].includes(days)) throw new ApiError("Choose a 7, 30 or 90 day period.");
-    const [profiles, cards, views, booking, engagement, wallet] = await Promise.all([
-      db.query("SELECT * FROM private.smart_profiles WHERE user_id=$1 ORDER BY created_at", [owner]),
-      db.query("SELECT id,profile_id,token,label,kind,status,created_at,deactivated_at,encoding_confirmed_at,legacy_registration,destination_kind,destination_url FROM private.smart_cards WHERE user_id=$1 ORDER BY created_at DESC", [owner]),
-      db.query(
-        `SELECT v.profile_id,v.channel,sum(v.views)::int views FROM private.smart_profile_views v
+    const [profiles, cards, views, booking, engagement, wallet, attribution, nfcTags, bookingConversions] =
+      await Promise.all([
+        db.query("SELECT * FROM private.smart_profiles WHERE user_id=$1 ORDER BY created_at", [owner]),
+        db.query(
+          "SELECT id,profile_id,token,label,kind,status,created_at,deactivated_at,encoding_confirmed_at,legacy_registration,destination_kind,destination_url FROM private.smart_cards WHERE user_id=$1 ORDER BY created_at DESC",
+          [owner],
+        ),
+        db.query(
+          `SELECT v.profile_id,v.channel,sum(v.views)::int views FROM private.smart_profile_views v
            JOIN private.smart_profiles p ON p.id=v.profile_id
           WHERE p.user_id=$1 AND v.day>=(now() AT TIME ZONE 'UTC')::date-($2::int-1) GROUP BY 1,2`,
-        [owner, days],
-      ),
-      db.query("SELECT slug FROM public.profiles WHERE id=$1", [owner]),
-      db.query(
-        `SELECT a.profile_id,a.action,sum(a.total)::int total FROM private.smart_profile_actions a
+          [owner, days],
+        ),
+        db.query("SELECT slug FROM public.profiles WHERE id=$1", [owner]),
+        db.query(
+          `SELECT a.profile_id,a.action,sum(a.total)::int total FROM private.smart_profile_actions a
            JOIN private.smart_profiles p ON p.id=a.profile_id WHERE p.user_id=$1
            AND a.day>=(now() AT TIME ZONE 'UTC')::date-($2::int-1) GROUP BY 1,2
          UNION ALL
          SELECT l.profile_id,'lead',count(*)::int FROM private.smart_profile_leads l
            JOIN private.smart_profiles p ON p.id=l.profile_id WHERE p.user_id=$1
            AND l.first_submitted_at >= ((now() AT TIME ZONE 'UTC')::date-($2::int-1)) AT TIME ZONE 'UTC' GROUP BY 1`,
-        [owner, days],
-      ),
-      configuredWallets(),
-    ]);
+          [owner, days],
+        ),
+        configuredWallets(),
+        db.query(
+          `SELECT a.profile_id,a.channel,a.event,a.card_id,a.nfc_tag_id,sum(a.total)::int total
+             FROM private.smart_profile_attribution a
+             JOIN private.smart_profiles p ON p.id=a.profile_id
+            WHERE p.user_id=$1 AND a.day>=(now() AT TIME ZONE 'UTC')::date-($2::int-1)
+            GROUP BY 1,2,3,4,5`,
+          [owner, days],
+        ).catch(() => ({ rows: [] as unknown[] })),
+        db.query(
+          `SELECT id,profile_id,smart_card_id,label,status,destination_url,last_programmed_at
+             FROM private.nfc_tags WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 200`,
+          [owner],
+        ).catch(() => ({ rows: [] as unknown[] })),
+        // Verified bookings only — never invent conversions without booking_sources rows.
+        db.query(
+          `SELECT s.source,count(*)::int bookings
+             FROM private.booking_sources s
+             JOIN public.bookings b ON b.id=s.booking_id
+            WHERE s.user_id=$1
+              AND s.source IN ('smart-card','nfc','qr')
+              AND s.created_at >= ((now() AT TIME ZONE 'UTC')::date-($2::int-1)) AT TIME ZONE 'UTC'
+            GROUP BY 1`,
+          [owner, days],
+        ).catch(() => ({ rows: [] as unknown[] })),
+      ]);
+    const connected = profiles.rows.map((p: { id: string }) => ({
+      profileId: p.id,
+      cards: cards.rows.filter((c: { profile_id: string | null }) => c.profile_id === p.id).length,
+      nfcTags: (nfcTags.rows as { profile_id: string | null; smart_card_id: string | null }[]).filter((t) => {
+        if (t.profile_id === p.id) return true;
+        const card = cards.rows.find((c: { id: string }) => c.id === t.smart_card_id) as
+          | { profile_id: string | null }
+          | undefined;
+        return card?.profile_id === p.id;
+      }).length,
+    }));
     return Response.json(
-      { wallet, profiles: profiles.rows, cards: cards.rows, views: views.rows, engagement: engagement.rows, bookingSlug: booking.rows[0]?.slug || null, limits: { profiles: MAX_PROFILES, cards: MAX_CARDS } },
+      {
+        wallet,
+        profiles: profiles.rows,
+        cards: cards.rows,
+        views: views.rows,
+        engagement: engagement.rows,
+        attribution: attribution.rows,
+        nfcTags: nfcTags.rows,
+        bookingConversions: bookingConversions.rows,
+        connected,
+        bookingSlug: booking.rows[0]?.slug || null,
+        limits: { profiles: MAX_PROFILES, cards: MAX_CARDS, nfcTags: DIGITAL_IDENTITY_LIMITS.nfcTags },
+        canonicalPathPrefix: "/p/",
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -71,12 +130,19 @@ export async function POST(request: NextRequest) {
     const db = getPool();
     const ownProfile = async (id: unknown) => {
       const pid = uuid(id);
-      if (!(await db.query("SELECT 1 FROM private.smart_profiles WHERE id=$1 AND user_id=$2", [pid, owner])).rowCount) throw new ApiError("Profile not found.", 404);
+      if (!(await db.query("SELECT 1 FROM private.smart_profiles WHERE id=$1 AND user_id=$2", [pid, owner])).rowCount)
+        throw new ApiError("Profile not found.", 404);
       return pid;
     };
 
     if (input.action === "save-profile") {
-      const f = {
+      const visibility = input.visibility !== undefined ? cleanVisibility(input.visibility) : undefined;
+      const profileKind = input.profile_kind !== undefined ? cleanProfileKind(input.profile_kind) : undefined;
+      const published =
+        visibility !== undefined
+          ? publishedFromVisibility(visibility, input.published === true)
+          : input.published === true;
+      const f: Record<string, unknown> = {
         slug: input.id ? null : cleanSlug(input.slug),
         display_name: string(input.display_name, "name", 100, 1).trim(),
         company: string(input.company ?? "", "company", 120, 0).trim(),
@@ -92,23 +158,79 @@ export async function POST(request: NextRequest) {
         show_email: input.show_email !== false,
         show_address: input.show_address === true,
         accent: typeof input.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(input.accent) ? input.accent : "#365cff",
-        published: input.published === true,
+        published,
         capture_leads: input.capture_leads === true,
       };
+      if (profileKind) f.profile_kind = profileKind;
+      if (visibility) f.visibility = visibility;
+      else if (!input.id) f.visibility = published ? "public" : "private";
+
       const entries = Object.entries(f).filter(([key]) => key !== "slug" || !input.id);
       const keys = entries.map(([key]) => key);
       const values = entries.map(([, value]) => value);
       try {
         if (input.id) {
           const id = await ownProfile(input.id);
-          const result = await db.query(`UPDATE private.smart_profiles SET ${keys.map((k, i) => `${k}=$${i + 3}`).join(",")},updated_at=now() WHERE id=$1 AND user_id=$2 AND archived_at IS NULL`, [id, owner, ...values]);
+          // Optional safe slug rename — keep prior address as redirect so QR/NFC stay valid.
+          if (typeof input.slug === "string" && input.slug.trim()) {
+            const nextSlug = cleanSlug(input.slug);
+            await serialRegistration(owner, async (client) => {
+              const current = await client.query(
+                `SELECT slug FROM private.smart_profiles WHERE id=$1 AND user_id=$2 AND archived_at IS NULL FOR UPDATE`,
+                [id, owner],
+              );
+              if (!current.rowCount) throw new ApiError("Archived profiles cannot be edited.", 409);
+              const previous = current.rows[0].slug as string;
+              if (previous !== nextSlug) {
+                // Refuse if another live profile owns the slug or it is a foreign redirect target.
+                const clash = await client.query(
+                  `SELECT 1 FROM private.smart_profiles WHERE slug=$1 AND id<>$2
+                   UNION ALL
+                   SELECT 1 FROM private.smart_profile_slug_redirects WHERE old_slug=$1 AND profile_id<>$2`,
+                  [nextSlug, id],
+                );
+                if (clash.rowCount) throw new ApiError("That profile address is taken. Choose another.", 409);
+                await client.query(
+                  `INSERT INTO private.smart_profile_slug_redirects(old_slug,profile_id) VALUES($1,$2)
+                   ON CONFLICT (old_slug) DO UPDATE SET profile_id=excluded.profile_id,created_at=now()`,
+                  [previous, id],
+                );
+                // Drop redirect for the new slug if this profile previously owned it.
+                await client.query(`DELETE FROM private.smart_profile_slug_redirects WHERE old_slug=$1 AND profile_id=$2`, [
+                  nextSlug,
+                  id,
+                ]);
+                await client.query(
+                  `UPDATE private.smart_profiles SET slug=$3,${keys.map((k, i) => `${k}=$${i + 4}`).join(",")},updated_at=now()
+                    WHERE id=$1 AND user_id=$2 AND archived_at IS NULL`,
+                  [id, owner, nextSlug, ...values],
+                );
+              } else {
+                const result = await client.query(
+                  `UPDATE private.smart_profiles SET ${keys.map((k, i) => `${k}=$${i + 3}`).join(",")},updated_at=now()
+                    WHERE id=$1 AND user_id=$2 AND archived_at IS NULL`,
+                  [id, owner, ...values],
+                );
+                if (!result.rowCount) throw new ApiError("Archived profiles cannot be edited.", 409);
+              }
+            });
+            return Response.json({ ok: true, id });
+          }
+          const result = await db.query(
+            `UPDATE private.smart_profiles SET ${keys.map((k, i) => `${k}=$${i + 3}`).join(",")},updated_at=now() WHERE id=$1 AND user_id=$2 AND archived_at IS NULL`,
+            [id, owner, ...values],
+          );
           if (!result.rowCount) throw new ApiError("Archived profiles cannot be edited.", 409);
           return Response.json({ ok: true, id });
         }
         return await serialRegistration(owner, async (client) => {
-          const count = (await client.query("SELECT count(*)::int n FROM private.smart_profiles WHERE user_id=$1 AND archived_at IS NULL", [owner])).rows[0].n;
-          if (count >= MAX_PROFILES) throw new ApiError(`You can create up to ${MAX_PROFILES} profiles.`, 409);
-          const r = await client.query(`INSERT INTO private.smart_profiles(user_id,${keys.join(",")}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(",")}) RETURNING id`, [owner, ...values]);
+          const count = (await client.query("SELECT count(*)::int n FROM private.smart_profiles WHERE user_id=$1 AND archived_at IS NULL", [owner]))
+            .rows[0].n;
+          if (count >= MAX_PROFILES) throw new ApiError(upgradeMessageFor("profiles"), 409);
+          const r = await client.query(
+            `INSERT INTO private.smart_profiles(user_id,${keys.join(",")}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(",")}) RETURNING id`,
+            [owner, ...values],
+          );
           return Response.json({ ok: true, id: r.rows[0].id });
         });
       } catch (e) {
@@ -119,7 +241,10 @@ export async function POST(request: NextRequest) {
     if (input.action === "archive-profile" || input.action === "delete-profile") {
       const id = await ownProfile(input.id);
       // Reserve the original slug and leave linked tokens intact.
-      await db.query("UPDATE private.smart_profiles SET published=false,archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=$1 AND user_id=$2", [id, owner]);
+      await db.query(
+        "UPDATE private.smart_profiles SET published=false,visibility='private',archived_at=coalesce(archived_at,now()),updated_at=now() WHERE id=$1 AND user_id=$2",
+        [id, owner],
+      );
       return Response.json({ ok: true });
     }
     if (input.action === "create-card") {
@@ -129,7 +254,7 @@ export async function POST(request: NextRequest) {
       const label = string(input.label ?? "", "label", 80, 0);
       return await serialRegistration(owner, async (client) => {
         const count = (await client.query("SELECT count(*)::int n FROM private.smart_cards WHERE user_id=$1", [owner])).rows[0].n;
-        if (count >= MAX_CARDS) throw new ApiError(`You can register up to ${MAX_CARDS} cards.`, 409);
+        if (count >= MAX_CARDS) throw new ApiError(upgradeMessageFor("cards"), 409);
         const created = await client.query(
           `WITH linked AS (
              SELECT id FROM private.smart_profiles WHERE id=$2 AND user_id=$1 AND archived_at IS NULL FOR UPDATE
@@ -146,13 +271,19 @@ export async function POST(request: NextRequest) {
       });
     }
     if (input.action === "card-destination") {
-      const destination=cleanCardDestination(input.destinationKind,input.destinationUrl);
-      const r=await db.query(`WITH card AS (
+      const destination = cleanCardDestination(input.destinationKind, input.destinationUrl);
+      const r = await db.query(
+        `WITH card AS (
         UPDATE private.smart_cards SET destination_kind=$3,destination_url=$4 WHERE id=$1 AND user_id=$2 RETURNING id,profile_id,status
-      ) INSERT INTO private.smart_card_activity(card_id,action,profile_id,status) SELECT id,'updated',profile_id,status FROM card`,[uuid(input.id),owner,destination.kind,destination.url]);
-      if(!r.rowCount) throw new ApiError("Card not found.",404);
-      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'nfc_destination_updated',$2)",[owner,JSON.stringify({cardId:input.id,kind:destination.kind})]);
-      return Response.json({ok:true});
+      ) INSERT INTO private.smart_card_activity(card_id,action,profile_id,status) SELECT id,'updated',profile_id,status FROM card`,
+        [uuid(input.id), owner, destination.kind, destination.url],
+      );
+      if (!r.rowCount) throw new ApiError("Card not found.", 404);
+      await db.query("INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,'nfc_destination_updated',$2)", [
+        owner,
+        JSON.stringify({ cardId: input.id, kind: destination.kind }),
+      ]);
+      return Response.json({ ok: true });
     }
     if (input.action === "update-card") {
       const id = uuid(input.id);

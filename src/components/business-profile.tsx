@@ -508,7 +508,20 @@ function BusinessProfileInner() {
 
           {section === "digital-card" && (
             <div className="bp-hub-embed">
-              <SmartCards />
+              <Panel title="Digital Identity" description="Profiles, Smart Cards, NFC, QR codes, contact exchange, and analytics share one canonical identity.">
+                <p>Manage your Digital Identity in one place. Smart Cards and NFC tags always resolve to the same public profile URL.</p>
+                <div className="ds-page-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Link className="ds-btn primary" href="/app/identity">
+                    Open Digital Identity
+                  </Link>
+                  <Link className="ds-btn" href="/app/identity/cards">
+                    Smart Cards
+                  </Link>
+                  <Link className="ds-btn" href="/app/identity/nfc">
+                    NFC Studio
+                  </Link>
+                </div>
+              </Panel>
             </div>
           )}
 

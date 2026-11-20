@@ -36,26 +36,35 @@ export async function POST(request: NextRequest) {
       const destinationUrl = cleanDestinationUrl(input.destinationUrl);
       const notes = cleanNotes(input.notes);
       const smartCardId = input.smartCardId ? uuid(input.smartCardId) : null;
+      const profileId = input.profileId ? uuid(input.profileId) : null;
       if (smartCardId) {
         const ok = await db.query("SELECT 1 FROM private.smart_cards WHERE id=$1 AND user_id=$2", [smartCardId, owner]);
         if (!ok.rowCount) throw new ApiError("Smart Card not found.", 404);
+      }
+      if (profileId) {
+        const ok = await db.query(
+          "SELECT 1 FROM private.smart_profiles WHERE id=$1 AND user_id=$2 AND archived_at IS NULL",
+          [profileId, owner],
+        );
+        if (!ok.rowCount) throw new ApiError("Digital Identity profile not found.", 404);
       }
       const hardware =
         typeof input.hardwareIdentifier === "string" && input.hardwareIdentifier.trim()
           ? input.hardwareIdentifier.trim().slice(0, 120)
           : null;
       const { rows } = await db.query(
-        `INSERT INTO private.nfc_tags(user_id,smart_card_id,label,tag_type,technology,capacity_bytes,status,destination_url,hardware_identifier,notes)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        `INSERT INTO private.nfc_tags(user_id,smart_card_id,profile_id,label,tag_type,technology,capacity_bytes,status,destination_url,hardware_identifier,notes)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          RETURNING *`,
         [
           owner,
           smartCardId,
+          profileId,
           label,
           string(input.tagType || "", "tagType", 80, 0),
           string(input.technology || "", "technology", 80, 0),
           typeof input.capacityBytes === "number" ? input.capacityBytes : null,
-          smartCardId ? "assigned" : "registered",
+          smartCardId || profileId ? "assigned" : "registered",
           destinationUrl,
           hardware,
           notes,
@@ -81,6 +90,16 @@ export async function POST(request: NextRequest) {
         const ok = await db.query("SELECT 1 FROM private.smart_cards WHERE id=$1 AND user_id=$2", [smartCardId, owner]);
         if (!ok.rowCount) throw new ApiError("Smart Card not found.", 404);
       }
+      let profileId: string | null | undefined = undefined;
+      if (input.profileId === null) profileId = null;
+      else if (input.profileId) {
+        profileId = uuid(input.profileId);
+        const ok = await db.query(
+          "SELECT 1 FROM private.smart_profiles WHERE id=$1 AND user_id=$2 AND archived_at IS NULL",
+          [profileId, owner],
+        );
+        if (!ok.rowCount) throw new ApiError("Digital Identity profile not found.", 404);
+      }
       const { rows } = await db.query(
         `UPDATE private.nfc_tags SET
            label=COALESCE(NULLIF($3,''),label),
@@ -88,9 +107,21 @@ export async function POST(request: NextRequest) {
            status=COALESCE($5,status),
            destination_url=COALESCE($6,destination_url),
            smart_card_id=CASE WHEN $7::boolean THEN $8::uuid ELSE smart_card_id END,
+           profile_id=CASE WHEN $9::boolean THEN $10::uuid ELSE profile_id END,
            updated_at=now()
          WHERE id=$1 AND user_id=$2 RETURNING *`,
-        [id, owner, label, notes, status, destinationUrl, smartCardId !== undefined, smartCardId ?? null],
+        [
+          id,
+          owner,
+          label,
+          notes,
+          status,
+          destinationUrl,
+          smartCardId !== undefined,
+          smartCardId ?? null,
+          profileId !== undefined,
+          profileId ?? null,
+        ],
       );
       if (!rows[0]) throw new ApiError("Tag not found.", 404);
       return Response.json({ tag: rows[0] });

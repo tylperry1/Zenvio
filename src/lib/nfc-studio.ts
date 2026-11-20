@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { getPool } from "./db";
+import { canonicalCardUrl } from "./digital-identity";
 import { ApiError } from "./server";
 import { normalizeHttpsUrl } from "./nfc/ndef";
 
@@ -58,8 +59,9 @@ export function summarizeRecords(records: Array<{ type: string; value: string }>
     .slice(0, 500);
 }
 
-/** Public card path only — never accept client-supplied foreign hosts for Smart Card programming. */
+/** Public card path only — never accept client-supplied foreign hosts for Smart Card programming.
+ *  Appends src=nfc so analytics can attribute NFC taps separately from printed-card QR taps.
+ *  Physical tags still resolve through /c/{token}; profile content edits do not require rewriting. */
 export function smartCardProgramUrl(origin: string, token: string) {
-  if (!/^[A-Za-z0-9_-]{16,40}$/.test(token)) throw new ApiError("Invalid Smart Card token.");
-  return new URL(`/c/${token}`, origin.replace(/\/$/, "") + "/").toString();
+  return canonicalCardUrl(origin, token, "nfc");
 }
