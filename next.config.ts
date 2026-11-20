@@ -3,6 +3,17 @@ const config: NextConfig = {
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
   outputFileTracingIncludes: { "/api/smart-profiles/wallet/*": ["./public/brand/icon-192.png"] },
+  // Hard redirect (not RSC redirect()) so admin/loading.tsx cannot stream a
+  // 200 on /admin/gelato before the destination settles — browser CI asserts this.
+  async redirects() {
+    return [
+      {
+        source: "/admin/gelato",
+        destination: "/admin/suppliers?view=integrations",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

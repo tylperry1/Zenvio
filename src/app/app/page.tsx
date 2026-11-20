@@ -5,6 +5,7 @@ import { getAuth } from "@/lib/auth";
 import { configured } from "@/lib/server";
 import { redirect } from "next/navigation";
 import { Workspace } from "@/components/workspace";
+import { RouteLoading } from "@/components/route-loading";
 export const metadata = {
     title: "Your workspace",
     robots: { index: false, follow: false },
@@ -16,7 +17,7 @@ export default async function Page() {
     if (!current)
         redirect("/sign-in");
     return (
-        <Suspense>
+        <Suspense fallback={<RouteLoading label="Loading your workspace…" />}>
             <Workspace />
         </Suspense>
     );
