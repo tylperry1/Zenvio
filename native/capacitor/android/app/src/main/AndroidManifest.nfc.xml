@@ -1,0 +1,5 @@
+<!-- Merge into the Capacitor AndroidManifest.xml -->
+<manifest>
+  <uses-permission android:name="android.permission.NFC" />
+  <uses-feature android:name="android.hardware.nfc" android:required="false" />
+</manifest>

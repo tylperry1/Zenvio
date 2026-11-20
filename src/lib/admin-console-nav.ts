@@ -141,6 +141,14 @@ export const adminNavGroups: AdminNavGroup[] = [
         hint: "products orders commerce",
       },
       {
+        id: "nfc-studio",
+        icon: "nfc",
+        label: "NFC Studio",
+        href: "/admin/nfc",
+        permission: "marketplace",
+        hint: "nfc tags programming batches capability",
+      },
+      {
         id: "suppliers",
         icon: "briefcase",
         label: "Suppliers & fulfillment",
@@ -148,6 +156,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         permission: "marketplace",
         hint: "gelato print suppliers catalog",
       },
+
       {
         id: "marketplace-tools",
         icon: "image",
@@ -292,7 +301,9 @@ export function resolveAdminNavId(pathname: string, searchParams: URLSearchParam
   if (path === "/admin/team") return "team";
   if (path === "/admin/economics") return "economics";
   if (path === "/admin/marketplace-tools") return "marketplace-tools";
+  if (path === "/admin/nfc") return "nfc-studio";
   if (path === "/admin/suppliers" || path === "/admin/gelato") return "suppliers";
+
   if (path === "/admin/smarty") return "smarty";
   if (path === "/admin/operations") {
     const section = get("section") || "subscriptions";

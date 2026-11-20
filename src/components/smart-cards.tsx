@@ -161,18 +161,23 @@ export function SmartCards() {
         title="Smart cards"
         description="A digital business profile for tap-to-share NFC cards, QR codes and your email signature. Update it anytime; cards keep working."
         actions={
-          data && data.profiles.length > 0 && data.profiles.filter((p) => !p.archived_at).length < data.limits.profiles ? (
-            <button
-              className="ds-btn"
-              onClick={() => {
-                setSelected("");
-                setDraft(blank(null));
-                setTab("profile");
-              }}
-            >
-              <Icon name="plus" size={14} /> New profile
-            </button>
-          ) : undefined
+          <div className="ds-page-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <a className="ds-btn primary sm" href="/app/smart-cards/nfc-studio">
+              <Icon name="nfc" size={14} /> NFC Studio
+            </a>
+            {data && data.profiles.length > 0 && data.profiles.filter((p) => !p.archived_at).length < data.limits.profiles ? (
+              <button
+                className="ds-btn"
+                onClick={() => {
+                  setSelected("");
+                  setDraft(blank(null));
+                  setTab("profile");
+                }}
+              >
+                <Icon name="plus" size={14} /> New profile
+              </button>
+            ) : null}
+          </div>
         }
       />
       {notice && <Notice tone="success">{notice}</Notice>}
