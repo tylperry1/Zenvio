@@ -61,3 +61,41 @@ test("smart card programming uses URI records", () => {
   assert.equal(r.type, "uri");
   assert.equal(r.label, "Zenvio Smart Card");
 });
+
+test("messagesEquivalent preserves Smart Card path and text case", () => {
+  const a = N.messageFromRecords([N.recordFromEditor("smart_card", "https://gozenvio.com/c/AbCdEfGhIjKlMnOpQrSt")]);
+  const b = N.messageFromRecords([N.recordFromEditor("smart_card", "https://gozenvio.com/c/abcdefghijklmnopqrst")]);
+  assert.equal(N.messagesEquivalent(a, b), false);
+  const hello = N.messageFromRecords([N.recordFromEditor("text", "Hello")]);
+  const helloLower = N.messageFromRecords([N.recordFromEditor("text", "hello")]);
+  assert.equal(N.messagesEquivalent(hello, helloLower), false);
+  assert.equal(
+    N.destinationsMatch("https://GoZenvio.com/c/AbCdEfGhIjKlMnOpQrSt", "https://gozenvio.com/c/AbCdEfGhIjKlMnOpQrSt"),
+    true,
+  );
+  assert.equal(
+    N.destinationsMatch("https://gozenvio.com/c/AbCd", "https://gozenvio.com/c/abcd"),
+    false,
+  );
+});
+
+test("URI and text encoders use four-byte length for payloads >= 256", () => {
+  const longText = "x".repeat(300);
+  const records = [N.recordFromEditor("text", longText)];
+  const bin = N.serializeNdef(records);
+  assert.equal(bin[0] & 0x10, 0, "SR bit must be clear for long payloads");
+  const parsed = N.parseNdef(bin);
+  assert.equal(parsed.records[0].value, longText);
+});
+
+test("recordFromReadValue keeps tel mailto sms vcard and unknown without editor throws", () => {
+  assert.equal(N.recordFromReadValue("uri", "tel:+15551234567").type, "tel");
+  assert.equal(N.recordFromReadValue("uri", "mailto:a@b.co").type, "mailto");
+  assert.equal(N.recordFromReadValue("uri", "sms:+15551234567").type, "sms");
+  const vcard = N.recordFromReadValue("mime", "BEGIN:VCARD\nEND:VCARD", { mimeType: "text/vcard" });
+  assert.equal(vcard.type, "vcard");
+  const unknown = N.recordFromReadValue("unknown", "raw", { label: "custom" });
+  assert.equal(unknown.type, "unknown");
+  const msg = N.messageFromRecords([unknown]);
+  assert.equal(msg.records[0].type, "unknown");
+});

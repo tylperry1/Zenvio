@@ -1,7 +1,11 @@
 import type { NfcAdapter, NfcCapabilities, ReadResult, WriteRequest, WriteResult, LockResult } from "./types";
-import { messageFromRecords, messagesEquivalent, recordFromEditor, serializeNdef } from "./ndef";
+import { messageFromRecords, messagesEquivalent, recordFromReadValue, serializeNdef } from "./ndef";
 
-type NDEFReadingEvent = Event & { message: { records: Array<{ recordType: string; mediaType?: string; data?: DataView; encoding?: string; lang?: string }> } };
+type NDEFReadingEvent = Event & {
+  message: {
+    records: Array<{ recordType: string; mediaType?: string; data?: DataView; encoding?: string; lang?: string }>;
+  };
+};
 type NDEFReaderLike = {
   scan: (opts?: { signal?: AbortSignal }) => Promise<void>;
   write: (message: unknown, opts?: { signal?: AbortSignal; overwrite?: boolean }) => Promise<void>;
@@ -21,26 +25,24 @@ function isSecure(): boolean {
 }
 
 function recordsFromWeb(message: NDEFReadingEvent["message"]) {
-  // Web NFC exposes recordType strings — map to normalized records when raw NDEF bytes are unavailable.
+  // Decode without editor restrictions so tel/email/sms/vcard/unknown read-backs verify.
   const records = message.records.map((r) => {
     if (r.recordType === "url" || r.recordType === "absolute-url") {
       const value = r.data ? new TextDecoder(r.encoding || "utf-8").decode(r.data) : "";
-      return recordFromEditor("uri", value);
+      return recordFromReadValue("uri", value);
     }
     if (r.recordType === "text") {
       const value = r.data ? new TextDecoder(r.encoding || "utf-8").decode(r.data) : "";
-      return recordFromEditor("text", value, { language: r.lang || "en" });
+      return recordFromReadValue("text", value, { language: r.lang || "en" });
     }
     if (r.recordType === "mime") {
       const value = r.data ? new TextDecoder().decode(r.data) : "";
-      return recordFromEditor("mime", value, { mimeType: r.mediaType || "application/octet-stream" });
+      return recordFromReadValue("mime", value, { mimeType: r.mediaType || "application/octet-stream" });
     }
-    return {
-      type: "unknown" as const,
+    return recordFromReadValue("unknown", r.data ? new TextDecoder().decode(r.data).slice(0, 500) : "", {
       label: r.recordType,
-      value: r.data ? new TextDecoder().decode(r.data).slice(0, 500) : "",
       mimeType: r.mediaType,
-    };
+    });
   });
   return messageFromRecords(records);
 }
@@ -91,25 +93,49 @@ export function createWebNfcAdapter(): NfcAdapter {
     active = new AbortController();
     if (signal) signal.addEventListener("abort", () => active?.abort(), { once: true });
     const reader = new Ctor();
+    const controller = active;
     try {
       const tag = await new Promise<ReadResult>((resolve, reject) => {
+        let settled = false;
+        const finish = (fn: () => void) => {
+          if (settled) return;
+          settled = true;
+          reader.removeEventListener("reading", onReading);
+          controller.signal.removeEventListener("abort", onAbort);
+          fn();
+        };
+        const onAbort = () =>
+          finish(() => reject(Object.assign(new Error("Scan cancelled."), { name: "AbortError" })));
         const onReading = (ev: NDEFReadingEvent) => {
-          try {
-            const message = recordsFromWeb(ev.message);
-            resolve({
-              ok: true,
-              tag: {
-                ndefSupported: true,
-                message,
-                usedBytes: message.byteLength,
-              },
-            });
-          } catch (e) {
-            reject(e);
-          }
+          finish(() => {
+            try {
+              const message = recordsFromWeb(ev.message);
+              resolve({
+                ok: true,
+                tag: {
+                  ndefSupported: true,
+                  message,
+                  usedBytes: message.byteLength,
+                },
+              });
+            } catch (e) {
+              reject(e);
+            } finally {
+              try {
+                controller.abort();
+              } catch {
+                /* scan stop is best-effort */
+              }
+            }
+          });
         };
         reader.addEventListener("reading", onReading);
-        reader.scan({ signal: active!.signal }).catch(reject);
+        controller.signal.addEventListener("abort", onAbort, { once: true });
+        if (controller.signal.aborted) {
+          onAbort();
+          return;
+        }
+        reader.scan({ signal: controller.signal }).catch((e) => finish(() => reject(e)));
       });
       return tag;
     } catch (e) {
@@ -119,7 +145,7 @@ export function createWebNfcAdapter(): NfcAdapter {
         return { ok: false, errorCode: "permission", errorMessage: "NFC permission was denied." };
       return { ok: false, errorCode: "read_failed", errorMessage: err.message || "Unable to read this tag." };
     } finally {
-      active = null;
+      if (active === controller) active = null;
     }
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Skeleton } from "./ds";
 import { Icon } from "./icons";
 import {
+  destinationsMatch,
   estimateNdefBytes,
   getNfcAdapter,
   messageFromRecords,
@@ -44,6 +45,7 @@ type Batch = {
   name: string;
   status: string;
   destination_url: string;
+  smart_card_id: string | null;
   total_tags: number;
   successful_tags: number;
   failed_tags: number;
@@ -221,6 +223,44 @@ export function NfcStudio() {
     return [recordFromEditor(writeKind, writeValue)];
   }
 
+  function writeMatchesActiveBatch(destination: string, kind: "write" | "program_smart_card") {
+    if (!activeBatch || activeBatch.status !== "open") return false;
+    if (activeBatch.smart_card_id && kind === "program_smart_card" && selectedCard !== activeBatch.smart_card_id) {
+      return false;
+    }
+    if (!destination || !activeBatch.destination_url) return false;
+    return destinationsMatch(destination, activeBatch.destination_url);
+  }
+
+  async function recordBatchItem(input: {
+    status: "succeeded" | "failed";
+    records: NdefRecord[];
+    errorCode?: string;
+    verificationStatus?: string;
+  }) {
+    if (!activeBatch || activeBatch.status !== "open") return;
+    try {
+      const op = await postJson("/api/nfc/operations", {
+        operationType: "batch_item",
+        status: input.status,
+        platform: caps?.platform || "none",
+        records: input.records,
+        verificationStatus: input.verificationStatus || (input.status === "succeeded" ? "matched" : "not_requested"),
+        errorCode: input.errorCode || "",
+      });
+      const updated = await postJson("/api/nfc/batches", {
+        action: "record-item",
+        batchId: activeBatch.id,
+        status: input.status,
+        operationId: op.operation?.id,
+        errorCode: input.errorCode || "",
+      });
+      setActiveBatch(updated.batch?.status === "open" ? updated.batch : null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to update batch progress.");
+    }
+  }
+
   async function onWrite(kind: "write" | "program_smart_card" = "write") {
     setError("");
     setNotice("");
@@ -240,6 +280,8 @@ export function NfcStudio() {
       return;
     }
     const message = messageFromRecords(records);
+    const destination = records.find((r) => r.type === "uri")?.value || "";
+    const batchBound = writeMatchesActiveBatch(destination, kind);
     setBusy(true);
     setScanState("scanning");
     try {
@@ -253,6 +295,13 @@ export function NfcStudio() {
           errorMessage: result.errorMessage || "",
           records,
         });
+        if (batchBound && result.errorCode !== "cancelled") {
+          await recordBatchItem({
+            status: "failed",
+            records,
+            errorCode: result.errorCode || "write_failed",
+          });
+        }
         return;
       }
       if (!result.verified) {
@@ -264,6 +313,14 @@ export function NfcStudio() {
           records,
           errorMessage: result.errorMessage || "",
         });
+        if (batchBound) {
+          await recordBatchItem({
+            status: "failed",
+            records,
+            errorCode: result.errorCode || "verify_mismatch",
+            verificationStatus: "mismatched",
+          });
+        }
       } else {
         setNotice("Write verified with read-after-write.");
         await logOperation({
@@ -275,7 +332,6 @@ export function NfcStudio() {
         });
       }
       setLastTag(result.tag || { ndefSupported: true, message: result.readBack });
-      const destination = records.find((r) => r.type === "uri")?.value || "";
       if (destination) {
         await postJson("/api/nfc/tags", {
           action: "record-program",
@@ -286,21 +342,8 @@ export function NfcStudio() {
           tagType: result.tag?.technology || "",
           capacityBytes: result.tag?.capacityBytes,
         });
-        if (activeBatch && result.verified) {
-          const op = await postJson("/api/nfc/operations", {
-            operationType: "batch_item",
-            status: "succeeded",
-            platform: caps?.platform || "none",
-            records,
-            verificationStatus: "matched",
-          });
-          const updated = await postJson("/api/nfc/batches", {
-            action: "record-item",
-            batchId: activeBatch.id,
-            status: "succeeded",
-            operationId: op.operation?.id,
-          });
-          setActiveBatch(updated.batch);
+        if (batchBound && result.verified) {
+          await recordBatchItem({ status: "succeeded", records, verificationStatus: "matched" });
         }
       }
       await loadOverview().catch(() => {});
@@ -636,14 +679,14 @@ export function NfcStudio() {
               <button type="button" className="ds-btn" disabled={busy} onClick={() => startBatch().catch((e) => setError(e.message))}>
                 Create batch
               </button>
-              {activeBatch && (
+              {activeBatch?.status === "open" && (
                 <button
                   type="button"
                   className="ds-btn ghost"
                   onClick={() =>
                     postJson("/api/nfc/batches", { action: "complete", batchId: activeBatch.id })
-                      .then((d) => {
-                        setActiveBatch(d.batch);
+                      .then(() => {
+                        setActiveBatch(null);
                         setNotice("Batch closed.");
                         return loadBatches();
                       })
@@ -655,7 +698,7 @@ export function NfcStudio() {
               )}
             </div>
           </div>
-          {activeBatch && (
+          {activeBatch?.status === "open" && (
             <Notice tone="info">
               Active batch <strong>{activeBatch.name}</strong>: {activeBatch.successful_tags} ok · {activeBatch.failed_tags} failed ·{" "}
               {activeBatch.total_tags} total. Remove each tag before presenting the next.

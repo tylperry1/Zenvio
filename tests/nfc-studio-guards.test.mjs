@@ -30,6 +30,39 @@ test("middleware gates /api/nfc behind smartCards feature", () => {
   assert.match(read("src/middleware.ts"), /\/api\/nfc/);
 });
 
+test("NFC Studio page and APIs enforce nfc_studio.enabled", () => {
+  assert.match(read("src/lib/nfc-studio.ts"), /assertNfcStudioEnabled/);
+  assert.match(read("src/app/app/smart-cards/nfc-studio/page.tsx"), /isNfcStudioEnabled/);
+  for (const p of [
+    "src/app/api/nfc/overview/route.ts",
+    "src/app/api/nfc/tags/route.ts",
+    "src/app/api/nfc/operations/route.ts",
+    "src/app/api/nfc/batches/route.ts",
+  ]) {
+    assert.match(read(p), /assertNfcStudioEnabled/, p);
+  }
+});
+
+test("batch recording binds destination and clears completed batches", () => {
+  const src = read("src/components/nfc-studio.tsx");
+  assert.match(src, /writeMatchesActiveBatch/);
+  assert.match(src, /destinationsMatch/);
+  assert.match(src, /setActiveBatch\(null\)/);
+  assert.match(src, /status: "failed"/);
+  assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_tags WHERE id=\$1 AND user_id/);
+  assert.match(read("src/app/api/nfc/batches/route.ts"), /nfc_operations WHERE id=\$1 AND user_id/);
+});
+
+test("Web NFC cancel settles waiting read and Android NDEF discovery is intact", () => {
+  const web = read("src/lib/nfc/web-nfc.ts");
+  assert.match(web, /recordFromReadValue/);
+  assert.match(web, /onAbort/);
+  assert.match(web, /AbortError/);
+  const kotlin = read("native/capacitor/android/app/src/main/java/com/gozenvio/nfc/ZenvioNfcPlugin.kt");
+  assert.doesNotMatch(kotlin, /NfcAdapter\.FLAG_READER_SKIP_NDEF_CHECK/);
+  assert.match(kotlin, /!ndef\.makeReadOnly\(\)/);
+});
+
 test("Studio UI refuses actions without capability-ready state", () => {
   const src = read("src/components/nfc-studio.tsx");
   assert.match(src, /caps\?\.canRead/);

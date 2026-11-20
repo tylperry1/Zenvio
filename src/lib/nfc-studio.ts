@@ -1,9 +1,24 @@
 import { createHash } from "node:crypto";
+import { getPool } from "./db";
 import { ApiError } from "./server";
 import { normalizeHttpsUrl } from "./nfc/ndef";
 
 export const NFC_TAG_STATUSES = ["registered", "programmed", "assigned", "failed", "retired", "lost"] as const;
 export type NfcTagStatus = (typeof NFC_TAG_STATUSES)[number];
+
+/** Platform toggle from /admin/nfc — default enabled when the row is missing. */
+export async function isNfcStudioEnabled() {
+  try {
+    const row = (await getPool().query(`SELECT value FROM private.platform_settings WHERE key='nfc_studio'`)).rows[0];
+    return row?.value?.enabled !== false;
+  } catch {
+    return true;
+  }
+}
+
+export async function assertNfcStudioEnabled() {
+  if (!(await isNfcStudioEnabled())) throw new ApiError("NFC Studio is currently disabled.", 404);
+}
 
 export function assertTagStatus(value: unknown): NfcTagStatus {
   if (typeof value !== "string" || !(NFC_TAG_STATUSES as readonly string[]).includes(value)) {

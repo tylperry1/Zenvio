@@ -62,36 +62,32 @@ function uriPrefixIndex(url: string): { code: number; rest: string } {
   return { code: best, rest: url.slice(URI_PREFIXES[best].length) };
 }
 
+/** TNF header + type + payload length (1-byte SR or 4-byte long form). */
+function encodeRecordFrame(tnf: number, type: Uint8Array, payload: Uint8Array, mb: boolean, me: boolean): Uint8Array {
+  const sr = payload.length < 256;
+  const header = (mb ? 0x80 : 0) | (me ? 0x40 : 0) | (sr ? 0x10 : 0) | tnf;
+  if (sr) return bytes(header, type.length, payload.length, type, payload);
+  const len = new Uint8Array(4);
+  new DataView(len.buffer).setUint32(0, payload.length);
+  return bytes(header, type.length, len, type, payload);
+}
+
 /** Serialize a Well-Known URI (U) record payload including TNF header framing for one record. */
 function encodeUriRecord(url: string, mb: boolean, me: boolean): Uint8Array {
   const { code, rest } = uriPrefixIndex(url);
   const payload = bytes(code, enc.encode(rest));
-  const type = enc.encode("U");
-  const header =
-    (mb ? 0x80 : 0) |
-    (me ? 0x40 : 0) |
-    0x10 /* SR */ |
-    0x01; /* TNF well-known */
-  return bytes(header, type.length, payload.length, type, payload);
+  return encodeRecordFrame(0x01, enc.encode("U"), payload, mb, me);
 }
 
 function encodeTextRecord(text: string, language: string, mb: boolean, me: boolean): Uint8Array {
   const lang = enc.encode(language.slice(0, 63) || "en");
   const status = lang.length & 0x3f; // UTF-8
   const payload = bytes(status, lang, enc.encode(text));
-  const type = enc.encode("T");
-  const header = (mb ? 0x80 : 0) | (me ? 0x40 : 0) | 0x10 | 0x01;
-  return bytes(header, type.length, payload.length, type, payload);
+  return encodeRecordFrame(0x01, enc.encode("T"), payload, mb, me);
 }
 
 function encodeMimeRecord(mime: string, data: Uint8Array, mb: boolean, me: boolean): Uint8Array {
-  const type = enc.encode(mime.slice(0, 255));
-  const sr = data.length < 256;
-  const header = (mb ? 0x80 : 0) | (me ? 0x40 : 0) | (sr ? 0x10 : 0) | 0x02; /* MIME */
-  if (sr) return bytes(header, type.length, data.length, type, data);
-  const len = new Uint8Array(4);
-  new DataView(len.buffer).setUint32(0, data.length);
-  return bytes(header, type.length, len, type, data);
+  return encodeRecordFrame(0x02, enc.encode(mime.slice(0, 255)), data, mb, me);
 }
 
 export function normalizeHttpsUrl(input: string): string {
@@ -207,11 +203,46 @@ function parseTextPayload(payload: Uint8Array): { text: string; language: string
   return { text, language };
 }
 
-function classifyUri(value: string): NdefRecordType {
+export function classifyUri(value: string): NdefRecordType {
   if (value.startsWith("tel:")) return "tel";
   if (value.startsWith("mailto:")) return "mailto";
   if (value.startsWith("sms:")) return "sms";
   return "uri";
+}
+
+/** Decode a read-back payload without editor validation (tel/email/sms/vcard/unknown allowed). */
+export function recordFromReadValue(
+  kind: "uri" | "text" | "mime" | "unknown",
+  value: string,
+  extra: { mimeType?: string; language?: string; label?: string } = {},
+): NdefRecord {
+  if (kind === "uri") {
+    const t = classifyUri(value);
+    return {
+      type: t,
+      label: t === "tel" ? "Telephone" : t === "mailto" ? "Email" : t === "sms" ? "SMS" : "URI",
+      value,
+    };
+  }
+  if (kind === "text") {
+    return { type: "text", label: "Plain text", value, language: extra.language || "en" };
+  }
+  if (kind === "mime") {
+    const mime = extra.mimeType || "application/octet-stream";
+    const isVcard = /vcard/i.test(mime);
+    return {
+      type: isVcard ? "vcard" : "mime",
+      label: isVcard ? "Contact (vCard)" : `MIME (${mime})`,
+      value,
+      mimeType: mime,
+    };
+  }
+  return {
+    type: "unknown",
+    label: extra.label || "Unknown",
+    value,
+    mimeType: extra.mimeType,
+  };
 }
 
 /** Parse a binary NDEF message into normalized records (Well-Known + MIME subset). */
@@ -290,12 +321,40 @@ export function messagesEquivalent(a: NdefMessage, b: NdefMessage): boolean {
   if (a.records.length !== b.records.length) return false;
   return a.records.every((r, i) => {
     const o = b.records[i];
-    return r.type === o.type && normalizeCompare(r.value) === normalizeCompare(o.value) && (r.mimeType || "") === (o.mimeType || "");
+    return r.type === o.type && valuesEquivalent(r.type, r.value, o.value) && (r.mimeType || "") === (o.mimeType || "");
   });
 }
 
-function normalizeCompare(v: string) {
-  return v.trim().replace(/\/$/, "").toLowerCase();
+/**
+ * Compare payload values without case-folding Smart Card paths or text.
+ * Host/scheme are case-insensitive; path/query/fragment and non-URL text stay exact.
+ */
+function valuesEquivalent(type: NdefRecordType, left: string, right: string): boolean {
+  if (type === "text" || type === "vcard" || type === "mime" || type === "unknown") {
+    return left === right;
+  }
+  if (type === "tel" || type === "mailto" || type === "sms") {
+    return left.trim() === right.trim();
+  }
+  return normalizeHttpUrlCompare(left) === normalizeHttpUrlCompare(right);
+}
+
+function normalizeHttpUrlCompare(v: string): string {
+  const trimmed = v.trim();
+  try {
+    const u = new URL(trimmed);
+    u.protocol = u.protocol.toLowerCase();
+    u.hostname = u.hostname.toLowerCase();
+    if (u.pathname.length > 1 && u.pathname.endsWith("/")) u.pathname = u.pathname.slice(0, -1);
+    return u.toString();
+  } catch {
+    return trimmed.replace(/\/$/, "");
+  }
+}
+
+/** Batch destination match — preserves path case so Smart Card tokens stay exact. */
+export function destinationsMatch(a: string, b: string): boolean {
+  return normalizeHttpUrlCompare(a) === normalizeHttpUrlCompare(b);
 }
 
 function toHex(buf: Uint8Array) {
@@ -303,6 +362,10 @@ function toHex(buf: Uint8Array) {
 }
 
 export function messageFromRecords(records: NdefRecord[]): NdefMessage {
+  if (!records.length) return { records, byteLength: 0 };
+  if (records.some((r) => r.type === "unknown")) {
+    return { records, byteLength: records.reduce((n, r) => n + (r.value?.length || 0), 0) };
+  }
   const binary = serializeNdef(records);
   return { records, byteLength: binary.length };
 }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, failure, sameOrigin, session, string, uuid } from "@/lib/server";
-import { payloadHash, summarizeRecords } from "@/lib/nfc-studio";
+import { assertNfcStudioEnabled, payloadHash, summarizeRecords } from "@/lib/nfc-studio";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,7 @@ const VERIFY = new Set(["not_requested", "matched", "mismatched", "unavailable"]
 export async function GET(request: NextRequest) {
   try {
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const limit = Math.min(100, Math.max(1, Number(request.nextUrl.searchParams.get("limit") || 50)));
     const { rows } = await getPool().query(
       `SELECT * FROM private.nfc_operations WHERE user_id=$1 ORDER BY started_at DESC LIMIT $2`,
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const input = await body(request);
     const operationType = string(input.operationType, "operationType");
     if (!OP_TYPES.has(operationType)) throw new ApiError("Unknown operation type.");

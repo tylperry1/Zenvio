@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
+import { assertNfcStudioEnabled } from "@/lib/nfc-studio";
 import { failure, session } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: NextRequest) {
   try {
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const db = getPool();
     const [tags, ops, recent] = await Promise.all([
       db.query(

@@ -1,13 +1,14 @@
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, failure, sameOrigin, session, string, uuid } from "@/lib/server";
-import { assertTagStatus, cleanDestinationUrl, cleanNotes, cleanTagLabel } from "@/lib/nfc-studio";
+import { assertNfcStudioEnabled, assertTagStatus, cleanDestinationUrl, cleanNotes, cleanTagLabel } from "@/lib/nfc-studio";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const { rows } = await getPool().query(
       `SELECT t.*, c.token AS smart_card_token, c.label AS smart_card_label
          FROM private.nfc_tags t
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const input = await body(request);
     const action = string(input.action, "action");
     const db = getPool();

@@ -1,13 +1,14 @@
 import { NextRequest } from "next/server";
 import { getPool } from "@/lib/db";
 import { ApiError, body, failure, sameOrigin, session, string, uuid } from "@/lib/server";
-import { cleanDestinationUrl } from "@/lib/nfc-studio";
+import { assertNfcStudioEnabled, cleanDestinationUrl } from "@/lib/nfc-studio";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const db = getPool();
     const batches = (
       await db.query(`SELECT * FROM private.nfc_batches WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`, [owner])
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     sameOrigin(request);
     const { token: owner } = await session();
+    await assertNfcStudioEnabled();
     const input = await body(request);
     const action = string(input.action, "action");
     const db = getPool();
@@ -67,6 +69,17 @@ export async function POST(request: NextRequest) {
         ).rows[0];
         if (!batch) throw new ApiError("Batch not found.", 404);
         if (batch.status !== "open") throw new ApiError("This batch is closed.");
+        if (tagId) {
+          const owned = await client.query(`SELECT 1 FROM private.nfc_tags WHERE id=$1 AND user_id=$2`, [tagId, owner]);
+          if (!owned.rowCount) throw new ApiError("Tag not found.", 404);
+        }
+        if (operationId) {
+          const owned = await client.query(`SELECT 1 FROM private.nfc_operations WHERE id=$1 AND user_id=$2`, [
+            operationId,
+            owner,
+          ]);
+          if (!owned.rowCount) throw new ApiError("Operation not found.", 404);
+        }
         const { rows } = await client.query(
           `INSERT INTO private.nfc_batch_items(batch_id,tag_id,operation_id,status,error_code,completed_at)
            VALUES($1,$2,$3,$4,$5,now()) RETURNING *`,

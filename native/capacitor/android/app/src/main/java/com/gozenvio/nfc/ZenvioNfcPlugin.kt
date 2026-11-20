@@ -111,8 +111,9 @@ class ZenvioNfcPlugin(private val activity: Activity) {
           else {
             ndef.connect()
             if (!ndef.isWritable) mapOf("ok" to false, "errorCode" to "read_only", "errorMessage" to "Tag is already read-only.")
-            else {
-              ndef.makeReadOnly()
+            else if (!ndef.makeReadOnly()) {
+              mapOf("ok" to false, "errorCode" to "lock_failed", "errorMessage" to "Tag refused permanent lock.")
+            } else {
               mapOf("ok" to true)
             }
           }
@@ -141,11 +142,11 @@ class ZenvioNfcPlugin(private val activity: Activity) {
         a.disableReaderMode(activity)
         onTag(tag)
       },
+      // Keep NDEF tech discovery enabled so Ndef.get(tag) works on compatible tags.
       NfcAdapter.FLAG_READER_NFC_A or
         NfcAdapter.FLAG_READER_NFC_B or
         NfcAdapter.FLAG_READER_NFC_F or
-        NfcAdapter.FLAG_READER_NFC_V or
-        NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+        NfcAdapter.FLAG_READER_NFC_V,
       null,
     )
   }
