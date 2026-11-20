@@ -168,7 +168,11 @@ export function createWebNfcAdapter(): NfcAdapter {
             if (r.type === "uri" || r.type === "tel" || r.type === "mailto" || r.type === "sms")
               return { recordType: "url", data: r.value };
             if (r.type === "text") return { recordType: "text", data: r.value, lang: r.language || "en" };
-            return { recordType: "mime", mediaType: r.mimeType || "application/octet-stream", data: r.value };
+            return {
+              recordType: "mime",
+              mediaType: r.mimeType || "application/octet-stream",
+              data: new TextEncoder().encode(r.value),
+            };
           }),
         },
         { signal: active.signal, overwrite: true },

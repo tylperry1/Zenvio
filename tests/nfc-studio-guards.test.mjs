@@ -58,9 +58,27 @@ test("Web NFC cancel settles waiting read and Android NDEF discovery is intact",
   assert.match(web, /recordFromReadValue/);
   assert.match(web, /onAbort/);
   assert.match(web, /AbortError/);
+  assert.match(web, /TextEncoder\(\)\.encode/);
   const kotlin = read("native/capacitor/android/app/src/main/java/com/gozenvio/nfc/ZenvioNfcPlugin.kt");
   assert.doesNotMatch(kotlin, /NfcAdapter\.FLAG_READER_SKIP_NDEF_CHECK/);
   assert.match(kotlin, /!ndef\.makeReadOnly\(\)/);
+  assert.match(kotlin, /completePending/);
+  assert.match(kotlin, /"message"/);
+  const swift = read("native/capacitor/ios/App/App/Plugins/ZenvioNfcPlugin.swift");
+  assert.match(swift, /"canWrite": false/);
+  assert.match(swift, /ns\.code == 200/);
+  assert.match(swift, /session === self\.session/);
+  assert.match(swift, /encodeMessage/);
+  const bridge = read("src/lib/nfc/capacitor-bridge.ts");
+  assert.match(bridge, /ndefBase64/);
+  assert.match(bridge, /serializeNdef/);
+  assert.match(read("native/capacitor/README.md"), /ndefBase64/);
+});
+
+test("Studio allows deactivated cards for first NFC write", () => {
+  const src = read("src/components/nfc-studio.tsx");
+  assert.match(src, /status === "deactivated"/);
+  assert.match(src, /first write/i);
 });
 
 test("Studio UI refuses actions without capability-ready state", () => {

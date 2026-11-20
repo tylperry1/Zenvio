@@ -197,9 +197,11 @@ function parseUriPayload(payload: Uint8Array): string {
 function parseTextPayload(payload: Uint8Array): { text: string; language: string } {
   if (!payload.length) return { text: "", language: "en" };
   const status = payload[0];
+  const utf16 = Boolean(status & 0x80);
   const langLen = status & 0x3f;
   const language = dec.decode(payload.subarray(1, 1 + langLen)) || "en";
-  const text = dec.decode(payload.subarray(1 + langLen));
+  const textBytes = payload.subarray(1 + langLen);
+  const text = utf16 ? new TextDecoder("utf-16").decode(textBytes) : dec.decode(textBytes);
   return { text, language };
 }
 
@@ -321,7 +323,10 @@ export function messagesEquivalent(a: NdefMessage, b: NdefMessage): boolean {
   if (a.records.length !== b.records.length) return false;
   return a.records.every((r, i) => {
     const o = b.records[i];
-    return r.type === o.type && valuesEquivalent(r.type, r.value, o.value) && (r.mimeType || "") === (o.mimeType || "");
+    if (r.type !== o.type) return false;
+    if ((r.mimeType || "") !== (o.mimeType || "")) return false;
+    if (r.type === "text" && (r.language || "en") !== (o.language || "en")) return false;
+    return valuesEquivalent(r.type, r.value, o.value);
   });
 }
 

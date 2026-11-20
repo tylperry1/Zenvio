@@ -136,7 +136,8 @@ export function NfcStudio() {
     const r = await fetch("/api/smart-profiles?days=7", { cache: "no-store" });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Unable to load Smart Cards.");
-    setCards((d.cards || []).filter((c: Card) => c.status === "active"));
+    // Include deactivated cards so a brand-new card can receive its first NFC write in Studio.
+    setCards((d.cards || []).filter((c: Card) => c.status === "active" || c.status === "deactivated"));
   }
 
   async function loadBatches() {
@@ -579,10 +580,15 @@ export function NfcStudio() {
                     <option value="">Select a card…</option>
                     {cards.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {(c.label || "Card") + ` · /c/${c.token.slice(0, 8)}…`}
+                        {(c.label || "Card") +
+                          ` · /c/${c.token.slice(0, 8)}…` +
+                          (c.status === "deactivated" ? " · first write" : "")}
                       </option>
                     ))}
                   </select>
+                  <span className="ds-meta">
+                    New cards stay deactivated until encoding is confirmed. You can still select them here for their first NFC write.
+                  </span>
                 </label>
               ) : (
                 <label className="ds-field">
