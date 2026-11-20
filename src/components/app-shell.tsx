@@ -9,6 +9,7 @@ import { initials } from "@/lib/client";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { AssistantLauncher } from "./assistant";
 import { ThemeControl, ThemeProvider } from "./theme-control";
+import { RouteLoading } from "./route-loading";
 
 type NavItem = {
   id: string;
@@ -348,7 +349,7 @@ export function AppShell({
           </button>
         </div>
         <nav className="shell-nav">
-          <Suspense fallback={<div className="route-loading route-loading-compact" aria-hidden="true" />}>
+          <Suspense fallback={<RouteLoading compact label="Loading navigation…" />}>
             <Navigation marketplace={marketplace} demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
           </Suspense>
         </nav>
