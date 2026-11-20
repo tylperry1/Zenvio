@@ -148,7 +148,10 @@ export function IdentityAnalytics() {
             )}
           </Panel>
           {conversions.length > 0 && (
-            <Panel title="Verified booking sources">
+            <Panel
+              title="Verified booking sources (account-wide)"
+              description="Booking conversions are account-wide from booking_sources and do not change with the profile filter above."
+            >
               <dl>
                 {conversions.map((c) => (
                   <div key={c.source}>

@@ -46,15 +46,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     : { title: "Profile not found", robots: { index: false, follow: false } };
 }
 
-export default async function Page({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ via?: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ via?: string; from?: string }> }) {
   const { slug } = await params;
-  const via = allowlistedVia((await searchParams).via);
+  const query = await searchParams;
+  const via = allowlistedVia(query.via);
+  const fromCardRedirect = query.from === "c";
   const profile = await loadPublicProfile(slug.toLowerCase());
   if (!profile) return <MissingProfile />;
   // Prior published addresses still resolve (slug redirects). Prefer the canonical path in links.
   const v = { ...profile.view, slug: profile.canonicalSlug || profile.view.slug };
-  // Card/NFC taps are counted by the /c redirect; count direct links and QR scans here.
-  if (via !== "card" && via !== "nfc") {
+  // /c/{token} already recorded the visit (from=c). Direct link/QR hits still count here.
+  if (!fromCardRedirect && via !== "card" && via !== "nfc") {
     const h = await headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
     await recordProfileView(profile.id, via === "qr" ? "qr" : "link", ip).catch(() => {});

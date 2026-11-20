@@ -9,10 +9,13 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const profile = await loadPublicProfile((await params).slug.toLowerCase());
   if (!profile) return Response.json({ error: "Not found" }, { status: 404 });
-  let body: { action?: string; via?: string; href?: string } = {};
+  let body: { action?: string; via?: string; href?: string } | null = null;
   try {
     body = await request.json();
   } catch {
+    return Response.json({ error: "Invalid body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return Response.json({ error: "Invalid body" }, { status: 400 });
   }
   const action = String(body.action || "");

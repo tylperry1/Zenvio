@@ -40,13 +40,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!card || card.status !== "active" || !card.slug || !card.published)
     return redirectTo("/c/inactive");
   const channel = resolveViewChannel(request.nextUrl.searchParams.get("via"), request.nextUrl.searchParams.get("src"));
-  // Default physical taps without src are card; NFC Studio programs ?src=nfc.
+  // Default physical taps without src are card; NFC Studio programs ?src=nfc; printed card QR may use ?src=qr.
   const viewChannel = channel === "link" ? "card" : channel;
   await recordProfileView(card.profile_id, viewChannel, clientIp(request), { cardId: card.card_id }).catch(() => {});
-  let destination = `/p/${card.slug}?via=${viewChannel === "nfc" ? "nfc" : "card"}`;
+  // from=c tells the public profile page this visit was already counted here (avoids double-count when via=qr).
+  let destination = `/p/${card.slug}?via=${encodeURIComponent(viewChannel)}&from=c`;
   if (card.destination_kind === "booking") {
     if (!card.booking_slug) return redirectTo("/c/inactive");
-    destination = `/book/${card.booking_slug}?src=${viewChannel === "nfc" ? "nfc" : "smart-card"}`;
+    destination = `/book/${card.booking_slug}?src=${viewChannel === "nfc" ? "nfc" : viewChannel === "qr" ? "qr" : "smart-card"}`;
   } else if (card.destination_kind === "review" || card.destination_kind === "website") {
     try {
       destination = cleanCardDestination(card.destination_kind, card.destination_url).url;

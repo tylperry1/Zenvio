@@ -95,7 +95,9 @@ export function SmartCards({ initialTab = "profile", hub = false }: { initialTab
     load().catch((e) => setError(e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const profileUrl = draft?.id ? `${origin}/p/${draft.slug}` : "";
+  // Sharing surfaces use the persisted slug until a successful save reloads the profile.
+  const savedSlug = draft?.id ? data?.profiles.find((p) => p.id === draft.id)?.slug || draft.slug : "";
+  const profileUrl = draft?.id && savedSlug ? `${origin}/p/${savedSlug}` : "";
   useEffect(() => {
     if (!profileUrl) return setQr("");
     let active=true;setQr("");
@@ -254,7 +256,7 @@ export function SmartCards({ initialTab = "profile", hub = false }: { initialTab
             <Notice>This profile is archived. Its URL remains reserved and its public page is unavailable.</Notice>
           ) : tab === "profile" || !draft.id ? (
             <>
-            {draft.id && <ProfileStudio key={draft.id} kind="smart" profileId={draft.id} identity={{name:draft.display_name,tagline:[draft.job_title,draft.company].filter(Boolean).join(' · '),company:draft.company,bio:draft.bio,phone:draft.show_phone?draft.phone:undefined,email:draft.show_email?draft.email:undefined,address:draft.show_address?draft.address:undefined,website:draft.website,links:draft.links,bookingUrl:draft.show_booking&&data.bookingSlug?`/book/${data.bookingSlug}`:undefined,vcardUrl:`/p/${draft.slug}/vcard`}} publicUrl={`/p/${draft.slug}`} />}
+            {draft.id && <ProfileStudio key={draft.id} kind="smart" profileId={draft.id} identity={{name:draft.display_name,tagline:[draft.job_title,draft.company].filter(Boolean).join(' · '),company:draft.company,bio:draft.bio,phone:draft.show_phone?draft.phone:undefined,email:draft.show_email?draft.email:undefined,address:draft.show_address?draft.address:undefined,website:draft.website,links:draft.links,bookingUrl:draft.show_booking&&data.bookingSlug?`/book/${data.bookingSlug}`:undefined,vcardUrl:`/p/${savedSlug}/vcard`}} publicUrl={`/p/${savedSlug}`} />}
             <Panel title="Wallet & sharing" description="Keep your business card on your phone and share it with a QR code.">
               <div className="sc-wallet-options">
                 {(["apple", "google"] as const).map((provider) => {
@@ -279,7 +281,7 @@ export function SmartCards({ initialTab = "profile", hub = false }: { initialTab
               {published ? (
                 <p className="sc-hint">
                   {(!data.wallet?.apple || !data.wallet?.google) && "Wallet options marked Setup pending are waiting for Zenvio to activate them. "}
-                  <a href={`/p/${draft.slug}/qr?format=png`}>Download your QR code</a>
+                  <a href={`/p/${savedSlug}/qr?format=png`}>Download your QR code</a>
                   {" or "}
                   <button className="ds-btn sm ghost" type="button" onClick={() => void copy(profileUrl, "Profile link")}>Copy profile link</button>
                 </p>
@@ -493,11 +495,11 @@ export function SmartCards({ initialTab = "profile", hub = false }: { initialTab
                             if (result === "unavailable") setError(message);
                           }}
                         />
-                        <a className="ds-btn sm" href={`/p/${draft.slug}`} target="_blank" rel="noopener">
+                        <a className="ds-btn sm" href={`/p/${savedSlug}`} target="_blank" rel="noopener">
                           Open profile
                         </a>
-                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=png`}>PNG</a>
-                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=svg`}>SVG</a>
+                        <a className="ds-btn sm" href={`/p/${savedSlug}/qr?format=png`}>PNG</a>
+                        <a className="ds-btn sm" href={`/p/${savedSlug}/qr?format=svg`}>SVG</a>
                       </div>
                     </div>
                   </Panel>

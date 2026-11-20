@@ -64,7 +64,13 @@ export function IdentityContactExchange() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unable to save.");
-      await load();
+      // Keep acknowledged privacy flags even if the subsequent refresh fails.
+      setProfiles((prev) => prev?.map((p) => (p.id === profile.id ? { ...p, ...patch } : p)) ?? prev);
+      try {
+        await load();
+      } catch {
+        setError("Saved, but the latest list could not be refreshed. Your privacy change is kept.");
+      }
       setNotice(success);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to save.");

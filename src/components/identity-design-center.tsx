@@ -64,7 +64,20 @@ export function IdentityDesignCenter() {
         <>
           <label className="ds-field sc-profile-picker">
             Digital Identity
-            <select className="ds-select" value={selected} onChange={(e) => setSelected(e.target.value)}>
+            <select
+              className="ds-select"
+              value={selected}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next === selected) return;
+                // ProfileStudio unmounts on key change — confirm before discarding unsaved design work.
+                if (!window.confirm("Switch profiles? Unsaved design changes on this profile will be discarded.")) {
+                  e.target.value = selected;
+                  return;
+                }
+                setSelected(next);
+              }}
+            >
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.display_name}
