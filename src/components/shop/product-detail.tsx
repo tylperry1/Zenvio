@@ -97,10 +97,10 @@ export function ProductDetail({ id, guest, preview }: { id: string; guest: boole
           {data.family && <span>{data.family.name}</span>}
           <span aria-current="page">{p.title}</span>
         </nav>
-        {data.preview && p.status !== "active" && <p className="shop-preview-banner">Admin preview · this listing is not published</p>}
+        {data.preview && p.status !== "active" && <p className="shop-preview-banner">Preview only · not published to shoppers</p>}
         <article className="shop-detail">
           <div className="shop-detail-media">
-            {p.has_image ? <img src={`/api/marketplace/image?product=${p.id}&v=${encodeURIComponent(p.updated_at)}`} alt={p.title} /> : <div className="shop-detail-placeholder" style={{ background: swatch(color) }}><Icon name="image" size={48} /><span>Product photo coming soon</span></div>}
+            {p.has_image ? <img src={`/api/marketplace/image?product=${p.id}&v=${encodeURIComponent(p.updated_at)}`} alt={p.title} /> : <div className="shop-detail-placeholder" style={{ background: swatch(color) }}><Icon name="image" size={48} /><span>Image not available</span></div>}
           </div>
           <div className="shop-detail-info">
             <span className="shop-eyebrow">{p.category}</span>
@@ -164,7 +164,7 @@ export function ProductDetail({ id, guest, preview }: { id: string; guest: boole
                     <Icon name="spark" size={16} /> Customize this product
                   </Link>
                 ) : (
-                  <p className="billing-note">Online customization is being set up for this product.</p>
+                  <p className="billing-note">Online design for this product isn’t available yet. Check back soon or contact support.</p>
                 )}
                 {!s.purchasable && <p className="billing-note">{s.unavailableReason || "Not available for purchase right now."} You can still design and save your artwork.</p>}
                 <dl className="shop-facts">
@@ -197,7 +197,7 @@ export function ProductDetail({ id, guest, preview }: { id: string; guest: boole
                   <div><dt>Shipping</dt><dd>{p.shipping_cents ? `${money(p.shipping_cents)} per unit` : "Free"}</dd></div>
                 </dl>
                 {p.is_demo ? (
-                  <p className="billing-note">Sample item · checkout disabled</p>
+                  <p className="billing-note">Preview only — not for purchase</p>
                 ) : (
                   <button
                     type="button"

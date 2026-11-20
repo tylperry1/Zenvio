@@ -108,7 +108,7 @@ export async function recordEnvelopeSend(db: PoolClient, user: string, kind: "pd
     }
   }
   const charge = purchased ? 0 : envelopeCharge(budget);
-  if (charge && !(await billingReadiness()).checkoutEnabled) throw new ApiError("Envelope overage billing is not connected yet. No additional charge has been recorded.", 503);
+  if (charge && !(await billingReadiness()).checkoutEnabled) throw new ApiError("Extra envelope billing isn’t available right now. No additional charge was recorded.", 503);
   if (charge) {
     const stripe = await stripeClient();
     const outstanding = await stripe.invoices.list({ customer: budget.customer, status: "open", limit: 100 });

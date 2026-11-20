@@ -445,7 +445,7 @@ export default async function Home() {
             <p>
               {showV4
                 ? pricingSurface.previewOnly
-                  ? "Proposed pricing preview — checkout still uses the live published catalog until enrollment is approved."
+                  ? "Preview of upcoming plans. Checkout currently uses today’s published pricing."
                   : "Published pricing with monthly and annual options. Scheduling and signing included."
                 : "Monthly pricing from the published catalog. Scheduling and signing included."}
             </p>

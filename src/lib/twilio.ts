@@ -85,7 +85,7 @@ export async function sendTwilioSms(input: {
   statusCallback: string;
 }) {
   if (process.env.TWILIO_MESSAGING_ENABLED !== "true")
-    throw new ApiError("Text messaging isn’t available right now. Please try again later.", 503);
+    throw new ApiError("Text messaging isn’t available right now.", 503);
   const to = normalizeE164(input.to);
   if (!input.body.trim() || input.body.length > 1600)
     throw new ApiError("SMS messages must contain between 1 and 1,600 characters.");

@@ -362,7 +362,7 @@ export function BookingPage({
         <p role="status" className="booking-payment-notice">
           {paymentReturn === "processing"
             ? "Your payment is being verified. This page does not confirm an appointment. Watch for the confirmation email; contact the host if it does not arrive. Avoid paying again while verification is pending."
-            : "Checkout was cancelled. No appointment has been confirmed. The temporary slot hold will expire automatically."}
+            : "Checkout was cancelled. No appointment was confirmed. That time will free up shortly if you don’t finish payment."}
         </p>
       )}
       <header className="booking-header">

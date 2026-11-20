@@ -101,7 +101,7 @@ export async function createMarketCheckout(
     settings = await marketSettings();
   if (!settings.visible || !settings.checkoutEnabled || !settings.paymentConfigured)
     throw new ApiError(
-      "Checkout is not open yet. No payment has been taken.",
+      "Online checkout isn’t available right now. No payment has been taken.",
       503,
     );
   const stripe = await stripeClient();
@@ -174,7 +174,7 @@ export async function createMarketCheckout(
       const p = products.find((p) => p.id === line.productId)!;
       if (p.is_demo)
         throw new ApiError(
-          "Demo products are for preview only and cannot be purchased.",
+          "This preview item can’t be purchased.",
           409,
         );
       if (

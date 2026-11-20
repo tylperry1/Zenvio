@@ -237,7 +237,7 @@ function Overview({ data, master, busy, act }: { data: Dashboard; master: boolea
             <label className="ds-field">Markup %<input type="number" min={0} max={1000} step="0.1" value={ruleForm.markup} onChange={(e) => setRuleForm({ ...ruleForm, markup: e.target.value })} required /></label>
             <label className="ds-field">Minimum margin %<input type="number" min={0} max={90} step="0.1" value={ruleForm.margin} onChange={(e) => setRuleForm({ ...ruleForm, margin: e.target.value })} required /></label>
             <label className="ds-field">Minimum profit per item ($)<input type="number" min={0} step="0.01" value={ruleForm.profit} onChange={(e) => setRuleForm({ ...ruleForm, profit: e.target.value })} required /></label>
-            <label className="ds-field">Subscriber discount % <small>recorded; not yet applied at checkout</small><input type="number" min={0} max={50} step="0.1" value={ruleForm.subscriber} onChange={(e) => setRuleForm({ ...ruleForm, subscriber: e.target.value })} /></label>
+            <label className="ds-field">Subscriber discount % <small>Saved for later — not applied at checkout yet</small><input type="number" min={0} max={50} step="0.1" value={ruleForm.subscriber} onChange={(e) => setRuleForm({ ...ruleForm, subscriber: e.target.value })} /></label>
             <button className="ds-btn primary" disabled={!!busy}>Save rule</button>
           </form>
         </Panel>

@@ -40,7 +40,7 @@ export function liveBillingHelpText(catalog: {
   const team = catalog.offers.find((o) => o.id === "team");
   const extra = catalog.offers.find((o) => o.id === "team_extra");
   if (!individual || !team || !extra) {
-    return "Open Usage & Billing to see your plan and allowances. Add-ons and checkout are available when validated and activated.";
+    return "Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.";
   }
-  return `${individual.name} is ${formatUsdCents(individual.monthly)} monthly. ${team.name} is ${formatUsdCents(team.monthly)} monthly with ${team.seats} seats, plus ${formatUsdCents(extra.monthly)} per additional seat. Open Usage & Billing to see your plan and allowances. Add-ons and checkout are available when validated and activated.`;
+  return `${individual.name} is ${formatUsdCents(individual.monthly)} monthly. ${team.name} is ${formatUsdCents(team.monthly)} monthly with ${team.seats} seats, plus ${formatUsdCents(extra.monthly)} per additional seat. Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.`;
 }

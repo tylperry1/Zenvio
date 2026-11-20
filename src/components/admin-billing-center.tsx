@@ -1213,7 +1213,7 @@ export function AdminBillingCenter() {
             )}
           </Panel>
           <div className="ds-grid-2">
-            <Panel title="Sync status & financial audit" description="Provider failures stay visible. Retry the same operation to preserve idempotency.">
+            <Panel title="Sync status & financial audit" description="Provider failures stay visible. Retry with the same operation id to avoid duplicate charges.">
               {!recentOps.length ? (
                 <EmptyState icon="clock" title="No billing operations yet" />
               ) : (

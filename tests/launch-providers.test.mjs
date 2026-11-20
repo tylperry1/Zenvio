@@ -131,7 +131,7 @@ test('Google external metadata editing forwards If-Match and keeps the patch fie
 test('Microsoft external metadata edits remain inert without separate release validation',async()=>{
  const enabled=process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED,validated=process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED;
  delete process.env.MICROSOFT_EXTERNAL_EDITING_ENABLED;delete process.env.MICROSOFT_EXTERNAL_EDITING_VALIDATED;
- try{const service=load('src/lib/microsoft-calendar.ts');await assert.rejects(service.microsoftExternalEvent('owner','account','event123',{title:'Title',location:'Office',version:'W/"v1"',confirmNotifications:true}),/release validation/);}
+ try{const service=load('src/lib/microsoft-calendar.ts');await assert.rejects(service.microsoftExternalEvent('owner','account','event123',{title:'Title',location:'Office',version:'W/"v1"',confirmNotifications:true}),/Editing Outlook\/Microsoft Calendar events from Zenvio isn’t available yet|release validation/);}
  finally{for(const [k,v] of [['MICROSOFT_EXTERNAL_EDITING_ENABLED',enabled],['MICROSOFT_EXTERNAL_EDITING_VALIDATED',validated]]){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
 });
 

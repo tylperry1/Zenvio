@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { integrationValue, unsealSecret } from "./platform-settings";
-import { resendFailure } from "./resend-diagnostics";
+import { ResendDeliveryError, resendFailure } from "./resend-diagnostics";
 import { transactionalEmail } from "./transactional-email";
 
 type DB = Pick<PoolClient, "query">;
@@ -111,7 +111,11 @@ export async function deliverMarketEmails(limit = 20) {
       await db.query("INSERT INTO private.marketplace_order_activity(order_id,action,note) VALUES($1,'email_sent',$2)", [job.order_id, job.kind]);
       sent++;
     } catch (e) {
-      await db.query("UPDATE private.marketplace_order_emails SET last_error=$2 WHERE id=$1", [job.id, (e instanceof Error ? e.message : "Send failed").slice(0, 300)]);
+      const detail = e instanceof ResendDeliveryError ? e.code : "send_failed";
+      await db.query("UPDATE private.marketplace_order_emails SET last_error=$2 WHERE id=$1", [
+        job.id,
+        detail.slice(0, 80),
+      ]);
     }
   }
   return { sent };

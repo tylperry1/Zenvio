@@ -798,7 +798,7 @@ export async function googleExternalEvent(userId:string,accountSub:string,eventI
  const {externalReference,externalEditingEnabled,calendarVersion,googleExternalReason,assertExternalUpdate,externalCalendarAudit}=await import("./external-calendar-policy");
  externalReference("google",accountSub,eventId);
  const enabled=externalEditingEnabled("google");
- if(update&&!enabled)throw new ApiError("Google external editing has not passed release validation.",503);
+ if(update&&!enabled)throw new ApiError("Editing Google Calendar events from Zenvio isn’t available yet.",503);
  const c=(await getPool().query("select scope,status from private.google_calendar_connections where user_id=$1 and account_sub=$2",[userId,accountSub])).rows[0];
  if(!c)throw new ApiError("Google account not found.",404);
  if(c.status!=="connected")throw new ApiError("Reconnect Google Calendar.",409);
@@ -810,7 +810,7 @@ export async function googleExternalEvent(userId:string,accountSub:string,eventI
  if(event.id!==eventId)throw new ApiError("Google event reference could not be verified.",503);
  const linked=(await getPool().query("select 1 from private.google_calendar_events where user_id=$1 and account_sub=$2 and event_id=$3 limit 1",[userId,accountSub,eventId])).rows.length>0;
  const reason=googleExternalReason(event,String(c.scope||""),linked),count=Array.isArray(event.attendees)?event.attendees.length:0;
- const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"google",accountId:accountSub,eventId,title:e.summary||"",location:e.location||"",start:e.start||null,end:e.end||null,version:calendarVersion(e.etag),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Google external editing has not passed release validation.":null)});
+ const snapshot=(e:any):ExternalCalendarMetadataSnapshot=>({provider:"google",accountId:accountSub,eventId,title:e.summary||"",location:e.location||"",start:e.start||null,end:e.end||null,version:calendarVersion(e.etag),attendeeCount:count,requiresNotificationConfirmation:count>0,editableFields:reason||!enabled?[]:["title","location"],readOnly:Boolean(reason)||!enabled,blockedReason:reason||(!enabled?"Editing Google Calendar events from Zenvio isn’t available yet.":null)});
  if(!update)return snapshot(event);
  assertExternalUpdate(reason,calendarVersion(event.etag),count,update);
  if(event.summary===update.title && (event.location||"")===update.location)return {...snapshot(event),unchanged:true};

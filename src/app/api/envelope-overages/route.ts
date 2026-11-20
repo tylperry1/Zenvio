@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { token } = await session(), input = await body(request);
     if (typeof input.enabled !== "boolean" || typeof input.cap !== "number" || !Number.isInteger(input.cap) || input.cap < 0 || input.cap > 1000) throw new ApiError("Choose a monthly spending limit from $0 to $1,000.");
     if (input.enabled && (input.confirm !== true || input.cap < 1)) throw new ApiError("Confirm $1 per additional envelope and choose a spending limit.");
-    if (input.enabled && !(await billingReadiness()).checkoutEnabled) throw new ApiError("Online overage billing is not connected yet.",503);
+    if (input.enabled && !(await billingReadiness()).checkoutEnabled) throw new ApiError("Extra envelope billing isn’t available right now.",503);
     const db = await getPool().connect();
     try {
       await db.query("BEGIN");

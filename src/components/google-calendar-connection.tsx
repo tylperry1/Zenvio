@@ -146,10 +146,11 @@ export function GoogleCalendarConnection({ notify }: { notify: (text: string, er
                     /platform administrator must enable/i.test(c.last_error) ||
                     /same project/i.test(c.last_error)),
               );
-              // New api_disabled writes store the customer-safe message (no OAuth-project wording).
+              // New api_disabled writes store customer-safe copy (no OAuth-project wording).
               const currentApiDisabled = Boolean(
                 c.last_error &&
-                  /^Google Calendar isn’t available to connect right now\./i.test(c.last_error),
+                  (/^Google Calendar isn’t available to connect right now\./i.test(c.last_error) ||
+                    /Google Calendar isn’t fully enabled for this connection/i.test(c.last_error)),
               );
               const sanitizeCustomerError = Boolean(
                 c.last_error &&

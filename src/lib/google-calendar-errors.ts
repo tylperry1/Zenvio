@@ -26,7 +26,7 @@ export function calendarIssue(
       code: "api_disabled",
       status,
       message:
-        "Google Calendar isn’t available to connect right now. Please try again later or contact support.",
+        "Google Calendar isn’t fully enabled for this connection. Ask your Zenvio administrator to finish Google Calendar setup, then reconnect.",
     };
   if (status === 401)
     return {

@@ -3,7 +3,7 @@ import { getPool } from "./db";
 import { appOrigin } from "./lifecycle";
 import { createPlatformAlert, staffRecipients } from "./platform-alerts";
 import { integrationValue, sealSecret, unsealSecret } from "./platform-settings";
-import { resendFailure } from "./resend-diagnostics";
+import { ResendDeliveryError, resendFailure } from "./resend-diagnostics";
 import { transactionalEmail } from "./transactional-email";
 
 type DB = Pick<PoolClient, "query">;
@@ -137,7 +137,11 @@ export async function deliverSupportNotifications(limit = 20) {
       await pool.query("UPDATE private.support_notifications SET sent_at=now(),last_error=NULL WHERE id=$1", [n.id]);
       sent++;
     } catch (e) {
-      await pool.query("UPDATE private.support_notifications SET last_error=$2 WHERE id=$1", [n.id, (e instanceof Error ? e.message : "Send failed").slice(0, 300)]);
+      const detail = e instanceof ResendDeliveryError ? e.code : "send_failed";
+      await pool.query("UPDATE private.support_notifications SET last_error=$2 WHERE id=$1", [
+        n.id,
+        detail.slice(0, 80),
+      ]);
     }
   }
   return { sent };

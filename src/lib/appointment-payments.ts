@@ -24,7 +24,7 @@ export async function createAppointmentCheckout(
 ) {
   if (!(await appointmentPaymentsReady()))
     throw new ApiError(
-      "Appointment payments aren’t available right now. No payment has been taken.",
+      "Online payment for this appointment isn’t available right now. No payment has been taken.",
       503,
     );
   const googleSlots=await filterGoogleSlots(host,event,[start]);

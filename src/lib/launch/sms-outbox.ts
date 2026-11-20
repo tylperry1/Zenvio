@@ -11,7 +11,7 @@ export async function telnyxReadiness(input: {
     body: string;
 }): Promise<SmsReadiness> {
     if (process.env.TELNYX_MESSAGING_ENABLED !== "true" || !await telnyxConfigured())
-        return { ok: false, reason: "provider_disabled", detail: "Telnyx messaging has not passed activation." };
+        return { ok: false, reason: "provider_disabled", detail: "Text messaging isn’t activated for this workspace yet." };
     const features=(await getPool().query("select value from private.platform_settings where key='integration_features'")).rows[0]?.value;
     if(features?.sms!==true)return {ok:false,reason:"provider_disabled",detail:"SMS is suspended by the platform administrator."};
     const to = normalizeE164(input.to);
@@ -20,7 +20,7 @@ export async function telnyxReadiness(input: {
     await assertSmsConsent(input.userId, to);
     const c = (await getPool().query("select * from private.sms_provider_connections where user_id=$1 and provider='telnyx'", [input.userId])).rows[0];
     if (!c?.messaging_enabled || !c.messaging_profile_id || !c.registration_verified_at || !["approved", "not_required"].includes(c.registration_state))
-        return { ok: false, reason: "provider_disabled", detail: "The SMS sender, messaging profile and carrier registration require verification." };
+        return { ok: false, reason: "provider_disabled", detail: "Text messaging still needs sender and carrier approval before you can send." };
     return { ok: true, sender: c.sender_number, preview: input.body.trim() };
 }
 export async function queueSms(input: {

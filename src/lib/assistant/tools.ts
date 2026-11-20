@@ -572,7 +572,7 @@ async function deliver(ctx: ToolContext, clientId: string, channel: "email" | "s
       ])
     ).rows[0];
     if (job?.status === "sent") return { status: "sent", detail: "" };
-    if (job?.status === "failed") throw new ApiError(job.last_error || "The email couldn’t be sent.", 502);
+    if (job?.status === "failed") throw new ApiError("The email couldn’t be sent.", 502);
     return { status: "queued", detail: "" };
   }
   return { status: result.status, detail: "" };

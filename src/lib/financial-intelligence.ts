@@ -194,7 +194,7 @@ export async function financialIntelligenceOverview(input?: {
         },
       ],
       coverage:
-        "Database is not configured in this environment. No financial figures are claimed.",
+        "Financial data isn’t available in this deployment. No figures are shown.",
       complete: false,
     };
   }

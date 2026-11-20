@@ -60,7 +60,11 @@ export function classifyHttpFailure(status: number, body: unknown, retryAfter: s
     return new GelatoError("rate_limited", "Gelato rate limit reached. Retry later.", status, seconds);
   }
   if (status >= 500) return new GelatoError("unavailable", `Gelato is temporarily unavailable (HTTP ${status}).`, status);
-  return new GelatoError("rejected", `Gelato rejected the request (HTTP ${status})${detail ? `: ${detail}` : "."}`, status);
+  return new GelatoError(
+    "rejected",
+    detail ? `Gelato rejected the request: ${detail}` : "Gelato rejected the request.",
+    status,
+  );
 }
 
 /** Extracts a short provider error message, stripped of anything key-like. */
