@@ -64,9 +64,12 @@ test("card redirect and profile routes keep tokens private and enforce status", 
   assert.match(redirect, /card\.status !== "active"/);
   assert.match(redirect, /!card\.published/);
   assert.match(redirect, /"Referrer-Policy": "no-referrer"/);
+  assert.match(redirect, /from=c/);
+  assert.match(redirect, /viewChannel/);
   const api = fs.readFileSync("src/app/api/smart-profiles/route.ts", "utf8");
   assert.match(api, /WHERE id=\$1 AND user_id=\$2/);
   assert.match(api, /sameOrigin\(request\)/);
+  assert.match(api, /DIGITAL_IDENTITY_LIMITS|upgradeMessageFor/);
 });
 
 test("vCard folds at 75 UTF-8 bytes and prevents field injection with bare carriage returns", () => {

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { ProfileAction, ProfileKind, ProfileVisibility, ViewChannel } from "./digital-identity";
 import { ApiError } from "./server";
 
 export type SmartLink = { label: string; url: string };
@@ -21,6 +22,8 @@ export type SmartProfile = {
   show_address: boolean;
   accent: string;
   published: boolean;
+  profile_kind?: ProfileKind;
+  visibility?: ProfileVisibility;
 };
 export const cardKinds = ["card", "keychain", "sticker", "stand", "tag"] as const;
 export const RESERVED_SLUGS = new Set(["admin", "api", "app", "new", "edit", "settings", "zenvio", "support", "help", "login"]);
@@ -116,18 +119,72 @@ export async function loadPublicProfile(slug: string) {
   const { databaseConfigured, getPool } = await import("./db");
   if (!databaseConfigured()) return null;
   if (!/^[a-z0-9][a-z0-9-]{2,49}$/.test(slug)) return null;
-  const r = await getPool().query(
+  const db = getPool();
+  // Resolve current slug first, then prior published addresses via redirects.
+  let r = await db.query(
     `SELECT s.*,p.slug booking_slug FROM private.smart_profiles s LEFT JOIN public.profiles p ON p.id=s.user_id
-      WHERE s.slug=$1 AND s.published`,
+      WHERE s.slug=$1 AND s.published AND s.archived_at IS NULL`,
     [slug],
   );
+  let redirectedFrom: string | null = null;
+  if (!r.rows[0]) {
+    try {
+      const redirected = await db.query(
+        `SELECT s.*,p.slug booking_slug,r.old_slug
+           FROM private.smart_profile_slug_redirects r
+           JOIN private.smart_profiles s ON s.id=r.profile_id
+           LEFT JOIN public.profiles p ON p.id=s.user_id
+          WHERE r.old_slug=$1 AND s.published AND s.archived_at IS NULL`,
+        [slug],
+      );
+      if (redirected.rows[0]) {
+        redirectedFrom = slug;
+        r = redirected;
+      }
+    } catch {
+      // Redirect table may not exist until migration 104 is applied.
+    }
+  }
   const row = r.rows[0];
-  const design = row ? await (await import("./profile-design-store")).publishedProfileDesign(row.user_id,"smart",row.id) : null;
-  return row ? { design, id: row.id as string, captureLeads: row.capture_leads === true, view: publicView(row as SmartProfile, row.booking_slug) } : null;
+  if (!row) return null;
+  // Private visibility is never publicly resolvable even if a stale published flag exists.
+  if (row.visibility === "private") return null;
+  const design = await (await import("./profile-design-store")).publishedProfileDesign(row.user_id, "smart", row.id);
+  return {
+    design,
+    id: row.id as string,
+    captureLeads: row.capture_leads === true,
+    redirectedFrom,
+    canonicalSlug: row.slug as string,
+    view: publicView(row as SmartProfile, row.booking_slug),
+  };
+}
+
+type AttributionSource = { cardId?: string | null; nfcTagId?: string | null };
+
+async function recordAttribution(
+  profileId: string,
+  channel: ViewChannel,
+  event: "view" | ProfileAction | "lead",
+  source: AttributionSource = {},
+) {
+  const { getPool } = await import("./db");
+  await getPool().query(
+    `INSERT INTO private.smart_profile_attribution(profile_id,day,channel,card_id,nfc_tag_id,event,total)
+     VALUES($1,(now() AT TIME ZONE 'UTC')::date,$2,$3,$4,$5,1)
+     ON CONFLICT (profile_id,day,channel,event,card_id,nfc_tag_id)
+     DO UPDATE SET total=smart_profile_attribution.total+1`,
+    [profileId, channel, source.cardId ?? null, source.nfcTagId ?? null, event],
+  );
 }
 
 /** Aggregate daily view count; throttled per client so counts can't be trivially inflated. */
-export async function recordProfileView(profileId: string, channel: "link" | "card" | "qr", clientKey: string) {
+export async function recordProfileView(
+  profileId: string,
+  channel: ViewChannel,
+  clientKey: string,
+  source: AttributionSource = {},
+) {
   const [{ getPool }, { allowRequest }] = await Promise.all([import("./db"), import("./booking-protection")]);
   if (!(await allowRequest("smart-view", `${clientKey}:${profileId}`, 20, 3600))) return;
   await getPool().query(
@@ -135,9 +192,15 @@ export async function recordProfileView(profileId: string, channel: "link" | "ca
      ON CONFLICT (profile_id,day,channel) DO UPDATE SET views=smart_profile_views.views+1`,
     [profileId, channel],
   );
+  await recordAttribution(profileId, channel, "view", source).catch(() => {});
 }
 
-export async function recordProfileAction(profileId: string, action: "vcard" | "booking", clientKey: string) {
+export async function recordProfileAction(
+  profileId: string,
+  action: ProfileAction,
+  clientKey: string,
+  source: AttributionSource & { channel?: ViewChannel } = {},
+) {
   const [{ getPool }, { allowRequest }] = await Promise.all([import("./db"), import("./booking-protection")]);
   if (!(await allowRequest("smart-action", `${action}:${clientKey}:${profileId}`, 10, 3600))) return;
   await getPool().query(
@@ -145,6 +208,7 @@ export async function recordProfileAction(profileId: string, action: "vcard" | "
      ON CONFLICT (profile_id,day,action) DO UPDATE SET total=smart_profile_actions.total+1`,
     [profileId, action],
   );
+  await recordAttribution(profileId, source.channel ?? "link", action, source).catch(() => {});
 }
 
 export function cleanCardDestination(kind:unknown,value:unknown) {

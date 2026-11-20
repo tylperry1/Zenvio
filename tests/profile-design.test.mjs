@@ -27,12 +27,16 @@ test('custom public profiles retain the tracked booking redirect and contact pri
   '@/components/profile-experience':{ProfileExperience:({identity})=>React.createElement('div',null,identity.bookingUrl&&React.createElement('a',{href:identity.bookingUrl},'Book'),identity.phone&&React.createElement('a',{href:`tel:${identity.phone}`},'Call'),identity.email&&React.createElement('a',{href:`mailto:${identity.email}`},'Email'))},
   'next/link':({children,...props})=>React.createElement('a',props,children),
   'next/headers':{headers:async()=>new Headers()},'next/navigation':{notFound:()=>{throw Error('Not found');}},
-  '@/components/smart-card-lead-form':{SmartCardLeadForm:()=>null},'@/components/icons':{Icon:()=>null,Logo:()=>null},
-  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design:D.defaultProfileDesign(),captureLeads:false}),recordProfileView:async()=>{}}
+  '@/components/smart-card-lead-form':{SmartCardLeadForm:()=>null},
+  '@/components/public-profile-actions':{PublicProfileActions:()=>null},
+  '@/components/public-profile-click-tracker':{PublicProfileClickTracker:()=>null},
+  '@/components/icons':{Icon:()=>null,Logo:()=>null},
+  '@/lib/digital-identity':{VIEW_CHANNELS:['link','card','qr','nfc']},
+  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design:D.defaultProfileDesign(),captureLeads:false,canonicalSlug:'qa-profile'}),recordProfileView:async()=>{}}
  };
  m.require=id=>mocks[id]??normal(id);
  m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
  const render=async()=>renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-profile'}),searchParams:Promise.resolve({via:'card'})}));
- const html=await render();assert.match(html,/href="\/p\/qa-profile\/booking"/);assert.doesNotMatch(html,/https:\/\/example.com\/book|href="tel:|href="mailto:/);
+ const html=await render();assert.match(html,/href="\/p\/qa-profile\/booking\?via=card"/);assert.doesNotMatch(html,/https:\/\/example.com\/book|href="tel:|href="mailto:/);
  publicView.bookingUrl=undefined;assert.doesNotMatch(await render(),/\/booking/);
 });

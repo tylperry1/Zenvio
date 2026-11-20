@@ -28,9 +28,11 @@ type Profile = {
   published: boolean;
   archived_at?: string | null;
   capture_leads: boolean;
+  profile_kind?: string;
+  visibility?: string;
 };
 type Card = { destination_kind: string; destination_url: string; id: string; profile_id: string | null; token: string; label: string; kind: string; status: string; encoding_confirmed_at: string | null; legacy_registration: boolean; created_at: string };
-type Data = { wallet: { apple: boolean; google: boolean }; profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number } };
+type Data = { wallet: { apple: boolean; google: boolean }; profiles: Profile[]; cards: Card[]; views: { profile_id: string; channel: string; views: number }[]; engagement: { profile_id: string; action: string; total: number }[]; bookingSlug: string | null; limits: { profiles: number; cards: number; nfcTags?: number }; bookingConversions?: { source: string; bookings: number }[]; connected?: { profileId: string; cards: number; nfcTags: number }[] };
 
 const kinds = [
   ["card", "NFC business card"],
@@ -58,14 +60,16 @@ const blank = (bookingSlug: string | null): Profile => ({
   accent: "#365cff",
   published: false,
   capture_leads: false,
+  profile_kind: "individual",
+  visibility: "private",
 });
 
-export function SmartCards() {
+export function SmartCards({ initialTab = "profile", hub = false }: { initialTab?: "profile" | "cards"; hub?: boolean } = {}) {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"profile" | "cards">("profile");
+  const [tab, setTab] = useState<"profile" | "cards">(initialTab);
   const [days, setDays] = useState(30);
   const [selected, setSelected] = useState<string>("");
   const [draft, setDraft] = useState<Profile | null>(null);
@@ -83,15 +87,17 @@ export function SmartCards() {
     const id = selectId ?? selected ?? "";
     const p = d.profiles.find((x: Profile) => x.id === id) || d.profiles.find((x: Profile) => !x.archived_at && x.published) || d.profiles.find((x: Profile) => !x.archived_at) || d.profiles[0];
     setSelected(p?.id || "");
-    setDraft(p ? { ...p } : blank(d.bookingSlug));
+    setDraft(p ? { ...p, profile_kind: p.profile_kind || "individual", visibility: p.visibility || (p.published ? "public" : "private") } : blank(d.bookingSlug));
   }
   useEffect(() => {
     setOrigin(publicShareOrigin(window.location.origin));
-    if(new URLSearchParams(window.location.search).get("tab") === "cards") setTab("cards");
+    if (!hub && new URLSearchParams(window.location.search).get("tab") === "cards") setTab("cards");
     load().catch((e) => setError(e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const profileUrl = draft?.id ? `${origin}/p/${draft.slug}` : "";
+  // Sharing surfaces use the persisted slug until a successful save reloads the profile.
+  const savedSlug = draft?.id ? data?.profiles.find((p) => p.id === draft.id)?.slug || draft.slug : "";
+  const profileUrl = draft?.id && savedSlug ? `${origin}/p/${savedSlug}` : "";
   useEffect(() => {
     if (!profileUrl) return setQr("");
     let active=true;setQr("");
@@ -158,11 +164,15 @@ export function SmartCards() {
   return (
     <div className="ds-root sc">
       <PageHeader
-        title="Smart cards"
-        description="A digital business profile for tap-to-share NFC cards, QR codes and your email signature. Update it anytime; cards keep working."
+        title={hub ? (tab === "cards" ? "Smart Cards" : "My Profiles") : "Smart cards"}
+        description={
+          hub
+            ? "One Digital Identity for profiles, Smart Cards, NFC, QR codes, booking, and contact exchange. Update once — every connected product uses the same canonical profile."
+            : "A digital business profile for tap-to-share NFC cards, QR codes and your email signature. Update it anytime; cards keep working."
+        }
         actions={
           <div className="ds-page-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <a className="ds-btn primary sm" href="/app/smart-cards/nfc-studio">
+            <a className="ds-btn primary sm" href={hub ? "/app/identity/nfc" : "/app/smart-cards/nfc-studio"}>
               <Icon name="nfc" size={14} /> NFC Studio
             </a>
             {data && data.profiles.length > 0 && data.profiles.filter((p) => !p.archived_at).length < data.limits.profiles ? (
@@ -189,9 +199,9 @@ export function SmartCards() {
           {data.profiles.length > 0 && (
             <div className="ds-kpis">
               <Kpi label={`Profile views · ${days} days`} icon="users" value={data.profiles.reduce((s, p) => s + views(p.id), 0)} detail="All profiles, all channels" />
-              <Kpi label="Physical link visits" icon="spark" value={data.profiles.reduce((s, p) => s + views(p.id, "card"), 0)} detail="Through registered cards" />
+              <Kpi label="Smart Card visits" icon="spark" value={data.profiles.reduce((s, p) => s + views(p.id, "card"), 0)} detail="Through registered cards" />
+              <Kpi label="NFC visits" icon="nfc" value={data.profiles.reduce((s, p) => s + views(p.id, "nfc"), 0)} detail="Tags programmed in NFC Studio" />
               <Kpi label="QR link visits" icon="grid" value={data.profiles.reduce((s, p) => s + views(p.id, "qr"), 0)} detail="From your profile QR code" />
-              <Kpi label="Active cards" icon="card" value={data.cards.filter((c) => c.status === "active").length} detail={`${data.cards.length} registered`} />
             </div>
           )}
           <div className="sc-bar">
@@ -204,7 +214,7 @@ export function SmartCards() {
                   const response = await fetch(`/api/smart-profiles?days=${period}`, { cache: "no-store" });
                   if (!response.ok) throw new Error("Unable to load engagement.");
                   const result: Data = await response.json();
-                  setData((previous) => previous && { ...previous, views: result.views, engagement: result.engagement });
+                  setData((previous) => previous && { ...previous, views: result.views, engagement: result.engagement, bookingConversions: result.bookingConversions });
                   setDays(period);
                 } catch {
                   setError("Unable to load engagement.");
@@ -225,7 +235,7 @@ export function SmartCards() {
                 onChange={(e) => {
                   setSelected(e.target.value);
                   const p = data.profiles.find((x) => x.id === e.target.value);
-                  if (p) setDraft({ ...p });
+                  if (p) setDraft({ ...p, profile_kind: p.profile_kind || "individual", visibility: p.visibility || (p.published ? "public" : "private") });
                 }}
               >
                 {data.profiles.map((p) => (
@@ -236,14 +246,17 @@ export function SmartCards() {
               </select>
               </label>
             )}
-            {draft.id && <Segmented label="Smart card sections" value={tab} onChange={setTab} options={[["profile", "Profile"], ["cards", `Cards (${data.cards.length})`]] as const} />}
+            {draft.id && !hub && <Segmented label="Smart card sections" value={tab} onChange={setTab} options={[["profile", "Profile"], ["cards", `Cards (${data.cards.length})`]] as const} />}
+            {hub && draft.id && tab === "profile" && (
+              <a className="ds-btn sm" href="/app/identity/cards">Manage Smart Cards</a>
+            )}
           </div>
 
           {draft.archived_at && tab === "profile" ? (
             <Notice>This profile is archived. Its URL remains reserved and its public page is unavailable.</Notice>
           ) : tab === "profile" || !draft.id ? (
             <>
-            {draft.id && <ProfileStudio key={draft.id} kind="smart" profileId={draft.id} identity={{name:draft.display_name,tagline:[draft.job_title,draft.company].filter(Boolean).join(' · '),company:draft.company,bio:draft.bio,phone:draft.show_phone?draft.phone:undefined,email:draft.show_email?draft.email:undefined,address:draft.show_address?draft.address:undefined,website:draft.website,links:draft.links,bookingUrl:draft.show_booking&&data.bookingSlug?`/book/${data.bookingSlug}`:undefined,vcardUrl:`/p/${draft.slug}/vcard`}} publicUrl={`/p/${draft.slug}`} />}
+            {draft.id && <ProfileStudio key={draft.id} kind="smart" profileId={draft.id} identity={{name:draft.display_name,tagline:[draft.job_title,draft.company].filter(Boolean).join(' · '),company:draft.company,bio:draft.bio,phone:draft.show_phone?draft.phone:undefined,email:draft.show_email?draft.email:undefined,address:draft.show_address?draft.address:undefined,website:draft.website,links:draft.links,bookingUrl:draft.show_booking&&data.bookingSlug?`/book/${data.bookingSlug}`:undefined,vcardUrl:`/p/${savedSlug}/vcard`}} publicUrl={`/p/${savedSlug}`} />}
             <Panel title="Wallet & sharing" description="Keep your business card on your phone and share it with a QR code.">
               <div className="sc-wallet-options">
                 {(["apple", "google"] as const).map((provider) => {
@@ -268,7 +281,7 @@ export function SmartCards() {
               {published ? (
                 <p className="sc-hint">
                   {(!data.wallet?.apple || !data.wallet?.google) && "Wallet options marked Setup pending are waiting for Zenvio to activate them. "}
-                  <a href={`/p/${draft.slug}/qr?format=png`}>Download your QR code</a>
+                  <a href={`/p/${savedSlug}/qr?format=png`}>Download your QR code</a>
                   {" or "}
                   <button className="ds-btn sm ghost" type="button" onClick={() => void copy(profileUrl, "Profile link")}>Copy profile link</button>
                 </p>
@@ -292,7 +305,50 @@ export function SmartCards() {
                       <span>
                         Profile address <small>gozenvio.com/p/…</small>
                       </span>
-                      <input value={draft.slug} onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} readOnly={Boolean(draft.id)} required minLength={3} maxLength={50} placeholder="your-name" />
+                      <input
+                        value={draft.slug}
+                        onChange={(e) => setDraft({ ...draft, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                        required
+                        minLength={3}
+                        maxLength={50}
+                        placeholder="your-name"
+                        title={draft.id ? "Changing the address keeps old QR and NFC links working via redirect." : undefined}
+                      />
+                    </label>
+                  </div>
+                  <div className="sc-row">
+                    <label className="ds-field">
+                      Profile type
+                      <select
+                        className="ds-select"
+                        value={draft.profile_kind || "individual"}
+                        onChange={(e) => setDraft({ ...draft, profile_kind: e.target.value })}
+                      >
+                        <option value="individual">Individual professional</option>
+                        <option value="business">Business</option>
+                        <option value="employee">Employee</option>
+                        <option value="team">Team member</option>
+                        <option value="brand">Brand</option>
+                      </select>
+                    </label>
+                    <label className="ds-field">
+                      Visibility
+                      <select
+                        className="ds-select"
+                        value={draft.visibility || (draft.published ? "public" : "private")}
+                        onChange={(e) => {
+                          const visibility = e.target.value;
+                          setDraft({
+                            ...draft,
+                            visibility,
+                            published: visibility === "public" || visibility === "unlisted",
+                          });
+                        }}
+                      >
+                        <option value="public">Public — published on the web</option>
+                        <option value="unlisted">Unlisted — link works, not indexed</option>
+                        <option value="private">Private — not publicly available</option>
+                      </select>
                     </label>
                   </div>
                   <div className="sc-row">
@@ -361,7 +417,19 @@ export function SmartCards() {
                       <input type="checkbox" checked={draft.show_address} onChange={toggle("show_address")} /> Address
                     </label>
                     <label>
-                      <input id="smart-card-publish" type="checkbox" checked={draft.published} onChange={toggle("published")} /> Publish this profile on the web
+                      <input
+                        id="smart-card-publish"
+                        type="checkbox"
+                        checked={draft.published}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            published: e.target.checked,
+                            visibility: e.target.checked ? (draft.visibility === "unlisted" ? "unlisted" : "public") : "private",
+                          })
+                        }
+                      />{" "}
+                      Publish this profile on the web
                     </label>
                     <label>
                       <input type="checkbox" checked={draft.capture_leads} onChange={toggle("capture_leads")} /> Let visitors share contact details with my CRM
@@ -427,11 +495,11 @@ export function SmartCards() {
                             if (result === "unavailable") setError(message);
                           }}
                         />
-                        <a className="ds-btn sm" href={`/p/${draft.slug}`} target="_blank" rel="noopener">
+                        <a className="ds-btn sm" href={`/p/${savedSlug}`} target="_blank" rel="noopener">
                           Open profile
                         </a>
-                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=png`}>PNG</a>
-                        <a className="ds-btn sm" href={`/p/${draft.slug}/qr?format=svg`}>SVG</a>
+                        <a className="ds-btn sm" href={`/p/${savedSlug}/qr?format=png`}>PNG</a>
+                        <a className="ds-btn sm" href={`/p/${savedSlug}/qr?format=svg`}>SVG</a>
                       </div>
                     </div>
                   </Panel>

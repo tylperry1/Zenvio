@@ -219,7 +219,7 @@ export function NfcStudio() {
     if (forceSmartCard || writeKind === "smart_card") {
       const card = cards.find((c) => c.id === selectedCard);
       if (!card) throw new Error("Select a Smart Card to program.");
-      return [recordFromEditor("smart_card", `${origin}/c/${card.token}`)];
+      return [recordFromEditor("smart_card", `${origin}/c/${card.token}?src=nfc`)];
     }
     return [recordFromEditor(writeKind, writeValue)];
   }
@@ -387,7 +387,7 @@ export function NfcStudio() {
     const card = cards.find((c) => c.id === selectedCard);
     if (!card) return setError("Select a Smart Card for the batch.");
     if (!batchName.trim()) return setError("Name this batch.");
-    const destinationUrl = `${origin}/c/${card.token}`;
+    const destinationUrl = `${origin}/c/${card.token}?src=nfc`;
     const d = await postJson("/api/nfc/batches", {
       action: "create",
       name: batchName.trim(),

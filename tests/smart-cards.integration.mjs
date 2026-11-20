@@ -83,7 +83,8 @@ try {
   const activation = { action: "update-card", id: card.id, profileId: id, status: "active" };
   assert.equal((await request("/api/smart-profiles", activation, owner)).status, 409);
   assert.equal((await request("/api/smart-profiles", { ...activation, confirmEncoding: true }, owner)).status, 200);
-  assert.equal((await request(`/c/${token}`)).headers.get("location"), appLocation(`/p/${slug}?via=card`));
+  // Card resolves to the live canonical slug (not a prior redirect) and marks from=c to avoid double-count.
+  assert.equal((await request(`/c/${token}`)).headers.get("location"), appLocation("/p/changed-slug?via=card&from=c"));
 
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"https://g.page/r/test/review"},other)).status,404);
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"javascript:alert(1)"},owner)).status,400);
@@ -91,9 +92,12 @@ try {
   assert.equal((await request(`/c/${token}`)).headers.get("location"),"https://g.page/r/test/review");
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"booking"},owner)).status,200);
   {
+    // Untagged physical taps attribute as smart-card; NFC Studio programs ?src=nfc separately.
     const booking = new URL((await request(`/c/${token}`)).headers.get("location"));
     assert.equal(booking.origin, new URL(publicOrigin).origin);
-    assert.match(booking.pathname + booking.search, /^\/book\/[^?]+\?src=nfc$/);
+    assert.match(booking.pathname + booking.search, /^\/book\/[^?]+\?src=smart-card$/);
+    const nfc = new URL((await request(`/c/${token}?src=nfc`)).headers.get("location"));
+    assert.match(nfc.pathname + nfc.search, /^\/book\/[^?]+\?src=nfc$/);
   }
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"profile"},owner)).status,200);
   await mkdir("test-results", { recursive: true });
