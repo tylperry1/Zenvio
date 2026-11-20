@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import Module from "node:module";
+import path from "node:path";
 import test from "node:test";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import ts from "typescript";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
@@ -34,6 +39,49 @@ test("public digital profile pages SSR a missing-profile UI instead of blank not
   assert.doesNotMatch(page, /from "next\/navigation"/);
   assert.doesNotMatch(page, /\bnotFound\s*\(/);
   assert.match(read("src/app/p/loading.tsx"), /Loading profile/);
+});
+
+test("missing public profile renders heading and About Zenvio link when loadPublicProfile is null", async () => {
+  const filename = path.resolve("src/app/p/[slug]/page.tsx");
+  const m = new Module(filename);
+  m.filename = filename;
+  m.paths = Module._nodeModulePaths(path.dirname(filename));
+  const normal = m.require.bind(m);
+  const mocks = {
+    "@/components/profile-experience": { ProfileExperience: () => null },
+    "next/link": ({ children, ...props }) => React.createElement("a", props, children),
+    "next/headers": { headers: async () => new Headers() },
+    "@/components/smart-card-lead-form": { SmartCardLeadForm: () => null },
+    "@/components/icons": { Icon: () => null, Logo: () => React.createElement("span", null, "Logo") },
+    "@/lib/smart-cards": {
+      loadPublicProfile: async () => null,
+      recordProfileView: async () => {
+        throw new Error("recordProfileView must not run for missing profiles");
+      },
+    },
+  };
+  m.require = (id) => (Object.hasOwn(mocks, id) ? mocks[id] : normal(id));
+  m._compile(
+    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.CommonJS,
+        jsx: ts.JsxEmit.ReactJSX,
+        esModuleInterop: true,
+      },
+    }).outputText,
+    filename,
+  );
+  const html = renderToStaticMarkup(
+    await m.exports.default({
+      params: Promise.resolve({ slug: "missing-profile" }),
+      searchParams: Promise.resolve({}),
+    }),
+  );
+  assert.match(html, /<h1>This profile isn’t available<\/h1>/);
+  assert.match(html, /href="\/"[^>]*>About Zenvio<\/a>/);
+  assert.match(html, /sc-public sc-inactive/);
+  assert.doesNotMatch(html, /sc-public-designed|Save contact|ProfileExperience/);
 });
 
 test("Suspense around workspace surfaces provides a visible fallback", () => {
