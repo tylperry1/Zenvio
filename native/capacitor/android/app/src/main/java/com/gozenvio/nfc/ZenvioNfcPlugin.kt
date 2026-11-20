@@ -25,6 +25,8 @@ class ZenvioNfcPlugin(private val activity: Activity) {
   private val main = Handler(Looper.getMainLooper())
   private val pending = AtomicReference<PendingOp?>(null)
   private val tokenSeq = java.util.concurrent.atomic.AtomicLong(0)
+  /** Serializes ownership checks with enable/disableReaderMode so a stale callback cannot kill a replacement op. */
+  private val readerLock = Any()
 
   private data class PendingOp(
     val token: Long,
@@ -169,13 +171,15 @@ class ZenvioNfcPlugin(private val activity: Activity) {
   }
 
   fun cancelOperation(callback: (Map<String, Any?>) -> Unit) {
-    val current = pending.get()
-    if (current != null) {
-      current.cancelled = true
-      adapter?.disableReaderMode(activity)
-      completePending(current.token, cancelledMap(withVerified = true))
-    } else {
-      adapter?.disableReaderMode(activity)
+    synchronized(readerLock) {
+      val current = pending.get()
+      if (current != null) {
+        current.cancelled = true
+        adapter?.disableReaderMode(activity)
+        completePending(current.token, cancelledMap(withVerified = true))
+      } else {
+        adapter?.disableReaderMode(activity)
+      }
     }
     callback(mapOf("ok" to true))
   }
@@ -217,24 +221,35 @@ class ZenvioNfcPlugin(private val activity: Activity) {
       completePending(op.token, mapOf("ok" to false, "errorCode" to "unsupported", "errorMessage" to "This device has no NFC adapter."))
       return
     }
-    a.enableReaderMode(
-      activity,
-      { tag ->
-        if (!isActive(op)) {
-          a.disableReaderMode(activity)
-          completePending(op.token, cancelledMap(withVerified = true))
-          return@enableReaderMode
-        }
-        a.disableReaderMode(activity)
-        onTag(tag)
-      },
-      // Keep NDEF tech discovery enabled so Ndef.get(tag) works on compatible tags.
-      NfcAdapter.FLAG_READER_NFC_A or
-        NfcAdapter.FLAG_READER_NFC_B or
-        NfcAdapter.FLAG_READER_NFC_F or
-        NfcAdapter.FLAG_READER_NFC_V,
-      null,
-    )
+    synchronized(readerLock) {
+      if (!isActive(op)) {
+        completePending(op.token, cancelledMap(withVerified = true))
+        return
+      }
+      a.enableReaderMode(
+        activity,
+        { tag ->
+          val deliver: Boolean
+          synchronized(readerLock) {
+            // Stale discovery must NOT disableReaderMode — a replacement op may own activity reader mode.
+            if (!isActive(op)) {
+              deliver = false
+            } else {
+              a.disableReaderMode(activity)
+              deliver = true
+            }
+          }
+          if (!deliver) return@enableReaderMode
+          onTag(tag)
+        },
+        // Keep NDEF tech discovery enabled so Ndef.get(tag) works on compatible tags.
+        NfcAdapter.FLAG_READER_NFC_A or
+          NfcAdapter.FLAG_READER_NFC_B or
+          NfcAdapter.FLAG_READER_NFC_F or
+          NfcAdapter.FLAG_READER_NFC_V,
+        null,
+      )
+    }
   }
 
   private fun readTag(tag: Tag): Map<String, Any?> {

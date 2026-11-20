@@ -79,6 +79,8 @@ test("Web NFC cancel settles waiting read and Android NDEF discovery is intact",
   assert.match(kotlin, /completePending\(op\.token|completePending\(current\.token|completePending\(token/);
   assert.match(kotlin, /PendingOp/);
   assert.match(kotlin, /isActive\(op\)/);
+  assert.match(kotlin, /readerLock/);
+  assert.match(kotlin, /Stale discovery must NOT disableReaderMode/);
   assert.match(kotlin, /"message"/);
   assert.match(read("src/lib/nfc/capacitor-bridge.ts"), /opGeneration|ownsOp|beginOp/);
   assert.match(read("src/lib/nfc/ndef.ts"), /utf-16be/);
