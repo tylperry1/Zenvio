@@ -57,26 +57,30 @@ export function ReviewForm() {
 
   const shown = hover || rating;
   return (
-    <main className="rv-page">
+    <main className="rv-page ds-root">
       <Logo />
-      <div className="rv-card">
+      <div className="rv-card ds-panel">
         {done !== null ? (
-          <div className="rv-done">
+          <div className="rv-done ds-panel-body">
             <span className="rv-check" aria-hidden="true">✓</span>
             <h1>Thank you!</h1>
             <p>Your feedback was sent to {context?.business}.</p>
-            {done && <Link href={`/book/${done}`}>Book again with {context?.business}</Link>}
+            {done && (
+              <Link className="ds-btn primary" href={`/book/${done}`}>
+                Book again with {context?.business}
+              </Link>
+            )}
           </div>
         ) : !context ? (
-          <div className="rv-done">
+          <div className="rv-done ds-panel-body">
             <h1>{error ? "We couldn't open this review" : "Loading…"}</h1>
-            {error && <p>{error}</p>}
+            {error && <p className="ds-muted">{error}</p>}
           </div>
         ) : (
-          <form onSubmit={submit}>
-            <p className="rv-eyebrow">{context.business}</p>
+          <form className="ds-panel-body" onSubmit={submit}>
+            <p className="rv-eyebrow ds-eyebrow">{context.business}</p>
             <h1>How was your {context.service.toLowerCase()}?</h1>
-            <p className="rv-meta">{new Date(context.startsAt).toLocaleDateString(undefined, { dateStyle: "long" })}</p>
+            <p className="rv-meta ds-muted">{new Date(context.startsAt).toLocaleDateString(undefined, { dateStyle: "long" })}</p>
             <fieldset className="rv-stars" onMouseLeave={() => setHover(0)}>
               <legend>Your rating</legend>
               {[1, 2, 3, 4, 5].map((n) => (

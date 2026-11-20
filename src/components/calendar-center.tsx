@@ -6,7 +6,7 @@ import { TimezoneSelect } from "./timezone-select";
 import { AppointmentDetailModal } from "./appointment-detail";
 import { CreateAppointment } from "./create-appointment";
 import { Icon } from "./icons";
-import { Alert } from "./ui";
+import { Notice } from "./ds";
 import { zonedDate, inZone } from "@/lib/scheduling.mjs";
 const key = (d: Date, zone: string) => {
   const p = inZone(d, zone);
@@ -99,17 +99,18 @@ export function CalendarCenter() {
       title="Calendar"
       description="Your Zenvio appointments alongside busy times from connected calendars."
       actions={
-        <button className="ui-btn ui-btn-primary" disabled={!workspace} onClick={() => setCreating(true)}>
+        <button className="ds-btn primary" disabled={!workspace} onClick={() => setCreating(true)}>
           + New appointment
         </button>
       }
     >
-      {error && <Alert tone="danger">{error}</Alert>}
-      {message && <Alert tone="success">{message}</Alert>}
+      <div className="ds-root">
+      {error && <Notice tone="danger">{error}</Notice>}
+      {message && <Notice tone="success">{message}</Notice>}
       <div className="cal-toolbar">
         <div className="cal-nav">
           <button
-            className="ui-btn ui-btn-secondary"
+            className="ds-btn"
             onClick={() => {
               const p = inZone(new Date(), zone);
               setDate(`${p.year}-${p.month}-${p.day}`);
@@ -117,10 +118,10 @@ export function CalendarCenter() {
           >
             Today
           </button>
-          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, -days))} aria-label="Previous period">
+          <button className="ds-btn ghost sm" onClick={() => setDate(shift(start, -days))} aria-label="Previous period">
             <Icon name="chevron" size={16} style={{ transform: "rotate(180deg)" }} />
           </button>
-          <button className="ui-btn ui-btn-ghost ui-btn-icon" onClick={() => setDate(shift(start, days))} aria-label="Next period">
+          <button className="ds-btn ghost sm" onClick={() => setDate(shift(start, days))} aria-label="Next period">
             <Icon name="chevron" size={16} />
           </button>
           <h2 className="cal-range">{rangeLabel(start, days, view)}</h2>
@@ -132,7 +133,7 @@ export function CalendarCenter() {
             onChange={(e) => e.target.value && setDate(e.target.value)}
           />
         </div>
-        <select className="ui-input cal-view" aria-label="Calendar view" value={view} onChange={(e) => setView(e.target.value)}>
+        <select className="ds-select cal-view" aria-label="Calendar view" value={view} onChange={(e) => setView(e.target.value)}>
           {["day", "week", "month", "agenda"].map((v) => (
             <option key={v} value={v}>
               {v[0].toUpperCase() + v.slice(1)}
@@ -140,8 +141,8 @@ export function CalendarCenter() {
           ))}
         </select>
       </div>
-      <div className="cal-filters">
-        <select className="ui-input" aria-label="Calendar source" value={account} onChange={(e) => setAccount(e.target.value)}>
+      <div className="cal-filters ds-toolbar">
+        <select className="ds-select" aria-label="Calendar source" value={account} onChange={(e) => setAccount(e.target.value)}>
           <option value="all">All calendars</option>
           <option value="zenvio">Zenvio only</option>
           {data?.accounts.map((a: any) => (
@@ -150,7 +151,7 @@ export function CalendarCenter() {
             </option>
           ))}
         </select>
-        <select className="ui-input" aria-label="Appointment type" value={type} onChange={(e) => setType(e.target.value)}>
+        <select className="ds-select" aria-label="Appointment type" value={type} onChange={(e) => setType(e.target.value)}>
           <option value="all">All appointment types</option>
           {workspace?.events.map((e: any) => (
             <option key={e.id} value={e.id}>
@@ -158,7 +159,7 @@ export function CalendarCenter() {
             </option>
           ))}
         </select>
-        <select className="ui-input" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className="ds-select" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="confirmed">Confirmed</option>
           <option value="cancelled">Cancelled</option>
           <option value="all">All statuses</option>
@@ -167,15 +168,15 @@ export function CalendarCenter() {
           <Icon name="globe" size={15} />
           <TimezoneSelect value={zone} onChange={setZone} label="Timezone" businessZone={workspace?.profile?.timezone} />
         </label>
-        <a className="cal-team-link" href="/app/team">
+        <a className="cal-team-link ds-btn ghost sm" href="/app/team">
           Team schedules
         </a>
       </div>
         {data?.errors.map((e: any) => (
-          <p role="alert" className="ui-alert ui-alert-warning" key={e.account}>
+          <Notice tone="warning" key={e.account}>
             {e.account}: {e.message}{" "}
             <a href="/app/connections">Manage connection</a>
-          </p>
+          </Notice>
         ))}
 
       {selected?.id && !selected.readOnly && (
@@ -271,6 +272,7 @@ export function CalendarCenter() {
           }}
         />
       )}
+      </div>
     </SuiteShell>
   );
 }

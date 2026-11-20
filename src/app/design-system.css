@@ -198,6 +198,17 @@
 .ds-money.invalid { border-color: var(--error); }
 .ds-root.ds-root .ds-money input { border: 0; padding: 0; min-height: 0; height: 36px; width: 100%; text-align: right; font-size: var(--ds-text-md); font-variant-numeric: tabular-nums; outline: none; box-shadow: none; background: transparent; color: var(--text-primary); }
 .ds-form-actions { display: flex; flex-wrap: wrap; gap: var(--ds-2); justify-content: flex-end; align-items: center; padding-top: var(--ds-2); }
+.ds-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--ds-3); margin: var(--ds-3) 0; }
+.ds-check { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 var(--ds-3); font-size: var(--ds-text-sm); color: var(--text-primary); }
+.ds-check input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+.ds-check span { display: grid; gap: 2px; }
+.ds-check b { font-weight: 650; }
+.ds-check small { color: var(--text-muted); font-weight: 400; line-height: 1.45; }
+.ds-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; color: var(--text-secondary); overflow-wrap: anywhere; }
+.ds-muted { margin: 0 0 var(--ds-3); font-size: var(--ds-text-sm); line-height: 1.55; color: var(--text-muted); font-weight: 400; }
+.ds-plain-list { list-style: none; margin: 0 0 var(--ds-3); padding: 0; display: grid; gap: 10px; }
+.ds-plain-list li { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; font-size: var(--ds-text-sm); color: var(--text-primary); }
+.ds-plain-list li span { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .ds-meter { display: grid; gap: 6px; }
 .ds-meter-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: var(--ds-text-sm); font-weight: 600; color: var(--text-primary); }
 .ds-meter-head small { font-weight: 500; color: var(--text-muted); font-variant-numeric: tabular-nums; }

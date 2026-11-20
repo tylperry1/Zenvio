@@ -13,4 +13,4 @@ export {
   validateSmartyConfig,
   type SmartyConfig,
 } from "./config";
-export { smartyUsageSummary, recordSmartyUsage } from "./usage";
+export { smartyUsageSummary, smartyRecentActivity, recordSmartyUsage } from "./usage";

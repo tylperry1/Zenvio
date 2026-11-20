@@ -75,7 +75,7 @@ export function Panel({
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   flush?: boolean;
   className?: string;
 }) {
@@ -90,7 +90,7 @@ export function Panel({
           {actions && <div className="ds-panel-actions">{actions}</div>}
         </header>
       )}
-      <div className="ds-panel-body">{children}</div>
+      {children != null && children !== false && <div className="ds-panel-body">{children}</div>}
     </section>
   );
 }

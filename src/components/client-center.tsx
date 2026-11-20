@@ -241,7 +241,7 @@ export function ClientCenter() {
             }
           >
             {clients.length ? (
-              <div className="client-table-wrap">
+              <div className="client-table-wrap ds-table-wrap">
                 <table className="client-table ds-table">
                   <thead>
                     <tr>

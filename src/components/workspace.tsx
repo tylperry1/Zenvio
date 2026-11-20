@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFreshRequest, useWorkspaceLive } from "./platform-support";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "./app-shell";
-import { EmptyState as DsEmpty } from "./ds";
+import { EmptyState as DsEmpty, Kpi, Panel } from "./ds";
 import { AccountData } from "./account-data";
 import { BookingLinkPrompt, SetupChecklist, bookingLinkLabel, hasGeneratedLink, useLinkPrompt } from "./onboarding";
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS } from "@/lib/brand";
@@ -565,7 +565,7 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
             </Link>
           </div>
         )}
-        <main className="workspace-content">
+        <main className="workspace-content ds-root">
           <PageHeader
             title={
               view === "Overview"
@@ -593,9 +593,9 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
               <>
                 {view === "Overview" && (
                   <>
-                    {sharePageControl("Share booking page", "button primary small")}
+                    {sharePageControl("Share booking page", "ds-btn primary sm")}
                     <Link
-                      className="button secondary small"
+                      className="ds-btn sm"
                       href={`/book/${data.profile.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -604,24 +604,24 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     </Link>
                   </>
                 )}
-                {view === "Event types" && sharePageControl("Share page", "button secondary small")}
+                {view === "Event types" && sharePageControl("Share page", "ds-btn sm")}
                 {["Overview", "Event types"].includes(view) ? (
                   <button
-                    className={view === "Overview" ? "button secondary small" : "button primary small"}
+                    className={view === "Overview" ? "ds-btn sm" : "ds-btn primary sm"}
                     onClick={() => setEditing(true)}
                   >
                     <Icon name="plus" size={17} /> New service
                   </button>
                 ) : view === "Bookings" && !demo ? (
                   <button
-                    className="button primary small"
+                    className="ds-btn primary sm"
                     onClick={() => setCreatingAppointment(true)}
                   >
                     <Icon name="plus" size={17} /> Create appointment
                   </button>
                 ) : view === "Contacts" ? (
                   <button
-                    className="button primary small"
+                    className="ds-btn primary sm"
                     onClick={() => setContactModal(true)}
                   >
                     <Icon name="plus" size={17} /> Add contact
@@ -632,93 +632,81 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
           />
           {view === "Overview" && (
             <div className="workspace-overview">
-              <div className="overview-brief">
-                <div>
-                  <span className="brief-label">YOUR SCHEDULE</span>
-                  <h2>Ready for what’s next.</h2>
-                  <p>{upcoming.length ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.` : "Set your availability and share a booking link to get started."}</p>
-                  <button type="button" className="button small" onClick={() => navigate("Bookings")}>Open schedule <Icon name="arrow" size={16} /></button>
-                </div>
-                <div className="brief-date">
-                  <Icon name="calendar" size={24} />
-                  <strong>{now.toLocaleDateString("en-US", { day: "numeric", timeZone: displayZone })}</strong>
-                  <span>{now.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: displayZone })}</span>
-                </div>
-              </div>
+              <Panel
+                title="Ready for what’s next"
+                description={
+                  upcoming.length
+                    ? `${upcoming.length} confirmed appointment${upcoming.length === 1 ? "" : "s"} ahead. Keep your day moving.`
+                    : "Set your availability and share a booking link to get started."
+                }
+                actions={
+                  <>
+                    <span className="ds-eyebrow" style={{ margin: 0 }}>
+                      Your schedule · {now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: displayZone })}
+                    </span>
+                    <button type="button" className="ds-btn primary sm" onClick={() => navigate("Bookings")}>
+                      Open schedule <Icon name="arrow" size={16} />
+                    </button>
+                  </>
+                }
+              />
               <SetupChecklist
                 data={data}
                 demo={demo}
                 base={demo ? "/demo" : "/app"}
                 onChooseLink={linkPrompt.show}
-                onCopyLink={sharePageControl("Share link", "button secondary small")}
+                onCopyLink={sharePageControl("Share link", "ds-btn sm")}
               />
-              <div className="stats-grid">
-                {[
-                  [
-                    "calendar",
-                    "Upcoming appointments",
-                    String(nextWeek.length),
-                    "Over the next 7 days",
-                  ],
-                  [
-                    "clock",
-                    "Booked time",
+              <div className="ds-kpis">
+                <Kpi
+                  label="Upcoming appointments"
+                  icon="calendar"
+                  value={String(nextWeek.length)}
+                  detail="Over the next 7 days"
+                />
+                <Kpi
+                  label="Booked time"
+                  icon="clock"
+                  value={
                     totalMinutes >= 60
                       ? `${Math.round((totalMinutes / 60) * 10) / 10} hrs`
-                      : `${totalMinutes} min`,
-                    "Scheduled over the next 7 days",
-                  ],
-                  [
-                    "users",
-                    "Total clients",
-                    String(data.contactCount ?? data.contacts.length),
-                    "Across your workspace",
-                  ],
-                  [
-                    "link",
-                    "Active services",
-                    String(visibleEvents.filter((e) => e.active).length),
-                    "Available for clients to book",
-                  ],
-                ].map(([icon, title, value, note]) => (
-                  <article className="stat-card" key={title}>
-                    <div>
-                      <span>{title}</span>
-                      <Icon name={icon} size={18} />
-                    </div>
-                    <strong>{value}</strong>
-                    <small>{note}</small>
-                  </article>
-                ))}
+                      : `${totalMinutes} min`
+                  }
+                  detail="Scheduled over the next 7 days"
+                />
+                <Kpi
+                  label="Total clients"
+                  icon="users"
+                  value={String(data.contactCount ?? data.contacts.length)}
+                  detail="Across your workspace"
+                />
+                <Kpi
+                  label="Active services"
+                  icon="link"
+                  value={String(visibleEvents.filter((e) => e.active).length)}
+                  detail="Available for clients to book"
+                />
               </div>
-              <section className="workspace-section">
-                <div className="section-bar">
-                  <div>
-                    <h2>Up next</h2>
-                    <p>Your next confirmed appointments.</p>
-                  </div>
-                  <button
-                    className="inline-link"
-                    onClick={() => navigate("Bookings")}
-                  >
+              <Panel
+                title="Up next"
+                description="Your next confirmed appointments."
+                actions={
+                  <button className="ds-btn ghost sm" onClick={() => navigate("Bookings")}>
                     View all bookings <Icon name="arrow" size={15} />
                   </button>
-                </div>
-                <div className="panel">{bookingRows(upcoming.slice(0, 3))}</div>
-              </section>
-              <section className="workspace-section">
-                <div className="section-bar">
-                  <div>
-                    <h2>Your services</h2>
-                    <p>Appointment types clients can book with you.</p>
-                  </div>
-                  <button
-                    className="inline-link"
-                    onClick={() => navigate("Event types")}
-                  >
+                }
+              >
+                {bookingRows(upcoming.slice(0, 3))}
+              </Panel>
+              <Panel
+                title="Your services"
+                description="Appointment types clients can book with you."
+                actions={
+                  <button className="ds-btn ghost sm" onClick={() => navigate("Event types")}>
                     View all <Icon name="arrow" size={15} />
                   </button>
-                </div>
+                }
+              >
                 <div className="events-grid">
                   {visibleEvents.slice(0, 2).map(eventCard)}
                   <button
@@ -732,34 +720,33 @@ export function Workspace({ demo = false }: { demo?: boolean }) {
                     <p>Create a new appointment type</p>
                   </button>
                 </div>
-              </section>
-              <div className="workspace-tip">
-                <span>✳</span>
-                <div>
-                  <b>
-                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? "Choose a short booking address."
-                      : "Make your booking page easy to find."}
-                  </b>
-                  <p>
-                    {data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? "Replace the temporary host link with something clients can remember, then share it in your email signature."
-                      : "Share your booking link in your email signature. Your next client can book a time without the back-and-forth."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="subtle-button"
-                  onClick={() =>
-                    data?.profile.slug && hasGeneratedLink(data.profile.slug)
-                      ? linkPrompt.show()
-                      : navigate("Event types")
-                  }
-                >
-                  {data?.profile.slug && hasGeneratedLink(data.profile.slug) ? "Choose link" : "Get your link"}{" "}
-                  <Icon name="arrow" size={15} />
-                </button>
-              </div>
+              </Panel>
+              <Panel
+                title={
+                  data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                    ? "Choose a short booking address"
+                    : "Make your booking page easy to find"
+                }
+                description={
+                  data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                    ? "Replace the temporary host link with something clients can remember, then share it in your email signature."
+                    : "Share your booking link in your email signature. Your next client can book a time without the back-and-forth."
+                }
+                actions={
+                  <button
+                    type="button"
+                    className="ds-btn sm"
+                    onClick={() =>
+                      data?.profile.slug && hasGeneratedLink(data.profile.slug)
+                        ? linkPrompt.show()
+                        : navigate("Event types")
+                    }
+                  >
+                    {data?.profile.slug && hasGeneratedLink(data.profile.slug) ? "Choose link" : "Get your link"}{" "}
+                    <Icon name="arrow" size={15} />
+                  </button>
+                }
+              />
             </div>
           )}
           {view === "Event types" && (

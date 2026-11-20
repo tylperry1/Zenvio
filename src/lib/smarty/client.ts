@@ -67,11 +67,14 @@ function mapStatus(status: number, body: string): SmartyError {
     );
   if (status === 429)
     return new SmartyError("rate_limited", "Smarty rate limit reached. Try again shortly.", status);
-  if (status === 400 || status === 422)
-    return new SmartyError("bad_request", body.slice(0, 200) || "Invalid Smarty request.", status);
+  if (status === 400 || status === 422) {
+    void body;
+    return new SmartyError("bad_request", "Smarty could not process that address request.", status);
+  }
   if (status >= 500)
     return new SmartyError("unavailable", "Smarty is temporarily unavailable.", status);
-  return new SmartyError("unknown", body.slice(0, 200) || `Smarty error ${status}`, status);
+  void body;
+  return new SmartyError("unknown", `Smarty error ${status}`, status);
 }
 
 async function requireReady(): Promise<{

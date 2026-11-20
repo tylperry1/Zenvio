@@ -25,6 +25,11 @@ const onboarding = load("src/components/onboarding.tsx", {
   "next/link": { default: "a" },
   "./icons": { Icon: () => null },
   "./modal": { Modal: ({ children }) => children },
+  "./ds": {
+    Badge: ({ children }) => children,
+    MeterBar: () => null,
+    Panel: ({ children }) => children,
+  },
   "@/lib/contractor": { industries: [{ id: "general", label: "General" }] },
 });
 

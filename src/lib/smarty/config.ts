@@ -89,8 +89,11 @@ export async function saveSmartyConfiguration(
   const authToken = await integrationValue("SMARTY_AUTH_TOKEN");
   if (next.enabled && (!authId || !authToken))
     throw new ApiError("Add Smarty Auth ID and Auth Token in Connections before enabling.", 409);
+  // Reconcile health with live vault state. Re-enable never revives Connected from a prior success —
+  // require a fresh authenticated test. Already-enabled healthy configs stay healthy on unrelated saves.
   if (!authId || !authToken) next.health = "unconfigured";
   else if (!next.enabled) next.health = "disabled";
+  else if (next.health === "unconfigured" || next.health === "disabled") next.health = "degraded";
   await getPool().query(
     `INSERT INTO private.platform_settings(key,value,updated_at) VALUES($1,$2,now())
      ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=now()`,
