@@ -5,8 +5,10 @@ import test from "node:test";
 const read = (path) => fs.readFileSync(path, "utf8");
 
 test("route loading and nested error boundaries exist", () => {
+  // No root src/app/loading.tsx: App Router streams that fallback with HTTP 200
+  // before page-level notFound() (e.g. marketplace visibility) can return 404.
+  assert.equal(fs.existsSync("src/app/loading.tsx"), false);
   for (const path of [
-    "src/app/loading.tsx",
     "src/app/app/loading.tsx",
     "src/app/demo/loading.tsx",
     "src/app/portal/loading.tsx",
