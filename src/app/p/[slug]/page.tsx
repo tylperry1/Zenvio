@@ -2,12 +2,28 @@ import { ProfileExperience } from "@/components/profile-experience";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
 import { SmartCardLeadForm } from "@/components/smart-card-lead-form";
 import { Icon, Logo } from "@/components/icons";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
+
+/** SSR-visible missing profile — avoid navigation not-found (App Router can leave /p HTML blank until client flight). */
+function MissingProfile() {
+  return (
+    <main className="sc-public sc-inactive">
+      <Logo />
+      <div className="sc-public-card">
+        <h1>This profile isn’t available</h1>
+        <p>
+          The digital business profile may be unpublished, archived, or the link may have changed. Ask the owner for a
+          fresh link, or open their booking page if they shared one.
+        </p>
+        <Link href="/">About Zenvio</Link>
+      </div>
+    </main>
+  );
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -21,7 +37,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { slug } = await params;
   const { via } = await searchParams;
   const profile = await loadPublicProfile(slug.toLowerCase());
-  if (!profile) notFound();
+  if (!profile) return <MissingProfile />;
   const v = profile.view;
   // Card taps are counted by the /c redirect; count direct links and QR scans here.
   if (via !== "card") {
