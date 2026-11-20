@@ -49,7 +49,9 @@ test("shell leaves the app with a hard navigation to marketing home", () => {
 
 test("smart card NFC redirects use absolute Location with privacy headers", () => {
   const route = read("src/app/c/[token]/route.ts");
-  assert.match(route, /new URL\(destination, request\.url\)/);
+  assert.match(route, /NEXT_PUBLIC_APP_URL/);
+  assert.match(route, /https:\/\/gozenvio\.com/);
+  assert.doesNotMatch(route, /new URL\(destination, request\.url\)/);
   assert.match(route, /"Referrer-Policy": "no-referrer"/);
   assert.match(route, /"Cache-Control": "no-store"/);
   assert.match(route, /Location:\s*target/);

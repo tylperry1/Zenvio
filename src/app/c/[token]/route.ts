@@ -5,12 +5,15 @@ import { recordProfileView, cleanCardDestination } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
 
-function redirectTo(request: NextRequest, destination: string) {
+function redirectTo(destination: string) {
   // Absolute Location URLs avoid empty-body relative 302 quirks on iOS Safari.
+  // Resolve relative paths against the configured public origin — not request.url —
+  // so self-hosted / mis-bound hosts never send phones to localhost.
   // Keep Cache-Control + Referrer-Policy — smart-cards tests and privacy require them.
+  const publicOrigin = process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com";
   const target = destination.startsWith("http")
     ? destination
-    : new URL(destination, request.url).toString();
+    : new URL(destination, publicOrigin).toString();
   return new Response(null, {
     status: 302,
     headers: {
@@ -25,7 +28,7 @@ function redirectTo(request: NextRequest, destination: string) {
 // through Zenvio so the owner can change, deactivate or reassign the card.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!/^[A-Za-z0-9_-]{16,40}$/.test(token)) return redirectTo(request, "/c/inactive");
+  if (!/^[A-Za-z0-9_-]{16,40}$/.test(token)) return redirectTo("/c/inactive");
   const card = (
     await getPool().query(
       `SELECT c.status,c.destination_kind,c.destination_url,s.id profile_id,s.slug,s.published,p.slug booking_slug FROM private.smart_cards c
@@ -34,18 +37,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     )
   ).rows[0];
   if (!card || card.status !== "active" || !card.slug || !card.published)
-    return redirectTo(request, "/c/inactive");
+    return redirectTo("/c/inactive");
   await recordProfileView(card.profile_id, "card", clientIp(request)).catch(() => {});
   let destination = `/p/${card.slug}?via=card`;
   if (card.destination_kind === "booking") {
-    if (!card.booking_slug) return redirectTo(request, "/c/inactive");
+    if (!card.booking_slug) return redirectTo("/c/inactive");
     destination = `/book/${card.booking_slug}?src=nfc`;
   } else if (card.destination_kind === "review" || card.destination_kind === "website") {
     try {
       destination = cleanCardDestination(card.destination_kind, card.destination_url).url;
     } catch {
-      return redirectTo(request, "/c/inactive");
+      return redirectTo("/c/inactive");
     }
   }
-  return redirectTo(request, destination);
+  return redirectTo(destination);
 }
