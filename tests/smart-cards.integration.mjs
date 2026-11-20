@@ -10,6 +10,9 @@ const loopback = ["localhost", "127.0.0.1"];
 if (!origin || !database || ![origin, database].every((url) => loopback.includes(new URL(url).hostname))) {
   throw new Error("Run only against the disposable localhost fixture.");
 }
+// NFC redirects emit absolute Location against NEXT_PUBLIC_APP_URL (fallback gozenvio.com).
+const publicOrigin = (process.env.NEXT_PUBLIC_APP_URL || "https://gozenvio.com").replace(/\/$/, "");
+const appLocation = (path) => new URL(path, publicOrigin + "/").toString();
 const pool = new Pool({ connectionString: database });
 const nonce = randomBytes(6).toString("hex");
 const slug = `smart-${nonce}`;
@@ -74,20 +77,24 @@ try {
   const registration = await request("/api/smart-profiles", { action: "create-card", profileId: id }, owner);
   assert.equal(registration.status, 200);
   const { token } = await registration.json();
-  assert.equal((await request(`/c/${token}`)).headers.get("location"), "/c/inactive");
+  assert.equal((await request(`/c/${token}`)).headers.get("location"), appLocation("/c/inactive"));
   const cards = await (await request("/api/smart-profiles", undefined, owner)).json();
   const card = cards.cards.find((item) => item.token === token);
   const activation = { action: "update-card", id: card.id, profileId: id, status: "active" };
   assert.equal((await request("/api/smart-profiles", activation, owner)).status, 409);
   assert.equal((await request("/api/smart-profiles", { ...activation, confirmEncoding: true }, owner)).status, 200);
-  assert.equal((await request(`/c/${token}`)).headers.get("location"), `/p/${slug}?via=card`);
+  assert.equal((await request(`/c/${token}`)).headers.get("location"), appLocation(`/p/${slug}?via=card`));
 
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"https://g.page/r/test/review"},other)).status,404);
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"javascript:alert(1)"},owner)).status,400);
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"review",destinationUrl:"https://g.page/r/test/review"},owner)).status,200);
   assert.equal((await request(`/c/${token}`)).headers.get("location"),"https://g.page/r/test/review");
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"booking"},owner)).status,200);
-  assert.match((await request(`/c/${token}`)).headers.get("location"), /^\/book\/[^?]+\?src=nfc$/);
+  {
+    const booking = new URL((await request(`/c/${token}`)).headers.get("location"));
+    assert.equal(booking.origin, new URL(publicOrigin).origin);
+    assert.match(booking.pathname + booking.search, /^\/book\/[^?]+\?src=nfc$/);
+  }
   assert.equal((await request("/api/smart-profiles",{action:"card-destination",id:card.id,destinationKind:"profile"},owner)).status,200);
   await mkdir("test-results", { recursive: true });
   const browser = await chromium.launch();
