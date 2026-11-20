@@ -146,7 +146,7 @@ function emptyCopy(filter: Filter, query: string, workspace: boolean): { title: 
       return {
         title: "No conversations assigned to you",
         body: workspace
-          ? "Claim an unassigned conversation from All, or start a new one."
+          ? "Claim an unassigned conversation from Workspace, or start a new one."
           : "Start a conversation with a client. Replies land here when assigned to you.",
       };
     case "unassigned":
@@ -310,9 +310,9 @@ export function InboxCenter() {
   const metrics = list?.metrics;
   const empty = emptyCopy(filter, query, workspace);
   const filters: { id: Filter; label: string; count?: number }[] = [
-    ...(workspace ? [{ id: "all" as const, label: "All" }] : []),
     { id: "mine", label: "My Inbox" },
     { id: "unread", label: "Unread", count: list?.unread || undefined },
+    ...(workspace ? [{ id: "all" as const, label: "Workspace" }] : []),
     ...(workspace ? [{ id: "unassigned" as const, label: "Unassigned" }] : []),
     { id: "pending_response", label: "Pending" },
     { id: "closed", label: "Closed" },
@@ -386,30 +386,35 @@ export function InboxCenter() {
               <StatButton
                 label="Open"
                 value={metrics.open}
+                icon="message"
                 active={filter === "open"}
                 onClick={() => applyOverviewFilter("open")}
               />
               <StatButton
                 label="Unread"
                 value={metrics.unread}
+                icon="bell"
                 active={filter === "unread"}
                 onClick={() => applyOverviewFilter("unread")}
               />
               <StatButton
                 label="Assigned to me"
                 value={metrics.assigned_to_me}
+                icon="users"
                 active={filter === "mine"}
                 onClick={() => applyOverviewFilter("mine")}
               />
               <StatButton
                 label="Pending response"
                 value={metrics.pending_response}
+                icon="clock"
                 active={filter === "pending_response"}
                 onClick={() => applyOverviewFilter("pending_response")}
               />
               <StatButton
                 label="Closed"
                 value={metrics.closed}
+                icon="check"
                 active={filter === "closed"}
                 onClick={() => applyOverviewFilter("closed")}
               />
@@ -470,31 +475,36 @@ export function InboxCenter() {
           )}
           {list && !list.threads.length && (
             <div className="inbox-empty">
-              <EmptyState icon="message" title={empty.title}>
+              <EmptyState
+                icon="message"
+                title={empty.title}
+                action={
+                  <div className="inbox-empty-actions">
+                    {!query && (
+                      <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
+                        <Icon name="plus" size={14} /> New conversation
+                      </button>
+                    )}
+                    {query && (
+                      <button type="button" className="ds-btn ghost sm" onClick={() => setQuery("")}>
+                        Clear search
+                      </button>
+                    )}
+                    {filter !== "mine" && !query && (
+                      <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("mine")}>
+                        Open My Inbox
+                      </button>
+                    )}
+                    {workspace && filter === "mine" && !query && (
+                      <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("all")}>
+                        Open Workspace
+                      </button>
+                    )}
+                  </div>
+                }
+              >
                 {empty.body}
               </EmptyState>
-              <div className="inbox-empty-actions">
-                {!query && (
-                  <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
-                    <Icon name="plus" size={14} /> New conversation
-                  </button>
-                )}
-                {query && (
-                  <button type="button" className="ds-btn ghost sm" onClick={() => setQuery("")}>
-                    Clear search
-                  </button>
-                )}
-                {filter !== "mine" && !query && (
-                  <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("mine")}>
-                    Open My Inbox
-                  </button>
-                )}
-                {workspace && filter === "mine" && !query && (
-                  <button type="button" className="ds-btn ghost sm" onClick={() => applyFilter("all")}>
-                    Open All
-                  </button>
-                )}
-              </div>
             </div>
           )}
           <ul className="inbox-threads">
@@ -561,14 +571,19 @@ export function InboxCenter() {
         <section className="inbox-view" aria-label="Conversation">
           {!selected ? (
             <div className="inbox-empty inbox-empty-select">
-              <EmptyState icon="message" title="Select a conversation">
+              <EmptyState
+                icon="message"
+                title="Select a conversation"
+                action={
+                  <div className="inbox-empty-actions">
+                    <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
+                      <Icon name="plus" size={14} /> New conversation
+                    </button>
+                  </div>
+                }
+              >
                 Choose a thread from the list, or start a new conversation.
               </EmptyState>
-              <div className="inbox-empty-actions">
-                <button type="button" className="ds-btn primary sm" onClick={() => setPicker(true)}>
-                  <Icon name="plus" size={14} /> New conversation
-                </button>
-              </div>
             </div>
           ) : !detail ? (
             <div className="inbox-pad">
@@ -629,18 +644,23 @@ export function InboxCenter() {
 function StatButton({
   label,
   value,
+  icon,
   active,
   onClick,
 }: {
   label: string;
   value: number;
+  icon: string;
   active: boolean;
   onClick: () => void;
 }) {
   return (
     <button type="button" className={`inbox-stat${active ? " active" : ""}`} onClick={onClick} aria-pressed={active}>
+      <span className="inbox-stat-top">
+        <span>{label}</span>
+        <Icon name={icon} size={14} />
+      </span>
       <strong>{value}</strong>
-      <span>{label}</span>
     </button>
   );
 }
