@@ -7,7 +7,7 @@ import { PublicProfileActions } from "@/components/public-profile-actions";
 import { PublicProfileClickTracker } from "@/components/public-profile-click-tracker";
 import { Icon, Logo } from "@/components/icons";
 import { VIEW_CHANNELS, type ViewChannel } from "@/lib/digital-identity";
-import { designHasCustomPresentation, profileImageUrl } from "@/lib/profile-design";
+import { designHasCustomPresentation, designShowsContactSection, profileImageUrl } from "@/lib/profile-design";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
@@ -106,8 +106,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     );
   }
 
+  // Sparse designs stay on the compact card, but still honor published accent + contact visibility.
+  const cardAccent = profile.design?.accent || profile.design?.primary || v.accent;
+  const showContact = designShowsContactSection(profile.design);
+
   return (
-    <main className="sc-public" style={{ ["--sc-accent" as string]: v.accent }}>
+    <main className="sc-public" style={{ ["--sc-accent" as string]: cardAccent }}>
       <article className="sc-public-card">
         <div className="sc-public-cover" aria-hidden={coverUrl ? undefined : true}>
           {coverUrl ? <img src={coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}
@@ -134,27 +138,28 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               </a>
             </li>
           )}
-          {v.website && (
+          {showContact && v.website && (
             <li>
               <a data-di-action="website" href={v.website} target="_blank" rel="noopener noreferrer">
                 <Icon name="globe" size={16} /> {v.website.replace(/^https:\/\/(www\.)?/, "").replace(/\/$/, "")}
               </a>
             </li>
           )}
-          {v.address && (
+          {showContact && v.address && (
             <li>
               <a href={`https://maps.google.com/?q=${encodeURIComponent(v.address)}`} target="_blank" rel="noopener noreferrer">
                 <Icon name="home" size={16} /> {v.address}
               </a>
             </li>
           )}
-          {v.links.map((l) => (
-            <li key={l.url}>
-              <a data-di-action="social" href={l.url} target="_blank" rel="noopener noreferrer nofollow">
-                <Icon name="link" size={16} /> {l.label}
-              </a>
-            </li>
-          ))}
+          {showContact &&
+            v.links.map((l) => (
+              <li key={l.url}>
+                <a data-di-action="social" href={l.url} target="_blank" rel="noopener noreferrer nofollow">
+                  <Icon name="link" size={16} /> {l.label}
+                </a>
+              </li>
+            ))}
         </ul>
         <div className="sc-public-actions">
           <a className="sc-secondary" href={`/p/${v.slug}/qr?format=png`}>

@@ -1,9 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import {
   foreground,
   profileFonts,
   profileImageUrl,
   sectionHasPublicContent,
+  sectionItemHasContent,
   type ProfileDesign,
 } from "@/lib/profile-design";
 import { Icon } from "./icons";
@@ -63,16 +64,20 @@ export function ProfileExperience({
   // Prefer real identity copy over marketing fluff on live profiles.
   const heroDescription = d.heroDescription || i.bio || (preview ? "Take the next step. Find the right service and a time that works for you." : "");
   const contactExtras = Boolean(i.website || i.links?.length || i.address);
-  const visibleSections = d.sections.filter((s) =>
-    preview
-      ? s.visible
-      : sectionHasPublicContent(s, {
-          bio: i.bio,
-          hasServices: Boolean(services),
-          hasReviews: Boolean(reviews),
-          hasContact: contactExtras,
-        }),
-  );
+  // PublicReviews owns empty-state hiding; Boolean(reviews) would keep an empty heading.
+  const reviewsSection = d.sections.find((s) => s.id === "reviews");
+  const reviewsSlotOwnsSection = Boolean(reviews) && Boolean(reviewsSection?.visible);
+  const visibleSections = d.sections.filter((s) => {
+    if (preview) return s.visible;
+    if (s.id === "reviews" && reviewsSlotOwnsSection) return true;
+    return sectionHasPublicContent(s, {
+      bio: i.bio,
+      hasServices: Boolean(services),
+      hasReviews: false,
+      hasContact: contactExtras,
+    });
+  });
+  const navSections = visibleSections.filter((s) => !(s.id === "reviews" && reviewsSlotOwnsSection));
 
   return (
     <article className={`px-profile px-${d.theme} px-layout-${d.layout}`} style={style}>
@@ -138,9 +143,9 @@ export function ProfileExperience({
           )}
         </div>
       </div>
-      {(d.layout === "tabbed" || d.layout === "sections") && visibleSections.length > 0 && (
+      {(d.layout === "tabbed" || d.layout === "sections") && navSections.length > 0 && (
         <nav className="px-section-nav" aria-label="Profile sections">
-          {visibleSections.map((s) => (
+          {navSections.map((s) => (
             <a key={s.id} href={`#${preview ? "preview-" : ""}profile-${s.id}`}>
               {s.title}
             </a>
@@ -155,62 +160,69 @@ export function ProfileExperience({
       )}
       {i.timezone && <p className="px-timezone">Host timezone · {i.timezone.replaceAll("_", " ")}</p>}
       <div className="px-sections">
-        {visibleSections.map((s) => (
-          <section key={s.id} id={`${preview ? "preview-" : ""}profile-${s.id}`} className={`px-section px-section-${s.id}`}>
-            <h2>{s.title}</h2>
-            {s.body && <p className="px-prose">{s.body}</p>}
-            {s.id === "about" && !s.body && i.bio && <p className="px-prose">{i.bio}</p>}
-            {s.id === "services" && services}
-            {s.id === "reviews" && reviews}
-            {s.id === "contact" && (
-              <div className="px-links">
-                {i.website && (
-                  <a data-di-action="website" href={i.website} target="_blank" rel="noopener noreferrer nofollow">
-                    Website <Icon name="external" size={14} />
-                  </a>
-                )}
-                {i.links?.map((l, index) => (
-                  <a data-di-action="social" key={`${l.url}-${index}`} href={l.url} target="_blank" rel="noopener noreferrer nofollow">
-                    {l.label} <Icon name="external" size={14} />
-                  </a>
-                ))}
-                {i.address && <p>{i.address}</p>}
-              </div>
-            )}
-            <div className={s.id === "gallery" ? "px-gallery" : "px-items"}>
-              {s.items.map((item, index) =>
-                s.id === "faq" ? (
-                  <details key={index}>
-                    <summary>
-                      {item.title}
-                      <Icon name="plus" size={16} />
-                    </summary>
-                    <p>{item.body}</p>
-                  </details>
-                ) : (
-                  <div className="px-item" key={index}>
-                    {s.id === "gallery" && item.url && (
-                      <img src={profileImageUrl(item.url)} alt={item.title || "Gallery image"} loading="lazy" referrerPolicy="no-referrer" />
-                    )}
-                    {s.id === "staff" && item.url && (
-                      <img className="px-staff-photo" src={profileImageUrl(item.url)} alt={item.title} loading="lazy" referrerPolicy="no-referrer" />
-                    )}
-                    {item.title && <h3>{item.title}</h3>}
-                    {item.body && <p className="px-prose">{item.body}</p>}
-                    {item.url && !["gallery", "staff"].includes(s.id) && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer nofollow">
-                        Learn more <Icon name="external" size={14} />
-                      </a>
-                    )}
-                  </div>
-                ),
+        {visibleSections.map((s) => {
+          // Async PublicReviews returns null when empty; let it own the whole section chrome.
+          if (!preview && s.id === "reviews" && reviewsSlotOwnsSection) {
+            return <Fragment key={s.id}>{reviews}</Fragment>;
+          }
+          const items = s.items.filter((item) => sectionItemHasContent(s.id, item));
+          return (
+            <section key={s.id} id={`${preview ? "preview-" : ""}profile-${s.id}`} className={`px-section px-section-${s.id}`}>
+              <h2>{s.title}</h2>
+              {s.body && <p className="px-prose">{s.body}</p>}
+              {s.id === "about" && !s.body && i.bio && <p className="px-prose">{i.bio}</p>}
+              {s.id === "services" && services}
+              {s.id === "reviews" && reviews}
+              {s.id === "contact" && (
+                <div className="px-links">
+                  {i.website && (
+                    <a data-di-action="website" href={i.website} target="_blank" rel="noopener noreferrer nofollow">
+                      Website <Icon name="external" size={14} />
+                    </a>
+                  )}
+                  {i.links?.map((l, index) => (
+                    <a data-di-action="social" key={`${l.url}-${index}`} href={l.url} target="_blank" rel="noopener noreferrer nofollow">
+                      {l.label} <Icon name="external" size={14} />
+                    </a>
+                  ))}
+                  {i.address && <p>{i.address}</p>}
+                </div>
               )}
-            </div>
-            {preview && !s.body && !s.items.length && !["about", "services", "contact"].includes(s.id) && (
-              <p className="px-empty">Add your {s.title.toLowerCase()} here.</p>
-            )}
-          </section>
-        ))}
+              <div className={s.id === "gallery" ? "px-gallery" : "px-items"}>
+                {items.map((item, index) =>
+                  s.id === "faq" ? (
+                    <details key={index}>
+                      <summary>
+                        {item.title}
+                        <Icon name="plus" size={16} />
+                      </summary>
+                      <p>{item.body}</p>
+                    </details>
+                  ) : (
+                    <div className="px-item" key={index}>
+                      {s.id === "gallery" && item.url && (
+                        <img src={profileImageUrl(item.url)} alt={item.title || "Gallery image"} loading="lazy" referrerPolicy="no-referrer" />
+                      )}
+                      {s.id === "staff" && item.url && (
+                        <img className="px-staff-photo" src={profileImageUrl(item.url)} alt={item.title} loading="lazy" referrerPolicy="no-referrer" />
+                      )}
+                      {item.title && <h3>{item.title}</h3>}
+                      {item.body && <p className="px-prose">{item.body}</p>}
+                      {item.url && !["gallery", "staff"].includes(s.id) && (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer nofollow">
+                          Learn more <Icon name="external" size={14} />
+                        </a>
+                      )}
+                    </div>
+                  ),
+                )}
+              </div>
+              {preview && !s.body && !items.length && !["about", "services", "contact"].includes(s.id) && (
+                <p className="px-empty">Add your {s.title.toLowerCase()} here.</p>
+              )}
+            </section>
+          );
+        })}
       </div>
       {leadCapture && <section className="px-section px-lead">{leadCapture}</section>}
     </article>

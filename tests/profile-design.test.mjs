@@ -74,3 +74,67 @@ test('design helpers detect sparse presentations and empty public sections',()=>
  assert.equal(D.sectionHasPublicContent(about,{bio:''}),false);
  assert.equal(D.sectionHasPublicContent(about,{bio:'Hello'}),true);
 });
+test('blank section items do not count as public content or custom presentation',()=>{
+ const d=D.defaultProfileDesign();
+ const faq=d.sections.find(s=>s.id==='faq');
+ faq.visible=true;
+ faq.items=[{title:'',body:'',url:''}];
+ assert.equal(D.sectionItemHasContent('faq',faq.items[0]),false);
+ assert.equal(D.sectionHasPublicContent(faq),false);
+ assert.equal(D.designHasCustomPresentation(d),false);
+ const gallery=d.sections.find(s=>s.id==='gallery');
+ gallery.visible=true;
+ gallery.items=[{title:'',body:'',url:'asset:7c0f2a7e-3d1b-4c55-9a51-0f4f3a1d2b9e'}];
+ assert.equal(D.sectionItemHasContent('gallery',gallery.items[0]),true);
+ assert.equal(D.sectionHasPublicContent(gallery),true);
+ assert.equal(D.designHasCustomPresentation(d),true);
+});
+test('compact card path honors published contact visibility',async()=>{
+ const filename=path.resolve('src/app/p/[slug]/page.tsx');
+ const publicView={slug:'qa-hidden',displayName:'Hidden Contact',jobTitle:'Owner',company:'Studio',bio:'Hello',bookingUrl:'',links:[{label:'Instagram',url:'https://instagram.com/x'}],phone:'555',email:'a@b.co',website:'https://example.com',address:'1 Main',accent:'#111111'};
+ const design=D.defaultProfileDesign();
+ design.accent='#ff5500';
+ design.sections=design.sections.map(s=>s.id==='contact'?{...s,visible:false}:s);
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
+ const mocks={
+  '@/components/profile-experience':{ProfileExperience:()=>React.createElement('div',{className:'should-not-render'},'designed')},
+  'next/link':({children,...props})=>React.createElement('a',props,children),
+  'next/headers':{headers:async()=>new Headers()},
+  '@/components/smart-card-lead-form':{SmartCardLeadForm:()=>null},
+  '@/components/public-profile-actions':{PublicProfileActions:()=>null},
+  '@/components/public-profile-click-tracker':{PublicProfileClickTracker:()=>null},
+  '@/components/icons':{Icon:()=>null,Logo:()=>null},
+  '@/lib/digital-identity':{VIEW_CHANNELS:['link','card','qr','nfc']},
+  '@/lib/profile-design':D,
+  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design,captureLeads:false,canonicalSlug:'qa-hidden'}),recordProfileView:async()=>{}}
+ };
+ m.require=id=>mocks[id]??normal(id);
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
+ const html=renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-hidden'}),searchParams:Promise.resolve({})}));
+ assert.match(html,/sc-public-card/);
+ assert.match(html,/--sc-accent:\s*#ff5500/);
+ assert.match(html,/tel:555|mailto:a@b\.co/);
+ assert.doesNotMatch(html,/example\.com|Instagram|1 Main|should-not-render/);
+ assert.equal(D.designShowsContactSection(design),false);
+ assert.equal(D.designShowsContactSection(null),true);
+});
+test('ProfileExperience skips blank items and lets PublicReviews own empty reviews chrome',()=>{
+ const filename=path.resolve('src/components/profile-experience.tsx');
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
+ m.require=id=>({ '@/lib/profile-design':D,'./icons':{Icon:()=>null} }[id]??normal(id));
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
+ const {ProfileExperience}=m.exports;
+ const design=D.defaultProfileDesign();
+ design.heroTitle='Book with us';
+ const faq=design.sections.find(s=>s.id==='faq');
+ faq.visible=true;
+ faq.items=[{title:'',body:'',url:''},{title:'Hours?',body:'Weekdays',url:''}];
+ design.sections.find(s=>s.id==='reviews').visible=true;
+ const withReviews=renderToStaticMarkup(React.createElement(ProfileExperience,{design,identity:{name:'QA'},reviews:React.createElement('section',{className:'pr'},'Client reviews')}));
+ assert.match(withReviews,/Client reviews/);
+ assert.doesNotMatch(withReviews,/Client experiences|profile-reviews/);
+ assert.match(withReviews,/Hours\?/);
+ assert.doesNotMatch(withReviews,/<div class="px-item"><\/div>/);
+ const emptySlot=renderToStaticMarkup(React.createElement(ProfileExperience,{design,identity:{name:'QA'},reviews:null}));
+ assert.doesNotMatch(emptySlot,/Client experiences|profile-reviews/);
+});
