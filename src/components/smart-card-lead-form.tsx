@@ -33,18 +33,45 @@ export function SmartCardLeadForm({ slug }: { slug: string }) {
   }
 
   return (
-    <section aria-labelledby="smart-lead-title">
-      <h2 id="smart-lead-title">Share your contact information</h2>
-      {state === "sent" ? <p role="status">Your details were shared.</p> : (
-        <form className="ds-root sc-form" onSubmit={submit}>
-          <p>The card owner will receive these details so they can follow up with you.</p>
-          <label className="ds-field">Name<input name="name" autoComplete="name" required maxLength={100} /></label>
-          <label className="ds-field">Email<input name="email" type="email" autoComplete="email" required maxLength={254} /></label>
-          <label className="ds-field">Company (optional)<input name="company" autoComplete="organization" maxLength={100} /></label>
+    <section className="sc-lead" aria-labelledby="smart-lead-title">
+      <div className="sc-lead-head">
+        <p className="sc-lead-kicker">Contact exchange</p>
+        <h2 id="smart-lead-title">Share your contact information</h2>
+        <p className="sc-lead-copy">
+          Leave your details and the profile owner can follow up. Your information is shared only with them.
+        </p>
+      </div>
+      {state === "sent" ? (
+        <p className="sc-lead-success" role="status">
+          Thanks — your details were shared successfully.
+        </p>
+      ) : (
+        <form className="sc-lead-form" onSubmit={submit}>
+          <label className="sc-lead-field">
+            <span>Name</span>
+            <input name="name" autoComplete="name" required maxLength={100} placeholder="Your name" />
+          </label>
+          <label className="sc-lead-field">
+            <span>Email</span>
+            <input name="email" type="email" autoComplete="email" required maxLength={254} placeholder="you@company.com" />
+          </label>
+          <label className="sc-lead-field">
+            <span>Company <em>(optional)</em></span>
+            <input name="company" autoComplete="organization" maxLength={100} placeholder="Company name" />
+          </label>
           <input name="website" hidden tabIndex={-1} autoComplete="off" />
-          <label><input type="checkbox" name="consent" required /> I agree to share these details with the card owner.</label>
-          {error && <p role="alert">{error}</p>}
-          <button className="sc-primary" disabled={state === "sending"}>{state === "sending" ? "Sharing…" : "Share my details"}</button>
+          <label className="sc-lead-consent">
+            <input type="checkbox" name="consent" required />
+            <span>I agree to share these details with the card owner.</span>
+          </label>
+          {error ? (
+            <p className="sc-lead-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button className="sc-primary sc-lead-submit" disabled={state === "sending"}>
+            {state === "sending" ? "Sharing…" : "Share my details"}
+          </button>
         </form>
       )}
     </section>

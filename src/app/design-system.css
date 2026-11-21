@@ -520,22 +520,27 @@
    Stretch grid children so ProfileExperience gets a definite inline size (see .px-profile
    container-type note). Centering + size containment previously collapsed the article to 0px. */
 .sc-public.sc-public-designed {
+  --sc-page-glow: color-mix(in srgb, var(--sc-accent, #365cff) 26%, transparent);
   min-height: 0;
-  width: min(100%, 1120px);
+  width: min(100%, 1180px);
   margin-inline: auto;
   justify-items: stretch;
   align-content: start;
-  padding: 20px 14px 40px;
-  gap: 16px;
+  padding: 28px 16px 48px;
+  gap: 18px;
+  background:
+    radial-gradient(ellipse 80% 42% at 50% -6%, var(--sc-page-glow), transparent 62%),
+    radial-gradient(ellipse 40% 30% at 100% 20%, color-mix(in srgb, #90b6ff 18%, transparent), transparent 55%),
+    linear-gradient(180deg, #eef2ff 0%, #f6f8fc 38%, #f3f5fb 100%);
 }
 .sc-public.sc-public-designed .px-profile {
   width: 100%;
   max-width: 100%;
-  border-radius: 24px;
+  border-radius: 28px;
   box-shadow:
-    0 1px 0 #ffffffa8 inset,
-    0 22px 60px #151b3818;
-  border: 1px solid color-mix(in srgb, var(--sc-accent, #365cff) 12%, #d7dce8);
+    0 1px 0 #ffffffd0 inset,
+    0 28px 70px #151b381c;
+  border: 1px solid color-mix(in srgb, var(--sc-accent, #365cff) 14%, #d7dce8);
 }
 .sc-public-card {
   position: relative;
@@ -643,6 +648,35 @@
 .sc-public-actions button:active { transform: translateY(0); }
 .sc-public-actions a:only-child,
 .sc-public-actions button:only-child { grid-column: 1 / -1; }
+.sc-public-actions a:focus-visible,
+.sc-public-actions button:focus-visible {
+  outline: 2px solid var(--sc-accent, #365cff);
+  outline-offset: 2px;
+}
+.sc-public-actions-premium {
+  gap: 12px;
+}
+.sc-public-actions-premium .sc-primary,
+.sc-public-actions-premium .sc-book {
+  min-height: 52px;
+  font-size: 15.5px;
+  border-radius: 16px;
+}
+.sc-book {
+  border: 1px solid color-mix(in srgb, var(--sc-accent, #365cff) 28%, #d7dce8) !important;
+  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--sc-accent, #365cff) 8%, #fff)) !important;
+  color: var(--sc-ink, #151b38) !important;
+  box-shadow: 0 8px 18px #151b3810;
+}
+.sc-book:hover {
+  border-color: var(--sc-accent, #365cff) !important;
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--sc-accent, #365cff) 18%, transparent);
+}
+@media (min-width: 900px) {
+  .px-primary-actions .sc-public-actions-premium {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 /* In-flow actions for designed profiles (rendered inside ProfileExperience).
    Do not sticky-pin to the viewport — that left a lone action card on a blank page
    when the article width collapsed. Keep width/margin out of this rule so
@@ -665,18 +699,112 @@
 }
 .sc-primary {
   /* Solid fill so --sc-on-accent (from foreground()) matches the painted background. */
-  background: var(--sc-accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc-accent) 88%, #fff), var(--sc-accent));
   color: var(--sc-on-accent, #fff) !important;
   border: 0;
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--sc-accent) 35%, transparent);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--sc-accent) 36%, transparent),
+    inset 0 1px 0 #ffffff55;
 }
-.sc-primary:hover { box-shadow: 0 14px 28px color-mix(in srgb, var(--sc-accent) 42%, transparent); }
+.sc-primary:hover { box-shadow: 0 16px 32px color-mix(in srgb, var(--sc-accent) 44%, transparent); }
 .sc-secondary {
-  border: 1px solid color-mix(in srgb, var(--sc-accent) 18%, var(--ds-line, #d7dce8));
+  border: 1px solid color-mix(in srgb, var(--sc-accent) 16%, var(--ds-line, #d7dce8));
   color: var(--sc-ink) !important;
-  background: #fff;
+  background: linear-gradient(180deg, #fff, #f8f9fd);
+  box-shadow: 0 6px 14px #151b3808;
 }
-.sc-secondary:hover { border-color: var(--sc-accent); }
+.sc-secondary:hover {
+  border-color: var(--sc-accent);
+  box-shadow: 0 10px 20px #151b3812;
+}
+
+/* Premium contact-exchange card (SmartCardLeadForm) */
+.sc-lead {
+  display: grid;
+  gap: 18px;
+}
+.sc-lead-head { display: grid; gap: 8px; }
+.sc-lead-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--px-primary, var(--sc-accent, #365cff)) 85%, #151b38);
+}
+.sc-lead-head h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.sc-lead-copy {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--px-ink, var(--sc-ink, #151b38)) 68%, transparent);
+}
+.sc-lead-form { display: grid; gap: 14px; }
+.sc-lead-field { display: grid; gap: 7px; margin: 0; font-size: 13.5px; font-weight: 650; }
+.sc-lead-field em { font-style: normal; font-weight: 500; opacity: 0.65; }
+.sc-lead-field input {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  /* Fixed light field surface so dark themes (--px-ink white) stay readable while typing. */
+  border: 1px solid #d0d5e4;
+  background: #fff;
+  color: #151b38;
+  font: 500 15px/1.3 inherit;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  caret-color: #151b38;
+}
+.sc-lead-field input::placeholder { color: #6b728a; }
+.sc-lead-field input:focus {
+  outline: none;
+  border-color: var(--px-primary, var(--sc-accent, #365cff));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--px-primary, #365cff) 18%, transparent);
+}
+.sc-lead-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+.sc-lead-consent input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--px-primary, var(--sc-accent, #365cff));
+  flex-shrink: 0;
+}
+.sc-lead-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sc-lead-success {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: color-mix(in srgb, #22c55e 12%, #fff);
+  border: 1px solid color-mix(in srgb, #22c55e 28%, transparent);
+  color: #166534;
+  font-weight: 650;
+}
+.sc-lead-submit {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 15.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.sc-lead-submit:disabled { opacity: 0.72; cursor: wait; }
 .sc-public-list {
   list-style: none;
   width: calc(100% - 40px);
@@ -713,7 +841,10 @@
   gap: 6px;
   font-size: 13px;
   color: color-mix(in srgb, var(--sc-ink) 48%, transparent);
+  opacity: 0.9;
+  transition: opacity 0.15s ease, color 0.15s ease;
 }
+.sc-public-footer a:hover { opacity: 1; color: var(--sc-accent, #365cff); }
 .sc-inactive .sc-public-card { padding: 32px 24px; justify-items: center; }
 .sc-inactive .sc-public-card p { color: var(--text-secondary); font-size: 15px; line-height: 1.55; max-width: 36ch; }
 .sc-inactive .sc-public-card a { color: var(--action-primary); font-weight: 600; }
@@ -732,8 +863,11 @@
   .sc-public-actions { grid-template-columns: 1fr 1fr; }
   .sc-public-actions a,
   .sc-public-actions button { min-height: 48px; font-size: 14.5px; }
+  .sc-public.sc-public-designed {
+    padding: 14px 10px 36px;
+  }
   .sc-public.sc-public-designed .px-profile {
-    border-radius: 20px;
+    border-radius: 22px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
