@@ -55,13 +55,13 @@ export function PublicProfileActions({
   }
 
   return (
-    <div className="sc-public-actions">
+    <div className="sc-public-actions sc-public-actions-premium">
       <a className="sc-primary" href={withVia(`/p/${slug}/vcard`, via)}>
         <Icon name="download" size={16} />
         Save contact
       </a>
       {bookingUrl ? (
-        <a className="sc-secondary" href={withVia(bookingUrl, via)}>
+        <a className="sc-secondary sc-book" href={withVia(bookingUrl, via)}>
           <Icon name="calendar" size={16} />
           {bookLabel}
         </a>

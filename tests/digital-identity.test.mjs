@@ -178,8 +178,10 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(page, /design\?\.primary/);
   assert.match(page, /--sc-on-accent/);
   assert.match(css, /var\(--sc-on-accent/);
-  assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*var\(--sc-accent\)/);
-  assert.doesNotMatch(css, /\.sc-primary\s*\{[^}]*color-mix\(in srgb, var\(--sc-accent\) 92%, #fff\)/);
+  assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*linear-gradient/);
+  assert.match(css, /var\(--sc-on-accent/);
+  assert.match(css, /\.sc-lead-form/);
+  assert.match(css, /\.sc-public-actions-premium/);
   const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
   // Guard the /p blank-profile failure: inline-size containment needs a definite width.
   assert.match(studio, /\.px-profile\{[^}]*width:\s*100%/);

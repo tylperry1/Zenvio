@@ -94,6 +94,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           identity={{
             name: v.displayName,
             tagline: [v.jobTitle, v.company].filter(Boolean).join(" · "),
+            jobTitle: v.jobTitle || undefined,
             company: v.company,
             bio: v.bio,
             phone: v.phone,
