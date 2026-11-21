@@ -698,13 +698,14 @@
   margin: 0;
 }
 .sc-primary {
-  /* Solid fill so --sc-on-accent (from foreground()) matches the painted background. */
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sc-accent) 88%, #fff), var(--sc-accent));
+  /* Solid accent so --sc-on-accent (from foreground()) keeps WCAG contrast —
+     a lightened gradient can fail on mid-tone custom primaries (e.g. #757575). */
+  background: var(--sc-accent);
   color: var(--sc-on-accent, #fff) !important;
   border: 0;
   box-shadow:
     0 12px 26px color-mix(in srgb, var(--sc-accent) 36%, transparent),
-    inset 0 1px 0 #ffffff55;
+    inset 0 1px 0 #ffffff33;
 }
 .sc-primary:hover { box-shadow: 0 16px 32px color-mix(in srgb, var(--sc-accent) 44%, transparent); }
 .sc-secondary {
