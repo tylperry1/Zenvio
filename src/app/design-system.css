@@ -649,7 +649,8 @@
   margin: 0;
 }
 .sc-primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--sc-accent) 92%, #fff), var(--sc-accent));
+  /* Solid fill so --sc-on-accent (from foreground()) matches the painted background. */
+  background: var(--sc-accent);
   color: var(--sc-on-accent, #fff) !important;
   border: 0;
   box-shadow: 0 10px 22px color-mix(in srgb, var(--sc-accent) 35%, transparent);
