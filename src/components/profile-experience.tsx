@@ -64,9 +64,15 @@ export function ProfileExperience({
   // Prefer real identity copy over marketing fluff on live profiles.
   const heroDescription = d.heroDescription || i.bio || (preview ? "Take the next step. Find the right service and a time that works for you." : "");
   const contactExtras = Boolean(i.website || i.links?.length || i.address);
-  // PublicReviews owns empty-state hiding; Boolean(reviews) would keep an empty heading.
+  // PublicReviews owns empty-state chrome only when the section has no saved body/items.
+  // Booking profiles always pass <PublicReviews/>; do not drop owner testimonials.
   const reviewsSection = d.sections.find((s) => s.id === "reviews");
-  const reviewsSlotOwnsSection = Boolean(reviews) && Boolean(reviewsSection?.visible);
+  const reviewsHasSavedContent = Boolean(
+    reviewsSection &&
+      (reviewsSection.body.trim() || reviewsSection.items.some((item) => sectionItemHasContent("reviews", item))),
+  );
+  const reviewsSlotOwnsSection =
+    Boolean(reviews) && Boolean(reviewsSection?.visible) && !reviewsHasSavedContent;
   const visibleSections = d.sections.filter((s) => {
     if (preview) return s.visible;
     if (s.id === "reviews" && reviewsSlotOwnsSection) return true;
