@@ -74,6 +74,16 @@ test('design helpers detect sparse presentations and empty public sections',()=>
  assert.equal(D.sectionHasPublicContent(about,{bio:''}),false);
  assert.equal(D.sectionHasPublicContent(about,{bio:'Hello'}),true);
 });
+test('theme presets cover every supported theme and parse cleanly',()=>{
+ assert.deepEqual([...D.profileThemes],['modern','dark','minimal','bold','elegant','executive','creative','business']);
+ for(const theme of D.profileThemes){
+  const preset=D.profileThemePresets[theme];
+  assert.ok(preset.primary&&preset.secondary&&preset.accent&&preset.background);
+  const parsed=D.parseProfileDesign({...D.defaultProfileDesign(),theme,...preset});
+  assert.equal(parsed.theme,theme);
+  assert.equal(parsed.primary,preset.primary);
+ }
+});
 test('blank section items do not count as public content or custom presentation',()=>{
  const d=D.defaultProfileDesign();
  const faq=d.sections.find(s=>s.id==='faq');
@@ -101,7 +111,7 @@ test('compact card path honors published contact visibility',async()=>{
   'next/link':({children,...props})=>React.createElement('a',props,children),
   'next/headers':{headers:async()=>new Headers()},
   '@/components/smart-card-lead-form':{SmartCardLeadForm:()=>null},
-  '@/components/public-profile-actions':{PublicProfileActions:()=>null},
+  '@/components/public-profile-actions':{PublicProfileActions:({phone,email})=>React.createElement('div',{className:'sc-public-actions'},phone&&React.createElement('a',{href:`tel:${phone}`},'Call'),email&&React.createElement('a',{href:`mailto:${email}`},'Email'))},
   '@/components/public-profile-click-tracker':{PublicProfileClickTracker:()=>null},
   '@/components/icons':{Icon:()=>null,Logo:()=>null},
   '@/lib/digital-identity':{VIEW_CHANNELS:['link','card','qr','nfc']},
@@ -114,7 +124,7 @@ test('compact card path honors published contact visibility',async()=>{
  assert.match(html,/sc-public-card/);
  assert.match(html,/--sc-accent:\s*#ff5500/);
  assert.match(html,/tel:555|mailto:a@b\.co/);
- assert.doesNotMatch(html,/example\.com|Instagram|1 Main|should-not-render/);
+ assert.doesNotMatch(html,/example\.com|Instagram|1 Main|should-not-render|sc-public-location/);
  assert.equal(D.designShowsContactSection(design),false);
  assert.equal(D.designShowsContactSection(null),true);
 });

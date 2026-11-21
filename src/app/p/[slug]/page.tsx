@@ -65,7 +65,17 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const initials = v.displayName.split(/\s+/).map((s) => s[0]).join("").slice(0, 2).toUpperCase();
   const bookingPath = v.bookingUrl ? withVia(`/p/${v.slug}/booking`, via) : "";
   const vcardPath = withVia(`/p/${v.slug}/vcard`, via);
-  const actions = <PublicProfileActions slug={v.slug} via={via} bookingUrl={bookingPath} />;
+  const bookLabel = profile.design?.buttonLabel?.trim() || "Book appointment";
+  const actions = (
+    <PublicProfileActions
+      slug={v.slug}
+      via={via}
+      bookingUrl={bookingPath}
+      phone={v.phone || undefined}
+      email={v.email || undefined}
+      bookLabel={bookLabel}
+    />
+  );
   const tracker = <PublicProfileClickTracker slug={v.slug} via={via} />;
   const coverUrl = profile.design?.cover ? profileImageUrl(profile.design.cover) : "";
   const avatarUrl = profile.design?.avatar ? profileImageUrl(profile.design.avatar) : "";
@@ -109,46 +119,44 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   // Sparse designs stay on the compact card, but still honor published accent + contact visibility.
   const cardAccent = profile.design?.accent || profile.design?.primary || v.accent;
   const showContact = designShowsContactSection(profile.design);
+  const locationLabel = v.address?.trim() || "";
 
   return (
     <main className="sc-public" style={{ ["--sc-accent" as string]: cardAccent }}>
       <article className="sc-public-card">
-        <div className="sc-public-cover" aria-hidden={coverUrl ? undefined : true}>
+        <div className={`sc-public-cover${coverUrl ? " has-image" : ""}`} aria-hidden={coverUrl ? undefined : true}>
           {coverUrl ? <img src={coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}
         </div>
-        <span className="sc-public-avatar" aria-hidden={avatarUrl ? undefined : true}>
-          {avatarUrl ? <img src={avatarUrl} alt={v.displayName} loading="lazy" referrerPolicy="no-referrer" /> : initials}
-        </span>
-        <h1>{v.displayName}</h1>
-        {(v.jobTitle || v.company) && <p className="sc-public-role">{[v.jobTitle, v.company].filter(Boolean).join(" · ")}</p>}
-        {v.bio && <p className="sc-public-bio">{v.bio}</p>}
+        <div className="sc-public-identity">
+          <span className={`sc-public-avatar${avatarUrl ? " has-image" : ""}`} aria-hidden={avatarUrl ? undefined : true}>
+            {avatarUrl ? <img src={avatarUrl} alt={v.displayName} loading="lazy" referrerPolicy="no-referrer" /> : initials}
+          </span>
+          <h1>{v.displayName}</h1>
+          {(v.jobTitle || v.company) && <p className="sc-public-role">{[v.jobTitle, v.company].filter(Boolean).join(" · ")}</p>}
+          {locationLabel && showContact ? <p className="sc-public-location">{locationLabel}</p> : null}
+          {v.bio && <p className="sc-public-bio">{v.bio}</p>}
+        </div>
         {actions}
         <ul className="sc-public-list">
-          {v.phone && (
-            <li>
-              <a data-di-action="phone" href={`tel:${v.phone.replace(/[^\d+]/g, "")}`}>
-                <Icon name="contact" size={16} /> {v.phone}
-              </a>
-            </li>
-          )}
-          {v.email && (
-            <li>
-              <a data-di-action="email" href={`mailto:${v.email}`}>
-                <Icon name="mail" size={16} /> {v.email}
-              </a>
-            </li>
-          )}
           {showContact && v.website && (
             <li>
               <a data-di-action="website" href={v.website} target="_blank" rel="noopener noreferrer">
-                <Icon name="globe" size={16} /> {v.website.replace(/^https:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                <Icon name="globe" size={17} />
+                <span>
+                  <b>Website</b>
+                  <small>{v.website.replace(/^https:\/\/(www\.)?/, "").replace(/\/$/, "")}</small>
+                </span>
               </a>
             </li>
           )}
           {showContact && v.address && (
             <li>
               <a href={`https://maps.google.com/?q=${encodeURIComponent(v.address)}`} target="_blank" rel="noopener noreferrer">
-                <Icon name="home" size={16} /> {v.address}
+                <Icon name="home" size={17} />
+                <span>
+                  <b>Directions</b>
+                  <small>{v.address}</small>
+                </span>
               </a>
             </li>
           )}
@@ -156,13 +164,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             v.links.map((l) => (
               <li key={l.url}>
                 <a data-di-action="social" href={l.url} target="_blank" rel="noopener noreferrer nofollow">
-                  <Icon name="link" size={16} /> {l.label}
+                  <Icon name="link" size={17} />
+                  <span>
+                    <b>{l.label}</b>
+                    <small>Open profile</small>
+                  </span>
                 </a>
               </li>
             ))}
         </ul>
-        <div className="sc-public-actions">
+        <div className="sc-public-actions sc-public-actions-secondary">
           <a className="sc-secondary" href={`/p/${v.slug}/qr?format=png`}>
+            <Icon name="qr" size={16} />
             Download QR code
           </a>
         </div>

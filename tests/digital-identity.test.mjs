@@ -171,8 +171,13 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   assert.match(page, /designHasCustomPresentation/);
   const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
-  assert.match(studio, /min-height:44px/);
+  assert.match(studio, /min-height:48px/);
   assert.doesNotMatch(studio, /px-contact-actions a\{[^}]*font-size:10px/);
+  assert.match(studio, /\.px-executive|\.px-creative|\.px-business/);
+  const actionsSrc = fs.readFileSync("src/components/public-profile-actions.tsx", "utf8");
+  assert.match(actionsSrc, /Save contact/);
+  assert.match(actionsSrc, /Share profile/);
+  assert.match(actionsSrc, /Book appointment/);
 });
 
 test("analytics labels verified bookings as account-wide", () => {

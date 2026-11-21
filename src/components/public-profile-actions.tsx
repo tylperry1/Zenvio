@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "./icons";
+
 const CHANNELS = ["link", "card", "qr", "nfc"] as const;
 type Channel = (typeof CHANNELS)[number];
 
@@ -19,12 +21,19 @@ export function PublicProfileActions({
   slug,
   via,
   bookingUrl,
+  phone,
+  email,
+  bookLabel = "Book appointment",
 }: {
   slug: string;
   via?: string;
   bookingUrl: string;
+  phone?: string;
+  email?: string;
+  bookLabel?: string;
 }) {
   const channel = allowlistedVia(via);
+  const tel = phone ? phone.replace(/[^\d+]/g, "") : "";
 
   function track(action: string) {
     const payload = JSON.stringify({ action, via: channel });
@@ -48,11 +57,25 @@ export function PublicProfileActions({
   return (
     <div className="sc-public-actions">
       <a className="sc-primary" href={withVia(`/p/${slug}/vcard`, via)}>
+        <Icon name="download" size={16} />
         Save contact
       </a>
       {bookingUrl ? (
         <a className="sc-secondary" href={withVia(bookingUrl, via)}>
-          Book a time
+          <Icon name="calendar" size={16} />
+          {bookLabel}
+        </a>
+      ) : null}
+      {tel ? (
+        <a className="sc-secondary" data-di-action="phone" href={`tel:${tel}`}>
+          <Icon name="contact" size={16} />
+          Call
+        </a>
+      ) : null}
+      {email ? (
+        <a className="sc-secondary" data-di-action="email" href={`mailto:${email}`}>
+          <Icon name="mail" size={16} />
+          Email
         </a>
       ) : null}
       <button
@@ -73,6 +96,7 @@ export function PublicProfileActions({
           }
         }}
       >
+        <Icon name="share" size={16} />
         Share profile
       </button>
       <button
@@ -87,6 +111,7 @@ export function PublicProfileActions({
           }
         }}
       >
+        <Icon name="link" size={16} />
         Copy link
       </button>
     </div>
