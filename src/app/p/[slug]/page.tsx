@@ -1,4 +1,5 @@
 import { ProfileExperience } from "@/components/profile-experience";
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
@@ -7,7 +8,7 @@ import { PublicProfileActions } from "@/components/public-profile-actions";
 import { PublicProfileClickTracker } from "@/components/public-profile-click-tracker";
 import { Icon, Logo } from "@/components/icons";
 import { VIEW_CHANNELS, type ViewChannel } from "@/lib/digital-identity";
-import { designHasCustomPresentation, designShowsContactSection, profileImageUrl } from "@/lib/profile-design";
+import { designHasCustomPresentation, designShowsContactSection, foreground, profileImageUrl } from "@/lib/profile-design";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
@@ -116,13 +117,17 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     );
   }
 
-  // Sparse designs stay on the compact card, but still honor published accent + contact visibility.
-  const cardAccent = profile.design?.accent || profile.design?.primary || v.accent;
+  // Prefer design primary (button color), not accent — default accent #22c55e fails white-text contrast.
+  const cardAccent = profile.design?.primary || v.accent || "#365cff";
+  const cardOnAccent = foreground(cardAccent);
   const showContact = designShowsContactSection(profile.design);
   const locationLabel = v.address?.trim() || "";
 
   return (
-    <main className="sc-public" style={{ ["--sc-accent" as string]: cardAccent }}>
+    <main
+      className="sc-public"
+      style={{ "--sc-accent": cardAccent, "--sc-on-accent": cardOnAccent } as CSSProperties}
+    >
       <article className="sc-public-card">
         <div className={`sc-public-cover${coverUrl ? " has-image" : ""}`} aria-hidden={coverUrl ? undefined : true}>
           {coverUrl ? <img src={coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}

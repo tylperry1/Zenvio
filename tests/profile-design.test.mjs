@@ -103,7 +103,7 @@ test('compact card path honors published contact visibility',async()=>{
  const filename=path.resolve('src/app/p/[slug]/page.tsx');
  const publicView={slug:'qa-hidden',displayName:'Hidden Contact',jobTitle:'Owner',company:'Studio',bio:'Hello',bookingUrl:'',links:[{label:'Instagram',url:'https://instagram.com/x'}],phone:'555',email:'a@b.co',website:'https://example.com',address:'1 Main',accent:'#111111'};
  const design=D.defaultProfileDesign();
- design.accent='#ff5500';
+ design.primary='#ff5500';
  design.sections=design.sections.map(s=>s.id==='contact'?{...s,visible:false}:s);
  const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
  const mocks={
@@ -123,10 +123,14 @@ test('compact card path honors published contact visibility',async()=>{
  const html=renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-hidden'}),searchParams:Promise.resolve({})}));
  assert.match(html,/sc-public-card/);
  assert.match(html,/--sc-accent:\s*#ff5500/);
+ assert.match(html,/--sc-on-accent:\s*#/);
  assert.match(html,/tel:555|mailto:a@b\.co/);
  assert.doesNotMatch(html,/example\.com|Instagram|1 Main|should-not-render|sc-public-location/);
  assert.equal(D.designShowsContactSection(design),false);
  assert.equal(D.designShowsContactSection(null),true);
+ // Bright green accent must not become the Save button fill when primary is available.
+ assert.equal(D.foreground('#22c55e'),'#151b38');
+ assert.equal(D.foreground('#365cff'),'#ffffff');
 });
 test('ProfileExperience skips blank items and lets PublicReviews own empty reviews chrome',()=>{
  const filename=path.resolve('src/components/profile-experience.tsx');

@@ -170,6 +170,10 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(css, /\.sc-public-designed-actions/);
   const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   assert.match(page, /designHasCustomPresentation/);
+  assert.match(page, /foreground\(/);
+  assert.match(page, /design\?\.primary/);
+  assert.match(page, /--sc-on-accent/);
+  assert.match(css, /var\(--sc-on-accent/);
   const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
   assert.match(studio, /min-height:48px/);
   assert.doesNotMatch(studio, /px-contact-actions a\{[^}]*font-size:10px/);

@@ -563,7 +563,7 @@
   border: 4px solid #fff;
   border-radius: 28px;
   background: linear-gradient(160deg, var(--sc-accent), color-mix(in srgb, var(--sc-accent) 55%, #151b38));
-  color: #fff;
+  color: var(--sc-on-accent, #fff);
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.04em;
@@ -650,7 +650,7 @@
 }
 .sc-primary {
   background: linear-gradient(180deg, color-mix(in srgb, var(--sc-accent) 92%, #fff), var(--sc-accent));
-  color: #fff !important;
+  color: var(--sc-on-accent, #fff) !important;
   border: 0;
   box-shadow: 0 10px 22px color-mix(in srgb, var(--sc-accent) 35%, transparent);
 }
