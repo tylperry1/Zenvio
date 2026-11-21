@@ -170,9 +170,22 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(css, /\.sc-public-designed-actions/);
   const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   assert.match(page, /designHasCustomPresentation/);
+  assert.match(page, /foreground\(/);
+  assert.match(page, /design\?\.primary/);
+  assert.match(page, /--sc-on-accent/);
+  assert.match(css, /var\(--sc-on-accent/);
+  assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*var\(--sc-accent\)/);
+  assert.doesNotMatch(css, /\.sc-primary\s*\{[^}]*color-mix\(in srgb, var\(--sc-accent\) 92%, #fff\)/);
   const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
-  assert.match(studio, /min-height:44px/);
+  assert.match(studio, /min-height:48px/);
   assert.doesNotMatch(studio, /px-contact-actions a\{[^}]*font-size:10px/);
+  assert.match(studio, /\.px-executive|\.px-creative|\.px-business/);
+  assert.match(studio, /\.px-minimal \.px-hero:not\(:has\(\.px-cover\)\)/);
+  assert.match(studio, /\.px-minimal \.px-hero:has\(\.px-cover\)\s*\{\s*color:\s*#fff/);
+  const actionsSrc = fs.readFileSync("src/components/public-profile-actions.tsx", "utf8");
+  assert.match(actionsSrc, /Save contact/);
+  assert.match(actionsSrc, /Share profile/);
+  assert.match(actionsSrc, /Book appointment/);
 });
 
 test("analytics labels verified bookings as account-wide", () => {

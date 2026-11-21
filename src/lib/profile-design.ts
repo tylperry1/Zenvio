@@ -1,10 +1,24 @@
 // Constrained presentation data. No executable CSS or HTML is accepted.
-export const profileThemes = ['modern','dark','minimal','bold','elegant'] as const;
-export const profileFonts = {arial:'Arial, Helvetica, sans-serif',system:'system-ui, sans-serif',serif:'Georgia, serif'} as const;
+export const profileThemes = ['modern','dark','minimal','bold','elegant','executive','creative','business'] as const;
+export const profileThemeLabels:Record<(typeof profileThemes)[number],string>={
+ modern:'Modern',dark:'Dark',minimal:'Minimal',bold:'Bold',elegant:'Elegant',executive:'Executive',creative:'Creative',business:'Business',
+};
+export const profileFonts = {arial:'Arial, Helvetica, sans-serif',system:'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',serif:'Georgia, "Times New Roman", serif'} as const;
 export const sectionIds = ['about','services','staff','reviews','faq','gallery','policies','contact'] as const;
 export type SectionId = typeof sectionIds[number];
 export type ProfileSection = {id:SectionId;title:string;visible:boolean;body:string;items:{title:string;body:string;url:string}[]};
 export type ProfileDesign = {schemaVersion:1;theme:typeof profileThemes[number];layout:'single'|'sections'|'cards'|'tabbed';primary:string;secondary:string;accent:string;background:string;headingFont:keyof typeof profileFonts;bodyFont:keyof typeof profileFonts;textSize:'small'|'medium'|'large';cover:string;avatar:string;heroTitle:string;heroDescription:string;buttonLabel:string;sections:ProfileSection[]};
+/** Professional color starting points — applied when an owner picks a theme preset. */
+export const profileThemePresets:Record<(typeof profileThemes)[number],Pick<ProfileDesign,'primary'|'secondary'|'accent'|'background'|'headingFont'|'bodyFont'|'textSize'>>={
+ modern:{primary:'#365cff',secondary:'#151b38',accent:'#22c55e',background:'#ffffff',headingFont:'arial',bodyFont:'arial',textSize:'medium'},
+ dark:{primary:'#6b8aff',secondary:'#0b1024',accent:'#38bdf8',background:'#111827',headingFont:'system',bodyFont:'system',textSize:'medium'},
+ minimal:{primary:'#151b38',secondary:'#151b38',accent:'#365cff',background:'#f7f8fc',headingFont:'system',bodyFont:'system',textSize:'medium'},
+ bold:{primary:'#365cff',secondary:'#0f172a',accent:'#f59e0b',background:'#ffffff',headingFont:'arial',bodyFont:'arial',textSize:'large'},
+ elegant:{primary:'#1f2937',secondary:'#111827',accent:'#b45309',background:'#fbf7f1',headingFont:'serif',bodyFont:'serif',textSize:'medium'},
+ executive:{primary:'#1d4ed8',secondary:'#0f172a',accent:'#0ea5e9',background:'#f8fafc',headingFont:'system',bodyFont:'system',textSize:'medium'},
+ creative:{primary:'#7c3aed',secondary:'#1e1b4b',accent:'#f472b6',background:'#ffffff',headingFont:'arial',bodyFont:'system',textSize:'medium'},
+ business:{primary:'#0f766e',secondary:'#134e4a',accent:'#365cff',background:'#ffffff',headingFont:'arial',bodyFont:'arial',textSize:'medium'},
+};
 const titles:Record<SectionId,string>={about:'About us',services:'Our services',staff:'Meet our team',reviews:'Client experiences',faq:'Frequently asked questions',gallery:'Our work',policies:'Booking policies',contact:'Let’s connect'};
 export function defaultProfileDesign():ProfileDesign{return {schemaVersion:1,theme:'modern',layout:'sections',primary:'#365cff',secondary:'#151b38',accent:'#22c55e',background:'#ffffff',headingFont:'arial',bodyFont:'arial',textSize:'medium',cover:'',avatar:'',heroTitle:'',heroDescription:'',buttonLabel:'Book an appointment',sections:sectionIds.map(id=>({id,title:titles[id],visible:['about','services','reviews','contact'].includes(id),body:'',items:[]}))};}
 export class ProfileDesignError extends Error {}
@@ -14,10 +28,17 @@ export function designUrl(v:unknown){const raw=text(v,1000);if(!raw)return '';tr
 export function designImage(v:unknown){const raw=text(v,100);if(!raw)return '';if(!/^asset:[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(raw))throw new ProfileDesignError('Upload an image from your device.');return raw;}
 export function profileImageUrl(value:string){return value.startsWith('asset:')?`/api/profile-design/image?asset=${encodeURIComponent(value.slice(6))}`:value;}
 export function designAssetIds(d:ProfileDesign){return [...new Set([d.cover,d.avatar,...d.sections.flatMap(s=>s.items.map(i=>i.url))].filter(s=>s.startsWith('asset:')).map(s=>s.slice(6)))];}
+/** Whether a section item has anything the public renderer would show. */
+export function sectionItemHasContent(sectionId:SectionId,item:{title:string;body:string;url:string}){
+ if(item.title.trim()||item.body.trim())return true;
+ // FAQ ignores URL; gallery/staff can be image-only; other sections treat a link as content.
+ if(sectionId==='faq')return false;
+ return Boolean(item.url.trim());
+}
 /** Whether a visible section would show real content on the public page (not preview placeholders). */
 export function sectionHasPublicContent(section:ProfileSection,extras?:{bio?:string;hasServices?:boolean;hasReviews?:boolean;hasContact?:boolean}){
  if(!section.visible)return false;
- if(section.body.trim()||section.items.length)return true;
+ if(section.body.trim()||section.items.some(i=>sectionItemHasContent(section.id,i)))return true;
  if(section.id==='about'&&extras?.bio?.trim())return true;
  if(section.id==='services'&&extras?.hasServices)return true;
  if(section.id==='reviews'&&extras?.hasReviews)return true;
@@ -27,7 +48,13 @@ export function sectionHasPublicContent(section:ProfileSection,extras?:{bio?:str
 /** Sparse designs (default empty studio publish) should use the compact digital card, not the long booking layout. */
 export function designHasCustomPresentation(d:ProfileDesign){
  if(d.cover||d.avatar||d.heroTitle.trim()||d.heroDescription.trim())return true;
- return d.sections.some(s=>s.visible&&(s.body.trim()||s.items.length>0));
+ return d.sections.some(s=>s.visible&&(s.body.trim()||s.items.some(i=>sectionItemHasContent(s.id,i))));
+}
+/** Compact-card contact list should honor the published contact section visibility. */
+export function designShowsContactSection(d:ProfileDesign|null|undefined){
+ if(!d)return true;
+ const contact=d.sections.find(s=>s.id==='contact');
+ return contact?contact.visible:true;
 }
 export function parseProfileDesign(value:unknown):ProfileDesign{
  if(!value||typeof value!=='object'||Array.isArray(value))throw new ProfileDesignError('Invalid design.');

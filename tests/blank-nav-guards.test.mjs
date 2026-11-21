@@ -59,6 +59,7 @@ test("missing public profile renders heading and About Zenvio link when loadPubl
     },
     "@/lib/profile-design": {
       designHasCustomPresentation: () => false,
+      designShowsContactSection: () => true,
       profileImageUrl: (v) => v || "",
     },
     "@/components/icons": { Icon: () => null, Logo: () => React.createElement("span", null, "Logo") },
