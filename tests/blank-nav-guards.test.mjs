@@ -57,6 +57,10 @@ test("missing public profile renders heading and About Zenvio link when loadPubl
     "@/lib/digital-identity": {
       VIEW_CHANNELS: ["link", "card", "qr", "nfc"],
     },
+    "@/lib/profile-design": {
+      designHasCustomPresentation: () => false,
+      profileImageUrl: (v) => v || "",
+    },
     "@/components/icons": { Icon: () => null, Logo: () => React.createElement("span", null, "Logo") },
     "@/lib/smart-cards": {
       loadPublicProfile: async () => null,

@@ -22,6 +22,8 @@ test('publishing cannot attach another account’s private artwork',async()=>{co
 test('custom public profiles retain the tracked booking redirect and contact privacy',async()=>{
  const filename=path.resolve('src/app/p/[slug]/page.tsx');
  const publicView={slug:'qa-profile',displayName:'QA Profile',jobTitle:'Consultant',company:'Example',bio:'Test profile',bookingUrl:'https://example.com/book',links:[]};
+ // Non-empty design presentation keeps the designed public path (sparse designs use the compact card).
+ const designed={...D.defaultProfileDesign(),heroTitle:'Book with QA'};
  const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
  const mocks={
   '@/components/profile-experience':{ProfileExperience:({identity})=>React.createElement('div',null,identity.bookingUrl&&React.createElement('a',{href:identity.bookingUrl},'Book'),identity.phone&&React.createElement('a',{href:`tel:${identity.phone}`},'Call'),identity.email&&React.createElement('a',{href:`mailto:${identity.email}`},'Email'))},
@@ -32,11 +34,43 @@ test('custom public profiles retain the tracked booking redirect and contact pri
   '@/components/public-profile-click-tracker':{PublicProfileClickTracker:()=>null},
   '@/components/icons':{Icon:()=>null,Logo:()=>null},
   '@/lib/digital-identity':{VIEW_CHANNELS:['link','card','qr','nfc']},
-  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design:D.defaultProfileDesign(),captureLeads:false,canonicalSlug:'qa-profile'}),recordProfileView:async()=>{}}
+  '@/lib/profile-design':{...D,designHasCustomPresentation:(d)=>Boolean(d?.heroTitle||d?.cover||d?.avatar),profileImageUrl:(v)=>v||''},
+  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design:designed,captureLeads:false,canonicalSlug:'qa-profile'}),recordProfileView:async()=>{}}
  };
  m.require=id=>mocks[id]??normal(id);
  m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
  const render=async()=>renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-profile'}),searchParams:Promise.resolve({via:'card'})}));
  const html=await render();assert.match(html,/href="\/p\/qa-profile\/booking\?via=card"/);assert.doesNotMatch(html,/https:\/\/example.com\/book|href="tel:|href="mailto:/);
  publicView.bookingUrl=undefined;assert.doesNotMatch(await render(),/\/booking/);
+});
+test('sparse published designs render the compact digital card instead of an empty designed page',async()=>{
+ const filename=path.resolve('src/app/p/[slug]/page.tsx');
+ const publicView={slug:'qa-card',displayName:'Card Profile',jobTitle:'Owner',company:'Studio',bio:'Hello',bookingUrl:'/book/host?src=smart-card',links:[],phone:'555',email:'a@b.co',website:'https://example.com',address:'1 Main',accent:'#365cff'};
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
+ const mocks={
+  '@/components/profile-experience':{ProfileExperience:()=>React.createElement('div',{className:'should-not-render'},'designed')},
+  'next/link':({children,...props})=>React.createElement('a',props,children),
+  'next/headers':{headers:async()=>new Headers()},
+  '@/components/smart-card-lead-form':{SmartCardLeadForm:()=>null},
+  '@/components/public-profile-actions':{PublicProfileActions:({bookingUrl})=>React.createElement('a',{href:bookingUrl,className:'sc-primary'},'Book a time')},
+  '@/components/public-profile-click-tracker':{PublicProfileClickTracker:()=>null},
+  '@/components/icons':{Icon:()=>null,Logo:()=>null},
+  '@/lib/digital-identity':{VIEW_CHANNELS:['link','card','qr','nfc']},
+  '@/lib/profile-design':D,
+  '@/lib/smart-cards':{loadPublicProfile:async()=>({id:profile,view:publicView,design:D.defaultProfileDesign(),captureLeads:false,canonicalSlug:'qa-card'}),recordProfileView:async()=>{}}
+ };
+ m.require=id=>mocks[id]??normal(id);
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
+ const html=renderToStaticMarkup(await m.exports.default({params:Promise.resolve({slug:'qa-card'}),searchParams:Promise.resolve({})}));
+ assert.match(html,/sc-public-card/);
+ assert.match(html,/Card Profile/);
+ assert.doesNotMatch(html,/should-not-render|sc-public-designed/);
+});
+test('design helpers detect sparse presentations and empty public sections',()=>{
+ const d=D.defaultProfileDesign();
+ assert.equal(D.designHasCustomPresentation(d),false);
+ d.heroTitle='Welcome';assert.equal(D.designHasCustomPresentation(d),true);
+ const about=d.sections.find(s=>s.id==='about');
+ assert.equal(D.sectionHasPublicContent(about,{bio:''}),false);
+ assert.equal(D.sectionHasPublicContent(about,{bio:'Hello'}),true);
 });

@@ -7,6 +7,7 @@ import { PublicProfileActions } from "@/components/public-profile-actions";
 import { PublicProfileClickTracker } from "@/components/public-profile-click-tracker";
 import { Icon, Logo } from "@/components/icons";
 import { VIEW_CHANNELS, type ViewChannel } from "@/lib/digital-identity";
+import { designHasCustomPresentation, profileImageUrl } from "@/lib/profile-design";
 import { loadPublicProfile, recordProfileView } from "@/lib/smart-cards";
 
 export const dynamic = "force-dynamic";
@@ -66,8 +67,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const vcardPath = withVia(`/p/${v.slug}/vcard`, via);
   const actions = <PublicProfileActions slug={v.slug} via={via} bookingUrl={bookingPath} />;
   const tracker = <PublicProfileClickTracker slug={v.slug} via={via} />;
+  const coverUrl = profile.design?.cover ? profileImageUrl(profile.design.cover) : "";
+  const avatarUrl = profile.design?.avatar ? profileImageUrl(profile.design.avatar) : "";
+  // Empty/default studio publishes should stay a compact digital card, not a hollow booking page.
+  const useDesignedLayout = Boolean(profile.design && designHasCustomPresentation(profile.design));
 
-  if (profile.design) {
+  if (useDesignedLayout && profile.design) {
     return (
       <main className="sc-public sc-public-designed">
         <ProfileExperience
@@ -85,6 +90,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             bookingUrl: bookingPath || undefined,
             vcardUrl: vcardPath,
             qrUrl: `/p/${v.slug}/qr?format=png`,
+            coverUrl: coverUrl || undefined,
+            avatarUrl: avatarUrl || undefined,
           }}
           leadCapture={profile.captureLeads ? <SmartCardLeadForm slug={v.slug} /> : undefined}
         />
@@ -102,9 +109,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <main className="sc-public" style={{ ["--sc-accent" as string]: v.accent }}>
       <article className="sc-public-card">
-        <div className="sc-public-cover" aria-hidden="true" />
-        <span className="sc-public-avatar" aria-hidden="true">
-          {initials}
+        <div className="sc-public-cover" aria-hidden={coverUrl ? undefined : true}>
+          {coverUrl ? <img src={coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}
+        </div>
+        <span className="sc-public-avatar" aria-hidden={avatarUrl ? undefined : true}>
+          {avatarUrl ? <img src={avatarUrl} alt={v.displayName} loading="lazy" referrerPolicy="no-referrer" /> : initials}
         </span>
         <h1>{v.displayName}</h1>
         {(v.jobTitle || v.company) && <p className="sc-public-role">{[v.jobTitle, v.company].filter(Boolean).join(" · ")}</p>}
