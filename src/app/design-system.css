@@ -516,14 +516,26 @@
     linear-gradient(180deg, color-mix(in srgb, var(--sc-accent) 10%, #f4f6fb), var(--surface-page) 42%);
   color: var(--sc-ink);
 }
-/* Designed layouts hug content — avoid a full-viewport empty gradient under short profiles. */
+/* Designed layouts hug content — avoid a full-viewport empty gradient under short profiles.
+   Stretch grid children so ProfileExperience gets a definite inline size (see .px-profile
+   container-type note). Centering + size containment previously collapsed the article to 0px. */
 .sc-public.sc-public-designed {
   min-height: 0;
   width: min(100%, 1120px);
   margin-inline: auto;
+  justify-items: stretch;
   align-content: start;
-  padding: 20px 14px 56px;
-  gap: 18px;
+  padding: 20px 14px 40px;
+  gap: 16px;
+}
+.sc-public.sc-public-designed .px-profile {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 24px;
+  box-shadow:
+    0 1px 0 #ffffffa8 inset,
+    0 22px 60px #151b3818;
+  border: 1px solid color-mix(in srgb, var(--sc-accent, #365cff) 12%, #d7dce8);
 }
 .sc-public-card {
   position: relative;
@@ -631,20 +643,23 @@
 .sc-public-actions button:active { transform: translateY(0); }
 .sc-public-actions a:only-child,
 .sc-public-actions button:only-child { grid-column: 1 / -1; }
-.sc-public-designed-actions {
-  position: sticky;
-  bottom: 12px;
-  z-index: 5;
-  width: min(100%, 560px);
-  margin: 4px auto 0;
-  padding: 10px;
-  border-radius: 20px;
-  background: color-mix(in srgb, #fff 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sc-accent, #365cff) 16%, #d7dce8);
-  box-shadow: 0 14px 40px #151b3828;
-  backdrop-filter: blur(14px);
+/* In-flow actions for designed profiles (rendered inside ProfileExperience).
+   Do not sticky-pin to the viewport — that left a lone action card on a blank page
+   when the article width collapsed. Keep width/margin out of this rule so
+   .px-primary-actions spacing (profile-studio.css) can inset the CTA strip. */
+.sc-public-designed-actions,
+.px-primary-actions.sc-public-designed-actions {
+  position: static;
+  z-index: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
-.sc-public-designed-actions .sc-public-actions {
+.sc-public-designed-actions .sc-public-actions,
+.px-primary-actions .sc-public-actions {
   width: 100%;
   margin: 0;
 }
@@ -717,11 +732,8 @@
   .sc-public-actions { grid-template-columns: 1fr 1fr; }
   .sc-public-actions a,
   .sc-public-actions button { min-height: 48px; font-size: 14.5px; }
-  .sc-public-designed-actions {
-    bottom: 8px;
-    width: calc(100% - 8px);
-    max-width: none;
-    border-radius: 18px;
+  .sc-public.sc-public-designed .px-profile {
+    border-radius: 20px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

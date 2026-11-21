@@ -35,6 +35,7 @@ export function ProfileExperience({
   services,
   reviews,
   leadCapture,
+  actions,
   preview = false,
 }: {
   design: ProfileDesign;
@@ -42,6 +43,8 @@ export function ProfileExperience({
   services?: ReactNode;
   reviews?: ReactNode;
   leadCapture?: ReactNode;
+  /** Primary CTAs rendered in-flow under identity (public page Share/Call/Book strip). */
+  actions?: ReactNode;
   preview?: boolean;
 }) {
   const bg = d.theme === "dark" ? d.secondary : d.background;
@@ -116,6 +119,7 @@ export function ProfileExperience({
           <h1>{i.name}</h1>
           {i.tagline && <p>{i.tagline}</p>}
         </div>
+        {/* When public CTAs are passed in `actions`, keep only unique chips here to avoid a duplicate Call/Email/Save strip. */}
         <div className="px-contact-actions">
           {i.qrUrl && (
             <a href={i.qrUrl}>
@@ -123,19 +127,19 @@ export function ProfileExperience({
               Download QR
             </a>
           )}
-          {i.vcardUrl && (
+          {!actions && i.vcardUrl && (
             <a href={i.vcardUrl}>
               <Icon name="download" size={17} />
               Save contact
             </a>
           )}
-          {i.phone && (
+          {!actions && i.phone && (
             <a data-di-action="phone" href={`tel:${i.phone.replace(/[^\d+]/g, "")}`}>
               <Icon name="contact" size={17} />
               Call
             </a>
           )}
-          {i.email && (
+          {!actions && i.email && (
             <a data-di-action="email" href={`mailto:${i.email}`}>
               <Icon name="mail" size={17} />
               Email
@@ -149,7 +153,8 @@ export function ProfileExperience({
           )}
         </div>
       </div>
-      {(d.layout === "tabbed" || d.layout === "sections") && navSections.length > 0 && (
+      {actions ? <div className="px-primary-actions sc-public-designed-actions">{actions}</div> : null}
+      {(d.layout === "tabbed" || d.layout === "sections") && navSections.length > 1 && (
         <nav className="px-section-nav" aria-label="Profile sections">
           {navSections.map((s) => (
             <a key={s.id} href={`#${preview ? "preview-" : ""}profile-${s.id}`}>

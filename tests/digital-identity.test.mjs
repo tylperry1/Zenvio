@@ -127,7 +127,9 @@ test("public profile does not embed via into raw script HTML", () => {
   assert.doesNotMatch(page, /dangerouslySetInnerHTML/);
   assert.match(page, /PublicProfileClickTracker/);
   assert.match(page, /allowlistedVia|VIEW_CHANNELS/);
-  assert.match(page, /sc-public-designed-actions/);
+  // Designed CTAs mount inside ProfileExperience (actions=), not a sticky sibling.
+  assert.match(page, /actions=\{actions\}/);
+  assert.doesNotMatch(page, /<div className="sc-public-designed-actions">\{actions\}<\/div>/);
 });
 
 test("slug create reserves redirects and publish without visibility stays public", () => {
@@ -167,7 +169,9 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   const css = fs.readFileSync("src/app/design-system.css", "utf8");
   assert.match(css, /\.sc-public-actions a,\s*\.sc-public-actions button/);
   assert.match(css, /\.sc-public\.sc-public-designed\s*\{[^}]*min-height:\s*0/);
+  assert.match(css, /\.sc-public\.sc-public-designed\s*\{[^}]*justify-items:\s*stretch/);
   assert.match(css, /\.sc-public-designed-actions/);
+  assert.match(css, /\.sc-public-designed-actions[^{]*\{[^}]*position:\s*static/);
   const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   assert.match(page, /designHasCustomPresentation/);
   assert.match(page, /foreground\(/);
@@ -177,11 +181,17 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*var\(--sc-accent\)/);
   assert.doesNotMatch(css, /\.sc-primary\s*\{[^}]*color-mix\(in srgb, var\(--sc-accent\) 92%, #fff\)/);
   const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
+  // Guard the /p blank-profile failure: inline-size containment needs a definite width.
+  assert.match(studio, /\.px-profile\{[^}]*width:\s*100%/);
+  assert.match(studio, /\.px-profile\{[^}]*container-type:\s*inline-size/);
   assert.match(studio, /min-height:48px/);
   assert.doesNotMatch(studio, /px-contact-actions a\{[^}]*font-size:10px/);
   assert.match(studio, /\.px-executive|\.px-creative|\.px-business/);
   assert.match(studio, /\.px-minimal \.px-hero:not\(:has\(\.px-cover\)\)/);
   assert.match(studio, /\.px-minimal \.px-hero:has\(\.px-cover\)\s*\{\s*color:\s*#fff/);
+  const experience = fs.readFileSync("src/components/profile-experience.tsx", "utf8");
+  assert.match(experience, /actions\?:/);
+  assert.match(experience, /px-primary-actions/);
   const actionsSrc = fs.readFileSync("src/components/public-profile-actions.tsx", "utf8");
   assert.match(actionsSrc, /Save contact/);
   assert.match(actionsSrc, /Share profile/);

@@ -85,7 +85,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
   if (useDesignedLayout && profile.design) {
     return (
-      <main className="sc-public sc-public-designed">
+      <main
+        className="sc-public sc-public-designed"
+        style={{ "--sc-accent": profile.design.primary || v.accent || "#365cff", "--sc-on-accent": foreground(profile.design.primary || v.accent || "#365cff") } as CSSProperties}
+      >
         <ProfileExperience
           design={profile.design}
           identity={{
@@ -104,9 +107,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             coverUrl: coverUrl || undefined,
             avatarUrl: avatarUrl || undefined,
           }}
+          actions={actions}
           leadCapture={profile.captureLeads ? <SmartCardLeadForm slug={v.slug} /> : undefined}
         />
-        <div className="sc-public-designed-actions">{actions}</div>
         <footer className="sc-public-footer">
           <Link href="/">
             Smart profile by <Logo compact />
