@@ -14,6 +14,21 @@ export function designUrl(v:unknown){const raw=text(v,1000);if(!raw)return '';tr
 export function designImage(v:unknown){const raw=text(v,100);if(!raw)return '';if(!/^asset:[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(raw))throw new ProfileDesignError('Upload an image from your device.');return raw;}
 export function profileImageUrl(value:string){return value.startsWith('asset:')?`/api/profile-design/image?asset=${encodeURIComponent(value.slice(6))}`:value;}
 export function designAssetIds(d:ProfileDesign){return [...new Set([d.cover,d.avatar,...d.sections.flatMap(s=>s.items.map(i=>i.url))].filter(s=>s.startsWith('asset:')).map(s=>s.slice(6)))];}
+/** Whether a visible section would show real content on the public page (not preview placeholders). */
+export function sectionHasPublicContent(section:ProfileSection,extras?:{bio?:string;hasServices?:boolean;hasReviews?:boolean;hasContact?:boolean}){
+ if(!section.visible)return false;
+ if(section.body.trim()||section.items.length)return true;
+ if(section.id==='about'&&extras?.bio?.trim())return true;
+ if(section.id==='services'&&extras?.hasServices)return true;
+ if(section.id==='reviews'&&extras?.hasReviews)return true;
+ if(section.id==='contact'&&extras?.hasContact)return true;
+ return false;
+}
+/** Sparse designs (default empty studio publish) should use the compact digital card, not the long booking layout. */
+export function designHasCustomPresentation(d:ProfileDesign){
+ if(d.cover||d.avatar||d.heroTitle.trim()||d.heroDescription.trim())return true;
+ return d.sections.some(s=>s.visible&&(s.body.trim()||s.items.length>0));
+}
 export function parseProfileDesign(value:unknown):ProfileDesign{
  if(!value||typeof value!=='object'||Array.isArray(value))throw new ProfileDesignError('Invalid design.');
  if(JSON.stringify(value).length>13000)throw new ProfileDesignError('This design is too large. Shorten some text or remove items.');

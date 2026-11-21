@@ -163,6 +163,18 @@ test("click trackers fall back when sendBeacon returns false", () => {
   }
 });
 
+test("public profile CSS sizes Share/Copy buttons and avoids designed empty-viewport trap", () => {
+  const css = fs.readFileSync("src/app/design-system.css", "utf8");
+  assert.match(css, /\.sc-public-actions a,\s*\.sc-public-actions button/);
+  assert.match(css, /\.sc-public\.sc-public-designed\s*\{[^}]*min-height:\s*0/);
+  assert.match(css, /\.sc-public-designed-actions/);
+  const page = fs.readFileSync("src/app/p/[slug]/page.tsx", "utf8");
+  assert.match(page, /designHasCustomPresentation/);
+  const studio = fs.readFileSync("src/app/profile-studio.css", "utf8");
+  assert.match(studio, /min-height:44px/);
+  assert.doesNotMatch(studio, /px-contact-actions a\{[^}]*font-size:10px/);
+});
+
 test("analytics labels verified bookings as account-wide", () => {
   const ui = fs.readFileSync("src/components/identity-analytics.tsx", "utf8");
   assert.match(ui, /Account-wide/);
