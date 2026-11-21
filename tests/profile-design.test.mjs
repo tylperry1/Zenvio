@@ -132,6 +132,25 @@ test('compact card path honors published contact visibility',async()=>{
  assert.equal(D.foreground('#22c55e'),'#151b38');
  assert.equal(D.foreground('#365cff'),'#ffffff');
 });
+test('ProfileExperience renders in-flow actions under identity',()=>{
+ const filename=path.resolve('src/components/profile-experience.tsx');
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
+ m.require=id=>({ '@/lib/profile-design':D,'./icons':{Icon:()=>null} }[id]??normal(id));
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
+ const {ProfileExperience}=m.exports;
+ const design=D.defaultProfileDesign();
+ design.heroTitle='Welcome';
+ const html=renderToStaticMarkup(React.createElement(ProfileExperience,{
+  design,
+  identity:{name:'QA'},
+  actions:React.createElement('div',{className:'sc-public-actions'},'Share profile'),
+ }));
+ assert.match(html,/px-primary-actions/);
+ assert.match(html,/sc-public-designed-actions/);
+ assert.match(html,/Share profile/);
+ assert.ok(html.indexOf('px-identity') < html.indexOf('px-primary-actions'));
+});
+
 test('ProfileExperience skips blank items and lets PublicReviews own empty reviews chrome',()=>{
  const filename=path.resolve('src/components/profile-experience.tsx');
  const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
