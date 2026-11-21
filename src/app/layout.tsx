@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { ServiceWorkerRegister } from "@/components/pwa";
 import { PublicChat } from "@/components/public-chat";
 import "./globals.css";
@@ -92,6 +93,7 @@ export default async function RootLayout({
       {children}
       <ServiceWorkerRegister />
       <PublicChat />
+      <Analytics />
     </>
   );
   return (
