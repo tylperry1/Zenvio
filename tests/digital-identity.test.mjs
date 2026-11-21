@@ -178,7 +178,8 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(page, /design\?\.primary/);
   assert.match(page, /--sc-on-accent/);
   assert.match(css, /var\(--sc-on-accent/);
-  assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*linear-gradient/);
+  // Solid accent fill keeps foreground() contrast WCAG-safe on mid-tone primaries.
+  assert.match(css, /\.sc-primary\s*\{[^}]*background:\s*var\(--sc-accent\)/);
   assert.match(css, /var\(--sc-on-accent/);
   assert.match(css, /\.sc-lead-form/);
   assert.match(css, /\.sc-public-actions-premium/);
@@ -191,6 +192,7 @@ test("public profile CSS sizes Share/Copy buttons and avoids designed empty-view
   assert.match(studio, /\.px-executive|\.px-creative|\.px-business/);
   assert.match(studio, /\.px-minimal \.px-hero:not\(:has\(\.px-cover\)\)/);
   assert.match(studio, /\.px-minimal \.px-hero:has\(\.px-cover\)\s*\{\s*color:\s*#fff/);
+  assert.match(studio, /\.px-profile \.px-button\{[^}]*background:\s*var\(--px-primary\)/);
   const experience = fs.readFileSync("src/components/profile-experience.tsx", "utf8");
   assert.match(experience, /actions\?:/);
   assert.match(experience, /px-primary-actions/);
