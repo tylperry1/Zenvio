@@ -67,8 +67,16 @@ export function ProfileExperience({
   const heroTitle = d.heroTitle || i.tagline || i.name;
   // Prefer real identity copy over marketing fluff on live profiles.
   const heroDescription = d.heroDescription || i.bio || (preview ? "Take the next step. Find the right service and a time that works for you." : "");
-  const roleLine = i.jobTitle || (i.tagline?.includes(" · ") ? i.tagline.split(" · ")[0] : i.tagline);
-  const companyLine = i.company || (i.tagline?.includes(" · ") ? i.tagline.split(" · ").slice(1).join(" · ") : "");
+  // Prefer structured fields. Never split free-form taglines (booking headlines often contain " · ").
+  const companyLine = i.company?.trim() || "";
+  const roleLine = (() => {
+    if (i.jobTitle?.trim()) return i.jobTitle.trim();
+    const tag = i.tagline?.trim() || "";
+    if (!tag) return "";
+    // Avoid repeating company when callers only pass company as tagline.
+    if (companyLine && tag === companyLine) return "";
+    return tag;
+  })();
   const contactExtras = Boolean(i.website || i.links?.length || i.address);
   // PublicReviews owns empty-state chrome only when the section has no saved body/items.
   // Booking profiles always pass <PublicReviews/>; do not drop owner testimonials.

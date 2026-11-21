@@ -751,13 +751,15 @@
   min-height: 50px;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--px-ink, #151b38) 14%, #d7dce8);
-  background: color-mix(in srgb, #fff 92%, var(--px-background, #fff));
-  color: var(--px-ink, #151b38);
+  /* Fixed light field surface so dark themes (--px-ink white) stay readable while typing. */
+  border: 1px solid #d0d5e4;
+  background: #fff;
+  color: #151b38;
   font: 500 15px/1.3 inherit;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  caret-color: #151b38;
 }
-.sc-lead-field input::placeholder { color: color-mix(in srgb, var(--px-ink, #151b38) 40%, transparent); }
+.sc-lead-field input::placeholder { color: #6b728a; }
 .sc-lead-field input:focus {
   outline: none;
   border-color: var(--px-primary, var(--sc-accent, #365cff));
