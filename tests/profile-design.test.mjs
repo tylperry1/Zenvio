@@ -138,3 +138,22 @@ test('ProfileExperience skips blank items and lets PublicReviews own empty revie
  const emptySlot=renderToStaticMarkup(React.createElement(ProfileExperience,{design,identity:{name:'QA'},reviews:null}));
  assert.doesNotMatch(emptySlot,/Client experiences|profile-reviews/);
 });
+test('ProfileExperience keeps saved reviews content when PublicReviews slot is passed',()=>{
+ const filename=path.resolve('src/components/profile-experience.tsx');
+ const m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);
+ m.require=id=>({ '@/lib/profile-design':D,'./icons':{Icon:()=>null} }[id]??normal(id));
+ m._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,filename);
+ const {ProfileExperience}=m.exports;
+ const design=D.defaultProfileDesign();
+ design.heroTitle='Book with us';
+ const reviews=design.sections.find(s=>s.id==='reviews');
+ reviews.visible=true;
+ reviews.body='What clients say';
+ reviews.items=[{title:'Great visit',body:'Came back twice.',url:''}];
+ const html=renderToStaticMarkup(React.createElement(ProfileExperience,{design,identity:{name:'QA'},reviews:React.createElement('section',{className:'pr'},'Live ratings')}));
+ assert.match(html,/id="profile-reviews"/);
+ assert.match(html,/Client experiences/);
+ assert.match(html,/What clients say/);
+ assert.match(html,/Great visit/);
+ assert.match(html,/Live ratings/);
+});
