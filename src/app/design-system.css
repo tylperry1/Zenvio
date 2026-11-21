@@ -645,14 +645,12 @@
 .sc-public-actions button:only-child { grid-column: 1 / -1; }
 /* In-flow actions for designed profiles (rendered inside ProfileExperience).
    Do not sticky-pin to the viewport — that left a lone action card on a blank page
-   when the article width collapsed. */
+   when the article width collapsed. Keep width/margin out of this rule so
+   .px-primary-actions spacing (profile-studio.css) can inset the CTA strip. */
 .sc-public-designed-actions,
 .px-primary-actions.sc-public-designed-actions {
   position: static;
   z-index: auto;
-  width: 100%;
-  max-width: none;
-  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
