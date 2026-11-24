@@ -8,7 +8,7 @@ import { Icon } from "./icons";
 import { Availability, LiveControls, MessageList, useDraft, useLive, type Message } from "./platform-support";
 
 type VisitorTicket = { id: string; subject: string; status: "open" | "pending" | "resolved"; rating: number | null; name: string; email: string };
-type VisitorData = { ticket: VisitorTicket | null; messages?: { id: string; staff: boolean; content: string; created_at: string }[]; online: boolean; signedIn: boolean };
+type VisitorData = { ticket: VisitorTicket | null; messages?: { id: string; staff: boolean; content: string; created_at: string }[]; online: boolean };
 
 const statusLabel = { open: "Waiting on Zenvio", pending: "Zenvio replied", resolved: "Resolved" } as const;
 
@@ -96,7 +96,7 @@ function StartForm({ onStarted, compact }: { onStarted: () => void; compact?: bo
 }
 
 /** Chat for website visitors who aren't signed in. */
-export function VisitorChat({ compact = false }: { compact?: boolean }) {
+export function VisitorChat({ compact = false, signedIn = false }: { compact?: boolean; signedIn?: boolean }) {
   const [data, setData] = useState<VisitorData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -109,6 +109,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
     setData(d);
   }, []);
   useEffect(() => {
+    if (signedIn) return;
     (async () => {
       // A reply-email link carries the conversation token in the URL fragment.
       const token = window.location.hash.slice(1);
@@ -118,7 +119,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
       }
       await load();
     })();
-  }, [load]);
+  }, [load, signedIn]);
   const live = useLive(data?.ticket ? "/api/support/visitor/stream" : null, () => void load());
   const pollRef = useRef(load);
   pollRef.current = load;
@@ -128,7 +129,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
     return () => window.clearInterval(timer);
   }, [data?.ticket, live]);
 
-  if (data?.signedIn)
+  if (signedIn)
     return (
       <div className="vc-signed-in">
         <p>You’re signed in. Chat with the team from your workspace so your conversations stay in one place.</p>

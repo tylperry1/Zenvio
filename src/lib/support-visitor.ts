@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { getAuth } from "./auth";
 import { allowRequest, clientIp, requireCaptcha } from "./booking-protection";
 import { getPool } from "./db";
 import { sealSecret } from "./platform-settings";
@@ -56,19 +55,10 @@ export async function visitorSignature(token: string) {
   return { ...rows[0], online: await supportOnline() };
 }
 
-/** Account holders chat from their workspace; anonymous visitors get the public chat. */
-async function visitorSignedIn(request: NextRequest) {
-  try {
-    return !!(await getAuth().api.getSession({ headers: request.headers }));
-  } catch {
-    return false;
-  }
-}
-
 export async function visitorGet(request: NextRequest) {
-  const [online, signedIn] = await Promise.all([supportOnline(), visitorSignedIn(request)]);
+  const online = await supportOnline();
   const ticket = await visitorTicket(visitorToken(request));
-  if (!ticket) return { ticket: null, online, signedIn };
+  if (!ticket) return { ticket: null, online };
   const { rows: messages } = await getPool().query(
     `SELECT id::text,staff,content,created_at FROM private.support_messages
       WHERE ticket_id=$1 AND NOT internal AND NOT EXISTS (SELECT 1 FROM private.support_attachments a WHERE a.message_id=support_messages.id)
@@ -78,7 +68,7 @@ export async function visitorGet(request: NextRequest) {
   const last = messages.at(-1)?.id;
   if (last) await getPool().query("UPDATE private.support_tickets SET customer_read=greatest(customer_read,$2::bigint) WHERE id=$1", [ticket.id, last]);
   const { visitor_email, visitor_name, customer_read: _read, ...safe } = ticket;
-  return { ticket: { ...safe, name: visitor_name, email: visitor_email }, messages, online, signedIn };
+  return { ticket: { ...safe, name: visitor_name, email: visitor_email }, messages, online };
 }
 
 /** Returns the JSON body and an optional Set-Cookie value. */
