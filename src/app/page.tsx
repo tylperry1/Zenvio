@@ -1,9 +1,9 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
-import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
 import { PublicPricingV4 } from "@/components/public-pricing-v4";
-import { PlatformSocialLinks } from "@/components/platform-social-links";
+import { PublicSiteHeader } from "@/components/public-site-header";
+import { PublicSiteFooter } from "@/components/public-site-footer";
 import { appOrigin } from "@/lib/lifecycle";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import Link from "next/link";
@@ -82,11 +82,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const qrTarget = `${appOrigin()}/demo`;
-  const [promotionEnabled, controls, pricingSurface, socialLinks, smartCardQr] = await Promise.all([
+  const [promotionEnabled, controls, pricingSurface, smartCardQr] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
     publicPricingSurface(),
-    platformSocialLinks(),
     QRCode.toString(qrTarget, {
       type: "svg",
       margin: 1,
@@ -105,46 +104,7 @@ export default async function Home() {
       </a>
       <AccountNotice />
 
-      <header className="mk-header">
-        <div className="mk-nav mk-container">
-          <Link href="/" aria-label="Zenvio home" className="mk-logo">
-            <Logo />
-            <Logo light />
-          </Link>
-          <nav className="mk-desktop-nav" aria-label="Main navigation">
-            <a href="#product">Product</a>
-            <a href="#signing">Signing</a>
-            <a href="#solutions">Smart Cards</a>
-            <a href="#pricing">Pricing</a>
-            <Link href="/help">Help</Link>
-          </nav>
-          <div className="mk-nav-actions">
-            <Link href="/sign-in" className="mk-login">
-              Member sign in
-            </Link>
-            <Link href={join.href} className="button primary small mk-header-cta">
-              <span className="mk-cta-long">{join.label}</span>
-              <span className="mk-cta-short">{join.short}</span>
-            </Link>
-          </div>
-          <details className="mk-mobile-menu">
-            <summary aria-label="Open navigation">
-              <Icon name="menu" />
-            </summary>
-            <nav aria-label="Mobile navigation">
-              <a href="#product">Product</a>
-              <a href="#signing">Signing</a>
-              <a href="#solutions">Smart Cards</a>
-              <a href="#pricing">Pricing</a>
-              <Link href="/help">Help</Link>
-              <Link href="/sign-in">Member sign in</Link>
-              <Link href={join.href} className="mk-menu-cta">
-                {join.label}
-              </Link>
-            </nav>
-          </details>
-        </div>
-      </header>
+      <PublicSiteHeader />
 
       <main id="main-content">
         <section className="mk-hero mk-container">
@@ -523,27 +483,7 @@ export default async function Home() {
         </section>
       </main>
 
-      <footer className="mk-footer mk-container">
-        <div>
-          <Link href="/" aria-label="Zenvio home" className="mk-logo">
-            <Logo />
-            <Logo light />
-          </Link>
-          <p>Good things, on the calendar.</p>
-          <PlatformSocialLinks links={socialLinks} className="mk-social" />
-        </div>
-        <nav aria-label="Footer">
-          <a href="#product">Product</a>
-          <Link href="/demo">Demo</Link>
-          <Link href="/help">Help</Link>
-          <Link href="/sign-in">Sign in</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy#your-rights">Do not sell or share my info</Link>
-          <Link href="/contact">Contact</Link>
-        </nav>
-        <span>© {new Date().getFullYear()} Zenvio</span>
-      </footer>
+      <PublicSiteFooter />
 
       <section className="mk-legal mk-container" aria-label="Disclosures">
         <p>

@@ -93,6 +93,7 @@ test("master admin social API and launch UI are wired for platform social links"
   const launch = fs.readFileSync("src/components/launch-control-admin.tsx", "utf8");
   const migration = fs.readFileSync("postgres/migrations/083_platform_social_links.sql", "utf8");
   const home = fs.readFileSync("src/app/page.tsx", "utf8");
+  const footer = fs.readFileSync("src/components/public-site-footer.tsx", "utf8");
   const contact = fs.readFileSync("src/app/contact/page.tsx", "utf8");
   assert.match(route, /adminSession\(\)/);
   assert.match(route, /platformSocialLinksStrict/);
@@ -100,7 +101,9 @@ test("master admin social API and launch UI are wired for platform social links"
   assert.match(route, /platform_social_links_updated/);
   assert.match(launch, /PlatformSocialAdmin/);
   assert.match(migration, /platform_social_links/);
-  assert.match(home, /platformSocialLinks/);
-  assert.match(home, /PlatformSocialLinks/);
+  // Public social links live in the shared footer; the homepage renders it.
+  assert.match(footer, /platformSocialLinks/);
+  assert.match(footer, /PlatformSocialLinks/);
+  assert.match(home, /<PublicSiteFooter \/>/);
   assert.match(contact, /platformSocialLinks/);
 });
