@@ -28,9 +28,12 @@ export function PublicChat() {
   useEffect(() => {
     if (!allowed) return;
     let stopped = false;
-    // Signed-in people use the help button in their workspace instead.
-    fetch("/api/support", { cache: "no-store" })
-      .then((r) => !stopped && setSignedOut(r.status === 401))
+    // Signed-in people use the help button in their workspace instead. The
+    // public visitor endpoint answers 200 for everyone, so this probe never
+    // logs an expected 401 in the console.
+    fetch("/api/support/visitor", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !stopped && setSignedOut(!!d && !d.signedIn))
       .catch(() => {});
     return () => {
       stopped = true;
