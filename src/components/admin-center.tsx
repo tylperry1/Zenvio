@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { Icon, Logo } from "./icons";
 import { Modal } from "./modal";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
+import { ConsoleDirectory } from "./admin-console-directory";
 import { AdminUserActions } from "./admin-user-actions";
 import { useAdminAccess, useCan } from "./admin-access";
-import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, Segmented, Timeline } from "./ds";
+import { Badge, EmptyState, Kpi, Notice, Panel, Segmented, Timeline } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 import { money } from "@/lib/billing-types";
 type Account = {
   id: string;
@@ -529,8 +531,7 @@ export function AdminCenter({
           }
         />
         <main className="av-content ds-root" aria-busy={loading}>
-          <PageHeader
-            eyebrow="Master Admin"
+          <AdminPageHeader
             title={titles[view]}
             description={
               view === "overview"
@@ -707,31 +708,7 @@ export function AdminCenter({
                         </ul>
                       </Panel>
                     )}
-                    {view === "overview" && (
-                      <Panel title="Jump to a console area" description="Related modules stay on their existing routes — connected, not copied">
-                        <div className="av-command-link-grid">
-                          {[
-                            ["/admin?view=accounts", "Accounts", canAccounts],
-                            ["/admin/billing", "Billing center", isMaster],
-                            ["/admin/financial-intelligence", "Financial Intelligence", isMaster],
-                            ["/admin/operations?section=subscriptions", "Subscriptions", can("subscriptions")],
-                            ["/admin/support", "Support inbox", can("support")],
-                            ["/admin/operations?section=integrations", "Connections", can("integrations")],
-                            ["/admin/economics", "Provider economics", isMaster],
-                            ["/admin/launch", "Launch & flags", isMaster],
-                            ["/admin/operations?section=health", "System health", canHealth],
-                            ["/admin?view=audit", "Audit log", canAudit],
-                          ]
-                            .filter(([, , ok]) => ok)
-                            .map(([href, label]) => (
-                              <Link key={String(href)} className="av-command-link" href={String(href)}>
-                                {label}
-                                <Icon name="arrow" size={14} />
-                              </Link>
-                            ))}
-                        </div>
-                      </Panel>
-                    )}
+                    {view === "overview" && <ConsoleDirectory />}
                     {view === "overview" ? (
                       <>
                         <div className="av-overview-grid">

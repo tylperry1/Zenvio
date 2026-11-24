@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { economics, suggestPrice, type PricingRule } from "@/lib/market-pricing";
-import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, SearchField, Segmented, Skeleton, Timeline, formatDate, relativeTime, usd, type Tone } from "./ds";
+import { Badge, EmptyState, Kpi, Notice, Panel, SearchField, Segmented, Skeleton, Timeline, formatDate, relativeTime, usd, type Tone } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { AdminPageHeader } from "./admin-page-header";
 
 type Opt = readonly (readonly [string, string])[];
 type Contact = { id: string; name: string; role: string; email: string; phone: string };
@@ -107,7 +108,7 @@ export function AdminSuppliers() {
 
   return (
     <div className="ds-root sp">
-      <PageHeader
+      <AdminPageHeader
         title="Suppliers & pricing"
         description="Recruit and track fulfillment partners, record verified terms, and set the pricing rules that protect every sale's margin."
         actions={

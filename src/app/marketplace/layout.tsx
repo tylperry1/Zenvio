@@ -5,7 +5,7 @@ import { shellSession } from "@/lib/shell-session";
 import "./shop.css";
 export const dynamic = "force-dynamic";
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const { user, admin, jobs, marketplace } = await shellSession();
+  const { user, admin, jobs, marketplace, role, features } = await shellSession();
   const visible = await (await import("@/lib/marketplace-visibility")).marketplaceVisible();
   // Signed-out shoppers get a simple storefront header, not the workspace shell.
   // Signed-in theme boot/provider come from the root layout.
@@ -28,7 +28,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
       </div>
     );
   return (
-    <AppShell user={user} admin={admin} jobs={jobs} marketplace={marketplace}>
+    <AppShell user={user} admin={admin} jobs={jobs} marketplace={marketplace} role={role} features={features}>
       {children}
     </AppShell>
   );

@@ -8,12 +8,18 @@ export type AdminNavItem = {
   icon: string;
   label: string;
   href: string;
-  permission: NavPermission;
+  /** One permission, or any of several — pages the owner and a delegate both open. */
+  permission: NavPermission | NavPermission[];
+  /** Short, human description shown in the console directory and tooltips. */
+  note: string;
+  /** Extra search keywords (not shown to users). */
   hint?: string;
 };
 
 export type AdminNavGroup = {
   label: string;
+  /** One line describing what the group is for. */
+  description: string;
   /** Default expanded when no search and group does not contain the current page. */
   defaultOpen?: boolean;
   items: AdminNavItem[];
@@ -21,11 +27,16 @@ export type AdminNavGroup = {
 
 /**
  * Master Admin information architecture.
- * Groups are organizational; every href keeps an existing route (or a stable alias).
+ *
+ * Six areas, one entry per destination. Groups are organizational; every href
+ * keeps an existing route (or a stable alias) so permissions and deep links
+ * keep working. Overlapping surfaces are intentionally kept in the same group
+ * and labelled by what they actually do, rather than repeated across areas.
  */
 export const adminNavGroups: AdminNavGroup[] = [
   {
-    label: "Command Center",
+    label: "Overview",
+    description: "Live platform health, revenue and recent activity.",
     defaultOpen: true,
     items: [
       {
@@ -34,12 +45,14 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Command Center",
         href: "/admin",
         permission: "accounts",
-        hint: "dashboard overview metrics platform health",
+        note: "Platform totals, alerts and every console area",
+        hint: "dashboard overview metrics platform health home",
       },
     ],
   },
   {
-    label: "Users & Businesses",
+    label: "Customers",
+    description: "Accounts, people and who can get in.",
     defaultOpen: true,
     items: [
       {
@@ -48,44 +61,51 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Accounts & workspaces",
         href: "/admin?view=accounts",
         permission: "accounts",
-        hint: "customers businesses workspaces",
+        note: "Customer directory, booking links and exports",
+        hint: "customers businesses workspaces directory",
       },
       {
         id: "users",
         icon: "team",
-        label: "Platform users",
+        label: "Users & activity",
         href: "/admin/operations?section=users",
         permission: "accounts",
-        hint: "user activity sessions",
+        note: "Sessions, plan mix and sign-in history",
+        hint: "user activity sessions signups plan distribution",
       },
       {
         id: "early-access",
-        icon: "sparkles",
+        icon: "clock",
         label: "Early access",
         href: "/admin/early-access",
         permission: "early-access",
-        hint: "waitlist signups",
+        note: "Waitlist signups and confirmation status",
+        hint: "waitlist signups invitations",
       },
       {
         id: "team",
-        icon: "team",
+        icon: "contact",
         label: "Team & access",
         href: "/admin/team",
         permission: "team",
-        hint: "employees staff permissions",
+        note: "Staff accounts and delegated permissions",
+        hint: "employees staff permissions roles",
       },
     ],
   },
   {
-    label: "Billing & Revenue",
+    label: "Revenue",
+    description: "Prices, plans, billing and what the platform costs to run.",
     items: [
       {
         id: "billing-center",
         icon: "card",
-        label: "Billing center",
+        label: "Billing & catalog",
         href: "/admin/billing",
-        permission: "team",
-        hint: "catalog stripe sync promotions coupons",
+        // Owner catalog plus the delegated checkout-pricing tab.
+        permission: ["team", "pricing"],
+        note: "Catalog, checkout prices, coupons and Stripe sync",
+        hint: "catalog stripe sync promotions coupons versions pricing checkout packages rates overages",
       },
       {
         id: "financial-intelligence",
@@ -93,52 +113,59 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Financial Intelligence",
         href: "/admin/financial-intelligence",
         permission: "team",
-        hint: "mrr arr cash refunds provider costs profitability",
+        note: "MRR, cash, refunds and provider costs",
+        hint: "mrr arr cash refunds provider costs profitability economics budgets reservations",
       },
       {
         id: "subscriptions",
-        icon: "card",
+        icon: "refresh",
         label: "Subscriptions",
         href: "/admin/operations?section=subscriptions",
         permission: "subscriptions",
-        hint: "renewals cancellations seats",
-      },
-      {
-        id: "pricing",
-        icon: "spark",
-        label: "Checkout pricing",
-        href: "/admin/operations?section=pricing",
-        permission: "pricing",
-        hint: "plan prices checkout",
+        note: "Renewals, cancellations and seats",
+        hint: "renewals cancellations seats customers",
       },
       {
         id: "entitlements",
-        icon: "layers",
+        icon: "file",
         label: "Plans & entitlements",
         href: "/admin/entitlements",
         permission: "entitlements",
-        hint: "allowances overrides stripe prices",
+        note: "Allowances and per-account overrides",
+        hint: "allowances overrides limits stripe prices",
       },
     ],
   },
   {
-    label: "Platform & Modules",
+    label: "Commerce",
+    description: "Storefront, products, printing and fulfillment.",
     items: [
-      {
-        id: "launch",
-        icon: "shield",
-        label: "Launch & feature flags",
-        href: "/admin/launch",
-        permission: "team",
-        hint: "checkout signup maintenance feature flags",
-      },
       {
         id: "marketplace",
         icon: "bag",
         label: "Marketplace",
         href: "/admin/operations?section=marketplace",
         permission: "marketplace",
-        hint: "products orders commerce",
+        note: "Products, orders and storefront visibility",
+        hint: "products orders commerce storefront",
+      },
+      {
+        id: "suppliers",
+        icon: "truck",
+        label: "Suppliers & fulfillment",
+        href: "/admin/suppliers",
+        permission: "marketplace",
+        note: "Print partners, catalog routing and dispatch",
+        hint: "gelato print suppliers catalog",
+      },
+      {
+        id: "marketplace-tools",
+        icon: "image",
+        label: "Personalization",
+        href: "/admin/marketplace-tools",
+        permission: "marketplace",
+        note: "Product options and manual supplier coordination",
+        hint: "product options personalization fulfillment tools",
       },
       {
         id: "nfc-studio",
@@ -146,53 +173,23 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "NFC Studio",
         href: "/admin/nfc",
         permission: "marketplace",
+        note: "Tag programming, batches and capability checks",
         hint: "nfc tags programming batches capability",
-      },
-      {
-        id: "suppliers",
-        icon: "briefcase",
-        label: "Suppliers & fulfillment",
-        href: "/admin/suppliers",
-        permission: "marketplace",
-        hint: "gelato print suppliers catalog",
-      },
-
-      {
-        id: "marketplace-tools",
-        icon: "image",
-        label: "Personalization",
-        href: "/admin/marketplace-tools",
-        permission: "marketplace",
-        hint: "product options fulfillment tools",
-      },
-      {
-        id: "assistant",
-        icon: "sparkles",
-        label: "AI assistant",
-        href: "/admin/assistant",
-        permission: "assistant",
-        hint: "ai policy providers usage",
       },
     ],
   },
   {
-    label: "Communications",
+    label: "Support",
+    description: "Customer conversations and product feedback.",
     items: [
       {
         id: "support-ops",
         icon: "message",
-        label: "Support Operations",
+        label: "Support desk",
         href: "/admin/support-ops",
         permission: "support",
-        hint: "support ops center tickets sla escalations knowledge base analytics pop out",
-      },
-      {
-        id: "support",
-        icon: "message",
-        label: "Support inbox",
-        href: "/admin/support",
-        permission: "support",
-        hint: "live chat customer support tickets help desk classic inbox",
+        note: "Tickets, SLA, escalations and saved replies",
+        hint: "support ops center tickets sla escalations knowledge base analytics pop out live chat classic inbox support",
       },
       {
         id: "feedback",
@@ -200,20 +197,14 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Suggestions",
         href: "/admin/feedback",
         permission: "feedback",
+        note: "Customer ideas, bugs and feature requests",
         hint: "ideas bugs suggestions feedback",
-      },
-      {
-        id: "email-preview",
-        icon: "mail",
-        label: "Email templates",
-        href: "/admin/email-preview",
-        permission: "integrations",
-        hint: "transactional email preview delivery",
       },
     ],
   },
   {
-    label: "Integrations & Services",
+    label: "Platform",
+    description: "Integrations, feature controls and system oversight.",
     items: [
       {
         id: "integrations",
@@ -221,54 +212,62 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Connections",
         href: "/admin/operations?section=integrations",
         permission: "integrations",
+        note: "Provider keys, webhook secrets and endpoints",
         hint: "api keys webhooks credentials stripe resend",
       },
       {
         id: "smarty",
         icon: "globe",
-        label: "Address & Location Services",
+        label: "Address & location",
         href: "/admin/smarty",
         permission: "integrations",
+        note: "Address validation, autocomplete and booking location",
         hint: "smarty address autocomplete validation booking location",
       },
-    ],
-  },
-  {
-    label: "Costs & Analytics",
-    items: [
       {
-        id: "economics",
-        icon: "spark",
-        label: "Provider economics",
-        href: "/admin/economics",
+        id: "email-preview",
+        icon: "mail",
+        label: "Email templates",
+        href: "/admin/email-preview",
+        permission: "integrations",
+        note: "Transactional email previews and delivery",
+        hint: "transactional email preview delivery templates",
+      },
+      {
+        id: "launch",
+        icon: "shield",
+        label: "Launch & flags",
+        href: "/admin/launch",
         permission: "team",
-        hint: "vendor costs ai sms stripe fees budgets contribution",
+        note: "Checkout, signup and feature gates",
+        hint: "checkout signup maintenance feature flags",
       },
-    ],
-  },
-  {
-    label: "Security & Compliance",
-    items: [
       {
-        id: "audit",
-        icon: "clock",
-        label: "Activity & audit",
-        href: "/admin?view=audit",
-        permission: "audit",
-        hint: "audit trail admin actions",
+        id: "assistant",
+        icon: "sparkles",
+        label: "AI assistant",
+        href: "/admin/assistant",
+        permission: "assistant",
+        note: "Model policy, limits and usage",
+        hint: "ai policy providers usage assistant",
       },
-    ],
-  },
-  {
-    label: "System Settings",
-    items: [
       {
         id: "health",
-        icon: "shield",
+        icon: "monitor",
         label: "System health",
         href: "/admin/operations?section=health",
         permission: "health",
+        note: "Readiness, migrations and delivery diagnostics",
         hint: "readiness delivery diagnostics migrations",
+      },
+      {
+        id: "audit",
+        icon: "eye",
+        label: "Activity & audit",
+        href: "/admin?view=audit",
+        permission: "audit",
+        note: "Every administrative action, with who and why",
+        hint: "audit trail admin actions security compliance",
       },
     ],
   },
@@ -295,23 +294,19 @@ export function resolveAdminNavId(pathname: string, searchParams: URLSearchParam
   if (path === "/admin/assistant") return "assistant";
   if (path === "/admin/email-preview") return "email-preview";
   if (path === "/admin/launch") return "launch";
+  // The classic inbox is a view of the same support area, so keep one
+  // sidebar entry highlighted for both routes.
   if (path === "/admin/support-ops" || path.startsWith("/admin/support-ops/")) return "support-ops";
-  if (path === "/admin/support") return "support";
+  if (path === "/admin/support") return "support-ops";
   if (path === "/admin/feedback") return "feedback";
   if (path === "/admin/team") return "team";
-  if (path === "/admin/economics") return "economics";
   if (path === "/admin/marketplace-tools") return "marketplace-tools";
   if (path === "/admin/nfc") return "nfc-studio";
   if (path === "/admin/suppliers" || path === "/admin/gelato") return "suppliers";
-
   if (path === "/admin/smarty") return "smarty";
   if (path === "/admin/operations") {
     const section = get("section") || "subscriptions";
-    if (
-      ["subscriptions", "marketplace", "users", "integrations", "pricing", "health"].includes(
-        section,
-      )
-    ) {
+    if (["subscriptions", "marketplace", "users", "integrations", "health"].includes(section)) {
       return section;
     }
     return "subscriptions";
@@ -321,4 +316,14 @@ export function resolveAdminNavId(pathname: string, searchParams: URLSearchParam
 
 export function allAdminNavItems(): AdminNavItem[] {
   return adminNavGroups.flatMap((g) => g.items);
+}
+
+/** True when the operator holds any permission the item requires. */
+export function navItemAllowed(
+  item: AdminNavItem,
+  can: (permission: NavPermission) => boolean,
+): boolean {
+  return Array.isArray(item.permission)
+    ? item.permission.some((permission) => can(permission))
+    : can(item.permission);
 }

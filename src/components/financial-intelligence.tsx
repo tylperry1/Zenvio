@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AdminPageHeader } from "./admin-page-header";
 import {
   Badge,
   BarChart,
@@ -294,8 +295,7 @@ export function FinancialIntelligence() {
   return (
     <div className="ds-root platform-page billing-page financial-intelligence">
       <main className="premium-admin fi-shell">
-        <PageHeader
-          eyebrow="Master admin"
+        <AdminPageHeader
           title="Financial Intelligence"
           description="Authoritative operational finance for Zenvio — Stripe-reconciled revenue, provider costs, and tenant contribution. Missing data stays Unknown or Unavailable; it is never shown as $0.00."
           actions={
@@ -580,8 +580,10 @@ export function FinancialIntelligence() {
                   <p className="fi-note">{o.methodology.contribution}</p>
                   <p className="fi-note">{o.coverage}</p>
                   <div className="fi-links">
-                    <Link href="/admin/economics">Pricing &amp; provider economics →</Link>
-                    <Link href="/admin/billing">Billing &amp; revenue →</Link>
+                    <Link href="/admin/financial-intelligence?tab=provider-costs">
+                      Provider costs →
+                    </Link>
+                    <Link href="/admin/billing">Billing &amp; catalog →</Link>
                     <Link href="/admin/entitlements">Plans &amp; entitlements →</Link>
                   </div>
                 </Panel>

@@ -686,7 +686,7 @@ export async function financialIntelligenceOverview(input?: {
       severity: "warning",
       title: "Provider costs have unreconciled events",
       detail: `${unreconciledProviders} provider(s) still have usage events without actual_micros. Operating costs stay partial until those events reconcile.`,
-      href: "/admin/economics",
+      href: "/admin/financial-intelligence?tab=provider-costs",
     });
   }
   if (providersUnknown > 0) {
@@ -737,7 +737,7 @@ export async function financialIntelligenceOverview(input?: {
       severity: "warning",
       title: `Unusual ${a.provider} spend`,
       detail: `Provider usage on ${a.day} exceeded the recent baseline (≥3× and ≥$0.10).`,
-      href: "/admin/economics",
+      href: "/admin/financial-intelligence?tab=provider-costs",
     });
   }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Icon, Logo } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { PublicSiteHeader } from "@/components/public-site-header";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import { formatUsdCents } from "@/lib/public-pricing-display";
 
@@ -57,11 +58,10 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
     (article.title + " " + article.text).toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <main className="ds-root hc-page">
+    <>
+      <PublicSiteHeader />
+      <main className="ds-root hc-page">
       <header className="hc-header">
-        <Link href="/" aria-label="Zenvio home">
-          <Logo />
-        </Link>
         <h1>How can we help?</h1>
         <p>Clear answers for your next step with Zenvio.</p>
       </header>
@@ -93,6 +93,7 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
           </article>
         ))}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

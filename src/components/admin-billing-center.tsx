@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import type { BillingSection } from "@/lib/admin-views";
 import type { CatalogSyncReport } from "@/lib/pricing-sync";
 import { money } from "@/lib/billing-types";
 import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
@@ -17,7 +18,6 @@ import {
   Notice,
   PageHeader,
   Panel,
-  Segmented,
   Skeleton,
   Timeline,
   formatDate,
@@ -78,8 +78,10 @@ function opTone(state: string): "success" | "warning" | "danger" | "neutral" | "
   return "neutral";
 }
 
-export function AdminBillingCenter() {
+export function AdminBillingCenter({ section: requestedSection }: { section: BillingSection }) {
   const params = useSearchParams();
+  // The catalog's package editor was retired; its landing tab now shows reconciliation.
+  const section = requestedSection === "packages" ? "audit" : requestedSection;
   type CouponRow = {
     id: string;
     code: string;
@@ -140,9 +142,6 @@ export function AdminBillingCenter() {
     obsoletePrices: unknown[];
     checkedAt: string;
   } | null>(null);
-  const [section, setSection] = useState<"coupons" | "addons" | "seats" | "audit">(
-    params.get("userId") ? "seats" : "audit",
-  );
   const [addonDrafts, setAddonDrafts] = useState<Record<string, { name: string; amount: string; available: boolean }>>(
     {},
   );
@@ -314,9 +313,14 @@ export function AdminBillingCenter() {
           icon="spark"
           value={coupons.length || legacyCouponOps.length}
           detail={
-            coupons.some((c) => c.sync_status === "failed")
-              ? "Includes failed Stripe sync — open Coupons to retry"
-              : "Durable coupon catalog with Stripe sync status"
+            coupons.some((c) => c.sync_status === "failed") ? (
+              <>
+                Includes failed Stripe sync —{" "}
+                <Link href="/admin/billing?tab=coupons">open Coupons</Link> to retry
+              </>
+            ) : (
+              "Durable coupon catalog with Stripe sync status"
+            )
           }
         />
         <Kpi
@@ -324,28 +328,16 @@ export function AdminBillingCenter() {
           icon="shield"
           value={failedOps}
           tone={failedOps ? "danger" : "success"}
-          detail={failedOps ? "Review audit and retry with the same id" : "No recent failures"}
-        />
-      </div>
-
-      <div className="bc-nav">
-        <Segmented
-          label="Billing sections"
-          value={section}
-          onChange={(next) => {
-            // Drop stale proration previews when leaving Seats; invalidate in-flight preview sends.
-            if (next !== "seats") {
-              seatsPreviewGen.current += 1;
-              setPreview(null);
-            }
-            setSection(next);
-          }}
-          options={[
-            ["coupons", "Coupons"],
-            ["addons", "Add-ons"],
-            ["seats", "Seats & proration"],
-            ["audit", "Sync & audit"],
-          ]}
+          detail={
+            failedOps ? (
+              <>
+                Review <Link href="/admin/billing?tab=audit">Sync &amp; audit</Link> and retry with the same
+                id
+              </>
+            ) : (
+              "No recent failures"
+            )
+          }
         />
       </div>
 

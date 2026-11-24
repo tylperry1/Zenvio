@@ -1654,6 +1654,38 @@ function Settings({
   return (
     <div className="settings-layout">
       {!demo && (
+        <nav className="settings-hub" aria-label="Settings categories">
+          <div>
+            <p>My account</p>
+            <Link href="#profile-settings">Personal profile & time zone</Link>
+            <Link href="/app/notifications">Notifications</Link>
+          </div>
+          <div>
+            <p>Business</p>
+            <Link href="/app/business-profile">Business profile</Link>
+            <Link href="/app/business-profile?section=branding">Branding</Link>
+            <Link href="/app?view=availability">Availability & hours</Link>
+          </div>
+          <div>
+            <p>Scheduling</p>
+            <Link href="/app?view=event-types">Appointment types</Link>
+            <Link href="/app/business-profile?section=booking">Booking page</Link>
+          </div>
+          <div>
+            <p>Team</p>
+            <Link href="/app/team">Team members & roles</Link>
+          </div>
+          <div>
+            <p>Billing</p>
+            <Link href="/app/billing">Plan, payment & invoices</Link>
+          </div>
+          <div>
+            <p>Integrations</p>
+            <Link href="/app/connections">Connected services</Link>
+          </div>
+        </nav>
+      )}
+      {!demo && (
         <section
           className="panel settings-calendar-card"
           aria-labelledby="calendar-settings-title"
@@ -1680,7 +1712,7 @@ function Settings({
           </Link>
         </section>
       )}
-      <section className="panel">
+      <section className="panel" id="profile-settings">
         <div className="panel-heading">
           <div>
             <h2>Profile & preferences</h2>

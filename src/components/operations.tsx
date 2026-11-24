@@ -5,16 +5,8 @@ import { AdminSubscriptions } from "./admin-subscriptions";
 import { AdminMarketplace } from "./admin-marketplace";
 import { AdminNavigation, AdminTopbar } from "./admin-navigation";
 import { AdminConnections } from "./admin-connections";
-import { AdminPricing } from "./admin-pricing";
 import { AdminHealth } from "./admin-health";
 import { AdminUsersActivity } from "./admin-users-activity";
-type Plan = {
-  id: string;
-  name: string;
-  monthly: number;
-  annual: number;
-  seats: number;
-};
 type Data = {
   emailDiagnostics?: {
     configured?: boolean;
@@ -42,7 +34,6 @@ type Data = {
     configured: boolean;
     updatedAt?: string;
   }[];
-  pricing: Plan[];
   subscriptions: {
     user_id: string;
     name: string;
@@ -74,11 +65,6 @@ const titles: Record<string, { heading: string; blurb: string; topbar: string }>
     blurb: "Every third-party service Zenvio runs on, with encrypted, write-only credentials.",
     topbar: "Connections",
   },
-  pricing: {
-    heading: "Checkout pricing",
-    blurb: "Published packages, Stripe synchronization, usage allowances and legacy rates in one place.",
-    topbar: "Checkout pricing",
-  },
   users: {
     heading: "Platform users",
     blurb: "Who uses Zenvio, how actively, on which plan, and every administrative change.",
@@ -89,9 +75,7 @@ export function Operations({ initialView }: { initialView?: string }) {
   // Section comes from the URL via the server page — sidebar is the only destination switcher.
   const view =
     initialView &&
-    ["subscriptions", "marketplace", "users", "integrations", "pricing", "health"].includes(
-      initialView,
-    )
+    ["subscriptions", "marketplace", "users", "integrations", "health"].includes(initialView)
       ? initialView
       : "subscriptions";
   const copy = titles[view] || titles.subscriptions;
@@ -177,7 +161,6 @@ export function Operations({ initialView }: { initialView?: string }) {
                   save={save}
                 />
               )}
-              {view === "pricing" && <AdminPricing />}
               {view === "subscriptions" && <AdminSubscriptions />}
               {view === "users" && <AdminUsersActivity />}
             </>

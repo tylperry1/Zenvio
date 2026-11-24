@@ -11,6 +11,7 @@ import {
 } from "@/lib/support-options";
 import { Badge, EmptyState, Kpi, Notice, PageHeader, Panel, SearchField, Segmented, Skeleton, formatDate, relativeTime, type Tone } from "./ds";
 import { Icon } from "./icons";
+import { AdminPageHeader } from "./admin-page-header";
 import { Modal } from "./modal";
 
 type Status = SupportStatus | "pending" | "needs_reply";
@@ -913,8 +914,7 @@ function SupportConsole() {
   const c = data?.counts;
   return (
     <div className={`ds-root sp-admin ${active ? "has-active" : ""}`}>
-      <PageHeader
-        eyebrow="Customer service"
+      <AdminPageHeader
         title="Support inbox"
         description="Live chat from customers. Reply, assign, set priority, add private notes and file suggestions for the product team."
         actions={
