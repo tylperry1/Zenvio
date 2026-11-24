@@ -208,9 +208,9 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
   assert.equal(overview.kpis.collected.classification, "unavailable");
 });
 
-test("annual pricing caption uses yearly total divided by twelve", () => {
+test("annual pricing caption uses the catalog's exact yearly monthly-equivalent", () => {
   const src = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
-  assert.match(src, /offer\.annual \/ 12/);
+  assert.match(src, /pricingV4AnnualMonthlyEquivalent\(offer\)/);
   assert.doesNotMatch(src, /equals \{money\(offer\.monthly\)\}/);
 });
 
