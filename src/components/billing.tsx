@@ -384,8 +384,8 @@ export function Billing() {
 
                   {ownBillingActive && !paidPlan && (
                     <Notice tone="info">
-                      You’re on a legacy package. Your existing subscription price and benefits stay in place unless you
-                      explicitly choose a new package.
+                      Your package is no longer offered to new customers. Your current price and benefits stay in place
+                      unless you explicitly choose a new plan.
                     </Notice>
                   )}
 

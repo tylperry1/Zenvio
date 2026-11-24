@@ -23,6 +23,7 @@ import "./workspace-polish.css";
 import "./growth-suite.css";
 import "./rebrand.css";
 import "./profile-studio.css";
+import "./public-site.css";
 export const metadata: Metadata = {
   title: {
     default: "Zenvio — Good things, on the calendar.",

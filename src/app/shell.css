@@ -1474,3 +1474,206 @@ body {
     max-width: none;
   }
 }
+
+/* Customer navigation: compact disclosures and a mobile-first bottom bar. */
+.shell-nav-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  min-height: 34px;
+  padding: 8px 10px;
+  margin: 0 0 2px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.shell-nav-disclosure > summary::-webkit-details-marker { display: none; }
+.shell-nav-disclosure > summary:hover { color: var(--text-primary); background: var(--surface-hover); }
+.shell-nav-disclosure > summary:focus-visible { outline: 2px solid var(--action-primary); outline-offset: 2px; }
+.shell-nav-disclosure > summary svg { transition: transform 0.15s ease; opacity: 0.8; }
+.shell-nav-disclosure[open] > summary svg { transform: rotate(180deg); }
+.shell-nav-disclosure > a { margin-left: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-nav-disclosure > summary svg { transition: none; }
+}
+
+/* Phones get five thumb destinations; the desktop rail is not squeezed in. */
+.shell-bottom-nav { display: none; }
+
+@media (max-width: 640px) {
+  .shell .shell-menu,
+  .shell .shell-close,
+  .shell .shell-sidebar { display: none; }
+  .shell-main {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  .shell-content {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  .shell-bottom-nav {
+    position: fixed;
+    z-index: 32;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0;
+    padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-right));
+    background: color-mix(in srgb, var(--surface-card) 96%, transparent);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -6px 24px #151b3810;
+  }
+  .shell-bottom-nav a,
+  .shell-bottom-nav button {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 4px 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-align: center;
+  }
+  .shell-bottom-nav a span,
+  .shell-bottom-nav button span {
+    max-width: 100%;
+    white-space: nowrap;
+  }
+  .shell-bottom-nav a.active,
+  .shell-bottom-nav button.active {
+    color: var(--action-primary);
+    background: var(--surface-subtle);
+  }
+  .shell-bottom-nav a:active,
+  .shell-bottom-nav button:active {
+    background: var(--surface-hover);
+  }
+  .shell-bottom-nav a:focus-visible,
+  .shell-bottom-nav button:focus-visible {
+    outline: 2px solid var(--action-primary);
+    outline-offset: -2px;
+  }
+}
+
+/* More sheet: grouped destinations plus the pages kept out of the main rail. */
+.shell-more {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  align-items: end;
+}
+.shell-more-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--overlay);
+}
+.shell-more-sheet {
+  position: relative;
+  max-height: min(82svh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: var(--surface-card);
+  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  box-shadow: 0 -20px 60px #151b3833;
+}
+.shell-more-sheet > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  background: var(--surface-card);
+}
+.shell-more-sheet > header b { display: block; font-size: 15px; }
+.shell-more-sheet > header small { display: block; margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+.shell-more-close {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px -6px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-card);
+  color: var(--text-secondary);
+}
+.shell-more-groups section { padding-top: 14px; }
+.shell-more-groups section > p {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.shell-more-groups a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.shell-more-groups a svg { color: var(--text-muted); flex-shrink: 0; }
+.shell-more-groups a:hover,
+.shell-more-groups a:active { background: var(--surface-hover); color: var(--text-primary); }
+.shell-more-groups a.active,
+.shell-more-groups a[aria-current="page"] {
+  color: var(--action-primary);
+  background: var(--surface-subtle);
+  font-weight: 600;
+}
+.shell-more-groups a.active svg,
+.shell-more-groups a[aria-current="page"] svg { color: var(--action-primary); }
+.shell-more-groups a:focus-visible { outline: 2px solid var(--action-primary); outline-offset: -2px; }
+
+@media (min-width: 641px) {
+  .shell-more { display: none; }
+}
+
+/* Midnight rail keeps brand-appropriate contrast for disclosure headers. */
+body .shell-sidebar .shell-nav-disclosure > summary { color: #a7b8dc; }
+body .shell-sidebar .shell-nav-disclosure > summary:hover { color: #fff; background: #ffffff0b; }
+body .shell-sidebar .shell-nav-disclosure > summary:focus-visible { outline-color: #9bb0ff; }
+
+/* Below 1100px the breadcrumb trail collapses to the current page only. */
+@media (max-width: 1100px) {
+  .shell .shell-breadcrumb > svg { display: none; }
+}
+
+/* On 1024–1200px laptops the rail leaves the top bar tight; keep the page
+   name by collapsing repeating chrome instead of the breadcrumb. */
+@media (max-width: 1200px) {
+  body .shell .shell-account-name { display: none; }
+  body .shell .shell-topbar > .shell-text-link { display: none; }
+}

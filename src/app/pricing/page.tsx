@@ -4,7 +4,9 @@ import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
 import { PublicPricingV4 } from "@/components/public-pricing-v4";
-import { Logo, Icon } from "@/components/icons";
+import { Icon } from "@/components/icons";
+import { PublicSiteHeader } from "@/components/public-site-header";
+import "../marketing.css";
 
 export const metadata = {
   alternates: { canonical: "https://gozenvio.com/pricing" },
@@ -32,19 +34,9 @@ export default async function PricingPage() {
   const tagline = surface.display.tagline;
 
   return (
-    <div className="subscription-pricing-page">
-      <nav aria-label="Main navigation">
-        <Link href="/" aria-label="Zenvio home">
-          <Logo />
-        </Link>
-        <div>
-          <Link href="/demo">Explore the demo</Link>
-          {signupOpen && <Link href="/sign-up">Create account</Link>}
-          <Link href="/sign-in">
-            Sign in <Icon name="arrow" size={16} />
-          </Link>
-        </div>
-      </nav>
+    <>
+      <PublicSiteHeader />
+      <div className="marketing-v3 pricing-page">
       <main>
         <header className="subscription-pricing-intro">
           <span className="subscription-kicker">
@@ -102,7 +94,8 @@ export default async function PricingPage() {
             Explore the workspace <Icon name="arrow" size={16} />
           </Link>
         </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }

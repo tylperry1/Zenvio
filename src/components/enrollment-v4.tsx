@@ -370,8 +370,8 @@ export function EnrollmentV4({
       <div className="subscription-fair-billing">
         <Icon name="shield" size={19} />
         <p>
-          No charge without confirmation. Taxes may apply. Existing v3 subscriptions keep their recorded price and
-          benefits unless the owner explicitly changes plans.
+          No charge without confirmation. Taxes may apply. Existing subscriptions keep their current price and benefits
+          unless the owner explicitly changes plans.
         </p>
       </div>
 

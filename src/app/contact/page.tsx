@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Logo } from "@/components/icons";
 import { PlatformSocialLinks } from "@/components/platform-social-links";
+import { PublicSiteHeader } from "@/components/public-site-header";
 import { VisitorChat } from "@/components/visitor-support";
 import { platformSocialLinks } from "@/lib/platform-social";
 import { themeSessionActive } from "@/lib/theme-session";
@@ -14,16 +14,9 @@ export const metadata = {
 export default async function Page() {
   const [socialLinks, signedIn] = await Promise.all([platformSocialLinks(), themeSessionActive()]);
   return (
-    <div className="vc-page">
-      <header className="vc-page-head">
-        <Link href="/" aria-label="Zenvio home">
-          <Logo />
-        </Link>
-        <nav aria-label="Contact">
-          <Link href="/help">Help Center</Link>
-          <Link href="/sign-in">Sign in</Link>
-        </nav>
-      </header>
+    <>
+      <PublicSiteHeader />
+      <div className="vc-page">
       <main className="ds-root vc-page-main">
         <p className="ds-eyebrow">Contact</p>
         <h1>Get in touch</h1>
@@ -45,6 +38,7 @@ export default async function Page() {
           <Link href="/app/support">workspace support</Link>.
         </p>
       </main>
-    </div>
+      </div>
+    </>
   );
 }
