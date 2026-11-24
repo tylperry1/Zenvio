@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { LaunchControls } from "@/lib/launch-controls";
 import { PlatformSocialAdmin } from "./platform-social-admin";
-import { Badge, Field, FormActions, Notice, PageHeader, Panel } from "./ds";
+import { Badge, Field, FormActions, Notice, Panel } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 import { Skeleton, Toggle } from "./ui";
 
 const registration = [
@@ -97,8 +98,7 @@ export function LaunchControlAdmin() {
 
   return (
     <div className="ds-root premium-admin launch-command">
-      <PageHeader
-        eyebrow="Platform operations"
+      <AdminPageHeader
         title="Launch controls"
         description="Manage access, launch messaging and the features customers see."
         actions={<Badge tone={statusTone}>{statusLabel}</Badge>}

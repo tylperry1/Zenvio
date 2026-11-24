@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import type { BillingSection } from "@/lib/admin-views";
 import type { BillingCatalog } from "@/lib/billing-catalog";
 import type { CatalogSyncReport } from "@/lib/pricing-sync";
 import { money } from "@/lib/billing-types";
@@ -14,7 +15,6 @@ import {
   FormActions,
   Kpi,
   Notice,
-  PageHeader,
   Panel,
   Segmented,
   Skeleton,
@@ -149,7 +149,7 @@ function opTone(state: string): "success" | "warning" | "danger" | "neutral" | "
   return "neutral";
 }
 
-export function AdminBillingCenter() {
+export function AdminBillingCenter({ section }: { section: BillingSection }) {
   const params = useSearchParams();
   type CouponRow = {
     id: string;
@@ -218,14 +218,16 @@ export function AdminBillingCenter() {
     checkedAt: string;
   } | null>(null);
   const [planTab, setPlanTab] = useState<"individual" | "team">("individual");
-  const [section, setSection] = useState<"pricing" | "coupons" | "addons" | "seats" | "audit">(
-    params.get("userId") ? "seats" : "pricing",
-  );
   const [addonDrafts, setAddonDrafts] = useState<Record<string, { name: string; amount: string; available: boolean }>>(
     {},
   );
   // Bumped when leaving Seats (or starting a newer preview) so stale send() completions cannot restore preview.
   const seatsPreviewGen = useRef(0);
+  // A different tab invalidates pending proration previews, in flight included.
+  useEffect(() => {
+    seatsPreviewGen.current += 1;
+    setPreview(null);
+  }, [section]);
 
   async function load() {
     const r = await fetch("/api/admin/billing", { cache: "no-store" });
@@ -380,17 +382,6 @@ export function AdminBillingCenter() {
 
   return (
     <div className="ds-root bc">
-      <PageHeader
-        eyebrow="Billing operations"
-        title="Billing & revenue"
-        description="Draft and publish catalog prices for new enrollments. Existing customers keep contracted prices until an explicit, previewed change. Live Stripe mutations require sandbox acceptance."
-        actions={
-          <Link className="ds-btn" href="/admin/operations?section=subscriptions">
-            Open subscriptions
-          </Link>
-        }
-      />
-
       {error && <Notice tone="danger">{error}</Notice>}
       {message && <Notice tone="success">{message}</Notice>}
       {last && error && (
@@ -420,9 +411,14 @@ export function AdminBillingCenter() {
           icon="spark"
           value={coupons.length || legacyCouponOps.length}
           detail={
-            coupons.some((c) => c.sync_status === "failed")
-              ? "Includes failed Stripe sync — open Coupons to retry"
-              : "Durable coupon catalog with Stripe sync status"
+            coupons.some((c) => c.sync_status === "failed") ? (
+              <>
+                Includes failed Stripe sync —{" "}
+                <Link href="/admin/billing?tab=coupons">open Coupons</Link> to retry
+              </>
+            ) : (
+              "Durable coupon catalog with Stripe sync status"
+            )
           }
         />
         <Kpi
@@ -430,33 +426,20 @@ export function AdminBillingCenter() {
           icon="shield"
           value={failedOps}
           tone={failedOps ? "danger" : "success"}
-          detail={failedOps ? "Review audit and retry with the same id" : "No recent failures"}
+          detail={
+            failedOps ? (
+              <>
+                Review <Link href="/admin/billing?tab=audit">Sync &amp; audit</Link> and retry with the
+                same id
+              </>
+            ) : (
+              "No recent failures"
+            )
+          }
         />
       </div>
 
-      <div className="bc-nav">
-        <Segmented
-          label="Billing sections"
-          value={section}
-          onChange={(next) => {
-            // Drop stale proration previews when leaving Seats; invalidate in-flight preview sends.
-            if (next !== "seats") {
-              seatsPreviewGen.current += 1;
-              setPreview(null);
-            }
-            setSection(next);
-          }}
-          options={[
-            ["pricing", "Pricing & allowances"],
-            ["coupons", "Coupons"],
-            ["addons", "Add-ons"],
-            ["seats", "Seats & proration"],
-            ["audit", "Sync & audit"],
-          ]}
-        />
-      </div>
-
-      {section === "pricing" && (
+      {section === "packages" && (
         <div className="ds-stack">
           <Panel
             title="Current published prices"

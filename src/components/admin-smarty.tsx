@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminPageHeader } from "./admin-page-header";
 import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
@@ -161,7 +162,7 @@ export function AdminSmarty() {
   if (!data && !error) {
     return (
       <div className="ds-root">
-        <PageHeader eyebrow="Integrations & Services" title="Address & Location Services" description="Loading…" />
+        <AdminPageHeader title="Address & Location Services" description="Loading…" />
         <div className="ds-kpis">{[0, 1, 2, 3].map((n) => <Kpi key={n} label="Loading" value="" loading />)}</div>
       </div>
     );
@@ -170,7 +171,7 @@ export function AdminSmarty() {
   if (error && !data) {
     return (
       <div className="ds-root">
-        <PageHeader eyebrow="Integrations & Services" title="Address & Location Services" />
+        <AdminPageHeader title="Address & Location Services" />
         <EmptyState icon="plug" title="Unable to load">
           {error}
         </EmptyState>
@@ -182,8 +183,7 @@ export function AdminSmarty() {
 
   return (
     <div className="ds-root">
-      <PageHeader
-        eyebrow="Integrations & Services"
+      <AdminPageHeader
         title="Address & Location Services"
         description="Smarty powers booking address autocomplete and validation. Credentials stay in the encrypted Integration Vault — Stored is not the same as Connected."
         actions={

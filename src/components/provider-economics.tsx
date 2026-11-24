@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EconomicsControls } from "./economics-controls";
+import { AdminPageHeader } from "./admin-page-header";
 import {
   Badge,
   EmptyState,
@@ -89,9 +90,8 @@ export function ProviderEconomics() {
 
   return (
     <div className="ds-root">
-      <PageHeader
-        eyebrow="Costs & Analytics"
-        title="Pricing & provider economics"
+      <AdminPageHeader
+        title="Provider costs"
         description="Approved subscription terms, provider cost coverage, and launch promotion controls. Estimates only — never invent revenue."
       />
       {error && <Notice tone="danger">{error}</Notice>}

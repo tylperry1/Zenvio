@@ -39,10 +39,12 @@ test("staff reply status hand-off accepts pending alias or resolved and keeps in
   assert.match(lib, /first_response_at=CASE WHEN \$3 AND NOT \$2/);
 });
 
-test("communications navigation groups support ops, inbox, and suggestions", () => {
+test("support navigation groups the desk and suggestions in one area", () => {
   const nav = read("src/lib/admin-console-nav.ts");
   assert.match(
     nav,
-    /label: "Communications"[\s\S]*?id: "support-ops"[\s\S]*?id: "support"[\s\S]*?permission: "support"[\s\S]*?id: "feedback"[\s\S]*?permission: "feedback"/,
+    /label: "Support"[\s\S]*?id: "support-ops"[\s\S]*?permission: "support"[\s\S]*?id: "feedback"[\s\S]*?permission: "feedback"/,
   );
+  // The classic inbox is a view of the same area, not a second console entry.
+  assert.doesNotMatch(nav, /id: "support",\n/);
 });

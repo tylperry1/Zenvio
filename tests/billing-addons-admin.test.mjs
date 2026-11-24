@@ -78,7 +78,10 @@ test("migration 094 seeds the approved add-on catalog behind available=false", (
 
 test("admin billing center exposes an Add-ons section", () => {
   const ui = fs.readFileSync("src/components/admin-billing-center.tsx", "utf8");
-  assert.match(ui, /\["addons", "Add-ons"\]/);
+  const views = fs.readFileSync("src/lib/admin-views.ts", "utf8");
+  // Add-ons is a top-level tab of the billing page, not an in-page section.
+  assert.match(views, /id: "addons",[\s\S]{0,60}label: "Add-ons"/);
+  assert.match(ui, /section === "addons"/);
   assert.match(ui, /action: "addon-sync-all"/);
   assert.match(ui, /action: "addon-update"/);
   assert.match(ui, /ADDON_BILLING_VALIDATED/);

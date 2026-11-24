@@ -52,7 +52,8 @@ export const sectionHome: Record<StaffPermission, string> = {
   subscriptions: "/admin/operations?section=subscriptions",
   marketplace: "/admin/operations?section=marketplace",
   integrations: "/admin/operations?section=integrations",
-  pricing: "/admin/operations?section=pricing",
+  // Checkout pricing is the delegated tab of the billing page.
+  pricing: "/admin/billing?tab=pricing",
   assistant: "/admin/assistant",
   entitlements: "/admin/entitlements",
   health: "/admin/operations?section=health",
