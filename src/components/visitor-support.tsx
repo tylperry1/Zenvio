@@ -8,7 +8,7 @@ import { Icon } from "./icons";
 import { Availability, LiveControls, MessageList, useDraft, useLive, type Message } from "./platform-support";
 
 type VisitorTicket = { id: string; subject: string; status: "open" | "pending" | "resolved"; rating: number | null; name: string; email: string };
-type VisitorData = { ticket: VisitorTicket | null; messages?: { id: string; staff: boolean; content: string; created_at: string }[]; online: boolean };
+type VisitorData = { ticket: VisitorTicket | null; messages?: { id: string; staff: boolean; content: string; created_at: string }[]; online: boolean; signedIn: boolean };
 
 const statusLabel = { open: "Waiting on Zenvio", pending: "Zenvio replied", resolved: "Resolved" } as const;
 
@@ -98,7 +98,6 @@ function StartForm({ onStarted, compact }: { onStarted: () => void; compact?: bo
 /** Chat for website visitors who aren't signed in. */
 export function VisitorChat({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<VisitorData | null>(null);
-  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const draft = useDraft();
@@ -117,8 +116,6 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         await post({ action: "resume", token }).catch((e) => setError(e.message));
       }
-      const me = await fetch("/api/support", { cache: "no-store" }).catch(() => null);
-      setSignedIn(!!me?.ok);
       await load();
     })();
   }, [load]);
@@ -131,7 +128,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
     return () => window.clearInterval(timer);
   }, [data?.ticket, live]);
 
-  if (signedIn)
+  if (data?.signedIn)
     return (
       <div className="vc-signed-in">
         <p>You’re signed in. Chat with the team from your workspace so your conversations stay in one place.</p>

@@ -174,3 +174,41 @@
 
 .google-account-list{display:grid;gap:18px;margin-top:24px}.google-account-card{border:1px solid #dfe6f2;border-radius:12px;padding:22px;background:#fcfdff;min-width:0}.google-account-card h3{font-size:15px;overflow-wrap:anywhere;margin:0 0 6px}.google-account-card p{font-size:12px!important;margin:0}.google-account-card .billing-actions{margin-top:16px}.calendar-queue-status{font-size:12px!important;color:#8490a8!important}.google-account-card .billing-note{margin:15px 0}.market-demo-badge{display:inline-block;font-size:12px;font-weight:700;line-height:1.6;border-radius:5px;padding:4px 7px;color:#826720;background:#fff6d9;margin:8px 0}.market-demo-unavailable{font-size:12px;color:#8c97ab;border-top:1px solid #e8edf5;padding-top:16px;margin-top:18px}.demo-product-art{width:68%;height:61%;background: var(--surface-card);border-radius:7px;box-shadow:8px 12px 0 #3750a21a,0 14px 30px #2334791c;transform:rotate(-7deg);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:22px;color:var(--text-primary);position:relative;overflow:hidden}.demo-product-art:after{content:'';position:absolute;width:65px;height:65px;border-radius:50%;background:#dce5ff;right:-18px;bottom:-20px}.demo-product-art>span{font-size:11px;font-weight:800;letter-spacing:2px}.demo-product-art>b{font-size:18px;line-height:1.15;letter-spacing:-.6px;max-width:140px;margin:12px 0}.demo-product-art>small{font-size:7px;letter-spacing:1.2px;color:#95a2c3}.demo-art-signs-banners-{height:78%;width:43%;transform:rotate(4deg);background:#263974;color:white;border-bottom:7px solid #acb8ce;border-radius:2px}.demo-art-branded-apparel{clip-path:polygon(25% 0,38% 0,42% 8%,58% 8%,62% 0,75% 0,100% 25%,82% 42%,73% 30%,73% 100%,27% 100%,27% 30%,18% 42%,0 25%);width:65%;height:82%;padding:35px 22%;border-radius:0;background:#344c91;color:white;transform:rotate(-5deg);box-shadow:none;align-items:center;text-align:center}.demo-art-branded-apparel b{font-size:13px;max-width:70px}.demo-art-branded-apparel small{display:none}.demo-art-promotional-gifts{width:48%;height:75%;border-left:8px solid #a8b8e8;background:#e8eeff}.demo-art-branding-kits{border-radius:5px;background:#d6bd96;color:#503e2b;border-top:5px solid #bfa37d;box-shadow:10px 10px 0 #aa88572b}.demo-art-print-marketing{height:78%;width:45%;background:linear-gradient(150deg,#fff 60%,#e4eaff 60%);transform:rotate(6deg)}
 @media(max-width:600px){.google-account-card{padding:18px}.google-account-card .billing-actions{flex-direction:column;align-items:stretch}.google-account-card .billing-actions button{margin-right:0}}
+
+/* Settings directory: one organized entry point for every implemented surface. */
+.settings-hub {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.settings-hub > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 18px 18px 20px;
+  background: var(--surface-card);
+}
+.settings-hub > div > p {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.settings-hub a {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.settings-hub a:hover { color: var(--action-primary); text-decoration: underline; }
+.settings-hub a:focus-visible { outline: 2px solid var(--action-primary); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 1100px) { .settings-hub { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .settings-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .settings-hub { grid-template-columns: 1fr; } }

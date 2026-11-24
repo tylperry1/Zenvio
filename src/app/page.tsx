@@ -1,9 +1,9 @@
 import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
-import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
 import { PublicPricingV4 } from "@/components/public-pricing-v4";
-import { PlatformSocialLinks } from "@/components/platform-social-links";
+import { PublicSiteHeader } from "@/components/public-site-header";
+import { PublicSiteFooter } from "@/components/public-site-footer";
 import { appOrigin } from "@/lib/lifecycle";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import Link from "next/link";
@@ -85,11 +85,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const qrTarget = `${appOrigin()}/demo`;
-  const [promotionEnabled, controls, pricingSurface, socialLinks, smartCardQr] = await Promise.all([
+  const [promotionEnabled, controls, pricingSurface, smartCardQr] = await Promise.all([
     launchPromotionEnabled(),
     launchControls(),
     publicPricingSurface(),
-    platformSocialLinks(),
     QRCode.toString(qrTarget, {
       type: "svg",
       margin: 1,
@@ -108,46 +107,7 @@ export default async function Home() {
       </a>
       <AccountNotice />
 
-      <header className="mk-header">
-        <div className="mk-nav mk-container">
-          <Link href="/" aria-label="Zenvio home" className="mk-logo">
-            <Logo />
-            <Logo light />
-          </Link>
-          <nav className="mk-desktop-nav" aria-label="Main navigation">
-            <a href="#product">Product</a>
-            <a href="#signing">Signing</a>
-            <a href="#solutions">Smart Cards</a>
-            <a href="#pricing">Pricing</a>
-            <Link href="/help">Help</Link>
-          </nav>
-          <div className="mk-nav-actions">
-            <Link href="/sign-in" className="mk-login">
-              Sign in
-            </Link>
-            <Link href={join.href} className="button primary small mk-header-cta">
-              <span className="mk-cta-long">{join.label}</span>
-              <span className="mk-cta-short">{join.short}</span>
-            </Link>
-          </div>
-          <details className="mk-mobile-menu">
-            <summary aria-label="Open navigation">
-              <Icon name="menu" />
-            </summary>
-            <nav aria-label="Mobile navigation">
-              <a href="#product">Product</a>
-              <a href="#signing">Signing</a>
-              <a href="#solutions">Smart Cards</a>
-              <a href="#pricing">Pricing</a>
-              <Link href="/help">Help</Link>
-              <Link href="/sign-in">Sign in</Link>
-              <Link href={join.href} className="mk-menu-cta">
-                {join.label}
-              </Link>
-            </nav>
-          </details>
-        </div>
-      </header>
+      <PublicSiteHeader />
 
       <main id="main-content">
         <div className="mk-hero-band">
@@ -600,41 +560,11 @@ export default async function Home() {
         </section>
       </main>
 
-      <footer className="mk-footer">
-        <div className="mk-container mk-footer-top">
-          <div className="mk-footer-brand">
-            <Link href="/" aria-label="Zenvio home" className="mk-logo">
-              <Logo />
-              <Logo light />
-            </Link>
-            <p>Good things, on the calendar.</p>
-            <PlatformSocialLinks links={socialLinks} className="mk-social" />
-          </div>
-          <nav className="mk-footer-col" aria-label="Product">
-            <h3>Product</h3>
-            <a href="#product">Workflow</a>
-            <a href="#signing">Signing</a>
-            <a href="#solutions">Smart cards</a>
-            <Link href="/pricing">Pricing</Link>
-            <Link href="/demo">Demo</Link>
-          </nav>
-          <nav className="mk-footer-col" aria-label="Company">
-            <h3>Company</h3>
-            <Link href="/help">Help center</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/sign-in">Sign in</Link>
-          </nav>
-          <nav className="mk-footer-col" aria-label="Legal">
-            <h3>Legal</h3>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/privacy#your-rights">Do not sell or share my info</Link>
-          </nav>
-        </div>
+      <PublicSiteFooter />
 
-        <div className="mk-container mk-legal" aria-label="Disclosures">
-          <p>
-            Zenvio is software that helps businesses schedule, communicate and get agreements signed. It isn’t a
+      <section className="mk-legal mk-container" aria-label="Disclosures">
+        <p>
+          Zenvio is software that helps businesses schedule, communicate and get agreements signed. It isn’t a
             party to the services, estimates, agreements or payments between a business and its clients, and it
             doesn’t provide legal, tax, licensing or financial advice. Businesses are responsible for their own
             licensing, pricing, contract terms and messaging consent. Payments are processed by Stripe under Stripe’s
@@ -645,13 +575,7 @@ export default async function Home() {
             encoding are managed separately. Google Calendar is a trademark of Google LLC; Outlook is a trademark of
             Microsoft Corporation; Zenvio isn’t affiliated with or endorsed by them.
           </p>
-        </div>
-
-        <div className="mk-container mk-footer-bottom">
-          <span>© {new Date().getFullYear()} Zenvio</span>
-          <span>Built for independent professionals and small teams.</span>
-        </div>
-      </footer>
+      </section>
     </div>
   );
 }

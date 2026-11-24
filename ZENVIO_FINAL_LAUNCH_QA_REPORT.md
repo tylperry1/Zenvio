@@ -150,10 +150,10 @@ Zenvio's **free-tier production platform is live and functionally sound**. The t
 | M-1 | Email verification is not enforced at signup | Medium | Production signup succeeded unverified | Decide policy; enable verification when mail is live |
 | M-2 | Legacy v3 checkout code path and live v3 prices remain | Medium | `resolveChangeRequest` accepts `individual`/`team`; live v3 prices $29.99/$49.99 exist. Currently unreachable because `checkoutEnabled:false` | Hard-disable v3 enrollment unless the account has an active v3 subscription |
 | M-3 | Authenticated `/api/billing` returns `catalog.version = 2026-11-v3` while the surface is v4 preview | Low | Production API response | Return the catalog that matches the exposed surface |
-| M-4 | `/api/support` 401 console error on every public page | Low | 40-page browser run: `GET /api/support → 401`, then `/api/support/visitor → 200` | Have the widget probe the visitor endpoint first, or expect 401 silently |
+| M-4 | `/api/support` 401 console error on every public page | Low (fixed) | 40-page browser run: `GET /api/support → 401`, then `/api/support/visitor → 200` | Widget now probes only the public visitor endpoint, which returns a `signedIn` flag, so the authenticated probe that logged 401 is gone |
 | M-5 | Pricing grid is 3 + 2 at 1440 px with an empty third column and uneven card weight | Low | `artifacts/qa/pricing-1440.png` | Centre the second row or use a 5-column/auto-fit layout at wide widths |
 | M-6 | Paid cards' only CTA is "Create free account" | Low | Production pricing page | Add a "Notify me / talk to us" secondary action while enrollment is closed |
-| M-7 | Sitemap omits `/help`, `/support`, `/demo` | Low | `sitemap.xml` | Add public help/support pages |
+| M-7 | Sitemap omits `/help`, `/support`, `/demo` | Low (fixed) | `sitemap.xml` | `/help` added. `/support` and `/demo` stay out: both are deliberately `noindex`, and `/demo` is also disallowed in `robots.txt`, so listing them would contradict their metadata |
 | M-8 | `robots.txt` disallows `/book` (public booking pages) | Low | `robots.txt` | Confirm this is intentional for customer privacy |
 | M-9 | No ESLint configuration | Low | `docs/qa/FINAL_LAUNCH_AUDIT.md`; repo | Add a minimal lint gate if desired |
 | M-10 | No application error monitoring | Medium | No Sentry/OTel dependency | Add error tracking + alert route before scaling |
