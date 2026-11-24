@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
 import { PublicPricingV4 } from "@/components/public-pricing-v4";
 import { Logo, Icon } from "@/components/icons";
+import "../marketing.css";
 
 export const metadata = {
   alternates: { canonical: "https://gozenvio.com/pricing" },
@@ -32,7 +33,7 @@ export default async function PricingPage() {
   const tagline = surface.display.tagline;
 
   return (
-    <div className="subscription-pricing-page">
+    <div className="marketing-v3 pricing-page">
       <nav aria-label="Main navigation">
         <Link href="/" aria-label="Zenvio home">
           <Logo />
