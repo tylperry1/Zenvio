@@ -1,7 +1,6 @@
 "use client";
 import { Fragment, useEffect, useState } from "react";
 import { Modal } from "./modal";
-import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
 import { InvoiceList } from "./invoice-list";
 import {
   billingDate,
@@ -24,7 +23,7 @@ import {
   type Tone,
 } from "./ds";
 import { Icon } from "./icons";
-import { planDisplayName } from "@/lib/plan-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 type Account = Subscription & {
   effective_plan?: string;
@@ -40,8 +39,7 @@ type Account = Subscription & {
 
 type Filter = "all" | "paid" | "free" | "ending" | "attention" | "override";
 
-const planName = (plan: string, catalogVersion?: string | null) =>
-  planDisplayName(plan, catalogVersion);
+const planName = (plan: string) => planDisplayName(plan);
 
 const subscriptionEnded = (account: Subscription) => ["canceled", "incomplete_expired"].includes(account.status);
 
@@ -257,7 +255,7 @@ export function AdminSubscriptions() {
                           )}
                         </td>
                         <td>
-                          {planName(s.effective_plan || s.override_plan || s.plan, s.catalog_version)}
+                          {planName(s.effective_plan || s.override_plan || s.plan)}
                           {s.platform_included && <small className="as-detail">Platform included · unlimited seats</small>}
                           {s.override_plan && !s.platform_included && (
                             <small className="as-detail">Granted until {billingDate(s.override_expires)}</small>
@@ -347,7 +345,7 @@ export function AdminSubscriptions() {
               <h3>{selected.name}</h3>
               <p>{selected.email}</p>
             </div>
-            <Badge tone="info">{planName(selected.effective_plan || selected.override_plan || selected.plan, selected.catalog_version)}</Badge>
+            <Badge tone="info">{planName(selected.effective_plan || selected.override_plan || selected.plan)}</Badge>
           </div>
 
           <nav className="as-nav" aria-label="Subscription details">
@@ -382,7 +380,7 @@ export function AdminSubscriptions() {
                   <div>
                     <dt>Plan in effect</dt>
                     <dd>
-                      {planName(selected.effective_plan || selected.override_plan || selected.plan, selected.catalog_version)}
+                      {planName(selected.effective_plan || selected.override_plan || selected.plan)}
                       {!selected.platform_included &&
                         selected.override_plan &&
                         ` (granted until ${billingDate(selected.override_expires)})`}
@@ -446,7 +444,7 @@ export function AdminSubscriptions() {
                 )}
                 {!selected.platform_included && selected.override_plan && (
                   <Notice tone="info">
-                    Granted {planName(selected.override_plan, ["starter", "professional", "business"].includes(selected.override_plan || "") ? CATALOG_ID : selected.catalog_version)} access until {billingDate(selected.override_expires)}. The underlying billing
+                    Granted {planName(selected.override_plan)} access until {billingDate(selected.override_expires)}. The underlying billing
                     subscription remains unchanged.
                   </Notice>
                 )}
@@ -579,8 +577,8 @@ function PlanAccess({
       if (!r.ok) throw Error(d.error);
       onDone(
         action === "grant"
-          ? `${account.name} now has ${planName(plan, ["starter", "professional", "business"].includes(plan) ? CATALOG_ID : account.catalog_version)} access until ${billingDate(new Date(expires).toISOString())}.`
-          : `Granted access removed. ${account.name} is back on their ${planName(account.plan, account.catalog_version)} plan.`,
+          ? `${account.name} now has ${planName(plan)} access until ${billingDate(new Date(expires).toISOString())}.`
+          : `Granted access removed. ${account.name} is back on their ${planName(account.plan)} plan.`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to update plan access.");

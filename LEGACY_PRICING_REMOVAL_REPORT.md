@@ -46,6 +46,8 @@ checkout path, one subscription-management path and one entitlement table.
 - `src/lib/billing-catalog.ts` — second catalog DTO/validator used by billing,
   admin, preview and catalog endpoints.
 - `src/lib/pricing-policy.ts` — old pricing policy layer.
+- `src/lib/plan-display.ts` — deprecated display wrapper; plan names now come
+  directly from `src/lib/pricing-catalog.mjs`.
 - `src/app/api/catalog/route.ts` — duplicate public catalog endpoint.
 - `scripts/provision-subscription-packages.mjs` — v3 package provisioner.
 - `scripts/provision-pricing-v4.mjs` — replaced by
@@ -230,7 +232,7 @@ All commands run in the workspace after the final edits:
 
 | Check | Result |
 |---|---|
-| `npm test` | **643 tests, 643 pass, 0 fail** |
+| `npm test` | **642 tests, 642 pass, 0 fail** |
 | `npm run typecheck` (`tsc --noEmit`) | **pass, exit 0** |
 | `npm run build` | **pass, exit 0** |
 | `git diff --check` | **pass, exit 0** |

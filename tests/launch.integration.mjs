@@ -151,17 +151,17 @@ try{
 
  {
  // New SaaS credits share one owner pool. These are disposable SQL-only fixtures.
- const offers=await import('../src/lib/subscription-offers.mjs');
+ const catalog=await import('../src/lib/pricing-catalog.mjs');
  const filename=path.resolve('src/lib/subscription-usage.ts'),usageModule=new Module(filename);
- usageModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./subscription-offers.mjs'?offers:{};
+ usageModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./pricing-catalog.mjs'?catalog:{};
  usageModule._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);
- await db.query("insert into private.subscriptions(user_id,plan,status,catalog_version,seats,envelope_allowance) values($1,'team','active','2026-11-v3',3,30) on conflict(user_id) do update set plan='team',status='active',catalog_version='2026-11-v3',seats=3,envelope_allowance=30",[owner]);
+ await db.query("insert into private.subscriptions(user_id,plan,status,catalog_version,seats,envelope_allowance) values($1,'business','active','2026-11-v4',3,30) on conflict(user_id) do update set plan='business',status='active',catalog_version='2026-11-v4',seats=3,envelope_allowance=30",[owner]);
  const run=async(ref,n)=>{const c=await db.connect();try{await c.query('begin');const id=await usageModule.exports.reserveSubscriptionUnits(c,owner,'aiCredits',n,ref);await c.query('commit');return id;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
- const races=await Promise.allSettled([run('v3-race-a-'+suffix,450),run('v3-race-b-'+suffix,450)]);
+ const races=await Promise.allSettled([run('team-race-a-'+suffix,500),run('team-race-b-'+suffix,500)]);
  assert.equal(races.filter(r=>r.status==='fulfilled').length,1);assert.equal(races.find(r=>r.status==='rejected').reason.status,429);
- const id=races.find(r=>r.status==='fulfilled').value,c=await db.connect();try{await c.query('begin');await usageModule.exports.settleSubscriptionUnits(c,id,449);await usageModule.exports.settleSubscriptionUnits(c,id,449);await c.query('commit');}finally{c.release();}
- assert.ok(await run('v3-last-'+suffix,1));await assert.rejects(run('v3-exhausted-'+suffix,1));
- const usage=await usageModule.exports.subscriptionUsage(owner);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,450);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').remaining,0);
+ const id=races.find(r=>r.status==='fulfilled').value,c=await db.connect();try{await c.query('begin');await usageModule.exports.settleSubscriptionUnits(c,id,499);await usageModule.exports.settleSubscriptionUnits(c,id,499);await c.query('commit');}finally{c.release();}
+ assert.ok(await run('team-last-'+suffix,1));await assert.rejects(run('team-exhausted-'+suffix,1));
+ const usage=await usageModule.exports.subscriptionUsage(owner);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,500);assert.equal(usage.meters.find(m=>m.meter==='aiCredits').remaining,0);
  assert.equal((await call('/api/admin/economics',null,a.cookie)).status,403);
  assert.equal((await call('/api/billing/addons',{addon:'ai_100',confirm:true},a.cookie)).status,503);
  const packs=await call('/api/billing/addons',null,a.cookie);
@@ -191,7 +191,7 @@ try{
  const allowanceFilename=path.resolve('src/lib/allowance-display.ts'),allowanceModule=new Module(allowanceFilename);
  allowanceModule._compile(ts.transpileModule(fs.readFileSync(allowanceFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,allowanceFilename);
  const envelopeFilename=path.resolve('src/lib/envelope-usage.ts'),envelopeModule=new Module(envelopeFilename);
- envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:{free:{envelopes:5},team:{envelopes:30},individual:{envelopes:10}},planLimitsFor:(plan,version)=>version&&String(version).startsWith('2026-11-v4')?{envelopes:plan==='business'?50:0}:{envelopes:({free:5,team:30,individual:10})[plan]||5},isV4CatalogVersion:v=>Boolean(v&&(v==='2026-11-v4'||String(v).startsWith('2026-11-v4')))}:id==='./allowance-display'?allowanceModule.exports:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
+ envelopeModule.require=id=>id==='./db'?{getPool:()=>db}:id==='./server'?{ApiError:FixtureApiError}:id==='./entitlement-policy'?{planLimits:catalog.PLAN_LIMITS,planLimitsFor:plan=>catalog.planLimits(plan)}:id==='./allowance-display'?allowanceModule.exports:id==='./billing-readiness'?{billingReadiness:async()=>({checkoutEnabled:false})}:id==='./billing'?{stripeClient:async()=>{throw Error('Live Stripe is forbidden in this fixture');}}:{};
  envelopeModule._compile(ts.transpileModule(fs.readFileSync(envelopeFilename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,envelopeFilename);
  await db.query("insert into private.envelope_usage(source_id,source_kind,user_id,billing_owner) select gen_random_uuid(),'pdf',$1,$1 from generate_series(1,30)",[owner]);
  await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,reason) values($1,'envelopes',1,$2,'Disposable prepaid envelope concurrency fixture')",[owner,'fixture-envelope-credit-'+suffix]);

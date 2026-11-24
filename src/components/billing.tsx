@@ -29,7 +29,7 @@ import {
   type Tone,
 } from "./ds";
 import { customerMessages } from "@/lib/customer-messages";
-import { isPaidPlan, planDisplayName } from "@/lib/plan-display";
+import { isPaidPlan, planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 type Data = {
   pricingSurface?: {

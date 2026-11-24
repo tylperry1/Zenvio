@@ -6,7 +6,7 @@ import type { CatalogSyncReport } from "@/lib/pricing-sync";
 import { money } from "@/lib/billing-types";
 import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
 import { formatAllowance } from "@/lib/allowance-display";
-import { planDisplayName } from "@/lib/plan-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 import {
   Badge,
   CurrencyField,

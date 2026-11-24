@@ -38,7 +38,6 @@ class ApiError extends Error {
 }
 
 const v4 = load("src/lib/pricing-catalog.mjs");
-const plans = load("src/lib/plan-display.ts");
 const preview = load("src/lib/subscription-preview.ts", {
   "./server": { ApiError },
   "./pricing-catalog.mjs": v4,
@@ -55,7 +54,6 @@ test("v4 change resolution validates plan, interval, and Team seats", () => {
     seats: 1
   });
   assert.equal(starter.period, "annual");
-  assert.equal(starter.catalogVersion, v4.CATALOG_ID);
   assert.deepEqual(starter.requested, [{ plan: "starter", quantity: 1 }]);
 
   const team = preview.resolveChangeRequest({
@@ -164,8 +162,6 @@ test("the new recurring total comes from verified Stripe prices, including Team 
       { plan: "business_extra", quantity: 2 },
     ],
     period: "monthly",
-    catalogVersion: "2026-11-v4",
-    offers: [v4.planById("business"), v4.EXTRA_SEAT],
   });
   assert.equal(verified.recurringCents, 4499);
   assert.equal(verified.interval, "month");
@@ -183,8 +179,6 @@ test("a mismatched product, amount, interval, or catalog version cannot be quote
     db,
     requested: [{ plan: "starter", quantity: 1 }],
     period: "annual",
-    catalogVersion: "2026-11-v4",
-    offers: [v4.planById("starter")],
   };
   await assert.rejects(
     preview.verifyChangePrices({
@@ -210,7 +204,9 @@ test("a mismatched product, amount, interval, or catalog version cannot be quote
   await assert.rejects(
     preview.verifyChangePrices({
       ...base,
-      catalogVersion: "2026-11-v3",
+      db: priceDb({
+        "starter:annual": { stripe_price_id: "price_starter", catalog_version: "2026-11-v3" },
+      }),
       stripe: priceLookup({ starter: 9588 }, { interval: "year" }),
     }),
     /temporarily unavailable/,
@@ -507,7 +503,6 @@ function previewRouteFixture({ local = v4Local(), members = 0, invoice } = {}) {
       billingSettings: async () => ({ enrollmentEnabled: true }),
     },
     "@/lib/pricing-catalog.mjs": v4,
-    "@/lib/plan-display": plans,
     "@/lib/subscription-preview": preview,
   });
   let input = { plan: "business", seats: 5, period: "monthly" };

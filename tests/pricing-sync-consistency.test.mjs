@@ -211,7 +211,7 @@ test("team capacity helper is plan-based", () => {
   });
   assert.equal(policy.isTeamCapacityPlan("team"), true);
   assert.equal(policy.isTeamCapacityPlan("business"), true);
-  assert.equal(policy.isTeamCapacityPlan("business", "legacy"), true);
+  assert.equal(policy.isTeamCapacityPlan("business"), true);
   assert.equal(policy.isTeamCapacityPlan("starter"), false);
 });
 

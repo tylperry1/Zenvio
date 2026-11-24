@@ -195,13 +195,12 @@ test("coupon parser accepts percent/amount and rejects bad shapes", () => {
   );
 });
 
-test("Team plan limits are plan-based and ignore version labels", () => {
-  for (const version of ["legacy", "2026-11-v3", "2026-11-v4"]) {
-    assert.equal(policy.planLimitsFor("business", version).envelopes, 50);
-    assert.equal(policy.isTeamCapacityPlan("business", version), true);
-    assert.equal(policy.hasTeamWorkspaceAccess("business", version), true);
-    assert.equal(policy.contactAllowance("starter", version), 1000);
-  }
+test("Team plan limits are plan-based", () => {
+  assert.equal(policy.planLimitsFor("business").envelopes, 50);
+  assert.equal(policy.planLimitsFor("individual").envelopes, 10);
+  assert.equal(policy.isTeamCapacityPlan("business"), true);
+  assert.equal(policy.hasTeamWorkspaceAccess("business"), true);
+  assert.equal(policy.contactAllowance("starter"), 1000);
 });
 
 test("storage guard migration keeps release overlays and custom allowances", () => {

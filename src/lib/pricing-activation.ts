@@ -5,7 +5,6 @@ import { databaseConfigured, getPool } from "./db";
  *
  * There is one catalog and one activation path. `enrollmentEnabled` is the
  * single paid-enrollment switch; the environment supplies the validation flag.
- * The settings row is keyed `billing`. During the staged migration an existing
  * The settings row is keyed `billing`; nothing branches on a catalog version.
  */
 export type BillingSettings = {

@@ -26,9 +26,10 @@ use it; the display name is Team.
   `/api/subscription-preview`): `resolveChangeRequest` resolves plan ids and
   seat quantities, then `verifyChangePrices` checks each Stripe Price amount,
   interval and product against the catalog.
-- Customer billing, usage and envelopes: `plan-display.ts`,
-  `entitlement-policy.ts`, `subscription-usage.ts` and `envelope-usage.ts` read
-  `PLAN_LIMITS` / `PLAN_ALLOWANCES` by resolved plan id.
+- Customer billing, usage and envelopes: `entitlement-policy.ts`,
+  `subscription-usage.ts` and `envelope-usage.ts` read `PLAN_LIMITS` /
+  `PLAN_ALLOWANCES` by resolved plan id. Display names and paid/team checks come
+  directly from the catalog.
 - Master Admin: the Billing & Pricing section and `admin-billing.ts` read the
   same catalog and never edit amounts.
 - Revenue reporting and financial intelligence read `PLAN_ALLOWANCES`,
@@ -44,9 +45,11 @@ Historic plan ids (`individual`, `team`, `teams`, `pro`) resolve through
 never a reason to show an old price.
 
 `catalog_version` / `catalogVersion` remains a provenance label on existing
-subscription rows, entitlement grants and Stripe metadata. No behaviour
-branches on it. Stripe product ids retain their `_v4` suffix because Stripe
-products and prices are immutable identifiers, not selectors.
+subscription rows, entitlement grants and Stripe metadata. No access, pricing,
+checkout or entitlement behaviour branches on it; revenue estimates are simply
+withheld when a row lacks canonical provenance. Stripe product ids retain their
+`_v4` suffix because Stripe products and prices are immutable identifiers, not
+selectors.
 
 ## Entitlements
 

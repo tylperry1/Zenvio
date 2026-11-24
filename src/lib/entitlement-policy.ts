@@ -8,7 +8,6 @@
 import {
   PLAN_LIMITS,
   contactAllowance as catalogContactAllowance,
-  isPaidPlan as catalogIsPaidPlan,
   isTeamPlan as catalogIsTeamPlan,
   planId,
 } from "./pricing-catalog.mjs";
@@ -47,34 +46,22 @@ export const planLimits = Object.fromEntries(
 
 export type Plan = keyof typeof planLimits;
 
-/**
- * Resolve capacity ceilings for a plan. The second argument is accepted for
- * historic call sites and ignored: limits are plan-based, never version-based.
- */
-export function planLimitsFor(plan: string, _catalogVersion?: string | null): Limits {
+/** Resolve capacity ceilings for a plan or retired plan id. */
+export function planLimitsFor(plan: string): Limits {
   return (planLimits as Record<string, Limits>)[plan] ?? planLimits.free;
 }
 
-export const teamCapacityPlans = ["team", "teams", "business"] as const;
-
 /** Whether a plan includes multi-seat team capacity. */
-export function isTeamCapacityPlan(plan: string, _catalogVersion?: string | null): boolean {
+export function isTeamCapacityPlan(plan: string): boolean {
   return catalogIsTeamPlan(plan);
 }
 
 /** Whether a resolved entitlement plan may create/manage a team workspace. */
-export function hasTeamWorkspaceAccess(
-  plan: string,
-  _catalogVersion?: string | null,
-): boolean {
+export function hasTeamWorkspaceAccess(plan: string): boolean {
   return catalogIsTeamPlan(plan);
 }
 
 /** Contact allowance for CRM capacity checks. null = unlimited / not enforced. */
-export function contactAllowance(plan: string, _catalogVersion?: string | null): number | null {
+export function contactAllowance(plan: string): number | null {
   return catalogContactAllowance(plan);
-}
-
-export function isPaidEntitlementPlan(plan: string): boolean {
-  return catalogIsPaidPlan(plan);
 }

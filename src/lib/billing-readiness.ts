@@ -2,7 +2,7 @@ import { launchControls, sandboxAccepted } from "./launch-controls";
 import { databaseConfigured, getPool } from "./db";
 import { integrationValue } from "./platform-settings";
 import { stripeDeploymentEnvironment, stripeKeyMode, stripeKeyProblem } from "./stripe-environment";
-import { CATALOG_ID, EXTRA_SEAT, PLANS } from "./pricing-catalog.mjs";
+import { CATALOG_ID, SELLABLE_PLANS } from "./pricing-catalog.mjs";
 
 /**
  * One paid-checkout readiness check.
@@ -12,14 +12,10 @@ import { CATALOG_ID, EXTRA_SEAT, PLANS } from "./pricing-catalog.mjs";
  * switch on, a recorded Stripe test acceptance, and the single billing
  * validation flag. Anything missing closes checkout.
  */
-const REQUIRED = [
-  ...PLANS.filter((plan) => plan.paid && !plan.custom).flatMap((plan) => [
-    [plan.id, "monthly"],
-    [plan.id, "annual"],
-  ]),
-  [EXTRA_SEAT.id, "monthly"],
-  [EXTRA_SEAT.id, "annual"],
-] as [string, string][];
+const REQUIRED = SELLABLE_PLANS.flatMap((plan) => [
+  [plan.id, "monthly"],
+  [plan.id, "annual"],
+]) as [string, string][];
 
 const unavailable = (reason: string) => ({
   connected: false,

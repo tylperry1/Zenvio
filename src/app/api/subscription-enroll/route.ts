@@ -10,7 +10,7 @@ import {
   resolveChangeRequest,
   verifyChangePrices,
 } from "@/lib/subscription-preview";
-import { EXTRA_SEAT, PLANS, CATALOG_ID } from "@/lib/pricing-catalog.mjs";
+import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
 import { billingEnvGates, billingSettings } from "@/lib/pricing-activation";
 import { appOrigin } from "@/lib/lifecycle";
 import { customerMessages } from "@/lib/customer-messages";
@@ -31,51 +31,22 @@ export async function POST(req: NextRequest) {
 
     // One resolver is shared with the preview endpoint, so the submitted change is
     // always the change the customer reviewed.
-    const {
-      plan,
-      period,
-      seats,
-      requested,
-      catalogVersion: expectedVersion,
-    } = resolveChangeRequest({
+    const { plan, period, seats, requested } = resolveChangeRequest({
       plan: v.plan,
       period: v.period,
       seats: v.seats,
     });
 
+    // One readiness check covers credentials, webhook, provider acceptance,
+    // validation and every price mapping. No second mapping query is needed.
     const readiness = await billingReadiness();
-    {
-      // One readiness check covers the launch switch, test-mode acceptance, the
-      // validation flag and every price mapping.
-      if (!readiness.connected) {
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
-      if (readiness.blockers.some((b) => /credential|webhook|sandbox/i.test(b))) {
-        // Internal blockers stay server-side; customers only see enrollment status.
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
-      // Price readiness is checked below for the one catalog.
-      const maps = await getPool().query(
-        "SELECT plan, period FROM private.subscription_prices WHERE catalog_version=$1 AND plan = ANY($2::text[])",
-        [CATALOG_ID, ["starter", "professional", "business", "business_extra"]],
+    if (!readiness.checkoutEnabled)
+      throw new ApiError(
+        readiness.pricesReady
+          ? customerMessages.billing.enrollPreparing
+          : customerMessages.billing.enrollPricingUnavailable,
+        503,
       );
-      const need = [
-        ["starter", "monthly"],
-        ["starter", "annual"],
-        ["professional", "monthly"],
-        ["professional", "annual"],
-        ["business", "monthly"],
-        ["business", "annual"],
-        ["business_extra", "monthly"],
-        ["business_extra", "annual"],
-      ];
-      const ready = need.every(([plan, per]) =>
-        maps.rows.some((r) => r.plan === plan && r.period === per),
-      );
-      if (!ready) {
-        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
-      }
-    }
 
     const db = await getPool().connect(),
       stripe = await stripeClient();
@@ -97,14 +68,7 @@ export async function POST(req: NextRequest) {
         ])
       ).rows[0];
 
-      const verified = await verifyChangePrices({
-        db,
-        stripe,
-        requested,
-        period,
-        catalogVersion: CATALOG_ID,
-        offers: [...PLANS, EXTRA_SEAT],
-      });
+      const verified = await verifyChangePrices({ db, stripe, requested, period });
       const lines = verified.lines;
 
       if (local?.subscription_id) {
@@ -256,14 +220,14 @@ export async function POST(req: NextRequest) {
           user_id: token,
           plan,
           period,
-          catalog_version: expectedVersion,
+          catalog_version: CATALOG_ID,
         },
         subscription_data: {
           metadata: {
             user_id: token,
             plan,
             period,
-            catalog_version: expectedVersion,
+            catalog_version: CATALOG_ID,
           },
         },
         line_items: lines,

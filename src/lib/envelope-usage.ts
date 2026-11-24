@@ -31,7 +31,6 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
   const purchased = Number((await db.query("select coalesce((select sum(quantity) from private.subscription_credit_entries where billing_owner=$1 and meter='envelopes'),0)-coalesce((select sum(purchased_quantity) from private.subscription_usage_reservations where billing_owner=$1 and meter='envelopes' and state<>'released'),0) remaining", [owner])).rows[0]?.remaining || 0);
   // Every plan uses its pooled catalog ceiling. Platform/unlimited seats keep the
   // unlimited pool for enforcement; display layers format the sentinel as "Unlimited".
-  const pooledCatalog = true;
   const included = unlimitedSeats
     ? UNLIMITED_SEATS_SENTINEL
     : row?.envelope_allowance ?? catalogLimits.envelopes;
@@ -39,7 +38,7 @@ export async function envelopeBudget(user: string, db: DB = getPool()) {
     purchasedRemaining: Math.max(0, purchased),
     creditDebt: purchased < 0,
     catalogVersion: row?.catalog_version || "legacy",
-    pooled: pooledCatalog,
+    pooled: true,
     owner,
     canManage: owner === user,
     plan,

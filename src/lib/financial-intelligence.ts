@@ -84,7 +84,7 @@ function daysInUtcMonth(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
-function planningCostForTenant(plan: string, seats: number, _catalogVersion: string | null) {
+function planningCostForTenant(plan: string, seats: number) {
   const current = planId(plan);
   const base = PLANNING_COST_CENTS[current as keyof typeof PLANNING_COST_CENTS];
   if (base == null) return null;
@@ -109,8 +109,8 @@ function revenueForTenant(
   if (monthlyAmountCents != null) {
     return { cents: Number(monthlyAmountCents), classification: "actual" as const };
   }
-  // Only estimate from the published v4 list when the subscription is already on v4
-  // and Stripe has not yet recorded monthly_amount_cents. Never invent v3/legacy revenue.
+  // Estimate from the canonical list only for canonical subscriptions. Never
+  // invent revenue for a historic subscription whose Stripe amount is unknown.
   if (catalogVersion === CATALOG_ID) {
     const offer = PLANS.find((o) => o.id === plan);
     if (offer?.monthly != null) {
@@ -526,7 +526,7 @@ export async function financialIntelligenceOverview(input?: {
     const plan = String(t.plan);
     const seats = Number(t.seats) || 1;
     const catalogVersion = t.catalog_version == null ? null : String(t.catalog_version);
-    const planning = planningCostForTenant(plan, seats, catalogVersion);
+    const planning = planningCostForTenant(plan, seats);
     const snapshotMrr =
       t.snapshot_complete && t.snapshot_mrr_cents != null ? Number(t.snapshot_mrr_cents) : null;
     const revenue = revenueForTenant(
@@ -562,11 +562,7 @@ export async function financialIntelligenceOverview(input?: {
   // Full active Stripe-bound population (not the LIMIT 400 tenant table).
   let planningKnown = false;
   const planningCost = planningSubs.rows.reduce((n, row) => {
-    const cost = planningCostForTenant(
-      String(row.plan),
-      Number(row.seats) || 1,
-      row.catalog_version == null ? null : String(row.catalog_version),
-    );
+    const cost = planningCostForTenant(String(row.plan), Number(row.seats) || 1);
     if (cost == null) return n;
     planningKnown = true;
     return n + cost;
@@ -580,15 +576,6 @@ export async function financialIntelligenceOverview(input?: {
       : null;
 
   // Pricing discrepancy: mapped Stripe prices vs published catalog amounts (metadata only — no Stripe mutation).
-  const publishedByPlan = new Map<string, { monthly: number | null; annual: number | null; version: string }>();
-  for (const o of PLANS) {
-    publishedByPlan.set(`${CATALOG_ID}:${o.id}`, {
-      monthly: o.monthly,
-      annual: o.annual,
-      version: CATALOG_ID,
-    });
-  }
-
   const pricingDiscrepancies: {
     plan: string;
     period: string;
@@ -598,9 +585,7 @@ export async function financialIntelligenceOverview(input?: {
   }[] = [];
   for (const row of priceMaps.rows) {
     if (row.catalog_version !== CATALOG_ID) continue;
-    const key = `${row.catalog_version}:${row.plan}`;
-    const published = publishedByPlan.get(key);
-    if (!published) {
+    if (!PLANS.some((plan) => plan.id === row.plan)) {
       pricingDiscrepancies.push({
         plan: String(row.plan),
         period: String(row.period),

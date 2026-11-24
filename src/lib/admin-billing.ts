@@ -5,6 +5,7 @@ import { ApiError, integer, string, uuid } from "./server";
 import { sandboxAccepted } from "./launch-controls";
 import {
   EXTRA_SEAT,
+  SELLABLE_PLANS,
   planById,
   CATALOG_ID,
   stripeProductFor,
@@ -364,7 +365,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           throw new ApiError("Resolve the subscription's current or scheduled billing state first.", 409);
         if (action === "preview") {
           const plan = String(input.plan);
-          if (!["starter", "professional", "business"].includes(plan))
+          if (!SELLABLE_PLANS.some((offer) => offer.id === plan && offer.id !== EXTRA_SEAT.id))
             throw new ApiError("Choose a current subscription plan.");
           const period = input.period === "annual" ? ("annual" as const) : ("monthly" as const);
           const seats =
@@ -379,8 +380,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           ).rows[0].n;
           if (members > seats)
             throw new ApiError("Deactivate or reassign teammates before reducing seats.", 409);
-          const version = CATALOG_ID,
-            lines: { price: string; quantity: number }[] = [];
+          const lines: { price: string; quantity: number }[] = [];
           for (const [name, quantity] of [
             [plan, 1],
             ...(plan === "business" && seats > 3
@@ -394,7 +394,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               )
             ).rows[0];
             const offer = name === EXTRA_SEAT.id ? EXTRA_SEAT : planById(name);
-            if (!map || map.catalog_version !== version || !offer)
+            if (!map || map.catalog_version !== CATALOG_ID || !offer)
               throw new ApiError("Published price mapping is unavailable.", 409);
             const expectedAmount = Number(
               period === "annual"
@@ -441,7 +441,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             seats,
             plan,
             period,
-            catalogVersion: version,
+            catalogVersion: CATALOG_ID,
             prorationDate,
             amountDue: preview.amount_due,
             currency: preview.currency,

@@ -20,7 +20,7 @@ function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active
  if(sql.startsWith('insert into private.subscription_usage_reservations')){reservations.push(args);return {rows:[],rowCount:1};}
  if(sql.startsWith('INSERT INTO private.envelope_usage')){inserts.push(args);sent++;spent+=args[4];}
  return {rows:[],rowCount:0};}};
- const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits,planLimitsFor:policy.planLimitsFor,isV4CatalogVersion:policy.isV4CatalogVersion},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
+ const service=load('src/lib/envelope-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./entitlement-policy':{planLimits:limits,planLimitsFor:policy.planLimitsFor},'./allowance-display':load('src/lib/allowance-display.ts',{}),'./billing-readiness':{billingReadiness:async()=>({checkoutEnabled:ready})},'./billing':{stripeClient:async()=>({invoices:{list:async()=>({data:unpaid?[{amount_remaining:100,attempted:true}]:[],has_more:false})}})}});
  return {db,service,inserts,locks,reservations};
 }
 test('unlimited seat sentinel keeps an unlimited included pool without multiplying per-seat',async()=>{

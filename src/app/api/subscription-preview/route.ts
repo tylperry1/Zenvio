@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { ApiError, body, failure, sameOrigin, session } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
-import { EXTRA_SEAT, PLANS } from "@/lib/pricing-catalog.mjs";
-import { planDisplayName } from "@/lib/plan-display";
+import { planById, planDisplayName } from "@/lib/pricing-catalog.mjs";
 import {
   previewChange,
   resolveChangeRequest,
@@ -34,7 +33,7 @@ export async function POST(request: NextRequest) {
     const db = getPool();
     const local = (
       await db.query(
-        "SELECT customer_id,subscription_id,plan,seats,catalog_version FROM private.subscriptions WHERE user_id=$1",
+        "SELECT customer_id,subscription_id,plan,seats FROM private.subscriptions WHERE user_id=$1",
         [owner],
       )
     ).rows[0] as
@@ -43,7 +42,6 @@ export async function POST(request: NextRequest) {
           subscription_id?: string | null;
           plan?: string;
           seats?: number;
-          catalog_version?: string | null;
         }
       | undefined;
     if (!local?.subscription_id || !local.customer_id)
@@ -83,8 +81,6 @@ export async function POST(request: NextRequest) {
       stripe,
       requested: change.requested,
       period: change.period,
-      catalogVersion: change.catalogVersion,
-      offers: [...PLANS, EXTRA_SEAT],
     });
 
     const prorationDate = Math.floor(Date.now() / 1000);
@@ -105,9 +101,7 @@ export async function POST(request: NextRequest) {
     );
     const currentInterval =
       current.items.data[0]?.price.recurring?.interval === "year" ? "year" : "month";
-    const nextOffer = PLANS.find((offer) => offer.id === change.plan) as
-      | { id: string; name: string }
-      | undefined;
+    const nextOffer = planById(change.plan);
 
     return Response.json(
       {
@@ -115,7 +109,7 @@ export async function POST(request: NextRequest) {
         expiresAt,
         current: {
           plan: local.plan || "free",
-          name: planDisplayName(local.plan || "free", local.catalog_version),
+          name: planDisplayName(local.plan || "free"),
           interval: currentInterval,
           seats: local.seats || 1,
           amountCents: currentRecurringCents,
@@ -123,7 +117,7 @@ export async function POST(request: NextRequest) {
         },
         next: {
           plan: change.plan,
-          name: nextOffer?.name || planDisplayName(change.plan, change.catalogVersion),
+          name: nextOffer?.name || planDisplayName(change.plan),
           interval: verified.interval,
           seats: change.seats,
           amountCents: verified.recurringCents,

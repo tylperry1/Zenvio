@@ -10,17 +10,14 @@ import {
   PLAN_ALLOWANCES,
   PLAN_FEATURES,
   PLAN_LIMITS,
-  PLANS,
+  SELLABLE_PLANS,
+  includedSeats,
+  isTeamPlan,
   planId,
 } from "@/lib/pricing-catalog.mjs";
 import { ApiError, body, failure, sameOrigin } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
-
-const CANONICAL = [
-  ...PLANS.filter((plan) => plan.paid && !plan.custom),
-  EXTRA_SEAT,
-] as { id: string; name: string; monthly: number | null; annual: number | null }[];
 
 /**
  * The one Billing & Pricing view.
@@ -70,10 +67,10 @@ export async function GET() {
     const currentMappings = mappings.rows.filter(
       (row) => row.catalog_version === CATALOG_ID,
     );
-    const plans = CANONICAL.map((plan) => ({
+    const plans = SELLABLE_PLANS.map((plan) => ({
       ...plan,
-      includedSeats: plan.id === EXTRA_SEAT.id ? 1 : (PLANS.find((p) => p.id === plan.id)?.seats ?? 1),
-      team: plan.id === EXTRA_SEAT.id ? false : Boolean(PLANS.find((p) => p.id === plan.id)?.team),
+      includedSeats: includedSeats(plan.id),
+      team: isTeamPlan(plan.id),
       allowances: PLAN_ALLOWANCES[plan.id as keyof typeof PLAN_ALLOWANCES] ?? null,
       features: PLAN_FEATURES[plan.id as keyof typeof PLAN_FEATURES] ?? [],
       mappings: (["monthly", "annual"] as const).map((period) => {
@@ -98,7 +95,7 @@ export async function GET() {
     const byPlan = new Map(
       subscriptions.rows.map((row) => [planId(row.plan), row]),
     );
-    const distribution = CANONICAL.filter((plan) => plan.id !== EXTRA_SEAT.id).map(
+    const distribution = SELLABLE_PLANS.filter((plan) => plan.id !== EXTRA_SEAT.id).map(
       (plan) => {
         const row = byPlan.get(plan.id);
         return {

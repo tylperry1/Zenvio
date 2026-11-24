@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { billingDate, money } from "@/lib/billing-types";
-import { planDisplayName } from "@/lib/plan-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 import {
   PLAN_ALLOWANCES,
   annualMonthlyEquivalentOf,

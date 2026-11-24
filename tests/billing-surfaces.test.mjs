@@ -27,16 +27,14 @@ function load(file, deps = {}) {
   return m.exports;
 }
 
-const plans = load("src/lib/plan-display.ts");
+const plans = load("src/lib/pricing-catalog.mjs");
 
 test("plan display names come from the one catalog", () => {
-  assert.equal(plans.planDisplayName("business", "2026-11-v4"), "Team");
-  assert.equal(plans.planDisplayName("business", "legacy"), "Team");
   assert.equal(plans.planDisplayName("business"), "Team");
-  assert.equal(plans.planDisplayName("starter", "2026-11-v4"), "Starter");
-  assert.equal(plans.planDisplayName("professional", "2026-11-v4"), "Professional");
-  assert.equal(plans.planDisplayName("team", "2026-11-v4"), "Team");
-  assert.equal(plans.planDisplayName("pro", "2026-11-v4"), "Professional");
+  assert.equal(plans.planDisplayName("starter"), "Starter");
+  assert.equal(plans.planDisplayName("professional"), "Professional");
+  assert.equal(plans.planDisplayName("team"), "Team");
+  assert.equal(plans.planDisplayName("pro"), "Professional");
 });
 
 test("signed-in billing routes customers into the one plan surface", () => {
@@ -104,8 +102,9 @@ test("catalog provenance is persisted for grants without a legacy fallback", () 
   const migration = read("postgres/migrations/107_entitlement_override_catalog_version.sql");
   assert.match(entitlements, /override_catalog_version/);
   assert.doesNotMatch(entitlements, /r\?\.override_catalog_version \|\| r\?\.catalog_version/);
-  assert.match(entitlements, /effectiveCatalogVersion\(/);
-  assert.match(entitlements, /if \(overridePlan\) return overrideCatalogVersion \?\? null;/);
+  assert.match(entitlements, /const catalogVersion = r\?\.override_plan/);
+  assert.match(entitlements, /: r\?\.catalog_version \?\? null/);
+  assert.doesNotMatch(entitlements, /effectiveCatalogVersion/);
   assert.match(route, /catalog_version\) VALUES/);
   assert.match(route, /\? CATALOG_ID/);
   assert.match(route, /from "@\/lib\/pricing-catalog\.mjs"/);

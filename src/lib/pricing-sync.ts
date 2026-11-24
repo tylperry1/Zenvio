@@ -1,8 +1,7 @@
 import { getPool, databaseConfigured } from "./db";
 import {
   CATALOG_ID,
-  EXTRA_SEAT,
-  PLANS,
+  SELLABLE_PLANS,
   stripeProductFor,
 } from "./pricing-catalog.mjs";
 
@@ -36,11 +35,6 @@ type MappingRow = {
   catalog_version: string;
 };
 
-const SELLABLE = [
-  ...PLANS.filter((plan) => plan.paid && !plan.custom),
-  EXTRA_SEAT,
-];
-
 async function mappedPrices(plans: string[]): Promise<MappingRow[]> {
   if (!databaseConfigured()) return [];
   const result = await getPool().query(
@@ -56,10 +50,10 @@ async function mappedPrices(plans: string[]): Promise<MappingRow[]> {
  * still pointing at a retired mapping.
  */
 export async function catalogSyncReport(): Promise<CatalogSyncReport> {
-  const rows = await mappedPrices(SELLABLE.map((plan) => plan.id));
+  const rows = await mappedPrices(SELLABLE_PLANS.map((plan) => plan.id));
   const report: PlanSyncRow[] = [];
 
-  for (const plan of SELLABLE) {
+  for (const plan of SELLABLE_PLANS) {
     for (const period of ["monthly", "annual"] as const) {
       const expectedCents = period === "monthly" ? plan.monthly : plan.annual;
       if (expectedCents == null) continue;
@@ -109,9 +103,4 @@ export async function catalogSyncReport(): Promise<CatalogSyncReport> {
       mismatched: report.filter((r) => r.status === "mismatched").length,
     },
   };
-}
-
-/** Stripe product id for a plan, including retired ids used by old subscriptions. */
-export function stripeProductFamily(plan: string): string {
-  return stripeProductFor(plan) ?? `zenvio_${plan}`;
 }

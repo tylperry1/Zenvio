@@ -53,7 +53,6 @@ test("every customer surface and Master Admin read the one catalog", () => {
     "src/components/billing.tsx",
     "src/lib/public-pricing-surface.ts",
     "src/lib/public-pricing-display.ts",
-    "src/lib/plan-display.ts",
     "src/lib/entitlement-policy.ts",
     "src/lib/envelope-usage.ts",
     "src/lib/subscription-usage.ts",
@@ -74,7 +73,6 @@ test("every customer surface and Master Admin read the one catalog", () => {
 test("no pricing-version branch or version flag controls behaviour", () => {
   const files = [
     "src/lib/entitlement-policy.ts",
-    "src/lib/plan-display.ts",
     "src/lib/envelope-usage.ts",
     "src/lib/subscription-usage.ts",
     "src/lib/public-pricing-surface.ts",
@@ -114,8 +112,9 @@ test("public API exposes no catalog-version fields", () => {
   assert.doesNotMatch(api, /catalogVersion|liveCheckoutCatalogVersion|display\.version|liveCatalog\.version/);
 });
 
-test("retired pricing controls and provisioners are gone", () => {
+test("retired pricing controls and wrappers are gone", () => {
   assert.equal(fs.existsSync("src/lib/pricing-policy.ts"), false);
+  assert.equal(fs.existsSync("src/lib/plan-display.ts"), false);
   assert.equal(fs.existsSync("scripts/provision-subscription-packages.mjs"), false);
   assert.equal(fs.existsSync("scripts/provision-pricing-v4.mjs"), false);
   const pkg = JSON.parse(read("package.json"));

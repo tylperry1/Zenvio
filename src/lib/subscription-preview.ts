@@ -4,10 +4,10 @@ import type { Pool } from "pg";
 import { ApiError } from "./server";
 import {
   planFor,
-  EXTRA_SEAT,
   planById,
-  subscriptionTotal,
+  subscriptionLines,
   CATALOG_ID,
+  EXTRA_SEAT,
   stripeProductFor,
 } from "./pricing-catalog.mjs";
 
@@ -24,8 +24,6 @@ import {
 export const PREVIEW_TTL_MS = 10 * 60 * 1000;
 const CLOCK_SKEW_MS = 60 * 1000;
 
-const PAID_PLANS = ["starter", "professional", "business"] as const;
-
 export type ChangePeriod = "monthly" | "annual";
 export type RequestedLine = { plan: string; quantity: number };
 
@@ -34,14 +32,7 @@ export type ResolvedChange = {
   period: ChangePeriod;
   seats: number;
   requested: RequestedLine[];
-  catalogVersion: string;
 };
-
-/**
- * Stripe product ids are immutable, so their historic `_v4` suffix stays and is
- * treated as part of the product id — not as a catalogue version selector.
- */
-export const STRIPE_PRODUCT_SUFFIX = "_v4";
 
 function seatValue(value: unknown) {
   const seats = Number(value);
@@ -61,32 +52,17 @@ export function resolveChangeRequest(input: {
   seats: unknown;
 }): ResolvedChange {
   const requested = String(input.plan || "").toLowerCase();
-  // Retired ids (individual, team, teams, pro) map to their current plan. There
-  // is no second catalogue to sell, so a legacy request never takes a v3 path.
+  // Retired ids (individual, team, teams, pro) map to their current plan.
   const plan = planFor(requested).id;
   const period: ChangePeriod = input.period === "annual" ? "annual" : "monthly";
 
-  if ((PAID_PLANS as readonly string[]).includes(plan)) {
-    const seats = plan === "business" ? seatValue(input.seats) : 1;
-    const offer = planById(plan);
-    if (!offer || ("custom" in offer && offer.custom) || offer.monthly == null)
-      throw new ApiError("Choose a published subscription plan.");
-    if (period === "annual" && !((offer.annual ?? 0) > 0))
-      throw new ApiError("Annual billing is unavailable for this plan.");
-    subscriptionTotal(plan, seats);
-    const requested: RequestedLine[] = [{ plan, quantity: 1 }];
-    if (plan === "business" && seats > 3)
-      requested.push({ plan: EXTRA_SEAT.id, quantity: seats - 3 });
-    return {
-      plan,
-      period,
-      seats,
-      requested,
-      catalogVersion: CATALOG_ID,
-    };
-  }
-
-  throw new ApiError("Choose and confirm a Starter, Professional, or Team subscription.");
+  const offer = planById(plan);
+  if (!offer?.paid || offer.custom || offer.monthly == null)
+    throw new ApiError("Choose and confirm a Starter, Professional, or Team subscription.");
+  if (period === "annual" && !((offer.annual ?? 0) > 0))
+    throw new ApiError("Annual billing is unavailable for this plan.");
+  const seats = plan === "business" ? seatValue(input.seats) : 1;
+  return { plan, period, seats, requested: subscriptionLines(plan, seats) };
 }
 
 /**
@@ -99,8 +75,6 @@ export async function verifyChangePrices(input: {
   stripe: Pick<Stripe, "prices">;
   requested: RequestedLine[];
   period: ChangePeriod;
-  catalogVersion: string;
-  offers: { id: string; monthly?: number | null; annual?: number | null }[];
 }) {
   const interval = input.period === "annual" ? "year" : "month";
   const lines: { price: string; quantity: number }[] = [];
@@ -114,22 +88,21 @@ export async function verifyChangePrices(input: {
         [line.plan, input.period],
       )
     ).rows[0] as { stripe_price_id?: string; catalog_version?: string } | undefined;
-    if (!mapping?.stripe_price_id || mapping.catalog_version !== input.catalogVersion)
+    if (!mapping?.stripe_price_id || mapping.catalog_version !== CATALOG_ID)
       throw new ApiError("This package is temporarily unavailable.", 503);
 
     const price = await input.stripe.prices.retrieve(mapping.stripe_price_id);
-    const offer = input.offers.find((item) => item.id === line.plan);
+    const offer = line.plan === EXTRA_SEAT.id ? EXTRA_SEAT : planById(line.plan);
     if (!offer) throw new ApiError("This package is temporarily unavailable.", 503);
     const expectedAmount =
       input.period === "annual" ? Number(offer.annual || 0) : Number(offer.monthly || 0);
     if (
-      price.product !== (stripeProductFor(offer.id) ?? `zenvio_${offer.id}${STRIPE_PRODUCT_SUFFIX}`) ||
+      price.product !== stripeProductFor(offer.id) ||
       !price.active ||
       price.currency !== "usd" ||
       price.unit_amount !== expectedAmount ||
       price.recurring?.interval !== interval ||
-      price.recurring?.interval_count !== 1 ||
-      !Number.isInteger(price.unit_amount)
+      price.recurring?.interval_count !== 1
     )
       throw new ApiError(
         "The recurring price could not be verified. No payment has been taken.",

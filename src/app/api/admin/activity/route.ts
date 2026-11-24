@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { adminSession, canAccess } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { ApiError, failure, integer, string, uuid } from "@/lib/server";
-import { planDisplayName } from "@/lib/plan-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 export const dynamic = "force-dynamic";
 const PAGE = 25;
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       const { rows } = await db.query(`${select} LIMIT 5000`, [search]);
       const header = ["Name", "Email", "Verified", "Plan", "Subscription status", "Signed up", "Last active", "Role"];
       const lines = rows.map((r) =>
-        [r.name, r.email, r.verified ? "yes" : "no", planDisplayName(r.plan, r.catalog_version), r.subscription_status || "", r.created_at?.toISOString(), r.last_active?.toISOString() || "", r.master ? "master admin" : r.staff ? "staff" : "member"]
+        [r.name, r.email, r.verified ? "yes" : "no", planDisplayName(r.plan), r.subscription_status || "", r.created_at?.toISOString(), r.last_active?.toISOString() || "", r.master ? "master admin" : r.staff ? "staff" : "member"]
           .map(csvCell)
           .join(","),
       );

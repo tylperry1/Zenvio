@@ -23,10 +23,10 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
  const owner=await usageOwner(db,user);
  const row=(await db.query("select s.plan,s.status,s.catalog_version,exists(select 1 from private.platform_roles where user_id=$1 and enabled) or exists(select 1 from private.entitlement_overrides where user_id=$1 and expires_at>now()) exempt from private.subscriptions s where s.user_id=$1",[owner])).rows[0];
  // One allowance table for every plan; retired ids resolve through planAllowances.
- const versioned=!row?.exempt;
+ const enforced=!row?.exempt;
  const planKey = row?.plan;
  const allowance = planAllowances(planKey);
- const allowances=versioned&&["active","trialing"].includes(row?.status) ? allowance : null;
+ const allowances=enforced&&["active","trialing"].includes(row?.status) ? allowance : null;
  const totals=(await db.query(`select meter,sum(case when state='settled' then consumed else reserved end)::text used,
  sum(included_quantity)::text included_used from private.subscription_usage_reservations
  where billing_owner=$1 and period=date_trunc('month',now() at time zone 'UTC')::date and state<>'released' group by meter`,[owner])).rows;
@@ -39,7 +39,7 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
   ];
   const storage=Number((await db.query("select private.workspace_storage_bytes($1)::text bytes",[owner])).rows[0]?.bytes||0);
   const storageOverride=(await db.query("select allowance from private.workspace_meter_overrides where billing_owner=$1 and meter='storageBytes' and expires_at>now()",[owner])).rows[0];
-  // Contacts are concurrent capacity (not monthly consumable). Count live CRM rows for v4 display.
+  // Contacts are concurrent capacity, not a monthly consumable.
   const contactCount=Number((await db.query(
     `select count(*)::int n from public.contacts c
       where c.user_id in (
@@ -67,7 +67,7 @@ export async function subscriptionUsage(user:string,db:DB=getPool()) {
     [owner],
   )).rows[0]?.n||0);
   const creditDebt=credits.some(r=>Number(r.remaining)<0);
-  return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced:versioned,period:"UTC calendar month",meters:meters.map(meter=>{
+  return {creditDebt,owner,catalogVersion:row?.catalog_version||"legacy",enforced,period:"UTC calendar month",meters:meters.map(meter=>{
   const raw = allowances ? allowances[meter] : undefined;
   // Catalog null means unlimited / custom contract — never coerce to zero included.
   const unlimited = Boolean(allowances) && raw === null;

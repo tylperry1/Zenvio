@@ -288,16 +288,6 @@ function entitlementDb(row) {
   };
 }
 
-test("an active grant owns its catalog version", () => {
-  assert.equal(entitlements.effectiveCatalogVersion("business", null, "2026-11-v4"), null);
-  assert.equal(
-    entitlements.effectiveCatalogVersion("business", "2026-11-v4", "2026-11-v3"),
-    "2026-11-v4",
-  );
-  assert.equal(entitlements.effectiveCatalogVersion(null, null, "2026-11-v4"), "2026-11-v4");
-  assert.equal(entitlements.effectiveCatalogVersion(undefined, "2026-11-v4", null), null);
-});
-
 test("a Business grant keeps Team limits and seats", async () => {
   const state = await entitlements.entitlementUsage(
     "u1",
@@ -318,7 +308,7 @@ test("a Business grant keeps Team limits and seats", async () => {
   assert.equal(state.limits.contacts, 30000);
 });
 
-test("a v4 Team grant keeps v4 Team seats and limits", async () => {
+test("a Team grant preserves its catalog label without changing limits", async () => {
   const state = await entitlements.entitlementUsage(
     "u2",
     entitlementDb({
@@ -356,7 +346,7 @@ test("migration 106 identifies only the canonical state constraint", () => {
   assert.match(rollback, /Cannot roll back 106/);
 });
 
-test("a legacy Pro grant does not inherit the subscription's v4 catalog", async () => {
+test("a legacy Pro grant resolves to Professional limits without borrowing metadata", async () => {
   const state = await entitlements.entitlementUsage(
     "u3",
     entitlementDb({

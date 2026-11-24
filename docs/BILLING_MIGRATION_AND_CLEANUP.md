@@ -12,6 +12,8 @@ delete production data by itself, and it does not modify Stripe.
   script were deleted.
 - Historical `pricingV4*` export names were renamed to canonical names. There
   are no compatibility aliases left to create a second definition.
+- The deprecated `plan-display.ts` wrapper and version parameters on entitlement
+  helpers were removed; display names and limits resolve by plan id alone.
 - Public pricing, enrollment, billing, checkout previews, subscription
   management, webhooks, entitlement calculations, seats, revenue reporting and
   Master Admin all read the same catalog.
@@ -34,7 +36,7 @@ idempotent:
    retired `pricing_v4` row, keeping only `{ enrollmentEnabled }`.
 2. Deletes the retired `pricing` and `pricing_v3_launch_promotion` settings.
 3. Normalizes legacy coupon/add-on `catalog_targets` to the canonical plan list
-   and relaxes the old target constraints.
+   and replaces the old target constraints with an exact `{plans}` check.
 
 It does not touch subscriptions, invoices, payments, refunds, customers,
 entitlement grants or Stripe. Apply it to a disposable database first and then
@@ -44,7 +46,8 @@ this workspace.
 ## What deliberately remains
 
 - `catalog_version` columns and Stripe metadata remain as provenance for
-  historical rows. Nothing branches on them.
+  historical rows. Access, pricing and checkout never branch on them; revenue
+  estimates are withheld without canonical provenance.
 - Stripe product ids keep their `_v4` suffix. Renaming them would break existing
   prices, subscriptions and webhooks.
 - `PLAN_ALIASES` keeps retired plan ids resolving to current plans.

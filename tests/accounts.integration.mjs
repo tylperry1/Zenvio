@@ -130,7 +130,7 @@ try {
  assert.equal((await request('/api/admin/operations',{method:'POST',cookie:owner.cookie,data:{action:'pricing',plans}})).status,200);
  assert.equal((await request('/api/admin/operations',{cookie:owner.cookie})).data.pricing.find(p=>p.id==='pro').monthly,650);
  const publicPrices=(await request('/api/pricing')).data;
- assert.equal(publicPrices.catalogVersion,'2026-11-v4');
+ assert.equal('catalogVersion' in publicPrices,false);
  assert.deepEqual(publicPrices.plans.map(p=>[p.id,p.monthly]),[['free',0],['starter',999],['professional',1999],['business',3499],['enterprise',null]]);
  assert.equal(publicPrices.extraSeat.monthly,500);
  assert.equal(publicPrices.enrollment.enabled,false);

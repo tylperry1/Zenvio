@@ -13,8 +13,8 @@
 
 /**
  * Storage/provenance label written to subscription rows, entitlement grants and
- * Stripe object metadata. It is NOT a feature switch: no behaviour branches on
- * it. Existing rows keep whatever label they were written with.
+ * Stripe object metadata. It is NOT a feature switch: access, pricing and
+ * checkout never branch on it. Existing rows keep their original label.
  */
 export const CATALOG_ID = "2026-11-v4";
 
@@ -92,6 +92,12 @@ export const EXTRA_SEAT = frozen({
   seats: 1,
 });
 
+/** Paid plans plus the extra-seat line, in checkout order. */
+export const SELLABLE_PLANS = frozen([
+  ...PLANS.filter((plan) => plan.paid && !plan.custom),
+  EXTRA_SEAT,
+]);
+
 /**
  * Stripe product ids per sellable plan. These are immutable identifiers that
  * already exist in Stripe; the live price ids per period are stored in
@@ -105,7 +111,8 @@ export const STRIPE_PRODUCTS = frozen({
 });
 
 export function stripeProductFor(plan) {
-  return STRIPE_PRODUCTS[planId(plan)] ?? null;
+  const id = plan === EXTRA_SEAT.id ? EXTRA_SEAT.id : planId(plan);
+  return STRIPE_PRODUCTS[id] ?? null;
 }
 
 /**
@@ -308,11 +315,6 @@ export function planFor(plan) {
   return PLANS.find((entry) => entry.id === id) || PLANS[0];
 }
 
-export function planPrice(plan, period = "monthly") {
-  const entry = planFor(plan);
-  return period === "annual" ? entry.annual : entry.monthly;
-}
-
 export function isTeamPlan(plan) {
   return planFor(plan).team === true;
 }
@@ -331,10 +333,6 @@ export function planLimits(plan) {
 
 export function planAllowances(plan) {
   return PLAN_ALLOWANCES[planId(plan)] || PLAN_ALLOWANCES.free;
-}
-
-export function planFeatures(plan) {
-  return PLAN_FEATURES[planId(plan)] || PLAN_FEATURES.free;
 }
 
 export function contactAllowance(plan) {
@@ -375,34 +373,6 @@ export function subscriptionLines(plan, seats = 1) {
   return lines;
 }
 
-/** Annual total expressed as the equivalent monthly amount (rounded). */
-export function annualMonthlyEquivalent(plan) {
-  const annual = planPrice(plan, "annual");
-  return annual == null ? null : Math.round(annual / 12);
-}
-
-/** Stripe product family key used by the live catalog verifier. */
-export function stripeProductFamily(plan) {
-  return `zenvio_${planId(plan)}`;
-}
-
-export function addonFor(id) {
-  return ADDONS.find((addon) => addon.id === id) || null;
-}
-
-export function quoteCopy(plan) {
-  return `$${(planFor(plan).monthly ?? 0) / 100}`;
-}
-
-/** Sellable plan ids used by checkout and reporting. */
-export const PLAN_IDS = frozen({
-  free: "free",
-  starter: "starter",
-  professional: "professional",
-  team: "business",
-  enterprise: "enterprise",
-});
-
 /** Resolve an exact plan row. Returns null for unknown ids. */
 export function planById(id) {
   return PLANS.find((entry) => entry.id === id) || null;
@@ -442,8 +412,6 @@ export function stripeMetadata({
   if (id) metadata.zenvio_plan_id = id;
   if (interval) metadata.zenvio_billing_interval = interval;
   if (addonId) metadata.zenvio_addon_id = addonId;
-  metadata.catalog_version = catalogVersion;
   if (id) metadata.zenvio_offer = id;
-  if (addonId) metadata.zenvio_addon = addonId;
   return metadata;
 }

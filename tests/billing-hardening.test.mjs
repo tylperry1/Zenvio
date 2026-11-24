@@ -86,9 +86,7 @@ test("official included allowances match the approved catalog", () => {
   );
 });
 
-test("annual plans expose an exact monthly equivalent and stable internal ids", () => {
-  assert.equal(v4.PLAN_IDS.starter, "starter");
-  assert.equal(v4.PLAN_IDS.team, "business");
+test("annual plans expose an exact monthly equivalent", () => {
   assert.equal(v4.annualMonthlyEquivalentOf({ annual: 9588 }), 799);
   assert.equal(v4.annualMonthlyEquivalentOf({ annual: 19188 }), 1599);
   assert.equal(v4.annualMonthlyEquivalentOf({ annual: 33588 }), 2799);
