@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PublicPricing } from "@/components/public-pricing";
 import { Icon } from "@/components/icons";
 import { PublicSiteHeader } from "@/components/public-site-header";
+import { PublicSiteFooter } from "@/components/public-site-footer";
 import "../marketing.css";
 
 export const metadata = {
@@ -76,6 +77,7 @@ export default async function PricingPage() {
           </Link>
         </div>
         </main>
+        <PublicSiteFooter />
       </div>
     </>
   );
