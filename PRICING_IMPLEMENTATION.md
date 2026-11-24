@@ -1,6 +1,6 @@
 # Zenvio pricing revision — 2026-11-v3
 
-Authoritative source: `src/lib/subscription-offers.mjs`. Monthly USD: Individual $29.99; Teams $49.99 including three seats; additional seats $9.99. No public annual pricing. Existing annual and legacy Stripe prices and benefits are retained.
+Authoritative public catalog: `src/lib/pricing-v4-catalog.mjs` (`2026-11-v4`). Monthly/annual USD: Starter $9.99/$95.88; Professional $19.99/$191.88; Team $34.99/$335.88 including three seats; Enterprise custom. Annual plans bill once per year and still receive monthly allowances. The retired `2026-11-v3` catalog (`src/lib/subscription-offers.mjs`: Individual $29.99, Teams $49.99, extra seat $9.99) remains for grandfathered subscriptions only and is never used for new public pricing. See [docs/BILLING_IMPLEMENTATION_REPORT.md](docs/BILLING_IMPLEMENTATION_REPORT.md).
 
 | Monthly allowance | Individual | Teams total pool |
 |---|---:|---:|

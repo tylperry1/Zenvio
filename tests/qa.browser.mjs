@@ -31,19 +31,21 @@ try {
         if (route === "/app/referrals") await page.locator(".referrals-hero").waitFor();
         if (route.startsWith("/sign-up?ref=")) await page.locator(".auth-invite-banner").waitFor();
         if(route==="/pricing") {
-          const table=page.getByRole("table",{name:"Monthly subscription allowances for Individual and Teams"});
-          assert.deepEqual(await table.getByRole("row",{name:/Signing envelopes/}).getByRole("cell").allTextContents(),["10","30"]);
-          assert.deepEqual(await table.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["150","450"]);
+          // The public page shows the proposed v4 catalog while paid enrollment stays gated.
+          assert.equal(await page.getByText("Upcoming plans", {exact:true}).count(), 1);
+          assert.equal(await page.getByText(/These plans aren’t open for paid signup yet/).count(), 3);
+          assert.ok(await page.getByText("$9.99", {exact:true}).count() >= 1);
+          assert.ok(await page.getByText("$19.99", {exact:true}).count() >= 1);
+          assert.ok(await page.getByText("$34.99", {exact:true}).count() >= 1);
+          const comparison=page.locator("table.ui-table");
+          assert.deepEqual(await comparison.getByRole("row",{name:/CRM contacts/}).getByRole("cell").allTextContents(),["100","1,000","10,000","30,000"]);
+          assert.deepEqual(await comparison.getByRole("row",{name:/AI credits/}).getByRole("cell").allTextContents(),["0","25","200","500"]);
+          assert.deepEqual(await comparison.getByRole("row",{name:/E-sign envelopes/}).getByRole("cell").allTextContents(),["0","5","20","50"]);
           assert.equal(await page.getByText(/Extra-seat charges are also half off/).count(),0);
-          const allowances = page.getByRole("region", {name:"Included in your workspace"});
-          await allowances.getByText("How usage is measured", {exact:true}).click();
-          await allowances.getByText("Credit and storage terms", {exact:true}).click();
-          // SMS offers stay out of the public catalog (8 catalog rows, 6 public).
-          assert.equal(await allowances.locator(".allowance-addons li").count(), 6);
-          assert.ok(await allowances.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Allowances must fit the viewport");
-          await page.screenshot({path:`test-results/pricing-allowances-${width}.png`});
-          await allowances.getByText("How usage is measured", {exact:true}).click();
-          await allowances.getByText("Credit and storage terms", {exact:true}).click();
+          const addonSection=page.locator("section.subscription-invoices").filter({has:page.getByRole("heading",{name:"Optional add-ons"})});
+          // SMS offers stay out of the public catalog (9 catalog rows, 7 public).
+          assert.equal(await addonSection.locator("li").count(), 7);
+          await page.screenshot({path:`test-results/pricing-comparison-${width}.png`});
         }
         if(route === "/admin/operations") {
           await page.getByRole("button", {name: "Manage", exact: true}).first().click();

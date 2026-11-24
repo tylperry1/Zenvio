@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { getPool } from "./db";
-import { stripeClient } from "./billing";
+import { stripeClient, stripeEnvironment } from "./billing";
 import { ApiError, integer, string, uuid } from "./server";
 import { sandboxAccepted } from "./launch-controls";
 import { validateCatalog, currentCatalog } from "./billing-catalog";
@@ -82,6 +82,12 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
     } else if (action === "addon-update") {
       // Local catalog edit only — does not call Stripe or enable purchase flags.
       result = { ok: true, addon: await updateBillingAddon(db, actor, input) };
+    } else if (action === "stripe-reconcile") {
+      // Read-only comparison: safe without a catalog mutation gate.
+      const stripe = await stripeClient();
+      const environment = typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
+      const { reconcileStripeCatalog } = await import("./billing-reconcile");
+      result = { ok: true, reconciliation: await reconcileStripeCatalog(stripe, environment, actor) };
     } else {
       if (!(await sandboxAccepted()))
         throw new ApiError(
@@ -91,8 +97,10 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       const stripe = await stripeClient();
       if (action === "addon-sync") {
         const addonId = string(input.addonId || input.id, "add-on id", 64, 1);
+        const environment =
+          typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
         try {
-          const synced = await syncAddonToStripe(db, stripe, addonId, actor);
+          const synced = await syncAddonToStripe(db, stripe, addonId, actor, environment);
           if (synced.sync_status !== "synced" || !synced.stripe_price_id) {
             throw new ApiError(
               "Stripe add-on price was not created. Retry sync after fixing the provider error.",
@@ -134,7 +142,9 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             400,
           );
         }
-        const results = await syncAllAddonsToStripe(db, stripe, actor);
+        const environment =
+          typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
+        const results = await syncAllAddonsToStripe(db, stripe, actor, environment);
         result = {
           ok: true,
           results,

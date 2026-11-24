@@ -48,12 +48,12 @@ function v4ProductId(plan: string) {
 }
 
 async function mappedPrices(plans: string[]) {
-  if (!databaseConfigured()) return [] as { plan: string; period: string; stripe_price_id: string; catalog_version: string }[];
+  if (!databaseConfigured()) return [] as { plan: string; period: string; stripe_price_id: string; stripe_product_id?: string | null; catalog_version: string }[];
   const result = await getPool().query(
-    "SELECT plan, period, stripe_price_id, catalog_version FROM private.subscription_prices WHERE plan = ANY($1::text[])",
+    "SELECT plan, period, stripe_price_id, stripe_product_id, catalog_version FROM private.subscription_prices WHERE plan = ANY($1::text[])",
     [plans],
   );
-  return result.rows as { plan: string; period: string; stripe_price_id: string; catalog_version: string }[];
+  return result.rows as { plan: string; period: string; stripe_price_id: string; stripe_product_id?: string | null; catalog_version: string }[];
 }
 
 function classifyLive(
@@ -166,7 +166,7 @@ export async function catalogSyncReport(): Promise<CatalogSyncReport> {
           plan: offer.id,
           period,
           expectedCents,
-          productId: v4ProductId(offer.id),
+          productId: row.stripe_product_id || v4ProductId(offer.id),
           stripePriceId: row.stripe_price_id,
           mappedCatalogVersion: row.catalog_version,
           status: "synchronized",
@@ -181,7 +181,7 @@ export async function catalogSyncReport(): Promise<CatalogSyncReport> {
       plan: pricingV4ExtraSeat.id,
       period,
       expectedCents,
-      productId: v4ProductId(pricingV4ExtraSeat.id),
+      productId: row?.stripe_product_id || v4ProductId(pricingV4ExtraSeat.id),
       stripePriceId: row?.stripe_price_id ?? null,
       mappedCatalogVersion: row?.catalog_version ?? null,
       status: row?.catalog_version === pricingV4Version ? "synchronized" : "pending_provision",

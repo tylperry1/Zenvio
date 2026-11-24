@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import type Stripe from "stripe";
 import { ApiError, integer, string } from "./server";
+import { pricingV4StripeMetadata } from "./pricing-v4-catalog.mjs";
 
 export type AddonSyncStatus = "synced" | "pending" | "failed" | "disabled";
 
@@ -124,6 +125,7 @@ export async function syncAddonToStripe(
   stripe: Stripe,
   addonId: string,
   actor: string,
+  environment: "test" | "live" | "unknown" = "unknown",
 ) {
   const row = (
     await db.query("SELECT * FROM private.billing_addons WHERE id=$1 FOR UPDATE", [addonId])
@@ -153,7 +155,7 @@ export async function syncAddonToStripe(
           id: productKey,
           name: `Zenvio ${row.name}`,
           metadata: {
-            zenvio_addon: row.id,
+            ...pricingV4StripeMetadata({ addonId: row.id, environment }),
             zenvio_unit: row.unit,
             zenvio_recurring: String(row.recurring),
           },
@@ -165,7 +167,7 @@ export async function syncAddonToStripe(
       await stripe.products.update(productId, {
         name: `Zenvio ${row.name}`,
         metadata: {
-          zenvio_addon: row.id,
+          ...pricingV4StripeMetadata({ addonId: row.id, environment }),
           zenvio_unit: row.unit,
           zenvio_recurring: String(row.recurring),
         },
@@ -209,7 +211,7 @@ export async function syncAddonToStripe(
               ? { recurring: { interval: "month" as const, interval_count: 1 } }
               : {}),
             metadata: {
-              zenvio_addon: row.id,
+              ...pricingV4StripeMetadata({ addonId: row.id, environment }),
               zenvio_quantity: String(row.quantity),
               zenvio_unit: row.unit,
             },
@@ -268,6 +270,7 @@ export async function syncAllAddonsToStripe(
   db: Pick<PoolClient, "query">,
   stripe: Stripe,
   actor: string,
+  environment: "test" | "live" | "unknown" = "unknown",
 ) {
   const rows = await listBillingAddons(db);
   const results: { id: string; syncStatus: string; error?: string }[] = [];
@@ -277,7 +280,7 @@ export async function syncAllAddonsToStripe(
       continue;
     }
     try {
-      const synced = await syncAddonToStripe(db, stripe, row.id, actor);
+      const synced = await syncAddonToStripe(db, stripe, row.id, actor, environment);
       results.push({ id: row.id, syncStatus: synced.sync_status });
     } catch (e) {
       results.push({

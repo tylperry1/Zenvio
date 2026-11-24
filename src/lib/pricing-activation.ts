@@ -8,10 +8,13 @@ export type PricingV4Settings = {
   publicCatalog: PricingPublicCatalog;
 };
 
+// The approved 2026-11-v4 catalog is the public display default. Paid enrollment
+// remains separately gated by persisted consent, PRICING_V4_VALIDATED, and Stripe
+// readiness, so showing these plans never creates a charge.
 const defaults: PricingV4Settings = {
-  previewEnabled: false,
+  previewEnabled: true,
   enrollmentEnabled: false,
-  publicCatalog: "v3",
+  publicCatalog: "v4",
 };
 
 export async function pricingV4Settings(): Promise<PricingV4Settings> {

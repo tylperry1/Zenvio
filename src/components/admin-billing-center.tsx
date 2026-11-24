@@ -50,6 +50,32 @@ type Preview = {
   amountDue: number;
   currency: string;
 };
+type WebhookEvent = {
+  id: string;
+  type: string;
+  object_id?: string | null;
+  status: string;
+  attempts: number;
+  error?: string | null;
+  livemode?: boolean | null;
+  received_at: string;
+};
+type SyncRun = {
+  id: string;
+  environment: string;
+  catalog_version: string;
+  mode: string;
+  status: string;
+  summary?: {
+    productCount?: number;
+    priceCount?: number;
+    missingProducts?: string[];
+    missingPrices?: string[];
+    duplicates?: unknown[];
+  } | null;
+  error?: string | null;
+  started_at: string;
+};
 
 type Meter = keyof BillingCatalog["allowances"]["individual"];
 
@@ -165,6 +191,8 @@ export function AdminBillingCenter() {
     coupons?: CouponRow[];
     addons?: AddonRow[];
     sync?: CatalogSyncReport;
+    webhookEvents?: WebhookEvent[];
+    syncRuns?: SyncRun[];
     publicSurface?: {
       family: string;
       previewOnly: boolean;
@@ -178,6 +206,17 @@ export function AdminBillingCenter() {
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [last, setLast] = useState<Record<string, unknown> | null>(null);
+  const [reconciliation, setReconciliation] = useState<{
+    environment: string;
+    productCount: number;
+    priceCount: number;
+    missingProducts: string[];
+    missingPrices: string[];
+    mismatched: { plan: string; period: string }[];
+    duplicates: unknown[];
+    obsoletePrices: unknown[];
+    checkedAt: string;
+  } | null>(null);
   const [planTab, setPlanTab] = useState<"individual" | "team">("individual");
   const [section, setSection] = useState<"pricing" | "coupons" | "addons" | "seats" | "audit">(
     params.get("userId") ? "seats" : "pricing",
@@ -199,6 +238,31 @@ export function AdminBillingCenter() {
   useEffect(() => {
     void load().catch((e) => setError(e.message));
   }, []);
+
+  async function retryWebhook(eventId: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/billing/webhooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error || "Webhook retry failed.");
+      setMessage(
+        d.alreadyProcessed
+          ? "That delivery was already processed. No duplicate changes were applied."
+          : "Webhook reprocessed from the current Stripe object.",
+      );
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function send(input: Record<string, unknown>, retry = false) {
     if (input.action === "preview") seatsPreviewGen.current += 1;
@@ -1210,6 +1274,150 @@ export function AdminBillingCenter() {
               </div>
             ) : (
               <EmptyState icon="layers" title="Sync report unavailable" />
+            )}
+          </Panel>
+          <Panel
+            title="Stripe reconciliation"
+            description="Read-only comparison against Stripe. Detects missing products, missing prices, mapping mismatches, duplicate active prices, and obsolete prices without changing anything."
+            actions={
+              <button
+                type="button"
+                className="ds-btn sm"
+                disabled={busy}
+                onClick={async () => {
+                  const result = await send({
+                    action: "stripe-reconcile",
+                    reason: "Read-only Stripe catalog reconciliation",
+                  });
+                  if (result?.reconciliation) setReconciliation(result.reconciliation);
+                }}
+              >
+                Reconcile now
+              </button>
+            }
+          >
+            {reconciliation ? (
+              <div className="ds-stack">
+                <div className="ds-kpis">
+                  <Kpi
+                    label="Environment"
+                    value={reconciliation.environment.toUpperCase()}
+                    tone={reconciliation.environment === "live" ? "warning" : "info"}
+                    detail={`Checked ${formatDate(reconciliation.checkedAt, { dateStyle: "medium", timeStyle: "short" })}`}
+                  />
+                  <Kpi label="Products" value={reconciliation.productCount} detail="Matching catalog products" />
+                  <Kpi
+                    label="Missing"
+                    value={reconciliation.missingProducts.length + reconciliation.missingPrices.length}
+                    tone={
+                      reconciliation.missingProducts.length || reconciliation.missingPrices.length
+                        ? "danger"
+                        : "success"
+                    }
+                    detail="Products or prices not found in Stripe"
+                  />
+                  <Kpi
+                    label="Mismatched"
+                    value={reconciliation.mismatched.length}
+                    tone={reconciliation.mismatched.length ? "danger" : "success"}
+                    detail="Stored mappings that differ from Stripe"
+                  />
+                  <Kpi
+                    label="Duplicates"
+                    value={reconciliation.duplicates.length}
+                    tone={reconciliation.duplicates.length ? "warning" : "success"}
+                    detail={`${reconciliation.obsoletePrices.length} obsolete active price(s) reported, never deleted`}
+                  />
+                </div>
+                {reconciliation.missingProducts.length ? (
+                  <Notice tone="warning">
+                    Missing products: {reconciliation.missingProducts.join(", ")}. Run the approved test-mode provisioner; live Stripe changes still require explicit approval.
+                  </Notice>
+                ) : null}
+                {reconciliation.mismatched.length ? (
+                  <Notice tone="warning">
+                    Mismatched mappings:{" "}
+                    {reconciliation.mismatched
+                      .map((row) => `${row.plan}/${row.period}`)
+                      .join(", ")}
+                    . Re-link the approved catalog before enabling checkout.
+                  </Notice>
+                ) : null}
+              </div>
+            ) : data.syncRuns?.length ? (
+              <ul className="bc-versions">
+                {data.syncRuns.map((run) => (
+                  <li key={run.id}>
+                    <div>
+                      <b>
+                        {run.mode} · {run.environment}
+                      </b>
+                      <small>
+                        {run.status} · {formatDate(run.started_at, { dateStyle: "medium", timeStyle: "short" })}
+                        {run.summary?.productCount != null ? ` · ${run.summary.productCount} products` : ""}
+                        {run.summary?.priceCount != null ? ` · ${run.summary.priceCount} prices` : ""}
+                        {run.summary?.duplicates?.length ? ` · ${run.summary.duplicates.length} duplicates` : ""}
+                      </small>
+                      {run.error ? <small>{run.error}</small> : null}
+                    </div>
+                    <Badge tone={run.status === "succeeded" ? "success" : "danger"} dot>
+                      {run.status}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState icon="layers" title="No reconciliation yet">
+                Run a read-only reconciliation to compare the catalog with Stripe.
+              </EmptyState>
+            )}
+          </Panel>
+          <Panel
+            title="Webhook deliveries"
+            description="Every signed Stripe delivery is recorded. Failed events can be retried from the current Stripe object without creating duplicate credits."
+          >
+            {!data.webhookEvents?.length ? (
+              <EmptyState icon="shield" title="No webhook deliveries recorded" />
+            ) : (
+              <ul className="bc-versions">
+                {data.webhookEvents.map((event) => (
+                  <li key={event.id}>
+                    <div>
+                      <b>{event.type}</b>
+                      <small>
+                        <code>{event.id}</code> · {formatDate(event.received_at, { dateStyle: "medium", timeStyle: "short" })}
+                        {event.attempts > 1 ? ` · ${event.attempts} attempts` : ""}
+                        {event.livemode ? " · live mode" : ""}
+                      </small>
+                      {event.error ? <small>{event.error}</small> : null}
+                    </div>
+                    <Badge
+                      tone={
+                        event.status === "processed"
+                          ? "success"
+                          : event.status === "failed"
+                            ? "danger"
+                            : event.status === "ignored"
+                              ? "neutral"
+                              : "warning"
+                      }
+                      dot
+                    >
+                      {event.status}
+                    </Badge>
+                    {event.status === "failed" ? (
+                      <button
+                        type="button"
+                        className="ds-btn sm"
+                        disabled={busy}
+                        onClick={() => void retryWebhook(event.id)}
+                      >
+                        Retry
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
             )}
           </Panel>
           <div className="ds-grid-2">

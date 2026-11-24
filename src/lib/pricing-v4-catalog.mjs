@@ -5,6 +5,53 @@
  */
 export const pricingV4Version = "2026-11-v4";
 export const pricingV4Tagline = "Run Your Business. Not Your Budget.";
+
+/**
+ * Stable internal plan ids. Display names and Stripe product names may change;
+these never do. Team is intentionally stored as `business` for backwards
+ * compatibility with existing entitlement, checkout, and price-mapping rows.
+ */
+export const pricingV4PlanIds = Object.freeze({
+  free: "free",
+  starter: "starter",
+  professional: "professional",
+  team: "business",
+  enterprise: "enterprise",
+});
+
+/** Which Stripe mode a secret key belongs to. Never logs or returns the key. */
+export function stripeEnvironmentForKey(key) {
+  const value = String(key || "");
+  if (value.startsWith("sk_live_") || value.startsWith("rk_live_")) return "live";
+  if (value.startsWith("sk_test_") || value.startsWith("rk_test_")) return "test";
+  return "unknown";
+}
+
+/**
+ * Metadata written to every Zenvio Stripe Product and Price so synchronization
+ * matches by stable identifiers instead of display names or amounts.
+ */
+export function pricingV4StripeMetadata({
+  planId,
+  interval = null,
+  environment = "test",
+  catalogVersion = pricingV4Version,
+  addonId = null,
+} = {}) {
+  if (!planId && !addonId) throw new Error("A plan or add-on id is required");
+  const metadata = {
+    zenvio_catalog_version: catalogVersion,
+    zenvio_environment: environment,
+  };
+  if (planId) metadata.zenvio_plan_id = planId;
+  if (interval) metadata.zenvio_billing_interval = interval;
+  if (addonId) metadata.zenvio_addon_id = addonId;
+  // Keys read by earlier provisioning runs and checkout diagnostics.
+  metadata.catalog_version = catalogVersion;
+  if (planId) metadata.zenvio_offer = planId;
+  if (addonId) metadata.zenvio_addon = addonId;
+  return metadata;
+}
 export const pricingV4Flagship = "professional";
 /** Derived from the Professional monthly amount so public copy cannot drift from the catalog. */
 export const pricingV4Hero = `Everything Your Business Needs. Just $${(1999 / 100).toFixed(2)} a Month.`;
@@ -203,6 +250,12 @@ export const pricingV4PlanningCostCents = Object.freeze({
 
 export function pricingV4Offer(id) {
   return pricingV4Offers.find((o) => o.id === id) || null;
+}
+
+/** Annual total expressed as the equivalent monthly price (rounded to the cent). */
+export function pricingV4AnnualMonthlyEquivalent(offer) {
+  if (!offer || offer.annual == null) return null;
+  return Math.round(offer.annual / 12);
 }
 
 export function pricingV4SubscriptionTotal(plan, seats = 1) {

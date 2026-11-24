@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   pricingV4Addons,
   pricingV4Allowances,
+  pricingV4AnnualMonthlyEquivalent,
   pricingV4ExtraSeat,
   pricingV4Features,
   pricingV4Flagship,
@@ -13,6 +14,38 @@ import {
 } from "@/lib/pricing-v4-catalog.mjs";
 import { money } from "@/lib/billing-types";
 import { publicAddonsForDisplay } from "@/lib/public-pricing-display";
+
+const COMPARISON_PLANS = ["free", "starter", "professional", "business"] as const;
+const COMPARISON_ROWS: {
+  label: string;
+  key: keyof typeof pricingV4Allowances.free;
+  unit?: "bytes";
+}[] = [
+  { label: "CRM contacts", key: "contacts" },
+  { label: "Bookings per month", key: "appointments" },
+  { label: "Storage included", key: "storageBytes", unit: "bytes" },
+  { label: "Marketing emails / month", key: "marketingEmails" },
+  { label: "Automation actions / month", key: "automationExecutions" },
+  { label: "AI credits / month", key: "aiCredits" },
+  { label: "E-sign envelopes / month", key: "envelopes" },
+  { label: "Video minutes / month", key: "videoMinutes" },
+];
+
+function formatCapacity(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) return `${Number((mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1))} GB`;
+  return `${Number(mb.toFixed(mb % 1 === 0 ? 0 : 1))} MB`;
+}
+
+function allowanceCell(
+  plan: (typeof COMPARISON_PLANS)[number],
+  row: (typeof COMPARISON_ROWS)[number],
+) {
+  const value = pricingV4Allowances[plan][row.key];
+  if (value == null) return "Unlimited*";
+  if (row.unit === "bytes") return formatCapacity(value);
+  return value.toLocaleString("en-US");
+}
 
 export function PublicPricingV4({
   joinHref = "/early-access",
@@ -54,8 +87,9 @@ export function PublicPricingV4({
       </div>
       {annual ? (
         <p className="premium-note sob-annual-note" role="note">
-          Annual amounts are for planning only. Live paid enrollment still uses the published
-          monthly catalog until v4 checkout is fully wired.
+          {canEnroll
+            ? "Annual plans are billed once per year at the total shown. Checkout uses the annual Stripe price. Included monthly allowances are still granted each month — they are never delivered as a full year at once."
+            : "Annual totals are shown for planning. Paid enrollment is not open yet, so no annual charge can be made."}
         </p>
       ) : null}
 
@@ -96,7 +130,7 @@ export function PublicPricingV4({
               </p>
               {annual && offer.annual != null ? (
                 <p className="premium-note">
-                  Billed once yearly · equals {money(Math.round(offer.annual / 12))}/mo
+                  Billed once yearly · equals {money(pricingV4AnnualMonthlyEquivalent(offer) || 0)}/mo
                 </p>
               ) : null}
               {!isFree && !canEnroll ? (
@@ -140,46 +174,92 @@ export function PublicPricingV4({
             </p>
           </section>
           <section className="subscription-invoices">
-            <h2>Allowances at a glance</h2>
+            <h2>Compare plans</h2>
             <div className="ui-table-wrap">
               <table className="ui-table">
                 <thead>
                   <tr>
-                    <th>Meter</th>
-                    <th>Free</th>
-                    <th>Starter</th>
-                    <th>Professional</th>
-                    <th>Business</th>
+                    <th>Plan detail</th>
+                    {COMPARISON_PLANS.map((plan) => (
+                      <th key={plan}>
+                        {pricingV4Offers.find((offer) => offer.id === plan)?.name || plan}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {(
-                    [
-                      ["CRM contacts", "contacts"],
-                      ["Marketing emails", "marketingEmails"],
-                      ["AI credits", "aiCredits"],
-                      ["Signature envelopes", "envelopes"],
-                      ["Automation runs", "automationExecutions"],
-                    ] as const
-                  ).map(([label, key]) => (
-                    <tr key={key}>
-                      <th>{label}</th>
-                      {(["free", "starter", "professional", "business"] as const).map((plan) => {
-                        const value = pricingV4Allowances[plan][key];
-                        return (
-                          <td key={plan}>
-                            {value == null ? "Custom / unlimited*" : value.toLocaleString("en-US")}
-                          </td>
-                        );
-                      })}
+                  <tr>
+                    <th>Monthly price</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = pricingV4Offers.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {plan === "free" ? "$0" : offer?.monthly != null ? money(offer.monthly) : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Annual total</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = pricingV4Offers.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {plan === "free"
+                            ? "$0"
+                            : offer?.annual != null
+                              ? money(offer.annual)
+                              : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Annual equivalent / month</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = pricingV4Offers.find((row) => row.id === plan);
+                      const equivalent = offer ? pricingV4AnnualMonthlyEquivalent(offer) : null;
+                      return (
+                        <td key={plan}>
+                          {plan === "free"
+                            ? "$0"
+                            : equivalent != null
+                              ? money(equivalent)
+                              : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Team seats included</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = pricingV4Offers.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {offer?.seats == null
+                            ? "Custom"
+                            : plan === "business"
+                              ? `${offer.seats} users`
+                              : String(offer.seats)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {COMPARISON_ROWS.map((row) => (
+                    <tr key={row.key}>
+                      <th>{row.label}</th>
+                      {COMPARISON_PLANS.map((plan) => (
+                        <td key={plan}>{allowanceCell(plan, row)}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <p className="premium-note">
-              *Fair-use unlimited where listed. Essential transactional email is never blocked solely because a marketing
-              email allowance is exhausted. Optional add-ons will be offered once billing for them is live.
+              *Fair-use unlimited where listed. Annual subscribers receive the same monthly allowance each month of the
+              annual term. Essential transactional email is never blocked solely because a marketing email allowance is
+              exhausted. Optional add-ons are sold separately once billing for them is live.
             </p>
           </section>
           <section className="subscription-invoices">
@@ -188,7 +268,8 @@ export function PublicPricingV4({
               {addons.map((addon) => (
                 <li key={addon.id}>
                   {addon.name} · {money(addon.amount)}
-                  {addon.recurring ? "/month" : ""} · Planning only — not for purchase yet
+                  {addon.recurring ? "/month" : ""} ·{" "}
+                  {addon.available ? "Available in Plan & billing" : "Planning only — not for purchase yet"}
                 </li>
               ))}
             </ul>

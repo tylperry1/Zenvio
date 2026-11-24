@@ -5,6 +5,7 @@ import { assertSmsConsent, normalizeE164 } from "../twilio";
 import type { SmsReadiness, SmsSendResult } from "../sms";
 import { telnyxConfigured, telnyxSend, smsDigest, smsSegments } from "./telnyx";
 import { reserveUsage, uncertainUsage } from "./provider-policy";
+import { recordSmsSegments } from "../sms-usage";
 export async function telnyxReadiness(input: {
     userId: string;
     to: string;
@@ -108,6 +109,25 @@ export async function drainSmsOutbox(limit = 10) {
             await pool.query("update private.sms_outbox set state=case when state='delivered' then state else 'accepted' end,provider_message_id=$2,finished_at=now() where id=$1", [row.id, providerId]);
             await pool.query("update private.message_records set state=case when state='delivered' then state else 'provider_accepted' end,provider='telnyx',provider_message_id=$2,sent_at=now() where id::text=$1 and user_id=$3", [row.reference, providerId, row.user_id]);
             await pool.query("update private.thread_messages set status='sent' where id::text=$1 and thread_id in(select id from private.message_threads where user_id=$2)", [row.reference, row.user_id]);
+            // Meter billable segments per workspace after provider acceptance.
+            // Metering failure must never resend an already accepted message.
+            try {
+                const usageDb = await pool.connect();
+                try {
+                    await usageDb.query("begin");
+                    await recordSmsSegments(usageDb, { userId: row.user_id, outboxId: row.id, text });
+                    await usageDb.query("commit");
+                }
+                catch {
+                    await usageDb.query("rollback");
+                }
+                finally {
+                    usageDb.release();
+                }
+            }
+            catch {
+                /* usage reconciliation can retry without affecting delivery */
+            }
             accepted++;
         }
         catch (e) {
