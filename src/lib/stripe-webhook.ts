@@ -127,6 +127,12 @@ async function syncVerifiedSubscription(
   client: PoolClient,
   deps: StripeWebhookDeps,
 ) {
+  // Retrieval and save must be serialized per subscription. Otherwise two
+  // overlapping deliveries can read different provider states and commit them
+  // in reverse order, restoring stale seats or an active plan after cancellation.
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+    "stripe-subscription:" + subscriptionId,
+  ]);
   let subscription: Stripe.Subscription;
   try {
     subscription = await deps.stripe.subscriptions.retrieve(subscriptionId, {
@@ -223,6 +229,9 @@ async function handleEvent(
     if (!order?.checkout_id || order.state !== "pending") return "ignored";
     const checkout = await deps.stripe.checkout.sessions.retrieve(order.checkout_id);
     await deps.settleAddon(client, checkout);
+    // A charge.refunded delivery can arrive before this settlement. Re-check the
+    // provider charge after granting so a refunded payment cannot keep credits.
+    await reconcileCheckoutRefund(client, checkout, deps);
     return "processed";
   }
 

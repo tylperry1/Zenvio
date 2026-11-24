@@ -212,6 +212,7 @@ export function AdminBillingCenter() {
     priceCount: number;
     missingProducts: string[];
     missingPrices: string[];
+    mismatched: { plan: string; period: string }[];
     duplicates: unknown[];
     obsoletePrices: unknown[];
     checkedAt: string;
@@ -1316,6 +1317,12 @@ export function AdminBillingCenter() {
                     detail="Products or prices not found in Stripe"
                   />
                   <Kpi
+                    label="Mismatched"
+                    value={reconciliation.mismatched.length}
+                    tone={reconciliation.mismatched.length ? "danger" : "success"}
+                    detail="Stored mappings that differ from Stripe"
+                  />
+                  <Kpi
                     label="Duplicates"
                     value={reconciliation.duplicates.length}
                     tone={reconciliation.duplicates.length ? "warning" : "success"}
@@ -1325,6 +1332,15 @@ export function AdminBillingCenter() {
                 {reconciliation.missingProducts.length ? (
                   <Notice tone="warning">
                     Missing products: {reconciliation.missingProducts.join(", ")}. Run the approved test-mode provisioner; live Stripe changes still require explicit approval.
+                  </Notice>
+                ) : null}
+                {reconciliation.mismatched.length ? (
+                  <Notice tone="warning">
+                    Mismatched mappings:{" "}
+                    {reconciliation.mismatched
+                      .map((row) => `${row.plan}/${row.period}`)
+                      .join(", ")}
+                    . Re-link the approved catalog before enabling checkout.
                   </Notice>
                 ) : null}
               </div>

@@ -135,12 +135,15 @@ test("public comparison and pricing copy come from the catalog, not hardcoded va
 
 function webhookFixture(state = {}) {
   const calls = { save: [], settle: 0, refund: 0 };
+  const order = [];
   const client = {
     released: false,
     release() {
       this.released = true;
     },
-    async query(sql) {
+    async query(sql, params) {
+      if (sql.includes("pg_advisory_xact_lock") && String(params?.[0] || "").startsWith("stripe-subscription:"))
+        order.push("lock");
       if (sql.includes("SELECT status FROM private.stripe_webhook_events"))
         return { rows: state.eventRow ? [{ status: state.eventRow.status }] : [] };
       if (sql.includes("INSERT INTO private.stripe_webhook_events")) return { rows: [] };
@@ -158,6 +161,7 @@ function webhookFixture(state = {}) {
   const stripe = {
     subscriptions: {
       async retrieve(id) {
+        order.push("retrieve");
         if (state.missingSubscription) {
           const error = new Error("missing");
           error.code = "resource_missing";
@@ -187,6 +191,7 @@ function webhookFixture(state = {}) {
     connect: async () => client,
     stripe,
     saveSubscription: async (_client, subscription, userId) => {
+      order.push("save");
       calls.save.push({ id: subscription.id, status: subscription.status, userId });
     },
     settleAddon: async () => {
@@ -198,7 +203,7 @@ function webhookFixture(state = {}) {
       return true;
     },
   };
-  return { deps, calls };
+  return { deps, calls, order };
 }
 
 const webhook = load("src/lib/stripe-webhook.ts");
@@ -251,6 +256,16 @@ test("invoice events resolve the subscription from the newer parent field", asyn
   assert.equal(calls.save[0].id, "sub_2");
 });
 
+test("subscription state is retrieved and saved under the shared subscription lock", async () => {
+  const { deps, order } = webhookFixture({ owner: "owner" });
+  const result = await webhook.processStripeEvent(
+    { id: "evt_lock", type: "customer.subscription.updated", data: { object: { id: "sub_1" } } },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.deepEqual(order, ["lock", "retrieve", "save"]);
+});
+
 test("subscription ownership mismatch fails closed and is recorded as failed", async () => {
   const { deps, calls } = webhookFixture({ owner: "owner", metadataUser: "someone_else" });
   await assert.rejects(
@@ -287,6 +302,26 @@ test("payment intent fulfillment requires the pending stored checkout", async ()
   );
   assert.equal(skipped.outcome, "ignored");
   assert.equal(alreadyPaid.calls.settle, 0);
+});
+
+test("refunded payment intents cannot keep granted add-on credits", async () => {
+  const refunded = webhookFixture({
+    order: { checkout_id: "cs_fixture", state: "pending" },
+    checkout: { id: "cs_fixture", payment_intent: "pi_fixture" },
+    intent: { id: "pi_fixture", latest_charge: "ch_fixture" },
+    charge: { id: "ch_fixture", amount_refunded: 100 },
+  });
+  const result = await webhook.processStripeEvent(
+    {
+      id: "evt_pi_refunded",
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_1", metadata: { zenvio_addon_order: "order_1" } } },
+    },
+    refunded.deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.equal(refunded.calls.settle, 1);
+  assert.equal(refunded.calls.refund, 1);
 });
 
 test("webhook events outside Zenvio billing are ignored without failing", async () => {

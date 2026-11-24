@@ -37,6 +37,31 @@ ON CONFLICT DO NOTHING;
 -- Add-on mappings. Purchase stays gated by ADDON_BILLING_VALIDATED and the
 -- per-row available flag. The seat add-on reuses the subscription seat product
 -- so the catalog does not create a duplicate Stripe product.
+-- Refuse to attach a fixed price to an add-on whose locally edited terms differ:
+-- checkout would charge the Stripe amount while settlement rejects the order.
+DO $$
+DECLARE changed text;
+BEGIN
+  SELECT string_agg(a.id, ', ' ORDER BY a.id) INTO changed
+    FROM private.billing_addons AS a
+    JOIN (VALUES
+      ('ai_100',        299,  false),
+      ('ai_500',        999,  false),
+      ('envelopes_10',  999,  false),
+      ('envelope_1',    100,  false),
+      ('video_1000',    999,  false),
+      ('storage_10gb',  299,  true),
+      ('sms_starter',   1499, true),
+      ('sms_segment',   3,    false),
+      ('business_extra',500,  true)
+    ) AS v(addon_id, amount_cents, recurring)
+      ON a.id = v.addon_id
+   WHERE a.amount_cents <> v.amount_cents OR a.recurring <> v.recurring;
+  IF changed IS NOT NULL THEN
+    RAISE EXCEPTION 'Add-on terms differ from the approved live mapping: %', changed;
+  END IF;
+END $$;
+
 UPDATE private.billing_addons AS a
    SET stripe_product_id = v.product_id,
        stripe_price_id   = v.price_id,
@@ -45,17 +70,19 @@ UPDATE private.billing_addons AS a
        last_synced_at    = now(),
        updated_at        = now()
   FROM (VALUES
-    ('ai_100',        'zenvio_addon_ai_100',        'price_1Uf85EQMz0wiUqo0iQw4PDVk'),
-    ('ai_500',        'zenvio_addon_ai_500',        'price_1Uf85EQMz0wiUqo05lgnylml'),
-    ('envelopes_10',  'zenvio_addon_envelopes_10',  'price_1Uf85EQMz0wiUqo0TobtfVwI'),
-    ('envelope_1',    'zenvio_addon_envelope_1',    'price_1Uf85EQMz0wiUqo0zRBS3bD6'),
-    ('video_1000',    'zenvio_addon_video_1000',    'price_1Uf85EQMz0wiUqo0WIOYh6uy'),
-    ('storage_10gb',  'zenvio_addon_storage_10gb',  'price_1Uf85EQMz0wiUqo0SwGwRlu4'),
-    ('sms_starter',   'zenvio_addon_sms_starter',   'price_1Uf85EQMz0wiUqo0oxQK8EBT'),
-    ('sms_segment',   'zenvio_addon_sms_segment',   'price_1Uf85EQMz0wiUqo0oUCA0aO5'),
-    ('business_extra','zenvio_business_extra_v4',   'price_1Uf856QMz0wiUqo0usROIFRC')
-  ) AS v(addon_id, product_id, price_id)
- WHERE a.id = v.addon_id;
+    ('ai_100',        'zenvio_addon_ai_100',        'price_1Uf85EQMz0wiUqo0iQw4PDVk', 299,  false),
+    ('ai_500',        'zenvio_addon_ai_500',        'price_1Uf85EQMz0wiUqo05lgnylml', 999,  false),
+    ('envelopes_10',  'zenvio_addon_envelopes_10',  'price_1Uf85EQMz0wiUqo0TobtfVwI', 999,  false),
+    ('envelope_1',    'zenvio_addon_envelope_1',    'price_1Uf85EQMz0wiUqo0zRBS3bD6', 100,  false),
+    ('video_1000',    'zenvio_addon_video_1000',    'price_1Uf85EQMz0wiUqo0WIOYh6uy', 999,  false),
+    ('storage_10gb',  'zenvio_addon_storage_10gb',  'price_1Uf85EQMz0wiUqo0SwGwRlu4', 299,  true),
+    ('sms_starter',   'zenvio_addon_sms_starter',   'price_1Uf85EQMz0wiUqo0oxQK8EBT', 1499, true),
+    ('sms_segment',   'zenvio_addon_sms_segment',   'price_1Uf85EQMz0wiUqo0oUCA0aO5', 3,    false),
+    ('business_extra','zenvio_business_extra_v4',   'price_1Uf856QMz0wiUqo0usROIFRC', 500,  true)
+  ) AS v(addon_id, product_id, price_id, amount_cents, recurring)
+ WHERE a.id = v.addon_id
+   AND a.amount_cents = v.amount_cents
+   AND a.recurring = v.recurring;
 
 COMMIT;
 
