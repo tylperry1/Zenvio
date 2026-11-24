@@ -4,19 +4,14 @@ import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
 import { saveSubscription } from "@/lib/subscription-management";
 import { billingReadiness } from "@/lib/billing-readiness";
-import { launchCouponId, validLaunchCoupon } from "@/lib/subscription-offers.mjs";
 import {
   authorizePreview,
   previewChange,
   resolveChangeRequest,
   verifyChangePrices,
 } from "@/lib/subscription-preview";
-import {
-  pricingV4ExtraSeat,
-  pricingV4Offer,
-  pricingV4Version,
-} from "@/lib/pricing-v4-catalog.mjs";
-import { pricingV4EnvGates, pricingV4Settings } from "@/lib/pricing-activation";
+import { EXTRA_SEAT, PLANS, CATALOG_ID } from "@/lib/pricing-catalog.mjs";
+import { billingEnvGates, billingSettings } from "@/lib/pricing-activation";
 import { appOrigin } from "@/lib/lifecycle";
 import { customerMessages } from "@/lib/customer-messages";
 
@@ -29,39 +24,29 @@ export async function POST(req: NextRequest) {
       v = await body(req);
     if (v.confirm !== true) throw new ApiError("Confirm the subscription before continuing.");
 
-    const settings = await pricingV4Settings();
-    const gates = pricingV4EnvGates();
-    const v4Enrollment =
-      gates.validated && settings.enrollmentEnabled === true;
+    const settings = await billingSettings();
+    const gates = billingEnvGates();
+    if (!(gates.validated && settings.enrollmentEnabled === true))
+      throw new ApiError(customerMessages.billing.enrollPreparing, 503);
 
     // One resolver is shared with the preview endpoint, so the submitted change is
-    // always the change the customer reviewed. Accidental v4 plan ids are ignored
-    // while v4 enrollment is off.
+    // always the change the customer reviewed.
     const {
-      family,
       plan,
       period,
       seats,
       requested,
-      productSuffix,
       catalogVersion: expectedVersion,
     } = resolveChangeRequest({
       plan: v.plan,
       period: v.period,
       seats: v.seats,
-      v4Enrollment,
     });
 
     const readiness = await billingReadiness();
-    if (family === "v3" && !readiness.checkoutEnabled) {
-      throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-    }
-    if (family === "v4") {
-      // Check the launch checkout switch directly — do not reuse v3 price-mapping readiness.
-      const { launchControls } = await import("@/lib/launch-controls");
-      if (!(await launchControls()).checkoutEnabled) {
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
+    {
+      // One readiness check covers the launch switch, test-mode acceptance, the
+      // validation flag and every price mapping.
       if (!readiness.connected) {
         throw new ApiError(customerMessages.billing.enrollPreparing, 503);
       }
@@ -69,13 +54,10 @@ export async function POST(req: NextRequest) {
         // Internal blockers stay server-side; customers only see enrollment status.
         throw new ApiError(customerMessages.billing.enrollPreparing, 503);
       }
-      if (process.env.PRICING_V4_VALIDATED !== "true") {
-        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
-      }
-      // v4 price readiness is independent of v3 individual/team/team_extra mappings.
+      // Price readiness is checked below for the one catalog.
       const maps = await getPool().query(
         "SELECT plan, period FROM private.subscription_prices WHERE catalog_version=$1 AND plan = ANY($2::text[])",
-        [pricingV4Version, ["starter", "professional", "business", "business_extra"]],
+        [CATALOG_ID, ["starter", "professional", "business", "business_extra"]],
       );
       const need = [
         ["starter", "monthly"],
@@ -94,17 +76,6 @@ export async function POST(req: NextRequest) {
         throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
       }
     }
-
-    const catalog =
-      family === "v3"
-        ? await (await import("@/lib/billing-catalog")).currentCatalog()
-        : {
-            version: pricingV4Version,
-            offers: [
-              ...["starter", "professional", "business"].map((id) => pricingV4Offer(id)!),
-              pricingV4ExtraSeat,
-            ],
-          };
 
     const db = await getPool().connect(),
       stripe = await stripeClient();
@@ -131,9 +102,8 @@ export async function POST(req: NextRequest) {
         stripe,
         requested,
         period,
-        catalogVersion: catalog.version,
-        productSuffix,
-        offers: catalog.offers,
+        catalogVersion: CATALOG_ID,
+        offers: [...PLANS, EXTRA_SEAT],
       });
       const lines = verified.lines;
 
@@ -181,22 +151,19 @@ export async function POST(req: NextRequest) {
             );
           // v4 changes carry a signed quote. Recompute it at the confirmed
           // proration date and refuse to submit unless every number still matches.
-          const confirmed =
-            family === "v4"
-              ? await authorizePreview({
-                  token: v.previewToken,
-                  compute: (prorationDate) =>
-                    previewChange({
-                      stripe,
-                      subscription: current,
-                      items: lines,
-                      recurringCents: verified.recurringCents,
-                      currency: verified.currency,
-                      interval: verified.interval,
-                      prorationDate,
-                    }),
-                })
-              : null;
+          const confirmed = await authorizePreview({
+            token: v.previewToken,
+            compute: (prorationDate) =>
+              previewChange({
+                stripe,
+                subscription: current,
+                items: lines,
+                recurringCents: verified.recurringCents,
+                currency: verified.currency,
+                interval: verified.interval,
+                prorationDate,
+              }),
+          });
           const items = [
             ...current.items.data
               .filter((item) => !lines.some((line) => line.price === item.price.id))
@@ -228,7 +195,6 @@ export async function POST(req: NextRequest) {
                 plan,
                 period,
                 seats,
-                family,
                 amount_due_cents: confirmed?.amountDueCents ?? null,
                 proration_cents: confirmed?.prorationCents ?? null,
                 credit_cents: confirmed?.creditCents ?? null,
@@ -281,47 +247,10 @@ export async function POST(req: NextRequest) {
       ))
         await stripe.checkout.sessions.expire(checkout.id);
 
-      let launchDiscount = false;
-      if (family === "v3") {
-        const reservation = (
-          await db.query(
-            "SELECT id,claimed_user_id FROM private.early_access_signups WHERE email=$1 AND offer_version='launch50_3months_v1' FOR UPDATE",
-            [user.email.toLowerCase()],
-          )
-        ).rows[0];
-        const promotion = (
-          await db.query(
-            "SELECT value FROM private.platform_settings WHERE key='pricing_v3_launch_promotion'",
-          )
-        ).rows[0]?.value;
-        if (
-          promotion?.enabled === true &&
-          reservation &&
-          (!reservation.claimed_user_id || reservation.claimed_user_id === token) &&
-          existing.data.length === 0
-        ) {
-          const coupon = await stripe.coupons.retrieve(launchCouponId, {
-            expand: ["applies_to"],
-          });
-          if (!validLaunchCoupon(coupon))
-            throw new ApiError(
-              "Your reserved early-adopter offer needs billing review. No payment has been taken.",
-              503,
-            );
-          launchDiscount = true;
-          await db.query(
-            "UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",
-            [reservation.id, token],
-          );
-        }
-      }
-
       const checkout = await stripe.checkout.sessions.create({
         customer: local.customer_id,
         mode: "subscription",
-        ...(launchDiscount
-          ? { discounts: [{ coupon: launchCouponId }] }
-          : { allow_promotion_codes: true }),
+        allow_promotion_codes: true,
         client_reference_id: token,
         metadata: {
           user_id: token,

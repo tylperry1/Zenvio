@@ -6,7 +6,6 @@ import {
   contactAllowance,
   hasTeamWorkspaceAccess,
   isTeamCapacityPlan,
-  isV4CatalogVersion,
   planLimits,
   planLimitsFor,
   type Plan,
@@ -72,9 +71,7 @@ export async function entitlementUsage(
     if (root?.catalog_version) catalogVersion = root.catalog_version;
   }
   const effective: Plan =
-    (Object.hasOwn(planLimits, plan) ||
-      (isV4CatalogVersion(catalogVersion) &&
-        ["starter", "professional", "business", "enterprise", "free"].includes(plan))) &&
+    Object.hasOwn(planLimits, plan) &&
     !(
       ["teams", "team"].includes(plan) &&
       !r?.effective_plan &&

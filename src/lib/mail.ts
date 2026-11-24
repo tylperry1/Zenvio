@@ -24,7 +24,7 @@ export async function sendAccountMail(
     .update(JSON.stringify({ from: from.trim(), to: email, subject, text }))
     .digest("hex");
   let usageDb:import("pg").PoolClient|undefined;
-  if(process.env.PRICING_V3_VALIDATED === "true"){
+  if(process.env.BILLING_VALIDATED === "true"){
     const {getPool}=await import("./db");usageDb=await getPool().connect();
     try{await usageDb.query("begin");const user=(await usageDb.query('select id from public."user" where lower(email)=lower($1)',[email])).rows[0];
       const {reserveEmail}=await import("./email-usage");await reserveEmail(usageDb,{user:user?.id||null,reference:"account:"+id,kind:"account_security",recipient:email});await usageDb.query("commit");
@@ -46,7 +46,7 @@ export async function sendAccountMail(
       response.status,
       await response.json().catch(() => ({})),
     );
-  if(process.env.PRICING_V3_VALIDATED === "true"){
+  if(process.env.BILLING_VALIDATED === "true"){
     const result=await response.json();if(typeof result.id!=="string")throw Error("Email delivery could not be confirmed.");
     const {getPool}=await import("./db"),db=await getPool().connect();try{await db.query("begin");const {acceptEmail}=await import("./email-usage");await acceptEmail(db,"account:"+id,result.id);await db.query("commit");}catch(e){await db.query("rollback");throw e;}finally{db.release();}
   }

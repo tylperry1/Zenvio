@@ -3,22 +3,21 @@ import { getPool } from "./db";
 import { stripeClient, stripeEnvironment } from "./billing";
 import { ApiError, integer, string, uuid } from "./server";
 import { sandboxAccepted } from "./launch-controls";
-import { validateCatalog, currentCatalog } from "./billing-catalog";
 import {
-  pricingV4ExtraSeat,
-  pricingV4Offer,
-  pricingV4Version,
-} from "./pricing-v4-catalog.mjs";
+  EXTRA_SEAT,
+  planById,
+  CATALOG_ID,
+  stripeProductFor,
+} from "./pricing-catalog.mjs";
 import { saveSubscription } from "./subscription-management";
 import {
   couponDefinitionMatches,
   insertLocalCoupon,
   listBillingCoupons,
   parseCouponInput,
-  productsForTargets,
+  couponProducts,
   setPromotionActive,
   syncCouponToStripe,
-  type CatalogTarget,
 } from "./billing-coupons";
 import {
   listBillingAddons,
@@ -72,15 +71,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       return prior.result;
     }
     let result: any = { ok: true };
-    if (action === "draft") {
-      const catalog = validateCatalog(input.catalog);
-      result.id = (
-        await db.query(
-          "INSERT INTO private.billing_catalog_versions(state,catalog,created_by) VALUES('draft',$1,$2) RETURNING id",
-          [JSON.stringify(catalog), actor],
-        )
-      ).rows[0].id;
-    } else if (action === "list-coupons") {
+    if (action === "list-coupons") {
       result = { ok: true, coupons: await listBillingCoupons(db) };
     } else if (action === "list-addons") {
       result = { ok: true, addons: await listBillingAddons(db) };
@@ -155,55 +146,6 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           results,
           message: "Add-on Stripe sync finished. Purchase remains gated until ADDON_BILLING_VALIDATED.",
         };
-      } else if (action === "publish") {
-        if (input.confirmLiveStripe !== true)
-          throw new ApiError(
-            "Confirm publishing to create new Stripe prices for new enrollments. Existing subscriber prices are never rewritten.",
-            400,
-          );
-        await db.query("SELECT pg_advisory_xact_lock(hashtextextended('subscription-catalog-v1',0))");
-        const id = uuid(input.draftId),
-          draft = (
-            await db.query(
-              "SELECT * FROM private.billing_catalog_versions WHERE id=$1 FOR UPDATE",
-              [id],
-            )
-          ).rows[0];
-        if (!draft || draft.state !== "draft") throw new ApiError("Choose an unpublished draft.", 409);
-        const catalog = validateCatalog(draft.catalog),
-          version = "release-" + id;
-        for (const offer of catalog.offers) {
-          const price = await stripe.prices.create(
-            {
-              product: "zenvio_" + offer.id + "_v3",
-              currency: "usd",
-              unit_amount: offer.monthly,
-              recurring: { interval: "month" },
-              metadata: { zenvio_offer: offer.id, catalog_version: version },
-            },
-            { idempotencyKey: "catalog-" + id + "-" + offer.id },
-          );
-          await db.query(
-            "INSERT INTO private.subscription_prices(plan,period,stripe_price_id,catalog_version) VALUES($1,'monthly',$2,$3) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=$2,catalog_version=$3",
-            [offer.id, price.id, version],
-          );
-          await db.query(
-            "INSERT INTO private.subscription_price_history(stripe_price_id,plan,period,catalog_version) VALUES($1,$2,'monthly',$3) ON CONFLICT DO NOTHING",
-            [price.id, offer.id, version],
-          );
-        }
-        await db.query(
-          "UPDATE private.billing_catalog_versions SET state='superseded' WHERE state='published'",
-        );
-        await db.query(
-          "UPDATE private.billing_catalog_versions SET state='published',published_at=now() WHERE id=$1",
-          [id],
-        );
-        result = {
-          ok: true,
-          version,
-          message: "Published for new enrollments. Existing subscriptions are unchanged.",
-        };
       } else if (action === "coupon" || action === "coupon-retry") {
         // Persist local coupon even when Stripe sync fails so admins can retry.
         // Success is only returned after both Stripe coupon + promotion code exist.
@@ -220,11 +162,10 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
                   discountType: "percent",
                   duration: "repeating",
                   durationInMonths: input.months ?? input.durationInMonths,
-                  catalogTargets: (input.catalogTargets as CatalogTarget[]) || ["v3"],
                 }
               : input,
           );
-          const products = productsForTargets(parsed.catalogTargets || ["v3"]);
+          const products = couponProducts();
           // Reuse coupon from a prior failed attempt of this operation, or an existing code row
           // whose normalized definition matches (targets/duration/eligibility). Else 409.
           // Same-op reuse (failed or pending durable associate) keeps couponId on the operation.
@@ -423,15 +364,11 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           throw new ApiError("Resolve the subscription's current or scheduled billing state first.", 409);
         if (action === "preview") {
           const plan = String(input.plan);
-          const v4 = ["starter", "professional", "business"].includes(plan);
-          if (!v4 && !["individual", "team"].includes(plan))
+          if (!["starter", "professional", "business"].includes(plan))
             throw new ApiError("Choose a current subscription plan.");
-          const period =
-            v4 && input.period === "annual" ? ("annual" as const) : ("monthly" as const);
-          if (!v4 && input.period === "annual")
-            throw new ApiError("Annual billing is available for Starter, Professional, and Team.");
+          const period = input.period === "annual" ? ("annual" as const) : ("monthly" as const);
           const seats =
-            plan === "team" || plan === "business"
+            plan === "business"
               ? integer(input.seats, "seats", 3, 1000)
               : 1;
           const members = (
@@ -442,14 +379,12 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           ).rows[0].n;
           if (members > seats)
             throw new ApiError("Deactivate or reassign teammates before reducing seats.", 409);
-          const catalog = v4 ? null : await currentCatalog(),
-            version = v4 ? pricingV4Version : catalog!.version,
-            extraPlan = v4 ? "business_extra" : "team_extra",
+          const version = CATALOG_ID,
             lines: { price: string; quantity: number }[] = [];
           for (const [name, quantity] of [
             [plan, 1],
-            ...((plan === "team" || plan === "business") && seats > 3
-              ? [[extraPlan, seats - 3]]
+            ...(plan === "business" && seats > 3
+              ? [[EXTRA_SEAT.id, seats - 3] as [string, number]]
               : []),
           ] as [string, number][]) {
             const map = (
@@ -458,11 +393,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
                 [name, period],
               )
             ).rows[0];
-            const offer = v4
-              ? name === "business_extra"
-                ? pricingV4ExtraSeat
-                : pricingV4Offer(name)
-              : catalog!.offers.find((o) => o.id === name);
+            const offer = name === EXTRA_SEAT.id ? EXTRA_SEAT : planById(name);
             if (!map || map.catalog_version !== version || !offer)
               throw new ApiError("Published price mapping is unavailable.", 409);
             const expectedAmount = Number(
@@ -474,7 +405,7 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
               throw new ApiError("Published price amount is unavailable.", 409);
             const price = await stripe.prices.retrieve(map.stripe_price_id);
             if (
-              price.product !== `zenvio_${name}_${v4 ? "v4" : "v3"}` ||
+              price.product !== stripeProductFor(name) ||
               price.currency !== "usd" ||
               !price.active ||
               price.unit_amount !== expectedAmount ||

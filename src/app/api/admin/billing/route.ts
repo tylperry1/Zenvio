@@ -3,7 +3,6 @@ import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { body, sameOrigin, failure } from "@/lib/server";
 import { adminBilling } from "@/lib/admin-billing";
-import { currentCatalog } from "@/lib/billing-catalog";
 import { catalogSyncReport } from "@/lib/pricing-sync";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import { listBillingCoupons } from "@/lib/billing-coupons";
@@ -16,10 +15,8 @@ export async function GET() {
   try {
     await adminSession();
     const db = getPool();
-    const [catalog, versions, operations, sync, publicSurface, coupons, addons, webhookEvents, syncRuns] =
+    const [operations, sync, publicSurface, coupons, addons, webhookEvents, syncRuns] =
       await Promise.all([
-        currentCatalog(),
-        db.query("SELECT * FROM private.billing_catalog_versions ORDER BY created_at DESC LIMIT 20"),
         db.query(
           "SELECT id,action,state,result,error,updated_at FROM private.billing_admin_operations ORDER BY updated_at DESC LIMIT 30",
         ),
@@ -34,8 +31,6 @@ export async function GET() {
       ]);
     return Response.json(
       {
-        catalog,
-        versions: versions.rows,
         operations: operations.rows,
         coupons,
         addons,
@@ -46,7 +41,6 @@ export async function GET() {
           family: publicSurface.family,
           previewOnly: publicSurface.previewOnly,
           enrollment: publicSurface.enrollment,
-          displayVersion: publicSurface.display.version,
         },
       },
       { headers: { "Cache-Control": "no-store" } },

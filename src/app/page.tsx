@@ -1,8 +1,6 @@
-import { launchPromotionEnabled } from "@/lib/pricing-policy";
 import { launchControls, publicRegistrationOpen } from "@/lib/launch-controls";
 import { platformSocialLinks } from "@/lib/platform-social";
 import { PublicPricing } from "@/components/public-pricing";
-import { PublicPricingV4 } from "@/components/public-pricing-v4";
 import { PlatformSocialLinks } from "@/components/platform-social-links";
 import { appOrigin } from "@/lib/lifecycle";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
@@ -51,25 +49,19 @@ const signingPoints = [
   "Status tracking and an audit trail that stays with the document",
 ] as const;
 
-function faqs(v4: boolean) {
+function faqs() {
   return [
     [
       "What’s included in each plan?",
-      v4
-        ? "Starter, Professional, and Team all include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Team adds shared scheduling, roles, and member management. Monthly allowances keep usage predictable."
-        : "Individual and Teams both include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Teams adds shared scheduling, roles, and seat management. Monthly allowances keep usage predictable.",
+      "Starter, Professional, and Team all include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Team adds shared scheduling, roles, and member management. Monthly allowances keep usage predictable.",
     ],
     [
       "How do monthly allowances work?",
-      v4
-        ? "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Team shares one pool across its included members. Annual plans are billed yearly but allowances reset monthly. See usage details on the pricing page."
-        : "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Teams share a single pool across seats. Allowances reset monthly. See usage details on the pricing page.",
+      "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Team shares one pool across its included members. Annual plans are billed yearly but allowances reset monthly. See usage details on the pricing page.",
     ],
     [
       "Can I change plans or add team members?",
-      v4
-        ? "Yes. Owners can review package and billing-period changes from Plan & billing. Team includes three members, and additional members are billed monthly. Clients and document recipients never need a paid seat."
-        : "Yes. Owners can change packages and seats from billing. Additional Teams seats are billed monthly. Clients and document recipients never need a paid seat.",
+      "Yes. Owners can review package and billing-period changes from Plan & billing. Team includes three members, and additional members are billed monthly. Clients and document recipients never need a paid seat.",
     ],
     [
       "Can I explore Zenvio first?",
@@ -82,8 +74,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const qrTarget = `${appOrigin()}/demo`;
-  const [promotionEnabled, controls, pricingSurface, socialLinks, smartCardQr] = await Promise.all([
-    launchPromotionEnabled(),
+  const [controls, pricingSurface, socialLinks, smartCardQr] = await Promise.all([
     launchControls(),
     publicPricingSurface(),
     platformSocialLinks(),
@@ -95,8 +86,8 @@ export default async function Home() {
     }),
   ]);
   const join = joinDestination(controls);
-  const showV4 = pricingSurface.family === "v4";
-  const catalog = pricingSurface.liveCatalog;
+  // One catalog: the marketing pages always describe the current plans.
+
 
   return (
     <div className="marketing-v3">
@@ -435,48 +426,24 @@ export default async function Home() {
             <div>
               <p className="mk-eyebrow">PRICING</p>
               <h2>
-                {showV4 ? (
-                  <>
-                    One operating system
-                    <br />
-                    for your business.
-                  </>
-                ) : (
-                  <>
-                    Simple plans for individuals
-                    <br />
-                    and teams.
-                  </>
-                )}
+                One operating system
+                <br />
+                for your business.
               </h2>
             </div>
             <p>
-              {showV4
-                ? pricingSurface.previewOnly
-                  ? "Preview of upcoming plans. Checkout currently uses today’s published pricing."
-                  : "Published pricing with monthly and annual options. Scheduling and signing included."
-                : "Monthly pricing from the published catalog. Scheduling and signing included."}
+              {pricingSurface.previewOnly
+                ? "Published pricing with monthly and annual options. Paid enrollment is opening soon."
+                : "Published pricing with monthly and annual options. Scheduling and signing included."}
             </p>
           </div>
-          {showV4 ? (
-            <PublicPricingV4
-              joinHref={join.href}
-              joinLabel={join.label}
-              signupOpen={publicRegistrationOpen(controls)}
-              previewOnly={pricingSurface.previewOnly}
-              enrollmentReady={pricingSurface.enrollment.enabled}
-            />
-          ) : (
-            <PublicPricing
-              promotionEnabled={promotionEnabled}
-              waitlistEnabled={controls.waitlistEnabled}
-              signupOpen={publicRegistrationOpen(controls)}
-              catalog={catalog}
-              variant="home"
-              joinHref={join.href}
-              joinLabel={join.label}
-            />
-          )}
+          <PublicPricing
+            joinHref={join.href}
+            joinLabel={join.label}
+            signupOpen={publicRegistrationOpen(controls)}
+            previewOnly={pricingSurface.previewOnly}
+            enrollmentReady={pricingSurface.enrollment.enabled}
+          />
         </section>
 
         <section className="mk-faq mk-container" id="questions">
@@ -489,7 +456,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="mk-faq-list">
-            {faqs(showV4).map(([q, a]) => (
+            {faqs().map(([q, a]) => (
               <details key={q}>
                 <summary>
                   {q}

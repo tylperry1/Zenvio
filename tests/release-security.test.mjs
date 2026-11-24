@@ -1,12 +1,20 @@
 import test from "node:test";import assert from "node:assert/strict";import fs from "node:fs";import path from "node:path";import Module from "node:module";import ts from "typescript";
-import * as offers from "../src/lib/subscription-offers.mjs";
 class ApiError extends Error{constructor(message,status=400){super(message);this.status=status;}}
 function load(file,mocks){const filename=path.resolve(file),m=new Module(filename);m.filename=filename;m.paths=Module._nodeModulePaths(path.dirname(filename));const normal=m.require.bind(m);m.require=id=>Object.hasOwn(mocks,id)?mocks[id]:normal(id);m._compile(ts.transpileModule(fs.readFileSync(filename,"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,filename);return m.exports;}
-const catalog=load("src/lib/billing-catalog.ts",{"./db":{},"./subscription-offers.mjs":offers});
+const catalog=load("src/lib/pricing-catalog.mjs",{});
 const serverMocks={ApiError,uuid:v=>v,string:(v,label)=>{if(v==null||v==="")throw new ApiError(label||"required");return String(v);},integer:(v,_label,min,max)=>{if(!Number.isInteger(v)||v<min||v>max)throw new ApiError("invalid");return v;}};
 const billingCoupons=load("src/lib/billing-coupons.ts",{"./server":serverMocks});
 const billingAddons=load("src/lib/billing-addons.ts",{"./server":serverMocks});
-test("catalog validation keeps fixed included seats, rejects invalid money, and clones allowances",()=>{const draft=JSON.parse(JSON.stringify(catalog.defaultCatalog));draft.offers[0].monthly=3500;draft.offers[1].seats=999;const clean=catalog.validateCatalog(draft);assert.equal(clean.offers[0].monthly,3500);assert.equal(clean.offers[1].seats,3);clean.allowances.team.aiCredits=999;assert.equal(offers.monthlyAllowances.team.aiCredits,450);for(const amount of [NaN,0,-1,1.25,1000001]){draft.offers[0].monthly=amount;assert.throws(()=>catalog.validateCatalog(draft));}});
+test("the canonical catalog is frozen and cannot be repriced by an admin form",()=>{
+ const plan=catalog.PLANS.find(o=>o.id==='business');
+ assert.equal(plan.monthly,3499);
+ assert.equal(plan.annual,33588);
+ assert.equal(plan.seats,3);
+ assert.equal(catalog.EXTRA_SEAT.monthly,500);
+ assert.ok(Object.isFrozen(catalog.PLANS));
+ assert.ok(Object.isFrozen(catalog.PLAN_ALLOWANCES.business));
+ assert.equal(catalog.PLAN_ALLOWANCES.business.aiCredits,500);
+});
 function fixture({accepted=false,mismatch=false,expired=false,recovery=false,promoFail=false,addonFail=false}={}){
  const records=new Map(),coupons=new Map(),addons=new Map(),writes=[],queries=[];let updates=0,reads=0,committed=false;
  addons.set("ai_100",{id:"ai_100",name:"100 AI credits",amount_cents:299,quantity:100,unit:"aiCredits",recurring:false,available:false,sync_status:"pending",stripe_product_id:null,stripe_price_id:null});
@@ -68,12 +76,10 @@ function fixture({accepted=false,mismatch=false,expired=false,recovery=false,pro
  const service=load("src/lib/admin-billing.ts",{"./db":{getPool:()=>({query:db.query,connect:async()=>db})},"./billing":{stripeClient:async()=>stripe},"./server":serverMocks,"./launch-controls":{sandboxAccepted:async()=>accepted},"./billing-catalog":catalog,"./subscription-management":{saveSubscription:async()=>{}},"./billing-coupons":billingCoupons,"./billing-addons":billingAddons});
  return {run:input=>service.adminBilling("owner",{operationId:"operation",reason:"Authorized fixture",...input}),records,coupons,addons,writes,queries,get updates(){return updates;},get reads(){return reads;}};
 }
-test("draft operations are idempotent and conflicting replay is rejected",async()=>{const f=fixture(),input={action:"draft",catalog:catalog.defaultCatalog};assert.deepEqual(await f.run(input),{ok:true,id:"draft"});assert.deepEqual(await f.run(input),{ok:true,id:"draft"});assert.equal(f.queries.filter(q=>q.startsWith("INSERT INTO private.billing_catalog_versions")).length,1);await assert.rejects(f.run({...input,reason:"Different payload"}),/identifier/);});
-test("publishing cannot reach Stripe before sandbox acceptance",async()=>{const f=fixture();await assert.rejects(f.run({action:"publish",draftId:"draft",confirmLiveStripe:true}),/sandbox/);assert.equal(f.writes.length,0);assert.ok(f.queries.includes("ROLLBACK"));});
-test("publishing requires explicit Stripe confirmation",async()=>{const f=fixture({accepted:true});await assert.rejects(f.run({action:"publish",draftId:"draft"}),/Confirm publishing/);assert.equal(f.writes.length,0);});
+test("retired catalog draft and publish actions are rejected",async()=>{const f=fixture({accepted:true});await assert.rejects(f.run({action:"draft",catalog:{offers:catalog.PLANS}}),/Unsupported|Unknown/);await assert.rejects(f.run({operationId:"operation-publish",action:"publish",draftId:"draft",confirmLiveStripe:true}),/Unsupported|Unknown/);assert.equal(f.writes.length,0);assert.equal(f.queries.filter(q=>q.startsWith("INSERT INTO private.billing_catalog_versions")).length,0);});
 test("customer ownership mismatch prevents subscription changes",async()=>{const f=fixture({accepted:true,mismatch:true});await assert.rejects(f.run({action:"change",userId:"target",previewId:"preview",confirm:true,amountDue:100}),/ownership/);assert.equal(f.updates,0);});
 test("stale or changed proration previews cannot authorize payment",async()=>{for(const expired of [true,false]){const f=fixture({accepted:true,expired});await assert.rejects(f.run({action:"change",userId:"target",previewId:"preview",confirm:true,amountDue:100}),/preview/i);assert.equal(f.updates,0);}});
-test("promotion discounts exclude extra seat products and require bounded values",async()=>{const f=fixture({accepted:true});const result=await f.run({action:"coupon",percent:50,months:3,code:"LAUNCH",maxRedemptions:100});assert.equal(result.syncStatus,"synced");assert.equal(result.promotion,"promo");assert.deepEqual(f.writes[0].applies_to.products,["zenvio_individual_v3","zenvio_team_v3"]);const bad=fixture({accepted:true});await assert.rejects(bad.run({action:"coupon",percent:101,months:3,code:"LAUNCH",maxRedemptions:100}));assert.equal(bad.writes.length,0);});
+test("promotion discounts exclude extra seat products and require bounded values",async()=>{const f=fixture({accepted:true});const result=await f.run({action:"coupon",percent:50,months:3,code:"LAUNCH",maxRedemptions:100});assert.equal(result.syncStatus,"synced");assert.equal(result.promotion,"promo");assert.deepEqual(f.writes[0].applies_to.products,["zenvio_starter_v4","zenvio_professional_v4","zenvio_business_v4"]);const bad=fixture({accepted:true});await assert.rejects(bad.run({action:"coupon",percent:101,months:3,code:"LAUNCH",maxRedemptions:100}));assert.equal(bad.writes.length,0);});
 test("failed Stripe promotion sync keeps a local failed coupon for retry",async()=>{const f=fixture({accepted:true,promoFail:true});await assert.rejects(f.run({action:"coupon",percent:50,months:3,code:"LAUNCH",maxRedemptions:100}),/synchronization failed|promotion code/i);assert.equal(f.coupons.get("coupon-local")?.sync_status,"failed");assert.equal(f.coupons.get("coupon-local")?.stripe_coupon_id,"coupon");assert.equal(f.records.get("operation")?.result?.couponId,"coupon-local");});
 test("retry same failed coupon operation reuses the local row instead of re-inserting",async()=>{
   const f=fixture({accepted:true,promoFail:true});

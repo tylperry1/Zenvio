@@ -4,12 +4,12 @@ import { providerEconomics } from "@/lib/provider-economics";
 import { billingReadiness } from "@/lib/billing-readiness";
 import { getPool } from "@/lib/db";
 import { body,sameOrigin,failure,ApiError,string,uuid } from "@/lib/server";
-import { currentOffers,extraSeatOffer,monthlyAllowances,addonOffers,catalogVersion } from "@/lib/subscription-offers.mjs";
+import { ADDONS, EXTRA_SEAT, PLAN_ALLOWANCES, PLANS } from "@/lib/pricing-catalog.mjs";
 export const dynamic="force-dynamic";
 export async function GET(){try{
  await adminSession();
- const [economics,settings,history,billing]=await Promise.all([providerEconomics(),getPool().query("select key,value,updated_at from private.platform_settings where key='pricing_v3_launch_promotion'"),getPool().query("select * from private.subscription_price_history order by recorded_at desc limit 100"),billingReadiness()]);
- return Response.json({catalog:{version:catalogVersion,plans:currentOffers,extraSeat:extraSeatOffer,allowances:monthlyAllowances,addons:addonOffers},economics,billing,settings:settings.rows,priceHistory:history.rows},{headers:{"Cache-Control":"no-store"}});
+ const [economics,history,billing]=await Promise.all([providerEconomics(),getPool().query("select * from private.subscription_price_history order by recorded_at desc limit 100"),billingReadiness()]);
+ return Response.json({catalog:{plans:PLANS.filter(plan=>plan.paid&&!plan.custom),extraSeat:EXTRA_SEAT,allowances:PLAN_ALLOWANCES,addons:ADDONS},economics,billing,priceHistory:history.rows},{headers:{"Cache-Control":"no-store"}});
 }catch(e){return failure(e);}}
 export async function POST(req:NextRequest){try{
  sameOrigin(req);const {token}=await adminSession(),v=await body(req);
@@ -24,7 +24,5 @@ export async function POST(req:NextRequest){try{
   const config={platformCap,workspaceCap,suspended:v.suspended},db=await getPool().connect();
   try{await db.query("begin");await db.query("insert into private.platform_settings(key,value) values($1,$2) on conflict(key) do update set value=$2,updated_at=now()",['provider_budget:'+(process.env.VERCEL_ENV||process.env.NODE_ENV||'development')+':'+provider,JSON.stringify(config)]);await db.query("insert into private.operation_log(actor_id,action,details) values($1,'provider_budget_changed',$2)",[token,JSON.stringify({provider,config,reason})]);await db.query("commit");return Response.json({ok:true});}catch(e){await db.query("rollback");throw e;}finally{db.release();}
  }
- if(v.action!=="launch_promotion"||typeof v.enabled!=="boolean"||v.confirm!==true)throw new ApiError("Review and confirm the launch promotion change.");
- const reason=string(v.reason,"reason",500,8),db=await getPool().connect();
- try{await db.query("begin");await db.query("insert into private.platform_settings(key,value) values('pricing_v3_launch_promotion',$1) on conflict(key) do update set value=$1,updated_at=now()",[JSON.stringify({enabled:v.enabled})]);await db.query("insert into private.operation_log(actor_id,action,details) values($1,'launch_promotion_changed',$2)",[token,JSON.stringify({enabled:v.enabled,reason,catalogVersion})]);await db.query("commit");return Response.json({ok:true});}catch(e){await db.query("rollback");throw e;}finally{db.release();}
+ throw new ApiError("Unsupported economics action.");
 }catch(e){return failure(e);}}

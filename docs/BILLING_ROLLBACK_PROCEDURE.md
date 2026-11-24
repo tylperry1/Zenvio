@@ -6,7 +6,7 @@ Applies to migrations:
 - `postgres/migrations/106_billing_webhook_terminal_states.sql`
 - `postgres/migrations/107_entitlement_override_catalog_version.sql`
 
-Read [BILLING_RELEASE_CODE_REVIEW.md](BILLING_RELEASE_CODE_REVIEW.md) before executing any step. This procedure is written for an owner-authorized operator with production database and deployment access. It was tested only against a disposable PostgreSQL 18 database, never production.
+This procedure is written for an owner-authorized operator with production database and deployment access. It was tested only against a disposable PostgreSQL 18 database, never production.
 
 ## 1. Decision: code rollback first
 

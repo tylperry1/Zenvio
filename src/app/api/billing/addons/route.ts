@@ -4,7 +4,7 @@ import { body, sameOrigin, session, failure, ApiError } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
 import { billingReadiness } from "@/lib/billing-readiness";
-import { catalogVersion } from "@/lib/subscription-offers.mjs";
+import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
 import { listBillingAddons } from "@/lib/billing-addons";
 import { appOrigin } from "@/lib/lifecycle";
 
@@ -46,7 +46,7 @@ export async function GET() {
       ),
       db.query(
         "select 1 from private.subscriptions where user_id=$1 and catalog_version=$2 and status='active' and customer_id is not null",
-        [token, catalogVersion],
+        [token, CATALOG_ID],
       ),
       checkoutReady(),
       listBillingAddons(db),
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       const sub = (
         await db.query("select * from private.subscriptions where user_id=$1 for update", [token])
       ).rows[0];
-      if (!sub || sub.catalog_version !== catalogVersion || sub.status !== "active" || !sub.customer_id) {
+      if (!sub || sub.catalog_version !== CATALOG_ID || sub.status !== "active" || !sub.customer_id) {
         throw new ApiError("Only the active workspace billing owner can purchase additional capacity.", 403);
       }
       const stripe = await stripeClient();

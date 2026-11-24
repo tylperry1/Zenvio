@@ -49,7 +49,7 @@ test("pricing CTAs follow public registration instead of the waitlist", () => {
   const page = read("src/app/pricing/page.tsx");
   const waitlist = read("src/components/early-access-form.tsx");
   assert.match(pricing, /signupOpen/);
-  assert.match(pricing, /\/sign-up\?plan=individual/);
+  assert.match(pricing, /const href = signupOpen \? "\/sign-up" : joinHref/);
   assert.doesNotMatch(pricing, /Reserve before launch/);
   assert.match(home, /signupOpen=\{publicRegistrationOpen\(controls\)\}/);
   assert.match(page, /signupOpen=\{signupOpen\}/);

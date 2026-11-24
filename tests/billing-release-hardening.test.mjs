@@ -34,10 +34,9 @@ class ApiError extends Error {
   }
 }
 
-const v4 = load("src/lib/pricing-v4-catalog.mjs");
+const v4 = load("src/lib/pricing-catalog.mjs");
 const policy = load("src/lib/entitlement-policy.ts", {
-  "./subscription-offers.mjs": load("src/lib/subscription-offers.mjs"),
-  "./pricing-v4-catalog.mjs": v4,
+  "./pricing-catalog.mjs": v4,
 });
 const entitlements = load("src/lib/entitlements.ts", {
   "./db": { getPool: () => ({}) },
@@ -299,7 +298,7 @@ test("an active grant owns its catalog version", () => {
   assert.equal(entitlements.effectiveCatalogVersion(undefined, "2026-11-v4", null), null);
 });
 
-test("a legacy Business grant keeps solo-Business limits beside a v4 subscription", async () => {
+test("a Business grant keeps Team limits and seats", async () => {
   const state = await entitlements.entitlementUsage(
     "u1",
     entitlementDb({
@@ -314,9 +313,9 @@ test("a legacy Business grant keeps solo-Business limits beside a v4 subscriptio
   );
   assert.equal(state.catalogVersion, "legacy");
   assert.equal(state.plan, "business");
-  assert.equal(state.seats, 1);
-  assert.equal(state.limits.types, 50);
-  assert.equal(state.limits.contacts, null);
+  assert.equal(state.seats, 3);
+  assert.equal(state.limits.types, 100000);
+  assert.equal(state.limits.contacts, 30000);
 });
 
 test("a v4 Team grant keeps v4 Team seats and limits", async () => {
@@ -373,5 +372,5 @@ test("a legacy Pro grant does not inherit the subscription's v4 catalog", async 
   assert.equal(state.catalogVersion, "legacy");
   assert.equal(state.plan, "pro");
   assert.equal(state.seats, 1);
-  assert.equal(state.limits.types, 10);
+  assert.equal(state.limits.types, 100000);
 });

@@ -1,11 +1,11 @@
 import type { PoolClient } from "pg";
 import type Stripe from "stripe";
 import { ApiError, integer, string } from "./server";
+import { stripeProductFor } from "./pricing-catalog.mjs";
 
 export type CouponSyncStatus = "synced" | "pending" | "failed" | "disabled";
 export type CouponDiscountType = "percent" | "amount";
 export type CouponDuration = "once" | "repeating" | "forever";
-export type CatalogTarget = "v3" | "v4";
 
 export type BillingCouponInput = {
   code: string;
@@ -18,19 +18,12 @@ export type BillingCouponInput = {
   maxRedemptions?: number | null;
   redeemBy?: string | null;
   firstTimeTransaction?: boolean;
-  catalogTargets?: CatalogTarget[];
   active?: boolean;
 };
 
-const V3_PRODUCTS = ["zenvio_individual_v3", "zenvio_team_v3"] as const;
-const V4_PRODUCTS = ["zenvio_starter_v4", "zenvio_professional_v4", "zenvio_business_v4"] as const;
-
-export function productsForTargets(targets: CatalogTarget[]) {
-  const products: string[] = [];
-  if (targets.includes("v3")) products.push(...V3_PRODUCTS);
-  if (targets.includes("v4")) products.push(...V4_PRODUCTS);
-  if (!products.length) throw new ApiError("Choose at least one catalog target (v3 and/or v4).");
-  return products;
+/** Every coupon applies to the canonical base plans only, never the extra seat. */
+export function couponProducts() {
+  return ["starter", "professional", "business"].map((plan) => stripeProductFor(plan)!).filter(Boolean);
 }
 
 /** True when a saved coupon row matches the normalized create request (targets/duration/eligibility). */
@@ -44,15 +37,11 @@ export function couponDefinitionMatches(
     max_redemptions?: number | null;
     redeem_by?: string | Date | null;
     first_time_transaction?: boolean;
-    catalog_targets?: string[] | null;
     applies_to_products?: string[] | null;
   },
   input: BillingCouponInput,
   products: string[],
 ) {
-  const targets = [...(row.catalog_targets || [])].map(String).sort().join(",");
-  const wantTargets = [...(input.catalogTargets || [])].map(String).sort().join(",");
-  if (targets !== wantTargets) return false;
   if (row.discount_type !== input.discountType) return false;
   if (input.discountType === "percent") {
     if (Number(row.percent_off) !== Number(input.percentOff)) return false;
@@ -93,20 +82,12 @@ export function parseCouponInput(input: Record<string, unknown>): BillingCouponI
   if (!["once", "repeating", "forever"].includes(duration)) {
     throw new ApiError("Choose once, repeating, or forever duration.");
   }
-  const targetsRaw = Array.isArray(input.catalogTargets)
-    ? input.catalogTargets.map(String)
-    : ["v3"];
-  const catalogTargets = [...new Set(targetsRaw)].filter((t): t is CatalogTarget =>
-    t === "v3" || t === "v4",
-  );
-  if (!catalogTargets.length) throw new ApiError("Choose at least one catalog target.");
 
   const parsed: BillingCouponInput = {
     code,
     name: input.name ? string(input.name, "coupon name", 120, 0) : code,
     discountType,
     duration,
-    catalogTargets,
     firstTimeTransaction: input.firstTimeTransaction === true,
     active: input.active !== false,
     maxRedemptions:
@@ -154,7 +135,6 @@ function stripeCouponParams(input: BillingCouponInput, products: string[]): Stri
     applies_to: { products },
     metadata: {
       zenvio_code: input.code,
-      zenvio_catalogs: (input.catalogTargets || ["v3"]).join(","),
     },
   };
   if (input.discountType === "percent") params.percent_off = input.percentOff;
@@ -192,7 +172,7 @@ export async function insertLocalCoupon(
         input.redeemBy ? new Date(input.redeemBy) : null,
         input.firstTimeTransaction === true,
         products,
-        input.catalogTargets || ["v3"],
+        ["plans"],
         input.active !== false,
         actor,
       ],
@@ -238,12 +218,11 @@ export async function syncCouponToStripe(
     maxRedemptions: row.max_redemptions,
     redeemBy: row.redeem_by ? new Date(row.redeem_by).toISOString() : null,
     firstTimeTransaction: row.first_time_transaction,
-    catalogTargets: row.catalog_targets,
     active: row.active !== false,
   };
   const products = row.applies_to_products?.length
     ? row.applies_to_products
-    : productsForTargets(row.catalog_targets || ["v3"]);
+    : couponProducts();
 
   try {
     let stripeCouponId = row.stripe_coupon_id as string | null;

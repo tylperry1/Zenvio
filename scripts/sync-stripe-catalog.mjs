@@ -1,15 +1,15 @@
 /**
- * Idempotent Stripe test-mode provision for pricing v4.
+ * Idempotent Stripe test-mode provision for Stripe catalog.
  *
  * Modes:
- * - `node scripts/provision-pricing-v4.mjs --report` is read-only. It compares
+ * - `node scripts/sync-stripe-catalog.mjs --report` is read-only. It compares
  *   the catalog, the local price mappings, and Stripe, then prints a JSON report.
- * - Default mode requires PRICING_V4_STRIPE_SYNC=true and creates only missing
+ * - Default mode requires BILLING_STRIPE_SYNC=true and creates only missing
  *   Products/Prices. Existing prices are never deactivated or deleted.
  *
  * Safety gates:
  * - STRIPE_SECRET_KEY must be sk_test_… (never live keys from this script).
- * - Never runs under VERCEL_ENV=production without PRICING_V4_LIVE_SYNC_APPROVED=true.
+ * - Never runs under VERCEL_ENV=production without BILLING_LIVE_SYNC_APPROVED=true.
  *
  * Does NOT publish a live enrollment catalog, migrate subscribers, or activate SMS.
  */
@@ -18,28 +18,28 @@ import Stripe from "stripe";
 import { createDecipheriv, createHash } from "node:crypto";
 import { postgresConnectionString } from "../src/lib/postgres-connection.mjs";
 import {
-  pricingV4ExtraSeat,
-  pricingV4Offers,
-  pricingV4StripeMetadata,
-  pricingV4Version,
+  EXTRA_SEAT,
+  PLANS,
+  stripeMetadata,
+  CATALOG_ID,
   stripeEnvironmentForKey,
-} from "../src/lib/pricing-v4-catalog.mjs";
+} from "../src/lib/pricing-catalog.mjs";
 import { evaluateStripeTestModeKey } from "../src/lib/stripe-test-mode.mjs";
 
 const reportOnly = process.argv.includes("--report");
 
-if (!reportOnly && process.env.PRICING_V4_STRIPE_SYNC !== "true") {
-  console.log("Pricing v4 Stripe sync skipped (set PRICING_V4_STRIPE_SYNC=true to run, or use --report).");
+if (!reportOnly && process.env.BILLING_STRIPE_SYNC !== "true") {
+  console.log("Stripe catalog Stripe sync skipped (set BILLING_STRIPE_SYNC=true to run, or use --report).");
   process.exit(0);
 }
 
-if (!reportOnly && process.env.VERCEL_ENV === "production" && process.env.PRICING_V4_LIVE_SYNC_APPROVED !== "true") {
-  console.log("Pricing v4 Stripe sync refused in production without PRICING_V4_LIVE_SYNC_APPROVED=true.");
+if (!reportOnly && process.env.VERCEL_ENV === "production" && process.env.BILLING_LIVE_SYNC_APPROVED !== "true") {
+  console.log("Stripe catalog Stripe sync refused in production without BILLING_LIVE_SYNC_APPROVED=true.");
   process.exit(0);
 }
 
 if (!process.env.DATABASE_URL) {
-  console.log("Pricing v4 Stripe sync skipped: DATABASE_URL missing.");
+  console.log("Stripe catalog Stripe sync skipped: DATABASE_URL missing.");
   process.exit(0);
 }
 
@@ -65,8 +65,8 @@ async function secret(name) {
 }
 
 const offers = [
-  ...pricingV4Offers.filter((o) => o.monthly != null && !o.custom),
-  pricingV4ExtraSeat,
+  ...PLANS.filter((o) => o.monthly != null && !o.custom),
+  EXTRA_SEAT,
 ];
 
 const productIdFor = (offer) => `zenvio_${offer.id}_v4`;
@@ -95,10 +95,10 @@ async function productFor(stripe, offer, environment) {
       {
         id,
         name: `Zenvio ${offer.name}`,
-        metadata: pricingV4StripeMetadata({
+        metadata: stripeMetadata({
           planId: offer.id,
           environment,
-          catalogVersion: pricingV4Version,
+          catalogVersion: CATALOG_ID,
         }),
       },
       { idempotencyKey: id },
@@ -136,11 +136,11 @@ async function ensurePrice(stripe, product, offer, period, amount, environment, 
       recurring: { interval: intervalFor(period) },
       lookup_key: lookup,
       transfer_lookup_key: true,
-      metadata: pricingV4StripeMetadata({
+      metadata: stripeMetadata({
         planId: offer.id,
         interval: period,
         environment,
-        catalogVersion: pricingV4Version,
+        catalogVersion: CATALOG_ID,
       }),
     },
     { idempotencyKey: lookup },
@@ -161,7 +161,7 @@ async function persistRun(environment, mode, status, summary, error = null) {
     await db.query(
       `INSERT INTO private.billing_sync_runs(environment,catalog_version,mode,status,summary,error,finished_at)
        VALUES($1,$2,$3,$4,$5,$6,now())`,
-      [environment, pricingV4Version, mode, status, JSON.stringify(summary), error],
+      [environment, CATALOG_ID, mode, status, JSON.stringify(summary), error],
     );
   } catch (e) {
     console.log(`Sync run was not recorded: ${e.message}`);
@@ -183,7 +183,7 @@ try {
     const report = {
       mode: "report",
       environment,
-      catalogVersion: pricingV4Version,
+      catalogVersion: CATALOG_ID,
       products: [],
       prices: [],
       missingProducts: [],
@@ -341,11 +341,11 @@ try {
              SET stripe_price_id=excluded.stripe_price_id,
                  stripe_product_id=excluded.stripe_product_id,
                  catalog_version=excluded.catalog_version`,
-          [offer.id, period, price.id, product.id, pricingV4Version],
+          [offer.id, period, price.id, product.id, CATALOG_ID],
         );
         await db.query(
           "INSERT INTO private.subscription_price_history(stripe_price_id,plan,period,catalog_version) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-          [price.id, offer.id, period, pricingV4Version],
+          [price.id, offer.id, period, CATALOG_ID],
         );
         synced.push({ plan: offer.id, period, amount, productId: product.id, priceId: price.id });
       }
@@ -372,10 +372,10 @@ try {
             {
               id: productKey,
               name: `Zenvio ${row.name}`,
-              metadata: pricingV4StripeMetadata({
+              metadata: stripeMetadata({
                 addonId: row.id,
                 environment,
-                catalogVersion: pricingV4Version,
+                catalogVersion: CATALOG_ID,
               }),
             },
             { idempotencyKey: productKey },
@@ -403,10 +403,10 @@ try {
               transfer_lookup_key: true,
               ...(row.recurring ? { recurring: { interval: "month", interval_count: 1 } } : {}),
               metadata: {
-                ...pricingV4StripeMetadata({
+                ...stripeMetadata({
                   addonId: row.id,
                   environment,
-                  catalogVersion: pricingV4Version,
+                  catalogVersion: CATALOG_ID,
                 }),
                 zenvio_quantity: String(row.quantity),
                 zenvio_unit: row.unit,
@@ -429,14 +429,14 @@ try {
     await db.query("COMMIT");
     await persistRun(environment, "provision", "succeeded", {
       environment,
-      catalogVersion: pricingV4Version,
+      catalogVersion: CATALOG_ID,
       products: [...new Set(synced.map((s) => s.productId))].length,
       prices: synced.length,
       duplicates,
       synced,
     });
     console.log(
-      `Pricing v4 test catalog mapped (${pricingV4Version}, ${environment}). Duplicates detected: ${duplicates.length}. Live enrollment remains gated until PRICING_V4_VALIDATED + enrollmentEnabled.`,
+      `Stripe catalog test catalog mapped (${CATALOG_ID}, ${environment}). Duplicates detected: ${duplicates.length}. Live enrollment remains gated until BILLING_VALIDATED + enrollmentEnabled.`,
     );
   } catch (error) {
     await db.query("ROLLBACK");

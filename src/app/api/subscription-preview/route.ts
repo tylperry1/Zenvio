@@ -2,9 +2,7 @@ import { NextRequest } from "next/server";
 import { ApiError, body, failure, sameOrigin, session } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
-import { currentCatalog } from "@/lib/billing-catalog";
-import { pricingV4EnvGates, pricingV4Settings } from "@/lib/pricing-activation";
-import { pricingV4ExtraSeat, pricingV4Offer } from "@/lib/pricing-v4-catalog.mjs";
+import { EXTRA_SEAT, PLANS } from "@/lib/pricing-catalog.mjs";
 import { planDisplayName } from "@/lib/plan-display";
 import {
   previewChange,
@@ -28,14 +26,10 @@ export async function POST(request: NextRequest) {
     const { token: owner } = await session();
     const input = await body(request);
 
-    const settings = await pricingV4Settings();
-    const gates = pricingV4EnvGates();
-    const v4Enrollment = gates.validated && settings.enrollmentEnabled === true;
     const change = resolveChangeRequest({
       plan: input.plan,
       period: input.period,
       seats: input.seats,
-      v4Enrollment,
     });
     const db = getPool();
     const local = (
@@ -84,26 +78,13 @@ export async function POST(request: NextRequest) {
         throw new ApiError("Remove or reassign staff before reducing your seat count.", 409);
     }
 
-    const catalog =
-      change.family === "v3"
-        ? await currentCatalog()
-        : {
-            version: change.catalogVersion,
-            offers: [
-              ...(["starter", "professional", "business"] as const).map(
-                (id) => pricingV4Offer(id)!,
-              ),
-              pricingV4ExtraSeat,
-            ],
-          };
     const verified = await verifyChangePrices({
       db,
       stripe,
       requested: change.requested,
       period: change.period,
       catalogVersion: change.catalogVersion,
-      productSuffix: change.productSuffix,
-      offers: catalog.offers,
+      offers: [...PLANS, EXTRA_SEAT],
     });
 
     const prorationDate = Math.floor(Date.now() / 1000);
@@ -124,7 +105,7 @@ export async function POST(request: NextRequest) {
     );
     const currentInterval =
       current.items.data[0]?.price.recurring?.interval === "year" ? "year" : "month";
-    const nextOffer = catalog.offers.find((offer) => offer.id === change.plan) as
+    const nextOffer = PLANS.find((offer) => offer.id === change.plan) as
       | { id: string; name: string }
       | undefined;
 

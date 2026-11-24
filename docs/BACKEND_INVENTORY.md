@@ -170,7 +170,6 @@ Source baseline: e65f4f6. This is a source inventory, not authorization certific
 - `src/lib/shell-session.ts`
 - `src/lib/sms.ts`
 - `src/lib/subscription-management.ts`
-- `src/lib/subscription-offers.mjs`
 - `src/lib/team-member-policy.ts`
 - `src/lib/teams.ts`
 - `src/lib/twilio.ts`

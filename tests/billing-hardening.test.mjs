@@ -25,10 +25,10 @@ function load(file, deps = {}) {
   return m.exports;
 }
 
-const v4 = load("src/lib/pricing-v4-catalog.mjs");
+const v4 = load("src/lib/pricing-catalog.mjs");
 
 test("official catalog amounts match the approved USD pricing", () => {
-  const byId = Object.fromEntries(v4.pricingV4Offers.map((offer) => [offer.id, offer]));
+  const byId = Object.fromEntries(v4.PLANS.map((offer) => [offer.id, offer]));
   assert.deepEqual(
     { monthly: byId.free.monthly, annual: byId.free.annual },
     { monthly: 0, annual: 0 },
@@ -47,11 +47,11 @@ test("official catalog amounts match the approved USD pricing", () => {
   );
   assert.equal(byId.enterprise.monthly, null);
   assert.equal(byId.enterprise.annual, null);
-  assert.equal(v4.pricingV4Flagship, "professional");
+  assert.equal(v4.FLAGSHIP_PLAN, "professional");
 });
 
 test("official included allowances match the approved catalog", () => {
-  const a = v4.pricingV4Allowances;
+  const a = v4.PLAN_ALLOWANCES;
   assert.deepEqual(
     {
       contacts: a.free.contacts,
@@ -87,12 +87,12 @@ test("official included allowances match the approved catalog", () => {
 });
 
 test("annual plans expose an exact monthly equivalent and stable internal ids", () => {
-  assert.equal(v4.pricingV4PlanIds.starter, "starter");
-  assert.equal(v4.pricingV4PlanIds.team, "business");
-  assert.equal(v4.pricingV4AnnualMonthlyEquivalent({ annual: 9588 }), 799);
-  assert.equal(v4.pricingV4AnnualMonthlyEquivalent({ annual: 19188 }), 1599);
-  assert.equal(v4.pricingV4AnnualMonthlyEquivalent({ annual: 33588 }), 2799);
-  assert.equal(v4.pricingV4AnnualMonthlyEquivalent({ annual: null }), null);
+  assert.equal(v4.PLAN_IDS.starter, "starter");
+  assert.equal(v4.PLAN_IDS.team, "business");
+  assert.equal(v4.annualMonthlyEquivalentOf({ annual: 9588 }), 799);
+  assert.equal(v4.annualMonthlyEquivalentOf({ annual: 19188 }), 1599);
+  assert.equal(v4.annualMonthlyEquivalentOf({ annual: 33588 }), 2799);
+  assert.equal(v4.annualMonthlyEquivalentOf({ annual: null }), null);
 });
 
 test("usage periods stay monthly for annual subscribers", () => {
@@ -102,16 +102,16 @@ test("usage periods stay monthly for annual subscribers", () => {
 });
 
 test("Stripe metadata uses stable identifiers, interval, environment, and catalog version", () => {
-  const metadata = v4.pricingV4StripeMetadata({
+  const metadata = v4.stripeMetadata({
     planId: "professional",
     interval: "annual",
     environment: "test",
-    catalogVersion: v4.pricingV4Version,
+    catalogVersion: v4.CATALOG_ID,
   });
   assert.equal(metadata.zenvio_plan_id, "professional");
   assert.equal(metadata.zenvio_billing_interval, "annual");
   assert.equal(metadata.zenvio_environment, "test");
-  assert.equal(metadata.zenvio_catalog_version, v4.pricingV4Version);
+  assert.equal(metadata.zenvio_catalog_version, v4.CATALOG_ID);
   assert.equal(metadata.zenvio_offer, "professional");
   assert.equal(v4.stripeEnvironmentForKey("sk_test_synthetic"), "test");
   assert.equal(v4.stripeEnvironmentForKey("sk_live_synthetic"), "live");
@@ -119,9 +119,9 @@ test("Stripe metadata uses stable identifiers, interval, environment, and catalo
 });
 
 test("public comparison and pricing copy come from the catalog, not hardcoded values", () => {
-  const component = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
-  assert.match(component, /pricingV4Allowances/);
-  assert.match(component, /pricingV4Offers/);
+  const component = fs.readFileSync("src/components/public-pricing.tsx", "utf8");
+  assert.match(component, /PLAN_ALLOWANCES/);
+  assert.match(component, /PLANS/);
   assert.match(component, /storageBytes/);
   assert.match(component, /appointments/);
   assert.match(component, /Annual subscribers receive the same monthly allowance each month/);

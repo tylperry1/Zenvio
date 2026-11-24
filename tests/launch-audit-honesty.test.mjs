@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (f) => fs.readFileSync(f, "utf8");
 
 test("v4 public pricing does not deep-link unenrollable plan ids while preview-only", () => {
-  const v4 = read("src/components/public-pricing-v4.tsx");
+  const v4 = read("src/components/public-pricing.tsx");
   const home = read("src/app/page.tsx");
   const pricing = read("src/app/pricing/page.tsx");
   assert.match(v4, /previewOnly/);
@@ -28,7 +28,7 @@ test("billing overview uses customer-safe paused-enrollment copy without Stripe 
   assert.match(billing, /data\.connected && !enrollmentOpen/);
   assert.match(
     billing,
-    /d\.pricingSurface\?\.family === "v4" \? d\.pricingSurface\.enrollment\.enabled : d\.checkoutEnabled/,
+    /const enrollmentOpen = \(d: Data\) =>\s*d\.pricingSurface\?\.enrollment\.enabled \?\? d\.checkoutEnabled/,
   );
   assert.match(billing, /customerMessages\.billing\.enrollmentPaused/);
   assert.match(billing, /customerMessages\.billing\.enrollmentPausedWithBillingAccount/);

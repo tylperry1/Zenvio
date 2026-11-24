@@ -95,13 +95,13 @@ test("intake enforces required values and choice membership and snapshots origin
 const policy = load("src/lib/entitlement-policy.ts");
 test("approved plan allocations are explicit and remain conservative for free accounts", () => {
   assert.deepEqual(policy.planLimits.free, {
-    types: 1,
+    types: 2,
     calendars: 1,
-    envelopes: 5,
+    envelopes: 0,
     workflows: 0,
   });
-  assert.equal(policy.planLimits.teams.envelopes, 100);
-  assert.equal(policy.planLimits.business.workflows, 20);
+  assert.equal(policy.planLimits.teams.envelopes, 50);
+  assert.equal(policy.planLimits.business.workflows, 100);
 });
 const personal = load("src/lib/personalization.ts", { "./server": helpers });
 test("personalization accepts server-owned option prices and rejects forged choices or foreign artwork", async () => {
@@ -511,7 +511,7 @@ test("shared team workflow capacity blocks a staff allocation under its individu
       if (sql.startsWith("SELECT s.plan"))
         return { rows: [{ effective_plan: "teams", seats: 3 }] };
       if (sql.startsWith("WITH hosts"))
-        return { rows: [{ envelopes: 3, workflows: 25 }] };
+        return { rows: [{ envelopes: 50, workflows: 100 }] };
       if (sql.includes(") types"))
         return {
           rows: [{ types: 1, calendars: 0, envelopes: 1, workflows: 2 }],

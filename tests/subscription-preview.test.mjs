@@ -8,7 +8,7 @@ import ts from "typescript";
 const read = (file) => fs.readFileSync(file, "utf8");
 
 // v4 enrollment in this fixture is gated by the validated-catalog flag.
-process.env.PRICING_V4_VALIDATED = "true";
+process.env.BILLING_VALIDATED = "true";
 
 function load(file, deps = {}) {
   const filename = path.resolve(file);
@@ -37,13 +37,11 @@ class ApiError extends Error {
   }
 }
 
-const v4 = load("src/lib/pricing-v4-catalog.mjs");
-const offers = load("src/lib/subscription-offers.mjs");
+const v4 = load("src/lib/pricing-catalog.mjs");
 const plans = load("src/lib/plan-display.ts");
 const preview = load("src/lib/subscription-preview.ts", {
   "./server": { ApiError },
-  "./subscription-offers.mjs": offers,
-  "./pricing-v4-catalog.mjs": v4,
+  "./pricing-catalog.mjs": v4,
 });
 
 const PERIOD_END = 1900000000;
@@ -54,20 +52,16 @@ test("v4 change resolution validates plan, interval, and Team seats", () => {
   const starter = preview.resolveChangeRequest({
     plan: "starter",
     period: "annual",
-    seats: 1,
-    v4Enrollment: true,
+    seats: 1
   });
-  assert.equal(starter.family, "v4");
   assert.equal(starter.period, "annual");
-  assert.equal(starter.productSuffix, "_v4");
-  assert.equal(starter.catalogVersion, v4.pricingV4Version);
+  assert.equal(starter.catalogVersion, v4.CATALOG_ID);
   assert.deepEqual(starter.requested, [{ plan: "starter", quantity: 1 }]);
 
   const team = preview.resolveChangeRequest({
     plan: "business",
     period: "monthly",
-    seats: 5,
-    v4Enrollment: true,
+    seats: 5
   });
   assert.equal(team.seats, 5);
   assert.deepEqual(team.requested, [
@@ -78,44 +72,26 @@ test("v4 change resolution validates plan, interval, and Team seats", () => {
   const three = preview.resolveChangeRequest({
     plan: "business",
     period: "monthly",
-    seats: 3,
-    v4Enrollment: true,
+    seats: 3
   });
   assert.deepEqual(three.requested, [{ plan: "business", quantity: 1 }]);
 });
 
-test("invalid seat counts, v4 plans while gated, and annual v3 requests are refused", () => {
+test("invalid seat counts and unpublished plans are refused", () => {
   for (const seats of [2, 3.5, 1001, "three"]) {
     assert.throws(
       () =>
         preview.resolveChangeRequest({
           plan: "business",
           period: "monthly",
-          seats,
-          v4Enrollment: true,
+          seats
         }),
       /valid number of seats/,
     );
   }
-  assert.throws(
-    () =>
-      preview.resolveChangeRequest({
-        plan: "starter",
-        period: "monthly",
-        seats: 1,
-        v4Enrollment: false,
-      }),
-    /Individual or Teams/,
-  );
-  assert.throws(
-    () =>
-      preview.resolveChangeRequest({
-        plan: "individual",
-        period: "annual",
-        seats: 1,
-        v4Enrollment: true,
-      }),
-    /monthly billing/,
+  assert.equal(
+    preview.resolveChangeRequest({ plan: "individual", period: "annual", seats: 1 }).plan,
+    "starter",
   );
   assert.throws(
     () =>
@@ -123,25 +99,21 @@ test("invalid seat counts, v4 plans while gated, and annual v3 requests are refu
         plan: "enterprise",
         period: "monthly",
         seats: 1,
-        v4Enrollment: true,
       }),
     /Starter, Professional, or Team/,
   );
 });
 
-test("v3 resolution keeps the legacy catalogue and extra-seat lines", () => {
+test("retired plan ids resolve to the current catalogue and seat lines", () => {
   const change = preview.resolveChangeRequest({
     plan: "team",
     period: "monthly",
     seats: 5,
-    v4Enrollment: true,
   });
-  assert.equal(change.family, "v3");
-  assert.equal(change.catalogVersion, offers.catalogVersion);
-  assert.equal(change.productSuffix, "_v3");
+  assert.equal(change.plan, "business");
   assert.deepEqual(change.requested, [
-    { plan: "team", quantity: 1 },
-    { plan: "team_extra", quantity: 2 },
+    { plan: "business", quantity: 1 },
+    { plan: "business_extra", quantity: 2 },
   ]);
 });
 
@@ -193,8 +165,7 @@ test("the new recurring total comes from verified Stripe prices, including Team 
     ],
     period: "monthly",
     catalogVersion: "2026-11-v4",
-    productSuffix: "_v4",
-    offers: [v4.pricingV4Offer("business"), v4.pricingV4ExtraSeat],
+    offers: [v4.planById("business"), v4.EXTRA_SEAT],
   });
   assert.equal(verified.recurringCents, 4499);
   assert.equal(verified.interval, "month");
@@ -213,8 +184,7 @@ test("a mismatched product, amount, interval, or catalog version cannot be quote
     requested: [{ plan: "starter", quantity: 1 }],
     period: "annual",
     catalogVersion: "2026-11-v4",
-    productSuffix: "_v4",
-    offers: [v4.pricingV4Offer("starter")],
+    offers: [v4.planById("starter")],
   };
   await assert.rejects(
     preview.verifyChangePrices({
@@ -532,12 +502,11 @@ function previewRouteFixture({ local = v4Local(), members = 0, invoice } = {}) {
     },
     "@/lib/db": { getPool: () => db },
     "@/lib/billing": { stripeClient: async () => provider },
-    "@/lib/billing-catalog": { currentCatalog: async () => ({ version: offers.catalogVersion, offers: [] }) },
     "@/lib/pricing-activation": {
-      pricingV4EnvGates: () => ({ validated: true, addonValidated: false, checkoutEnabled: true }),
-      pricingV4Settings: async () => ({ previewEnabled: true, enrollmentEnabled: true, publicCatalog: "v4" }),
+      billingEnvGates: () => ({ validated: true, addonValidated: false, checkoutEnabled: true }),
+      billingSettings: async () => ({ enrollmentEnabled: true }),
     },
-    "@/lib/pricing-v4-catalog.mjs": v4,
+    "@/lib/pricing-catalog.mjs": v4,
     "@/lib/plan-display": plans,
     "@/lib/subscription-preview": preview,
   });
@@ -599,7 +568,6 @@ function enrollFixture({ local = v4Local(), members = 0 } = {}) {
     { plan: "business_extra", period: "monthly" },
     { plan: "business_extra", period: "annual" },
   ];
-  const isV3Plan = (plan) => ["individual", "team", "team_extra"].includes(plan);
   let input = {
     plan: "business",
     seats: 5,
@@ -615,7 +583,7 @@ function enrollFixture({ local = v4Local(), members = 0 } = {}) {
           rows: [
             {
               stripe_price_id: `price_${values[0]}`,
-              catalog_version: isV3Plan(values[0]) ? "2026-11-v3" : "2026-11-v4",
+              catalog_version: "2026-11-v4",
             },
           ],
         };
@@ -635,13 +603,10 @@ function enrollFixture({ local = v4Local(), members = 0 } = {}) {
         const amounts = {
           business: 3499,
           business_extra: 500,
-          team: 4999,
-          team_extra: 999,
-          individual: 2999,
         };
         return {
           id,
-          product: `zenvio_${plan}_${isV3Plan(plan) ? "v3" : "v4"}`,
+          product: `zenvio_${plan}_v4`,
           active: true,
           currency: "usd",
           unit_amount: amounts[plan],
@@ -685,21 +650,14 @@ function enrollFixture({ local = v4Local(), members = 0 } = {}) {
     },
     "@/lib/db": { getPool: () => ({ connect: async () => db, query: async () => ({ rows: v4Mappings }) }) },
     "@/lib/billing": { stripeClient: async () => provider },
-    "@/lib/billing-catalog": {
-      currentCatalog: async () => ({
-        version: offers.catalogVersion,
-        offers: [offers.individualOffer, offers.teamOffer, offers.extraSeatOffer],
-      }),
-    },
     "@/lib/subscription-management": { saveSubscription: async () => {} },
     "@/lib/billing-readiness": {
       billingReadiness: async () => ({ checkoutEnabled: true, connected: true, blockers: [] }),
     },
-    "@/lib/subscription-offers.mjs": offers,
-    "@/lib/pricing-v4-catalog.mjs": v4,
+    "@/lib/pricing-catalog.mjs": v4,
     "@/lib/pricing-activation": {
-      pricingV4EnvGates: () => ({ validated: true, addonValidated: false, checkoutEnabled: true }),
-      pricingV4Settings: async () => ({ previewEnabled: true, enrollmentEnabled: true, publicCatalog: "v4" }),
+      billingEnvGates: () => ({ validated: true, addonValidated: false, checkoutEnabled: true }),
+      billingSettings: async () => ({ enrollmentEnabled: true }),
     },
     "@/lib/launch-controls": { launchControls: async () => ({ checkoutEnabled: true }) },
     "@/lib/lifecycle": { appOrigin: () => "https://gozenvio.test" },
@@ -748,7 +706,6 @@ test("a v4 plan change submits the quoted proration date and audits the amounts"
     plan: "business",
     period: "monthly",
     seats: 5,
-    family: "v4",
     amount_due_cents: 734,
     proration_cents: 734,
     credit_cents: 0,
@@ -774,15 +731,14 @@ test("an expired quote cannot confirm a change", async () => {
   assert.equal(fixture.capture.update, null);
 });
 
-test("legacy v3 package changes keep their existing confirmation path", async () => {
+test("retired plan ids now require the same signed quote as every change", async () => {
   const fixture = enrollFixture();
   const response = await fixture.run({
     plan: "team",
     seats: 5,
     period: "monthly",
   });
-  // No v4 quote is required for the frozen legacy catalogue.
-  assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
-  assert.equal(fixture.capture.update.values.proration_date, undefined);
-  assert.equal(fixture.capture.audit.family, "v3");
+  // One catalogue: a legacy id maps to Team and needs the quote like any change.
+  assert.equal(response.status, 409);
+  assert.match((await response.json()).error, /prorated|review/i);
 });

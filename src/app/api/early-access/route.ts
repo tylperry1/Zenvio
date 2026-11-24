@@ -14,15 +14,13 @@ export async function POST(request: NextRequest) {
   const address=email(input.email),name=string(input.name,"name",100,2);
   if(input.consent!==true)throw new ApiError("Agree to receive early-access and launch updates to join.");
   const plan=String(input.plan||'undecided');
-  if(!['individual','team','undecided'].includes(plan))throw new ApiError("Choose a package interest.");
-  const seats=plan==='team'?integer(input.seats,"seats",3,1000):1;
+  if(!['starter','professional','business','undecided'].includes(plan))throw new ApiError("Choose a package interest.");
+  const seats=plan==='business'?integer(input.seats,"seats",3,1000):1;
   const ip=request.headers.get('x-vercel-forwarded-for')?.split(',')[0]||request.headers.get('x-forwarded-for')?.split(',')[0]||'unknown';
   if(!(await allowAuthAttempt('early-access-ip',ip))||!(await allowAuthAttempt('early-access-email',address)))throw new ApiError("Please wait a minute before trying again.",429);
   const db = await getPool().connect();
   try {
     await db.query("BEGIN");
-    const promotion=(await db.query("SELECT value FROM private.platform_settings WHERE key='pricing_v3_launch_promotion' FOR SHARE")).rows[0]?.value;
-    if(promotion?.enabled!==true)throw new ApiError("Early-adopter reservations are currently paused. Existing reservations are preserved.",409);
     // Reserve and enqueue together. Repeated submissions never trigger another email.
     const signup = (await db.query("INSERT INTO private.early_access_signups(email,name,plan,seats) VALUES($1,$2,$3,$4) ON CONFLICT(email) DO NOTHING RETURNING id,name,email",[address,name,plan,seats])).rows[0];
     if(signup) await queueReservationConfirmation(db, signup);

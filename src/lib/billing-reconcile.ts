@@ -1,10 +1,10 @@
 import type Stripe from "stripe";
 import { databaseConfigured, getPool } from "./db";
 import {
-  pricingV4ExtraSeat,
-  pricingV4Offers,
-  pricingV4Version,
-} from "./pricing-v4-catalog.mjs";
+  EXTRA_SEAT,
+  PLANS,
+  CATALOG_ID,
+} from "./pricing-catalog.mjs";
 
 export type ReconcilePriceRow = {
   plan: string;
@@ -46,12 +46,12 @@ export async function reconcileStripeCatalog(
   actor?: string,
 ): Promise<StripeCatalogReconciliation> {
   const offers = [
-    ...pricingV4Offers.filter((offer) => offer.monthly != null && !("custom" in offer && offer.custom)),
-    pricingV4ExtraSeat,
+    ...PLANS.filter((offer) => offer.monthly != null && !("custom" in offer && offer.custom)),
+    EXTRA_SEAT,
   ];
   const report: StripeCatalogReconciliation = {
     environment,
-    catalogVersion: pricingV4Version,
+    catalogVersion: CATALOG_ID,
     productCount: 0,
     priceCount: 0,
     missingProducts: [],
@@ -68,7 +68,7 @@ export async function reconcileStripeCatalog(
     ? (
         await getPool().query(
           "SELECT plan,period,stripe_price_id,stripe_product_id FROM private.subscription_prices WHERE catalog_version=$1",
-          [pricingV4Version],
+          [CATALOG_ID],
         )
       ).rows
     : [];
@@ -202,7 +202,7 @@ export async function reconcileStripeCatalog(
       await getPool().query(
         `INSERT INTO private.billing_sync_runs(environment,catalog_version,mode,status,summary,actor_id,finished_at)
          VALUES($1,$2,'reconcile','succeeded',$3,$4,now())`,
-        [environment, pricingV4Version, JSON.stringify(report), actor ?? null],
+        [environment, CATALOG_ID, JSON.stringify(report), actor ?? null],
       );
     } catch {
       /* The read-only report is still returned if history cannot be stored. */

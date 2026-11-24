@@ -4,7 +4,7 @@
  *
  * Existing v3 products/prices/subscriptions are intentionally absent.
  */
-export const liveStripeCatalogV4 = Object.freeze({
+export const liveStripeCatalog = Object.freeze({
   catalogVersion: "2026-11-v4",
   environment: "live",
   plans: Object.freeze([

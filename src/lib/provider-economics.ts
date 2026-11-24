@@ -1,5 +1,5 @@
 import { getPool } from "./db";
-import { planningCostCents } from "./subscription-offers.mjs";
+import { PLANNING_COST_CENTS, isTeamPlan, planId } from "./pricing-catalog.mjs";
 
 export type ProviderEconomicsPeriod = {
   start: Date;
@@ -67,10 +67,17 @@ export async function providerEconomics(period?: ProviderEconomicsPeriod) {
     ),
   ]);
   const planned = accounts.rows.reduce(
-    (n, r) =>
-      n +
-      Number(r.accounts) * (planningCostCents[r.plan as keyof typeof planningCostCents] || 0) +
-      (r.plan === "team" ? Number(r.additional_seats) * planningCostCents.team_extra : 0),
+    (n, r) => {
+      const plan = planId(r.plan);
+      const budget = PLANNING_COST_CENTS[plan as keyof typeof PLANNING_COST_CENTS] || 0;
+      return (
+        n +
+        Number(r.accounts) * budget +
+        (isTeamPlan(plan)
+          ? Number(r.additional_seats) * PLANNING_COST_CENTS.business_extra
+          : 0)
+      );
+    },
     0,
   );
   const mrr = revenue.rows.find((r) => r.currency === "usd");
@@ -89,7 +96,7 @@ export async function providerEconomics(period?: ProviderEconomicsPeriod) {
     planning: {
       costCents: planned,
       source: "Preliminary planning budgets, not provider invoices",
-      budgets: planningCostCents,
+      budgets: PLANNING_COST_CENTS,
       targetContributionMargin: 0.6,
       estimatedContributionMargin:
         mrrCents && mrrCents > 0 ? (mrrCents - planned) / mrrCents : null,

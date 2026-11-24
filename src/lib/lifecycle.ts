@@ -473,7 +473,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
         await db.query("COMMIT");
         continue;
       }
-      if(process.env.PRICING_V3_VALIDATED === "true") {
+      if(process.env.BILLING_VALIDATED === "true") {
         const {reserveEmail}=await import("./email-usage");
         try{await reserveEmail(db,{user:j.user_id,reference:"delivery:"+j.id,kind:j.kind,recipient:j.recipient});}
         catch(error){
@@ -520,7 +520,7 @@ export async function drainDeliveries(user?: string, limit = 10, earlyAccess?: s
           status: "sent",
           provider_id: data.id,
         });
-        if(process.env.PRICING_V3_VALIDATED === "true"){
+        if(process.env.BILLING_VALIDATED === "true"){
           const {acceptEmail}=await import("./email-usage");await acceptEmail(db,"delivery:"+j.id,data.id);
         }
         sent++;

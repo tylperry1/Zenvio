@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 import type { Pool } from "pg";
 import { ApiError } from "./server";
-import { catalogVersion as v3CatalogVersion, subscriptionLines } from "./subscription-offers.mjs";
 import {
-  pricingV4ExtraSeat,
-  pricingV4Offer,
-  pricingV4SubscriptionTotal,
-  pricingV4Version,
-} from "./pricing-v4-catalog.mjs";
+  planFor,
+  EXTRA_SEAT,
+  planById,
+  subscriptionTotal,
+  CATALOG_ID,
+  stripeProductFor,
+} from "./pricing-catalog.mjs";
 
 /**
  * Customer-facing subscription change previews.
@@ -23,22 +24,24 @@ import {
 export const PREVIEW_TTL_MS = 10 * 60 * 1000;
 const CLOCK_SKEW_MS = 60 * 1000;
 
-const V3_PLANS = ["individual", "team"] as const;
-const V4_PAID_PLANS = ["starter", "professional", "business"] as const;
+const PAID_PLANS = ["starter", "professional", "business"] as const;
 
 export type ChangePeriod = "monthly" | "annual";
-export type ChangeFamily = "v3" | "v4";
 export type RequestedLine = { plan: string; quantity: number };
 
 export type ResolvedChange = {
-  family: ChangeFamily;
   plan: string;
   period: ChangePeriod;
   seats: number;
   requested: RequestedLine[];
-  productSuffix: "_v3" | "_v4";
   catalogVersion: string;
 };
+
+/**
+ * Stripe product ids are immutable, so their historic `_v4` suffix stays and is
+ * treated as part of the product id — not as a catalogue version selector.
+ */
+export const STRIPE_PRODUCT_SUFFIX = "_v4";
 
 function seatValue(value: unknown) {
   const seats = Number(value);
@@ -56,52 +59,34 @@ export function resolveChangeRequest(input: {
   plan: unknown;
   period: unknown;
   seats: unknown;
-  v4Enrollment: boolean;
 }): ResolvedChange {
-  const plan = String(input.plan || "");
+  const requested = String(input.plan || "").toLowerCase();
+  // Retired ids (individual, team, teams, pro) map to their current plan. There
+  // is no second catalogue to sell, so a legacy request never takes a v3 path.
+  const plan = planFor(requested).id;
   const period: ChangePeriod = input.period === "annual" ? "annual" : "monthly";
 
-  if (input.v4Enrollment && (V4_PAID_PLANS as readonly string[]).includes(plan)) {
+  if ((PAID_PLANS as readonly string[]).includes(plan)) {
     const seats = plan === "business" ? seatValue(input.seats) : 1;
-    const offer = pricingV4Offer(plan);
+    const offer = planById(plan);
     if (!offer || ("custom" in offer && offer.custom) || offer.monthly == null)
       throw new ApiError("Choose a published subscription plan.");
     if (period === "annual" && !((offer.annual ?? 0) > 0))
       throw new ApiError("Annual billing is unavailable for this plan.");
-    pricingV4SubscriptionTotal(plan, seats);
+    subscriptionTotal(plan, seats);
     const requested: RequestedLine[] = [{ plan, quantity: 1 }];
     if (plan === "business" && seats > 3)
-      requested.push({ plan: pricingV4ExtraSeat.id, quantity: seats - 3 });
+      requested.push({ plan: EXTRA_SEAT.id, quantity: seats - 3 });
     return {
-      family: "v4",
       plan,
       period,
       seats,
       requested,
-      productSuffix: "_v4",
-      catalogVersion: pricingV4Version,
+      catalogVersion: CATALOG_ID,
     };
   }
 
-  if ((V3_PLANS as readonly string[]).includes(plan)) {
-    if (period !== "monthly") throw new ApiError("These packages use monthly billing.");
-    const seats = plan === "team" ? seatValue(input.seats) : 1;
-    return {
-      family: "v3",
-      plan,
-      period,
-      seats,
-      requested: subscriptionLines(plan, seats) as RequestedLine[],
-      productSuffix: "_v3",
-      catalogVersion: v3CatalogVersion,
-    };
-  }
-
-  throw new ApiError(
-    input.v4Enrollment
-      ? "Choose and confirm a Starter, Professional, or Team subscription."
-      : "Choose and confirm an Individual or Teams subscription.",
-  );
+  throw new ApiError("Choose and confirm a Starter, Professional, or Team subscription.");
 }
 
 /**
@@ -115,7 +100,6 @@ export async function verifyChangePrices(input: {
   requested: RequestedLine[];
   period: ChangePeriod;
   catalogVersion: string;
-  productSuffix: "_v3" | "_v4";
   offers: { id: string; monthly?: number | null; annual?: number | null }[];
 }) {
   const interval = input.period === "annual" ? "year" : "month";
@@ -139,7 +123,7 @@ export async function verifyChangePrices(input: {
     const expectedAmount =
       input.period === "annual" ? Number(offer.annual || 0) : Number(offer.monthly || 0);
     if (
-      price.product !== `zenvio_${offer.id}${input.productSuffix}` ||
+      price.product !== (stripeProductFor(offer.id) ?? `zenvio_${offer.id}${STRIPE_PRODUCT_SUFFIX}`) ||
       !price.active ||
       price.currency !== "usd" ||
       price.unit_amount !== expectedAmount ||

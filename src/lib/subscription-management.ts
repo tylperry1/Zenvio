@@ -3,8 +3,12 @@ import type Stripe from "stripe";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { stripeClient } from "./billing";
-import { catalogVersion as v3CatalogVersion } from "./subscription-offers.mjs";
-import { pricingV4Version } from "./pricing-v4-catalog.mjs";
+import {
+  CATALOG_ID,
+  PLAN_ALLOWANCES,
+  isTeamPlan,
+  planId,
+} from "./pricing-catalog.mjs";
 import { rewardReferralOnPaidSubscription } from "./referrals";
 import { ApiError } from "./server";
 export async function saveSubscription(
@@ -22,17 +26,9 @@ export async function saveSubscription(
     "SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[]) UNION SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_price_history WHERE stripe_price_id=ANY($1::text[])",
     [items.map((item) => item.price.id)],
   )).rows;
-  // One catalog-version source of truth; release catalogs share the v4 prefix.
-  const isV4Catalog = (catalogVersion: string | null | undefined) =>
-    Boolean(
-      catalogVersion &&
-        (catalogVersion === pricingV4Version || catalogVersion.startsWith(pricingV4Version)),
-    );
-  /** v3 Individual/Teams plus v4 Starter/Professional/Business only — never legacy solo Business. */
-  const isPackagedMapping = (m: { plan: string; catalog_version?: string | null }) => {
-    if (["individual", "team"].includes(m.plan)) return true;
-    return ["starter", "professional", "business"].includes(m.plan) && isV4Catalog(m.catalog_version);
-  };
+  /** Sellable base plans, including retired ids still present on older subscriptions. */
+  const isPackagedMapping = (m: { plan: string; catalog_version?: string | null }) =>
+    ["starter", "professional", "business", "individual", "team"].includes(m.plan);
   const base = items.find((item) =>
     mappings.some((m) => m.stripe_price_id === item.price.id && isPackagedMapping(m)),
   );
@@ -47,10 +43,10 @@ export async function saveSubscription(
     if (extras.length > 1 || (singleSeat && extras.length)) throw new Error("Invalid subscription items.");
     const extra = extras[0];
     const extraMap = extra && mappings.find((m) => m.stripe_price_id === extra.price.id);
-    const expectedExtra = mappedPlan === "business" ? "business_extra" : "team_extra";
+    const expectedExtra = isTeamPlan(mappedPlan) ? ["business_extra", "team_extra"] : [];
     if (
       extra &&
-      (extraMap?.plan !== expectedExtra ||
+      (!extraMap || !expectedExtra.includes(extraMap.plan) ||
         extraMap.period !== mapping.period ||
         !Number.isInteger(extra.quantity) ||
         extra.quantity! < 1 ||
@@ -58,15 +54,16 @@ export async function saveSubscription(
     ) {
       throw new Error("Invalid additional seat price or quantity.");
     }
-    seats = mappedPlan === "team" || mappedPlan === "business" ? 3 + (extra?.quantity || 0) : 1;
-  } else if (["individual", "team", "starter", "professional"].includes(mappedPlan)) {
+    seats = isTeamPlan(mappedPlan) ? 3 + (extra?.quantity || 0) : 1;
+  } else if (["individual", "team", "starter", "professional", "business"].includes(mappedPlan)) {
     // Metadata cannot forge a packaged plan without a mapped Stripe base price.
     // Legacy solo `business` (and other grandfathered ids) keep quantity-based seats.
     throw new Error("Invalid base subscription quantity.");
   }
   const end = (base || legacy)?.current_period_end;
-  const version = mapping?.catalog_version || "legacy";
-  const custom=version.startsWith("release-")?(await client.query("SELECT catalog FROM private.billing_catalog_versions WHERE id=$1",[version.slice(8)])).rows[0]?.catalog:null;
+  // Provenance only: stored history keeps the catalog id it was written with.
+  const version = mapping?.catalog_version || CATALOG_ID;
+  const catalogEnvelope = PLAN_ALLOWANCES[planId(mappedPlan) as keyof typeof PLAN_ALLOWANCES]?.envelopes ?? null;
   const discounts = (subscription.discounts || []).filter(d=>typeof d !== "string");
   const promoEnd = discounts.reduce((end,d)=>Math.max(end,d.end||0),0);
   const monthlyAmount = mapping?.period === "monthly" && items.every(i=>Number.isInteger(i.price.unit_amount)) ? items.reduce((n,i)=>n+i.price.unit_amount!*(i.quantity||1),0) : null;
@@ -82,9 +79,8 @@ export async function saveSubscription(
     "enterprise",
   ];
   const plan = paid && paidPlans.includes(mappedPlan) ? mappedPlan : "free";
-  const v4Envelope = isV4Catalog(version) ? null : undefined;
   await client.query(
-    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8=$12 THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN $8=$13 THEN CASE WHEN $2='business' THEN 50 WHEN $2='professional' THEN 20 WHEN $2='starter' THEN 5 ELSE 0 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team','starter','professional','business')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=COALESCE($11,envelope_allowance),subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       plan,
@@ -92,7 +88,7 @@ export async function saveSubscription(
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
-      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? v4Envelope ?? null, v3CatalogVersion, pricingV4Version,
+      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, catalogEnvelope,
     ],
   );
   if (paid && ["individual", "team", "starter", "professional", "business"].includes(plan)) {

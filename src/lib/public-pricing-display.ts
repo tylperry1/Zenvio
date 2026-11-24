@@ -1,4 +1,4 @@
-import { addonOffers } from "./subscription-offers.mjs";
+import { ADDONS } from "./pricing-catalog.mjs";
 
 export type PublicAddon = {
   id: string;
@@ -12,7 +12,7 @@ export type PublicAddon = {
 
 /** SMS is never advertised on public surfaces, even as "coming soon". */
 export function publicAddonsForDisplay(
-  addons: ReadonlyArray<PublicAddon | (typeof addonOffers)[number]> = addonOffers,
+  addons: ReadonlyArray<PublicAddon | (typeof ADDONS)[number]> = ADDONS,
 ): PublicAddon[] {
   return addons
     .filter((a) => a.unit !== "smsSegments" && !/^sms/i.test(a.id))
@@ -36,11 +36,12 @@ export function formatUsdCents(cents: number | null | undefined): string {
 export function liveBillingHelpText(catalog: {
   offers: { id: string; name: string; monthly: number; seats: number }[];
 }): string {
-  const individual = catalog.offers.find((o) => o.id === "individual");
-  const team = catalog.offers.find((o) => o.id === "team");
-  const extra = catalog.offers.find((o) => o.id === "team_extra");
-  if (!individual || !team || !extra) {
+  const starter = catalog.offers.find((o) => o.id === "starter");
+  const professional = catalog.offers.find((o) => o.id === "professional");
+  const team = catalog.offers.find((o) => o.id === "business");
+  const extra = catalog.offers.find((o) => o.id === "business_extra");
+  if (!starter || !professional || !team || !extra) {
     return "Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.";
   }
-  return `${individual.name} is ${formatUsdCents(individual.monthly)} monthly. ${team.name} is ${formatUsdCents(team.monthly)} monthly with ${team.seats} seats, plus ${formatUsdCents(extra.monthly)} per additional seat. Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.`;
+  return `${starter.name} is ${formatUsdCents(starter.monthly)} monthly. ${professional.name} is ${formatUsdCents(professional.monthly)} monthly. ${team.name} is ${formatUsdCents(team.monthly)} monthly with ${team.seats} seats, plus ${formatUsdCents(extra.monthly)} per additional seat. Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.`;
 }

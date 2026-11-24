@@ -21,9 +21,9 @@
 import { createDecipheriv, createHash } from "node:crypto";
 import { Pool } from "pg";
 import Stripe from "stripe";
-import { liveStripeCatalogV4 as catalog } from "./live-stripe-catalog-v4.mjs";
+import { liveStripeCatalog as catalog } from "./live-stripe-catalog.mjs";
 import { postgresConnectionString } from "../src/lib/postgres-connection.mjs";
-import { stripeEnvironmentForKey } from "../src/lib/pricing-v4-catalog.mjs";
+import { stripeEnvironmentForKey } from "../src/lib/pricing-catalog.mjs";
 
 const verifyOnly = process.argv.includes("--verify");
 const dryRun = process.argv.includes("--dry-run");

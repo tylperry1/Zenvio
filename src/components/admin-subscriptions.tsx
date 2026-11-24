@@ -1,7 +1,7 @@
 "use client";
 import { Fragment, useEffect, useState } from "react";
 import { Modal } from "./modal";
-import { pricingV4Version } from "@/lib/pricing-v4-catalog.mjs";
+import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
 import { InvoiceList } from "./invoice-list";
 import {
   billingDate,
@@ -446,7 +446,7 @@ export function AdminSubscriptions() {
                 )}
                 {!selected.platform_included && selected.override_plan && (
                   <Notice tone="info">
-                    Granted {planName(selected.override_plan, ["starter", "professional", "business"].includes(selected.override_plan || "") ? pricingV4Version : selected.catalog_version)} access until {billingDate(selected.override_expires)}. The underlying billing
+                    Granted {planName(selected.override_plan, ["starter", "professional", "business"].includes(selected.override_plan || "") ? CATALOG_ID : selected.catalog_version)} access until {billingDate(selected.override_expires)}. The underlying billing
                     subscription remains unchanged.
                   </Notice>
                 )}
@@ -579,7 +579,7 @@ function PlanAccess({
       if (!r.ok) throw Error(d.error);
       onDone(
         action === "grant"
-          ? `${account.name} now has ${planName(plan, ["starter", "professional", "business"].includes(plan) ? pricingV4Version : account.catalog_version)} access until ${billingDate(new Date(expires).toISOString())}.`
+          ? `${account.name} now has ${planName(plan, ["starter", "professional", "business"].includes(plan) ? CATALOG_ID : account.catalog_version)} access until ${billingDate(new Date(expires).toISOString())}.`
           : `Granted access removed. ${account.name} is back on their ${planName(account.plan, account.catalog_version)} plan.`,
       );
     } catch (e) {

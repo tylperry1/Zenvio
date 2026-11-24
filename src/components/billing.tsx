@@ -3,7 +3,6 @@ import { BillingAddons } from "./billing-addons";
 import { EnvelopeAllowance, type EnvelopeBudget } from "./envelope-allowance";
 import { UsagePanel } from "./usage-panel";
 import { Enrollment } from "./enrollment";
-import { EnrollmentV4 } from "./enrollment-v4";
 import { useEffect, useState } from "react";
 import { Modal } from "./modal";
 import Link from "next/link";
@@ -30,12 +29,11 @@ import {
   type Tone,
 } from "./ds";
 import { customerMessages } from "@/lib/customer-messages";
-import { isPaidPlan, isV4PlanVersion, planDisplayName } from "@/lib/plan-display";
+import { isPaidPlan, planDisplayName } from "@/lib/plan-display";
 
 type Data = {
-  catalog?: import("@/lib/billing-catalog").BillingCatalog;
   pricingSurface?: {
-    family: "v3" | "v4";
+    family: "plans";
     previewOnly: boolean;
     enrollment: {
       enabled: boolean;
@@ -92,7 +90,7 @@ function statusTone(label: string): Tone {
 
 export function Billing() {
   const enrollmentOpen = (d: Data) =>
-    d.pricingSurface?.family === "v4" ? d.pricingSurface.enrollment.enabled : d.checkoutEnabled;
+    d.pricingSurface?.enrollment.enabled ?? d.checkoutEnabled;
   const [tab, setTab] = useState<Tab>("overview");
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
@@ -223,11 +221,7 @@ export function Billing() {
   // account with the legacy plan while enforcement already uses the granted one.
   const displayPlan = effectivePlan;
   const includedAccess = Boolean(sub && !ownBillingActive && effectivePlan !== "free");
-  const catalogVersion = data?.usage.catalogVersion || sub?.catalog_version;
-  const planLabel = isV4PlanVersion(catalogVersion)
-    ? planDisplayName(displayPlan, catalogVersion)
-    : data?.plans.find((plan) => plan.id === displayPlan)?.name ||
-      planDisplayName(displayPlan, catalogVersion);
+  const planLabel = planDisplayName(displayPlan);
   const paidPlan = isPaidPlan(effectivePlan);
   const managedByTeam = Boolean(
     data?.usage.shared.length && !data.usage.canManageTeamBilling && !ownBillingActive,
@@ -414,30 +408,16 @@ export function Billing() {
                 <Notice tone="info">{customerMessages.billing.platformIncluded}</Notice>
               )}
               {tab === "plans" && !data.usage.platformIncluded && !managedByTeam && (
-                data.pricingSurface?.family === "v4" ? (
-                  <EnrollmentV4
-                    enabled={data.pricingSurface.enrollment.enabled}
-                    previewOnly={data.pricingSurface.previewOnly}
-                    currentPlan={sub.plan}
-                    currentSeats={sub.seats || 1}
-                    currentCatalogVersion={catalogVersion}
-                    hasSubscription={Boolean(sub.has_subscription)}
-                    onUpdated={() => {
-                      void load();
-                    }}
-                  />
-                ) : (
-                  <Enrollment
-                    catalog={data.catalog}
-                    enabled={data.checkoutEnabled}
-                    currentPlan={sub.plan}
-                    currentSeats={sub.seats || 1}
-                    hasSubscription={Boolean(sub.has_subscription)}
-                    onUpdated={() => {
-                      void load();
-                    }}
-                  />
-                )
+                <Enrollment
+                  enabled={data.pricingSurface?.enrollment.enabled ?? false}
+                  previewOnly={data.pricingSurface?.previewOnly ?? true}
+                  currentPlan={sub.plan}
+                  currentSeats={sub.seats || 1}
+                  hasSubscription={Boolean(sub.has_subscription)}
+                  onUpdated={() => {
+                    void load();
+                  }}
+                />
               )}
               {tab === "plans" && managedByTeam && (
                 <Notice tone="info">{customerMessages.billing.teamPlanManaged}</Notice>

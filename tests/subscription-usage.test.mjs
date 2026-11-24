@@ -1,11 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import Module from 'node:module';import ts from 'typescript';
-const offers=await import('../src/lib/subscription-offers.mjs');
 class ApiError extends Error{constructor(m,status){super(m);this.status=status;}}
 function load(file,mocks){const name=path.resolve(file),m=new Module(name);m.filename=name;m.paths=Module._nodeModulePaths(path.dirname(name));const req=m.require.bind(m);m.require=id=>id in mocks?mocks[id]:req(id);m._compile(ts.transpileModule(fs.readFileSync(name,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,name);return m.exports;}
-function fixture({version='2026-11-v3',used=0,credits=0,exempt=false}={}){const writes=[];const db={query:async(sql,args)=>{if(sql.startsWith('select owner_id'))return {rows:[{owner_id:'owner'}]};if(sql.startsWith('select s.plan'))return {rows:[{plan:'team',status:'active',catalog_version:version,exempt}]};if(sql.startsWith('select meter,sum'))return {rows:used?[{meter:'aiCredits',used:String(used),included_used:String(used)}]:[]};if(sql.startsWith('select c.meter'))return {rows:credits?[{meter:'aiCredits',remaining:credits}]:[]};if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}return {rows:[]};}};const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});return {service,db,writes};}
-test('staff consumes the billing owner fixed Teams pool and reserves purchased credits only after included capacity',async()=>{const f=fixture({used:449,credits:100});assert.equal(await f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',3,'round'), 'reservation');assert.deepEqual(f.writes[0],['owner','staff','aiCredits','round',3,1,2]);});
-test('exhausted and refunded credit debt cannot trigger provider spending',async()=>{for(const options of [{used:450},{used:0,credits:-2}]){const f=fixture(options);await assert.rejects(f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',1,'round'));assert.equal(f.writes.length,0);}});
-test('legacy subscribers and explicit grants retain existing terms',async()=>{for(const options of [{version:'legacy'},{exempt:true}]){const f=fixture(options);assert.equal(await f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',100000,'round'),null);assert.equal(f.writes.length,0);}});
+function fixture({version='2026-11-v3',used=0,credits=0,exempt=false}={}){const writes=[];const db={query:async(sql,args)=>{if(sql.startsWith('select owner_id'))return {rows:[{owner_id:'owner'}]};if(sql.startsWith('select s.plan'))return {rows:[{plan:'team',status:'active',catalog_version:version,exempt}]};if(sql.startsWith('select meter,sum'))return {rows:used?[{meter:'aiCredits',used:String(used),included_used:String(used)}]:[]};if(sql.startsWith('select c.meter'))return {rows:credits?[{meter:'aiCredits',remaining:credits}]:[]};if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}return {rows:[]};}};const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError}});return {service,db,writes};}
+test('staff consumes the billing owner fixed Teams pool and reserves purchased credits only after included capacity',async()=>{const f=fixture({used:499,credits:100});assert.equal(await f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',3,'round'), 'reservation');assert.deepEqual(f.writes[0],['owner','staff','aiCredits','round',3,1,2]);});
+test('exhausted and refunded credit debt cannot trigger provider spending',async()=>{for(const options of [{used:500},{used:0,credits:-2}]){const f=fixture(options);await assert.rejects(f.service.reserveSubscriptionUnits(f.db,'staff','aiCredits',1,'round'));assert.equal(f.writes.length,0);}});
+test('subscribers are metered while exempt grants stay unmetered',async()=>{const legacy=fixture({version:'legacy'});await assert.rejects(legacy.service.reserveSubscriptionUnits(legacy.db,'staff','aiCredits',100000,'round'));assert.equal(legacy.writes.length,0);const exempt=fixture({exempt:true});assert.equal(await exempt.service.reserveSubscriptionUnits(exempt.db,'staff','aiCredits',100000,'round'),null);assert.equal(exempt.writes.length,0);});
 test('legacy teams plan id maps to team catalog allowances',async()=>{
   const writes=[];
   const db={query:async(sql,args)=>{
@@ -16,16 +15,16 @@ test('legacy teams plan id maps to team catalog allowances',async()=>{
     if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}
     return {rows:[]};
   }};
-  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});
+  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError}});
   const usage=await service.subscriptionUsage('owner',db);
   const ai=usage.meters.find(m=>m.meter==='aiCredits');
   const storage=usage.meters.find(m=>m.meter==='storageBytes');
-  assert.equal(ai.included,450);
-  assert.equal(storage.included,10_000_000_000);
+  assert.equal(ai.included,500);
+  assert.equal(storage.included,15*1024*1024*1024);
   assert.equal(await service.reserveSubscriptionUnits(db,'staff','aiCredits',1,'legacy-teams'),'reservation');
   assert.equal(writes.length,1);
 });
-test('v4 professional catalog enforces pricingV4Allowances',async()=>{
+test('v4 professional catalog enforces PLAN_ALLOWANCES',async()=>{
   const writes=[];
   const db={query:async(sql,args)=>{
     if(sql.startsWith('select owner_id'))return {rows:[{owner_id:'owner'}]};
@@ -35,7 +34,7 @@ test('v4 professional catalog enforces pricingV4Allowances',async()=>{
     if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}
     return {rows:[]};
   }};
-  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});
+  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError}});
   const usage=await service.subscriptionUsage('owner',db);
   assert.equal(usage.enforced,true);
   assert.equal(usage.meters.find(m=>m.meter==='aiCredits').included,200);
@@ -53,7 +52,7 @@ test('v4 enterprise null allowances stay unlimited and do not block reservations
     if(sql.startsWith('insert into private.subscription_usage')){writes.push(args);return {rows:[{id:'reservation'}]};}
     return {rows:[]};
   }};
-  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError},'./subscription-offers.mjs':offers});
+  const service=load('src/lib/subscription-usage.ts',{'./db':{getPool:()=>db},'./server':{ApiError}});
   const usage=await service.subscriptionUsage('owner',db);
   const ai=usage.meters.find(m=>m.meter==='aiCredits');
   assert.equal(usage.enforced,true);

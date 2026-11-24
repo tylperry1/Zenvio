@@ -188,7 +188,7 @@ Each discovered page/API entrypoint is listed below. Route existence establishes
 | `src/lib/shell-session.ts` | Shared server/business logic; verification limits follow category matrix |
 | `src/lib/sms.ts` | Shared server/business logic; verification limits follow category matrix |
 | `src/lib/subscription-management.ts` | Shared server/business logic; verification limits follow category matrix |
-| `src/lib/subscription-offers.mjs` | Shared server/business logic; verification limits follow category matrix |
+| `src/lib/pricing-catalog.mjs` | Shared canonical pricing, limits and allowances |
 | `src/lib/team-member-policy.ts` | Shared server/business logic; verification limits follow category matrix |
 | `src/lib/teams.ts` | Shared server/business logic; verification limits follow category matrix |
 | `src/lib/twilio.ts` | Shared server/business logic; verification limits follow category matrix |

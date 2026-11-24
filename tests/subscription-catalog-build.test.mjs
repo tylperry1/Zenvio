@@ -1,20 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 
-test("disabled checkout skips catalog writes before opening a database connection", () => {
-  const result = spawnSync(process.execPath, ["scripts/provision-subscription-packages.mjs"], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      VERCEL_ENV: "production",
-      DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:1/never_connect",
-      DATABASE_URL_UNPOOLED: "",
-      BILLING_CHECKOUT_ENABLED: "false",
-      BILLING_CATALOG_SYNC_ENABLED: "false",
-    },
-    timeout: 10000,
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /catalog synchronization was not requested/);
+test("the retired v3 catalog provisioner no longer exists or runs during builds", () => {
+  assert.equal(fs.existsSync("scripts/provision-subscription-packages.mjs"), false);
+  const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  assert.doesNotMatch(pkg.scripts.build, /provision-subscription-packages/);
+  assert.match(pkg.scripts.build, /scripts\/migrate\.mjs/);
+  assert.match(pkg.scripts.build, /next build/);
+});
+
+test("catalog synchronization is an explicit script, not part of the build", () => {
+  const script = fs.readFileSync("scripts/sync-stripe-catalog.mjs", "utf8");
+  assert.match(script, /BILLING_STRIPE_SYNC/);
+  assert.match(script, /BILLING_LIVE_SYNC_APPROVED/);
+  assert.doesNotMatch(script, /PRICING_V4|pricing_v4/);
 });

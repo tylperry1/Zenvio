@@ -1,239 +1,280 @@
 "use client";
-import { PricingAllowances } from "./pricing-allowances";
 import { useState } from "react";
 import Link from "next/link";
-import { Icon } from "./icons";
-import { individualOffer as defaultIndividual, teamOffer as defaultTeam, extraSeatOffer as defaultExtra, includedFeatures, monthlyAllowances as defaultAllowances } from "@/lib/subscription-offers.mjs";
+import {
+  ADDONS,
+  PLAN_ALLOWANCES,
+  annualMonthlyEquivalentOf,
+  EXTRA_SEAT,
+  PLAN_FEATURES,
+  FLAGSHIP_PLAN,
+  PRICING_HERO,
+  PLANS,
+  PRICING_TAGLINE,
+} from "@/lib/pricing-catalog.mjs";
 import { money } from "@/lib/billing-types";
+import { publicAddonsForDisplay } from "@/lib/public-pricing-display";
 
-type Catalog = import("@/lib/billing-catalog").BillingCatalog;
+const COMPARISON_PLANS = ["free", "starter", "professional", "business"] as const;
+const COMPARISON_ROWS: {
+  label: string;
+  key: keyof typeof PLAN_ALLOWANCES.free;
+  unit?: "bytes";
+}[] = [
+  { label: "CRM contacts", key: "contacts" },
+  { label: "Bookings per month", key: "appointments" },
+  { label: "Storage included", key: "storageBytes", unit: "bytes" },
+  { label: "Marketing emails / month", key: "marketingEmails" },
+  { label: "Automation actions / month", key: "automationExecutions" },
+  { label: "AI credits / month", key: "aiCredits" },
+  { label: "E-sign envelopes / month", key: "envelopes" },
+  { label: "Video minutes / month", key: "videoMinutes" },
+];
+
+function formatCapacity(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) return `${Number((mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1))} GB`;
+  return `${Number(mb.toFixed(mb % 1 === 0 ? 0 : 1))} MB`;
+}
+
+function allowanceCell(
+  plan: (typeof COMPARISON_PLANS)[number],
+  row: (typeof COMPARISON_ROWS)[number],
+) {
+  const value = PLAN_ALLOWANCES[plan][row.key];
+  if (value == null) return "Unlimited*";
+  if (row.unit === "bytes") return formatCapacity(value);
+  return value.toLocaleString("en-US");
+}
 
 export function PublicPricing({
-  promotionEnabled = false,
-  waitlistEnabled = true,
-  signupOpen = false,
-  catalog,
-  variant = "full",
   joinHref = "/early-access",
   joinLabel = "Join early access",
+  signupOpen = false,
+  /** When true, paid CTAs must not deep-link an unenrollable plan. */
+  previewOnly = true,
+  enrollmentReady = false,
+  variant = "full",
 }: {
-  promotionEnabled?: boolean;
-  waitlistEnabled?: boolean;
-  signupOpen?: boolean;
-  catalog?: Catalog;
-  variant?: "full" | "home";
   joinHref?: string;
   joinLabel?: string;
+  signupOpen?: boolean;
+  previewOnly?: boolean;
+  enrollmentReady?: boolean;
+  variant?: "full" | "home";
 }) {
-  const [individualOffer, teamOffer, extraSeatOffer] = catalog?.offers || [defaultIndividual, defaultTeam, defaultExtra];
-  const monthlyAllowances = catalog?.allowances || defaultAllowances;
-  const subscriptionTotal = (_plan: string, count: number) => teamOffer.monthly + (count - 3) * extraSeatOffer.monthly;
-  const [seats, setSeats] = useState(3);
-  const reservationsOpen = promotionEnabled && waitlistEnabled && !signupOpen;
-  const offerOpen = promotionEnabled && (signupOpen || waitlistEnabled);
-  const individualCtaHref = signupOpen
-    ? "/sign-up?plan=individual"
-    : reservationsOpen
-      ? "/early-access?plan=individual"
-      : variant === "home"
-        ? joinHref
-        : "/demo";
-  const teamCtaHref = signupOpen
-    ? `/sign-up?plan=team&seats=${seats}`
-    : reservationsOpen
-      ? `/early-access?plan=team&seats=${seats}`
-      : "/demo";
-  const individualCtaLabel = signupOpen
-    ? "Create account"
-    : reservationsOpen
-      ? "Reserve 50% off"
-      : variant === "home"
-        ? joinLabel
-        : "Explore the demo";
-  const teamCtaLabel = signupOpen ? "Create a Teams account" : reservationsOpen ? "Reserve your team’s offer" : "Explore demo";
+  const [annual, setAnnual] = useState(false);
+  const paid = PLANS.filter((o) => o.id !== "enterprise");
+  const addons = publicAddonsForDisplay(ADDONS);
+  const canEnroll = enrollmentReady && !previewOnly;
 
   return (
     <div className={`subscription-offers subscription-offers-${variant}`}>
-      {offerOpen && (
-        <div className="subscription-offer-banner">
-          <div className="sob-copy">
-            <span className="sob-badge">
-              <Icon name="sparkles" size={14} /> Early-adopter offer
-            </span>
-            <h2>50% off your first 3 months.</h2>
-            <p>
-              {signupOpen
-                ? "Create a workspace to start. The offer is applied when you enroll—no payment needed to register."
-                : "Reserve with your email. No account or payment needed today."}
-            </p>
-          </div>
-          <dl className="sob-prices">
-            <div>
-              <dt>Individual</dt>
-              <dd>
-                <b>{money(Math.round(individualOffer.monthly / 2))}</b>/mo for 3 months
-                <small>then {money(individualOffer.monthly)}</small>
-              </dd>
-            </div>
-            <div>
-              <dt>Teams · 3 seats</dt>
-              <dd>
-                <b>{money(Math.round(teamOffer.monthly / 2))}</b>/mo for 3 months
-                <small>then {money(teamOffer.monthly)}</small>
-              </dd>
-            </div>
-          </dl>
-          <Link className="sob-cta" href={signupOpen ? "/sign-up" : "/early-access"}>
-            {signupOpen ? "Create account" : "Reserve my offer"} <Icon name="arrow" size={16} />
-          </Link>
-          <p className="sob-fine">50% applies to the base subscription for three monthly billing cycles. Additional seats, add-ons, overages and taxes are excluded.</p>
+      <div className="subscription-offer-banner">
+        <div className="sob-copy">
+          <span className="sob-badge">{canEnroll ? "Published pricing" : "Upcoming plans"}</span>
+          <strong>{PRICING_TAGLINE}</strong>
+          <p>{PRICING_HERO}</p>
         </div>
-      )}
+        <label className="sob-toggle">
+          <input
+            type="checkbox"
+            checked={annual}
+            onChange={(e) => setAnnual(e.target.checked)}
+          />
+          Bill annually
+        </label>
+      </div>
+      {annual ? (
+        <p className="premium-note sob-annual-note" role="note">
+          {canEnroll
+            ? "Annual plans are billed once per year at the total shown. Checkout uses the annual Stripe price. Included monthly allowances are still granted each month — they are never delivered as a full year at once."
+            : "Annual totals are shown for planning. Paid enrollment is not open yet, so no annual charge can be made."}
+        </p>
+      ) : null}
 
-      <div className="subscription-plan-cards">
-        <article className="subscription-plan">
-          {variant === "home" ? null : (
-            <span className="subscription-plan-icon">
-              <Icon name="users" size={23} />
-            </span>
-          )}
-          {variant === "home" ? null : <span className="subscription-kicker">YOUR INDEPENDENT WORKSPACE</span>}
-          <h3>Individual</h3>
-          <p>{variant === "home" ? "For solo professionals who want a simple, connected workspace." : "From the first booking to the signed agreement."}</p>
-          <div className="subscription-price">
-            {money(individualOffer.monthly)}
-            <span>/ month</span>
-          </div>
-          <p className="subscription-caption">
-            {variant === "home" ? "One person. Scheduling and signing included." : "One person. Scheduling and signing included."}
-          </p>
-          <Link className={`subscription-cta${variant === "home" ? " subscription-cta-secondary" : ""}`} href={individualCtaHref}>
-            {individualCtaLabel} <Icon name="arrow" size={16} />
-          </Link>
-          {variant === "full" && (
-            <ul>
-              {[...includedFeatures, `${monthlyAllowances.individual.envelopes} signing envelopes each month`].map((feature) => (
-                <li key={feature}>
-                  <Icon name="check" size={16} />
-                  {feature.replace(" per host", "")}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
+      <div className="subscription-offer-grid">
+        {paid.map((offer) => {
+          const featured = offer.id === FLAGSHIP_PLAN;
+          const price = annual ? offer.annual : offer.monthly;
+          const isFree = offer.id === "free";
+          // Never deep-link starter|professional|business — auth + /api/subscription-enroll
+          // still only accept Individual/Teams. Keep paid CTAs on generic signup/join.
+          const href = signupOpen ? "/sign-up" : joinHref;
+          const cta = isFree
+            ? signupOpen
+              ? "Create free account"
+              : joinLabel
+            : signupOpen
+              ? "Create free account"
+              : joinLabel;
+          return (
+            <article
+              key={offer.id}
+              className={`subscription-offer-card${featured ? " featured" : ""}`}
+            >
+              {featured && <span className="subscription-kicker">Recommended</span>}
+              <h3>{offer.name}</h3>
+              <p className="subscription-price">
+                {price === 0 ? (
+                  <>
+                    <strong>$0</strong>
+                    <span>/month</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>{money(price || 0)}</strong>
+                    <span>/{annual ? "year" : "month"}</span>
+                  </>
+                )}
+              </p>
+              {annual && offer.annual != null ? (
+                <p className="premium-note">
+                  Billed once yearly · equals {money(annualMonthlyEquivalentOf(offer) || 0)}/mo
+                </p>
+              ) : null}
+              {!isFree && !canEnroll ? (
+                <p className="premium-note">These plans aren’t open for paid signup yet. Current enrollments use today’s published pricing.</p>
+              ) : null}
+              <ul>
+                {PLAN_FEATURES[offer.id as keyof typeof PLAN_FEATURES].map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <Link className={featured ? "button primary" : "button"} href={href}>
+                {cta}
+              </Link>
+            </article>
+          );
+        })}
 
-        <article className="subscription-plan subscription-plan-team">
-          {variant === "home" ? null : (
-            <span className="subscription-plan-icon">
-              <Icon name="team" size={23} />
-            </span>
-          )}
-          {variant === "home" ? <span className="subscription-plan-badge">Teams</span> : <span className="subscription-kicker">ONE CONNECTED TEAM</span>}
-          <h3>Teams</h3>
-          <p>{variant === "home" ? `Includes ${teamOffer.seats} seats. Add more for ${money(extraSeatOffer.monthly)} per extra seat.` : "Shared scheduling. Clear roles. One simple bill."}</p>
-          <div className="subscription-price">
-            {money(teamOffer.monthly)}
-            <span>/ month</span>
-          </div>
-          <p className="subscription-caption">
-            {variant === "home" ? "Shared scheduling, roles, and one monthly bill." : `First 3 seats included. Then ${money(extraSeatOffer.monthly)} per extra seat.`}
+        <article className="subscription-offer-card">
+          <h3>Enterprise</h3>
+          <p className="subscription-price">
+            <strong>Custom</strong>
           </p>
-          <Link className="subscription-cta" href={teamCtaHref}>
-            {teamCtaLabel} <Icon name="arrow" size={16} />
+          <ul>
+            {PLAN_FEATURES.enterprise.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <Link className="button" href="/contact">
+            Talk with us
           </Link>
-          {variant === "full" && (
-            <ul>
-              {[
-                "Everything in Individual for each host",
-                "3 seats included, including the owner",
-                "Managers, staff roles & member controls",
-                "Shared and round-robin scheduling",
-                "Centralized seat management and billing",
-                monthlyAllowances.team.envelopes + " signing envelopes / month, pooled across all seats",
-              ].map((feature) => (
-                <li key={feature}>
-                  <Icon name="check" size={16} />
-                  {feature}
-                </li>
-              ))}
-            </ul>
-          )}
         </article>
       </div>
 
       {variant === "full" && (
         <>
-          <div className="subscription-calculator">
-            <div>
-              <span className="subscription-kicker">NO SEAT-PRICE SURPRISES</span>
-              <h3>See your team’s monthly total.</h3>
-              <p>Each active team member uses a seat, including managers and the owner. Clients and document recipients never need a paid seat.</p>
+          <section className="subscription-invoices">
+            <h2>Team seats</h2>
+            <p>
+              Team includes three users. Additional members are {money(EXTRA_SEAT.monthly)}
+              /month each ({money(EXTRA_SEAT.annual)}/year when billed annually).
+            </p>
+          </section>
+          <section className="subscription-invoices">
+            <h2>Compare plans</h2>
+            <div className="ui-table-wrap">
+              <table className="ui-table">
+                <thead>
+                  <tr>
+                    <th>Plan detail</th>
+                    {COMPARISON_PLANS.map((plan) => (
+                      <th key={plan}>
+                        {PLANS.find((offer) => offer.id === plan)?.name || plan}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th>Monthly price</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = PLANS.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {plan === "free" ? "$0" : offer?.monthly != null ? money(offer.monthly) : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Annual total</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = PLANS.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {plan === "free"
+                            ? "$0"
+                            : offer?.annual != null
+                              ? money(offer.annual)
+                              : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Annual equivalent / month</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = PLANS.find((row) => row.id === plan);
+                      const equivalent = offer ? annualMonthlyEquivalentOf(offer) : null;
+                      return (
+                        <td key={plan}>
+                          {plan === "free"
+                            ? "$0"
+                            : equivalent != null
+                              ? money(equivalent)
+                              : "Custom"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <th>Team seats included</th>
+                    {COMPARISON_PLANS.map((plan) => {
+                      const offer = PLANS.find((row) => row.id === plan);
+                      return (
+                        <td key={plan}>
+                          {offer?.seats == null
+                            ? "Custom"
+                            : plan === "business"
+                              ? `${offer.seats} users`
+                              : String(offer.seats)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {COMPARISON_ROWS.map((row) => (
+                    <tr key={row.key}>
+                      <th>{row.label}</th>
+                      {COMPARISON_PLANS.map((plan) => (
+                        <td key={plan}>{allowanceCell(plan, row)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <label>
-              Total team seats
-              <input
-                type="number"
-                min={3}
-                max={1000}
-                value={seats}
-                onChange={(e) => setSeats(Math.min(1000, Math.max(3, Number(e.target.value) || 3)))}
-              />
-            </label>
-            <div className="subscription-calculation" aria-live="polite">
-              <strong>
-                {money(subscriptionTotal("team", seats))}
-                <small>/month</small>
-              </strong>
-              <span>
-                {money(teamOffer.monthly)} + {seats - 3} × {money(extraSeatOffer.monthly)}
-              </span>
-            </div>
-          </div>
-          <p className="subscription-footnote">
-            USD, billed monthly. Taxes may apply. Signing allowances reset monthly and do not roll over. Additional envelopes are $1 each with billing-owner approval and a monthly spending limit. Appointment payment processing fees are separate.
-          </p>
+            <p className="premium-note">
+              *Fair-use unlimited where listed. Annual subscribers receive the same monthly allowance each month of the
+              annual term. Essential transactional email is never blocked solely because a marketing email allowance is
+              exhausted. Optional add-ons are sold separately once billing for them is live.
+            </p>
+          </section>
+          <section className="subscription-invoices">
+            <h2>Optional add-ons</h2>
+            <ul>
+              {addons.map((addon) => (
+                <li key={addon.id}>
+                  {addon.name} · {money(addon.amount)}
+                  {addon.recurring ? "/month" : ""} ·{" "}
+                  {addon.available ? "Available in Plan & billing" : "Planning only — not for purchase yet"}
+                </li>
+              ))}
+            </ul>
+          </section>
         </>
-      )}
-
-      <PricingAllowances allowances={monthlyAllowances} variant={variant === "home" ? "compact" : "full"} />
-
-      {variant === "full" && (
-        <div className="subscription-faq">
-          <details>
-            <summary>
-              What does “everything included” mean?
-              <Icon name="plus" size={16} />
-            </summary>
-            <p>Both paid plans include scheduling, client records, reminders, appointment payments, PDF templates, and electronic signing. Teams adds shared scheduling and member management. The limits above keep usage and billing predictable.</p>
-          </details>
-          <details>
-            <summary>
-              What counts as a signing envelope?
-              <Icon name="plus" size={16} />
-            </summary>
-            <p>
-              An envelope is a package sent for signature. Multiple recipients in the same envelope count as one; drafts and reminders are free. Individual includes {monthlyAllowances.individual.envelopes} per month. Teams includes {monthlyAllowances.team.envelopes} total, shared across all seats. Additional seats do not increase this pool. Extra envelopes cost $1 each when the billing owner enables overages and sets a monthly spending limit. Extras are invoiced separately after month-end. Allowances reset at 00:00 UTC on the first of each month. Existing subscribers keep their agreed allowance.
-            </p>
-          </details>
-          <details>
-            <summary>
-              Can I cancel or change seats?
-              <Icon name="plus" size={16} />
-            </summary>
-            <p>Owners manage subscriptions and seats. Cancellation stops renewal at the end of the paid period. Package and seat changes can create a prorated adjustment. Existing records are preserved; reassign upcoming appointments before removing staff.</p>
-          </details>
-          <details>
-            <summary>
-              Can I explore Zenvio first?
-              <Icon name="plus" size={16} />
-            </summary>
-            <p>
-              {signupOpen
-                ? "Yes. Explore the demo without an account, or create a workspace when you’re ready. No subscription or payment is created just by signing up."
-                : "Yes. Explore the demo without an account and join the interest list. No account, subscription, or payment is created by joining the list."}
-            </p>
-          </details>
-        </div>
       )}
     </div>
   );

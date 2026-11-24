@@ -25,22 +25,22 @@ function load(file, deps = {}) {
   return m.exports;
 }
 
-const catalog = load("src/lib/pricing-v4-catalog.mjs");
+const catalog = load("src/lib/pricing-catalog.mjs");
 
-test("v4 catalog prices Professional at $19.99 and bills annual as a yearly total", () => {
-  const pro = catalog.pricingV4Offers.find((o) => o.id === "professional");
+test("the canonical catalog prices Professional at $19.99 and bills annual as a yearly total", () => {
+  const pro = catalog.PLANS.find((o) => o.id === "professional");
   assert.equal(pro.monthly, 1999);
   assert.equal(pro.annual, 19188);
   assert.equal(pro.recommended, true);
-  assert.equal(catalog.pricingV4SubscriptionTotal("professional"), 1999);
-  assert.equal(catalog.pricingV4SubscriptionTotal("business", 4), 3499 + 500);
-  assert.equal(catalog.pricingV4SubscriptionTotal("free"), 0);
-  assert.throws(() => catalog.pricingV4SubscriptionTotal("enterprise"), /published/);
+  assert.equal(catalog.subscriptionTotal("professional"), 1999);
+  assert.equal(catalog.subscriptionTotal("business", 4), 3499 + 500);
+  assert.equal(catalog.subscriptionTotal("free"), 0);
+  assert.throws(() => catalog.subscriptionTotal("enterprise"));
 });
 
-test("v4 add-ons stay unpublished; SMS catalog rows exist but are not purchasable", () => {
-  assert.ok(catalog.pricingV4Addons.every((a) => a.available === false));
-  const sms = catalog.pricingV4Addons.filter((a) => /sms/i.test(a.id));
+test("add-ons stay unpublished; SMS catalog rows exist but are not purchasable", () => {
+  assert.ok(catalog.ADDONS.every((a) => a.available === false));
+  const sms = catalog.ADDONS.filter((a) => /sms/i.test(a.id));
   assert.ok(sms.length >= 1);
   assert.ok(sms.every((a) => a.available === false));
 });
@@ -48,29 +48,23 @@ test("v4 add-ons stay unpublished; SMS catalog rows exist but are not purchasabl
 test("financial intelligence migration and admin surfaces are wired", () => {
   const sql = fs.readFileSync("postgres/migrations/086_pricing_v4_financial_intelligence.sql", "utf8");
   const validate = fs.readFileSync("postgres/migrations/087_pricing_v4_constraint_validate.sql", "utf8");
-  const docs = fs.readFileSync("docs/PRICING_V4_ACTIVATION.md", "utf8");
   const nav = fs.readFileSync("src/lib/admin-console-nav.ts", "utf8");
   const page = fs.readFileSync("src/app/admin/financial-intelligence/page.tsx", "utf8");
   const route = fs.readFileSync("src/app/api/admin/financial-intelligence/route.ts", "utf8");
   const pricing = fs.readFileSync("src/app/pricing/page.tsx", "utf8");
   assert.match(sql, /provider_cost_budgets/);
   assert.match(sql, /marketingEmails/);
-  assert.match(sql, /pricing_v4/);
   assert.match(sql, /NOT VALID/);
   assert.match(validate, /VALIDATE CONSTRAINT subscription_usage_reservations_meter_check/);
   assert.match(validate, /VALIDATE CONSTRAINT entitlement_overrides_plan_check/);
-  assert.match(docs, /Gated v4 enrollment/);
-  assert.match(docs, /live webhook acceptance/);
-  assert.match(docs, /ENABLE_PAID_V4_ENROLLMENT/);
   assert.match(nav, /financial-intelligence/);
   assert.match(page, /requireAdminPage\(\)/);
   assert.match(route, /adminSession\(\)/);
-  // Preview writes never touch enrollment; the explicit control fails closed.
   assert.doesNotMatch(route, /enrollmentEnabled: false/);
-  assert.match(route, /set_pricing_v4_enrollment/);
-  assert.match(pricing, /PublicPricingV4/);
+  assert.doesNotMatch(route, /set_pricing_v4_enrollment/);
+  assert.match(pricing, /PublicPricing/);
   assert.match(pricing, /publicPricingSurface/);
-  assert.match(pricing, /surface\.family === "v4"/);
+  assert.doesNotMatch(pricing, /family === "v4"/);
 });
 
 test("financial intelligence sums model reservations and avoids v4 price fallback for legacy catalogs", async () => {
@@ -174,13 +168,7 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
         coverage: "fixture",
       }),
     },
-    "./pricing-v4-catalog.mjs": catalog,
-    "./subscription-offers.mjs": {
-      catalogVersion: "2026-11-v3",
-      currentOffers: [],
-      extraSeatOffer: { monthly: 999 },
-      planningCostCents: { individual: 850, team: 1600, team_extra: 350 },
-    },
+    "./pricing-catalog.mjs": catalog,
     "./financial-period": load("src/lib/financial-period.ts"),
     "./financial-sync": {
       latestFinancialSyncRuns: async () => [],
@@ -201,7 +189,7 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
   assert.equal(legacy.subscriptionRevenueCents, null);
   assert.equal(legacy.classification.revenue, "unknown");
   const team = overview.tenants.find((t) => t.userId === "u2");
-  assert.equal(team.estimatedOperatingCostCents, 1600 + 2 * 350);
+  assert.equal(team.estimatedOperatingCostCents, 1100 + 2 * 180);
   const business = overview.tenants.find((t) => t.userId === "u3");
   assert.equal(business.subscriptionRevenueCents, 3499 + 500); // base + one extra seat
   assert.equal(business.classification.revenue, "estimated");
@@ -211,25 +199,19 @@ test("financial intelligence sums model reservations and avoids v4 price fallbac
 });
 
 test("annual pricing caption uses the catalog's exact yearly monthly-equivalent", () => {
-  const src = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
-  assert.match(src, /pricingV4AnnualMonthlyEquivalent\(offer\)/);
+  const src = fs.readFileSync("src/components/public-pricing.tsx", "utf8");
+  assert.match(src, /annualMonthlyEquivalentOf\(offer\)/);
   assert.doesNotMatch(src, /equals \{money\(offer\.monthly\)\}/);
 });
 
-test("live entitlement ceilings for free remain unchanged until v4 activation", () => {
+test("live entitlement ceilings come from the canonical catalog", () => {
   const policy = load("src/lib/entitlement-policy.ts", {
-    "./subscription-offers.mjs": {
-      monthlyAllowances: {
-        individual: { envelopes: 10 },
-        team: { envelopes: 30 },
-      },
-    },
-    "./pricing-v4-catalog.mjs": catalog,
+    "./pricing-catalog.mjs": catalog,
   });
   assert.deepEqual(policy.planLimits.free, {
-    types: 1,
+    types: 2,
     calendars: 1,
-    envelopes: 5,
+    envelopes: 0,
     workflows: 0,
   });
   assert.ok(policy.planLimits.professional.envelopes === 20);

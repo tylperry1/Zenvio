@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { integrationValue } from "./platform-settings";
 import { ApiError } from "./server";
-import { stripeEnvironmentForKey } from "./pricing-v4-catalog.mjs";
+import { stripeEnvironmentForKey } from "./pricing-catalog.mjs";
 import {
   stripeDeploymentEnvironment,
   stripeKeyMode,

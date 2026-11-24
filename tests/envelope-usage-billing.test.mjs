@@ -8,7 +8,7 @@ function load(file, deps) {const filename=path.resolve(file),m=new Module(filena
 class ApiError extends Error {constructor(message,status=400){super(message);this.status=status;}}
 const policy=load('src/lib/entitlement-policy.ts',{});
 const limits=policy.planLimits;
-function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active',allowance=20,unpaid=false,version='legacy',plan='team',credits=0,subscriptionPlan}={}) {
+function fixture({sent=60,spent=0,enabled=true,cap=200,ready=true,status='active',allowance=null,unpaid=false,version='legacy',plan='team',credits=0,subscriptionPlan}={}) {
  let inserts=[],locks=[],reservations=[];
  const db={query:async(sql,args)=>{
  if(sql.includes('pg_advisory_xact_lock'))locks.push(args[0]);
@@ -37,10 +37,10 @@ test('unlimited seat sentinel keeps an unlimited included pool without multiplyi
  await f.service.recordEnvelopeSend(f.db,'staff','pdf','unlimited-a');
  assert.equal(f.inserts[0][4],0);
 });
-test('legacy subscriptions preserve their per-seat pool while the current policy declares fixed v3 allowances',async()=>{assert.equal(limits.team.envelopes,30);assert.equal(limits.individual.envelopes,10);const f=fixture({sent:59,enabled:false});await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],0);assert.equal(f.inserts[0][3],'owner');assert.deepEqual(f.locks,['entitlements:owner','entitlements:staff']);});
+test('plan limits are the single fixed envelope pool',async()=>{assert.equal(limits.team.envelopes,50);assert.equal(limits.individual.envelopes,5);const f=fixture({sent:49,enabled:false});await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],0);assert.equal(f.inserts[0][3],'owner');assert.deepEqual(f.locks,['entitlements:owner','entitlements:staff']);});
 test('overages are exactly $1, counted once per envelope, and stop at the cap',async()=>{const f=fixture({cap:100});await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],100);await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts.length,1);await assert.rejects(f.service.recordEnvelopeSend(f.db,'staff','text','b'),e=>e.status===409);});
 test('disabled spending, unpaid accounts, trials and missing billing cannot incur extras',async()=>{for(const options of [{enabled:false},{status:'trialing'},{ready:false},{unpaid:true}]){const f=fixture(options);await assert.rejects(f.service.recordEnvelopeSend(f.db,'staff','pdf','a'));assert.equal(f.inserts.length,0);}});
-test('existing subscriber allowance is preserved by server-side subscription state',async()=>{const f=fixture({sent:100,allowance:100,enabled:false});const b=await f.service.envelopeBudget('staff',f.db);assert.equal(b.included,300);await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],0);});
+test('existing subscriber allowance is preserved by server-side subscription state',async()=>{const f=fixture({sent:99,allowance:100,enabled:false});const b=await f.service.envelopeBudget('staff',f.db);assert.equal(b.included,100);await f.service.recordEnvelopeSend(f.db,'staff','pdf','a');assert.equal(f.inserts[0][4],0);});
 test('membership changing while waiting for the entitlement lock aborts allocation',async()=>{const f=fixture();let reads=0;const query=f.db.query;f.db.query=async(sql,args)=>sql.startsWith('SELECT * FROM private.team_entitlement_roots')?{rows:[{owner_id:++reads===1?'old-owner':'new-owner',seats:3}]}:query(sql,args);await assert.rejects(f.service.recordEnvelopeSend(f.db,'staff','pdf','a'),e=>e.status===409);assert.equal(f.inserts.length,0);});
 function invoiceFixture({failFinalize=false}={}) {
  const row={billing_owner:'owner',month:'2026-10-01',customer_id:'cus',amount_cents:200,invoice_id:null,finalized:false};let calls=[],lines=[],status='draft';
@@ -57,10 +57,10 @@ test('staff cannot enable spending for the billing owner; enabling requires expl
  assert.equal((await route.POST({})).status,403);assert.equal(writes,0);input={enabled:true,cap:10};assert.equal((await route.POST({})).status,400);assert.equal(writes,0);
 });
 
-test('v3 Teams envelope allowance is one fixed pool and free access never inherits a paid pool',async()=>{const paid=fixture({version:'2026-11-v3',sent:29,enabled:false});assert.equal((await paid.service.envelopeBudget('staff',paid.db)).included,30);await paid.service.recordEnvelopeSend(paid.db,'staff','pdf','last');await assert.rejects(paid.service.recordEnvelopeSend(paid.db,'staff','pdf','exhausted'));const free=fixture({version:'2026-11-v3',plan:'free'});assert.equal((await free.service.envelopeBudget('staff',free.db)).included,15);});
+test('paid Teams allowance is one fixed pool and free access never inherits a paid pool',async()=>{const paid=fixture({version:'2026-11-v3',sent:49,enabled:false});assert.equal((await paid.service.envelopeBudget('staff',paid.db)).included,50);await paid.service.recordEnvelopeSend(paid.db,'staff','pdf','last');await assert.rejects(paid.service.recordEnvelopeSend(paid.db,'staff','pdf','exhausted'));const free=fixture({version:'2026-11-v3',plan:'free'});assert.equal((await free.service.envelopeBudget('staff',free.db)).included,0);});
 
 test('free workspaces can spend referral envelope credits after the included pool',async()=>{
- const f=fixture({version:'2026-11-v3',plan:'free',sent:15,enabled:false,credits:5});
+ const f=fixture({version:'2026-11-v3',plan:'free',sent:0,enabled:false,credits:5});
  await f.service.recordEnvelopeSend(f.db,'staff','pdf','referral-credit');
  assert.equal(f.reservations.length,1);
  assert.equal(f.inserts[0][4],0);

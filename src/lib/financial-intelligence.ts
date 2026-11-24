@@ -1,17 +1,12 @@
 import { getPool, databaseConfigured } from "./db";
 import { providerEconomics } from "./provider-economics";
 import {
-  pricingV4ExtraSeat,
-  pricingV4PlanningCostCents,
-  pricingV4Offers,
-  pricingV4Version,
-} from "./pricing-v4-catalog.mjs";
-import {
-  catalogVersion as pricingV3Version,
-  currentOffers as pricingV3Offers,
-  extraSeatOffer as pricingV3ExtraSeat,
-  planningCostCents,
-} from "./subscription-offers.mjs";
+  EXTRA_SEAT,
+  PLANNING_COST_CENTS,
+  PLANS,
+  CATALOG_ID,
+  planId,
+} from "./pricing-catalog.mjs";
 import {
   resolveFinancialPeriod,
   type FinancialPeriod,
@@ -89,20 +84,13 @@ function daysInUtcMonth(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
-function planningCostForTenant(plan: string, seats: number, catalogVersion: string | null) {
-  const seatCount = Number(seats) || 1;
-  if (catalogVersion === pricingV4Version) {
-    const base = pricingV4PlanningCostCents[plan as keyof typeof pricingV4PlanningCostCents];
-    if (base == null) return null;
-    if (plan === "business" && seatCount > 3) {
-      return base + (seatCount - 3) * pricingV4PlanningCostCents.business_extra;
-    }
-    return base;
-  }
-  const base = planningCostCents[plan as keyof typeof planningCostCents];
+function planningCostForTenant(plan: string, seats: number, _catalogVersion: string | null) {
+  const current = planId(plan);
+  const base = PLANNING_COST_CENTS[current as keyof typeof PLANNING_COST_CENTS];
   if (base == null) return null;
-  if (plan === "team" && seatCount > 3) {
-    return base + (seatCount - 3) * planningCostCents.team_extra;
+  const seatCount = Number(seats) || 1;
+  if (current === "business" && seatCount > 3) {
+    return base + (seatCount - 3) * PLANNING_COST_CENTS.business_extra;
   }
   return base;
 }
@@ -123,13 +111,13 @@ function revenueForTenant(
   }
   // Only estimate from the published v4 list when the subscription is already on v4
   // and Stripe has not yet recorded monthly_amount_cents. Never invent v3/legacy revenue.
-  if (catalogVersion === pricingV4Version) {
-    const offer = pricingV4Offers.find((o) => o.id === plan);
+  if (catalogVersion === CATALOG_ID) {
+    const offer = PLANS.find((o) => o.id === plan);
     if (offer?.monthly != null) {
       const included = offer.seats ?? 1;
       const extra =
         plan === "business" && seats > included
-          ? (seats - included) * pricingV4ExtraSeat.monthly
+          ? (seats - included) * EXTRA_SEAT.monthly
           : 0;
       return { cents: offer.monthly + extra, classification: "estimated" as const };
     }
@@ -533,7 +521,7 @@ export async function financialIntelligenceOverview(input?: {
         ? "partial"
         : "verified";
 
-  // Catalog-aware planning budgets (v3 + v4) — never claim verified profit.
+  // Catalog-aware planning budgets — never claim verified profit.
   const tenantRows = tenants.rows.map((t) => {
     const plan = String(t.plan);
     const seats = Number(t.seats) || 1;
@@ -593,23 +581,11 @@ export async function financialIntelligenceOverview(input?: {
 
   // Pricing discrepancy: mapped Stripe prices vs published catalog amounts (metadata only — no Stripe mutation).
   const publishedByPlan = new Map<string, { monthly: number | null; annual: number | null; version: string }>();
-  for (const o of pricingV3Offers) {
-    publishedByPlan.set(`${pricingV3Version}:${o.id}`, {
-      monthly: o.monthly,
-      annual: o.annual || null,
-      version: pricingV3Version,
-    });
-  }
-  publishedByPlan.set(`${pricingV3Version}:team_extra`, {
-    monthly: pricingV3ExtraSeat.monthly,
-    annual: null,
-    version: pricingV3Version,
-  });
-  for (const o of pricingV4Offers) {
-    publishedByPlan.set(`${pricingV4Version}:${o.id}`, {
+  for (const o of PLANS) {
+    publishedByPlan.set(`${CATALOG_ID}:${o.id}`, {
       monthly: o.monthly,
       annual: o.annual,
-      version: pricingV4Version,
+      version: CATALOG_ID,
     });
   }
 
@@ -621,6 +597,7 @@ export async function financialIntelligenceOverview(input?: {
     issue: string;
   }[] = [];
   for (const row of priceMaps.rows) {
+    if (row.catalog_version !== CATALOG_ID) continue;
     const key = `${row.catalog_version}:${row.plan}`;
     const published = publishedByPlan.get(key);
     if (!published) {
@@ -895,11 +872,11 @@ export async function financialIntelligenceOverview(input?: {
         mrrCents && mrrCents > 0 && planningCostValue != null
           ? (mrrCents - planningCostValue) / mrrCents
           : null,
-      source: "Catalog-aware preliminary planning budgets (v3 + v4), not provider invoices",
+      source: "Canonical-catalog preliminary planning budgets, not provider invoices",
       note:
         planningCostValue == null
           ? "No preliminary planning allocation for current active plan mix — shown as unavailable, not $0.00."
-          : "Catalog-aware preliminary planning budgets (v3 + v4), not provider invoices",
+          : "Canonical-catalog preliminary planning budgets, not provider invoices",
     },
     accountsByPlan: economics.accountsByPlan,
     anomalies: economics.anomalies,
@@ -909,12 +886,9 @@ export async function financialIntelligenceOverview(input?: {
       ["active", "trialing", "past_due"].includes(t.status),
     ),
     pricing: {
-      publishedV3: pricingV3Offers,
-      publishedV4: pricingV4Offers,
       mappedPrices: priceMaps.rows,
       discrepancies: pricingDiscrepancies,
     },
-    proposedPlans: pricingV4Offers,
     alerts,
     sync: {
       lastRun: lastSync || null,
