@@ -23,7 +23,13 @@ test("v4 public pricing does not deep-link unenrollable plan ids while preview-o
 test("billing overview uses customer-safe paused-enrollment copy without Stripe readiness internals", () => {
   const billing = read("src/components/billing.tsx");
   const messages = read("src/lib/customer-messages.ts");
-  assert.match(billing, /data\.connected && !data\.checkoutEnabled/);
+  // The paused notice follows the same enrollment gate the plans tab uses: v4
+  // reads the public surface, legacy reads the checkout flag.
+  assert.match(billing, /data\.connected && !enrollmentOpen/);
+  assert.match(
+    billing,
+    /d\.pricingSurface\?\.family === "v4" \? d\.pricingSurface\.enrollment\.enabled : d\.checkoutEnabled/,
+  );
   assert.match(billing, /customerMessages\.billing\.enrollmentPaused/);
   assert.match(billing, /customerMessages\.billing\.enrollmentPausedWithBillingAccount/);
   assert.match(billing, /customerMessages\.billing\.enrollmentPausedTeamMember/);

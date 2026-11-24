@@ -1,5 +1,5 @@
 import { monthlyAllowances } from "./subscription-offers.mjs";
-import { pricingV4Allowances } from "./pricing-v4-catalog.mjs";
+import { pricingV4Allowances, pricingV4Version } from "./pricing-v4-catalog.mjs";
 
 const unlimited = 100000;
 
@@ -68,7 +68,7 @@ export type Plan = keyof typeof planLimits;
 export function isV4CatalogVersion(catalogVersion?: string | null): boolean {
   return Boolean(
     catalogVersion &&
-      (catalogVersion === "2026-11-v4" || catalogVersion.startsWith("2026-11-v4")),
+      (catalogVersion === pricingV4Version || catalogVersion.startsWith(pricingV4Version)),
   );
 }
 

@@ -97,3 +97,29 @@ html[data-theme="dark"] .pricing-allowances{
 }
 
 .subscription-offers-v4 .subscription-offer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin:24px 0}.subscription-offer-card{padding:24px;border:1px solid var(--border);border-radius:14px;background:var(--surface-card);display:grid;gap:12px;align-content:start;min-width:0}.subscription-offer-card.featured{border-color:#365cff;box-shadow:0 0 0 1px #365cff}.subscription-offer-card h3{margin:0;font-size:22px;letter-spacing:-.03em}.subscription-offer-card ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}.subscription-offer-card li{font-size:13px;line-height:1.55;color:var(--text-secondary)}.subscription-offers-v4 .sob-toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+
+/* Subscription change preview — authoritative Stripe proration quote. */
+.plan-change-preview{margin:22px 0;padding:22px;border:1px solid #dfe5f2;border-radius:12px;background:var(--surface-inset,#f7f9fc);display:grid;gap:16px}
+.plan-change-heading{display:flex;flex-direction:column;gap:4px}
+.plan-change-heading>span{font-size:10px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:#365cff}
+.plan-change-heading>small{font-size:12px;color:#62708c}
+.plan-change-compare{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:center}
+.plan-change-compare>div{display:grid;gap:3px;padding:14px;background:#fff;border:1px solid #e3e8f1;border-radius:9px;min-width:0}
+.plan-change-compare span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6a7791}
+.plan-change-compare strong{font-size:16px;letter-spacing:-.3px;overflow-wrap:anywhere}
+.plan-change-compare small{font-size:12px;color:#5a6680}
+.plan-change-compare svg{color:#365cff}
+.plan-change-amounts{display:grid;gap:0;margin:0}
+.plan-change-amounts>div{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:11px 0;border-top:1px solid #e3e8f1}
+.plan-change-amounts>div:first-child{border-top:0}
+.plan-change-amounts dt{font-size:13px;color:#4d5a76}
+.plan-change-amounts dd{margin:0;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+.plan-change-amounts .is-charge dd{color:#0f172a}
+.plan-change-amounts .is-credit dd{color:#0f7a4d}
+.plan-change-lines{list-style:none;margin:0;padding:12px 0 0;border-top:1px dashed #dfe5f2;display:grid;gap:6px}
+.plan-change-lines li{display:flex;justify-content:space-between;gap:14px;font-size:12px;color:#5a6680}
+.plan-change-lines b{font-weight:600;font-variant-numeric:tabular-nums;color:#3d4a66}
+.plan-change-terms{margin:0;font-size:11px;line-height:1.7;color:#62708c}
+.plan-change-status{margin:0;font-size:12px;color:#4d5a76}
+.plan-change-status .billing-error{margin:0 0 10px}
+@media(max-width:640px){.plan-change-compare{grid-template-columns:minmax(0,1fr)}.plan-change-compare svg{transform:rotate(90deg);justify-self:center}.plan-change-amounts>div{gap:10px}}

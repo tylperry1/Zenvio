@@ -3,6 +3,7 @@ import { BillingAddons } from "./billing-addons";
 import { EnvelopeAllowance, type EnvelopeBudget } from "./envelope-allowance";
 import { UsagePanel } from "./usage-panel";
 import { Enrollment } from "./enrollment";
+import { EnrollmentV4 } from "./enrollment-v4";
 import { useEffect, useState } from "react";
 import { Modal } from "./modal";
 import Link from "next/link";
@@ -29,9 +30,20 @@ import {
   type Tone,
 } from "./ds";
 import { customerMessages } from "@/lib/customer-messages";
+import { isPaidPlan, isV4PlanVersion, planDisplayName } from "@/lib/plan-display";
 
 type Data = {
   catalog?: import("@/lib/billing-catalog").BillingCatalog;
+  pricingSurface?: {
+    family: "v3" | "v4";
+    previewOnly: boolean;
+    enrollment: {
+      enabled: boolean;
+      catalogVersion: string;
+      plans: string[];
+      periods: ("monthly" | "annual")[];
+    };
+  };
   meteredUsage?: {
     catalogVersion: string;
     enforced: boolean;
@@ -50,6 +62,7 @@ type Data = {
   checkoutEnabled: boolean;
   usage: {
     plan: string;
+    catalogVersion?: string;
     seats: number;
     unlimitedSeats?: boolean;
     platformIncluded?: boolean;
@@ -78,6 +91,8 @@ function statusTone(label: string): Tone {
 }
 
 export function Billing() {
+  const enrollmentOpen = (d: Data) =>
+    d.pricingSurface?.family === "v4" ? d.pricingSurface.enrollment.enabled : d.checkoutEnabled;
   const [tab, setTab] = useState<Tab>("overview");
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(""),
@@ -94,7 +109,9 @@ export function Billing() {
   // Auth redirects here with ?plan=&seats=; Enrollment only mounts on Plans.
   useEffect(() => {
     const plan = new URLSearchParams(window.location.search).get("plan");
-    if (plan === "individual" || plan === "team") setTab("plans");
+    if (["individual", "team", "starter", "professional", "business"].includes(plan || "")) {
+      setTab("plans");
+    }
   }, []);
 
   async function syncPlan() {
@@ -201,14 +218,17 @@ export function Billing() {
     sub?.has_subscription && !["canceled", "incomplete_expired"].includes(sub.status),
   );
   const effectivePlan = data?.usage.plan || sub?.plan || "free";
-  const displayPlan = ownBillingActive ? sub?.plan || effectivePlan : effectivePlan;
+  // usage.plan and usage.catalogVersion are the server-resolved entitlement, so an
+  // active grant outranks the raw subscription row. Billing must never label an
+  // account with the legacy plan while enforcement already uses the granted one.
+  const displayPlan = effectivePlan;
   const includedAccess = Boolean(sub && !ownBillingActive && effectivePlan !== "free");
-  const planLabel =
-    data?.plans.find((p) => p.id === displayPlan)?.name ||
-    ({ team: "Teams", teams: "Teams", individual: "Individual", free: "Free" } as Record<string, string>)[
-      displayPlan
-    ] ||
-    displayPlan;
+  const catalogVersion = data?.usage.catalogVersion || sub?.catalog_version;
+  const planLabel = isV4PlanVersion(catalogVersion)
+    ? planDisplayName(displayPlan, catalogVersion)
+    : data?.plans.find((plan) => plan.id === displayPlan)?.name ||
+      planDisplayName(displayPlan, catalogVersion);
+  const paidPlan = isPaidPlan(effectivePlan);
   const managedByTeam = Boolean(
     data?.usage.shared.length && !data.usage.canManageTeamBilling && !ownBillingActive,
   );
@@ -229,7 +249,7 @@ export function Billing() {
       ? String(sub!.seats || 1)
       : data?.usage.unlimitedSeats
         ? "Unlimited"
-        : includedAccess && ["team", "teams"].includes(effectivePlan)
+        : includedAccess && ["team", "teams", "business"].includes(effectivePlan)
           ? `${data!.usage.seats} included`
           : "—";
   const periodDetail = managedByTeam
@@ -297,7 +317,7 @@ export function Billing() {
                         <h2>{managedByTeam ? "Your team has you covered." : planLabel}</h2>
                         <p>{periodDetail}</p>
                       </div>
-                      {ownBillingActive && ["individual", "team"].includes(sub.plan) && (
+                      {ownBillingActive && paidPlan && (
                         <div className="subscription-current-price">
                           <strong>
                             {sub.monthly_amount_cents != null
@@ -312,7 +332,7 @@ export function Billing() {
                       <Kpi label="Team seats" value={seatsLabel} detail={managedByTeam ? "Team owner manages seats" : undefined} icon="users" />
                       <Kpi
                         label="Signing"
-                        value={["individual", "team"].includes(data.usage.plan) ? "Included" : "See usage"}
+                        value={isPaidPlan(data.usage.plan) ? "Included" : "See usage"}
                         detail="Envelope allowance follows your plan"
                         icon="file"
                       />
@@ -362,7 +382,7 @@ export function Billing() {
                     </div>
                   </section>
 
-                  {ownBillingActive && !["individual", "team"].includes(sub.plan) && (
+                  {ownBillingActive && !paidPlan && (
                     <Notice tone="info">
                       You’re on a legacy package. Your existing subscription price and benefits stay in place unless you
                       explicitly choose a new package.
@@ -394,16 +414,30 @@ export function Billing() {
                 <Notice tone="info">{customerMessages.billing.platformIncluded}</Notice>
               )}
               {tab === "plans" && !data.usage.platformIncluded && !managedByTeam && (
-                <Enrollment
-                  catalog={data.catalog}
-                  enabled={data.checkoutEnabled}
-                  currentPlan={sub.plan}
-                  currentSeats={sub.seats || 1}
-                  hasSubscription={Boolean(sub.has_subscription)}
-                  onUpdated={() => {
-                    void load();
-                  }}
-                />
+                data.pricingSurface?.family === "v4" ? (
+                  <EnrollmentV4
+                    enabled={data.pricingSurface.enrollment.enabled}
+                    previewOnly={data.pricingSurface.previewOnly}
+                    currentPlan={sub.plan}
+                    currentSeats={sub.seats || 1}
+                    currentCatalogVersion={catalogVersion}
+                    hasSubscription={Boolean(sub.has_subscription)}
+                    onUpdated={() => {
+                      void load();
+                    }}
+                  />
+                ) : (
+                  <Enrollment
+                    catalog={data.catalog}
+                    enabled={data.checkoutEnabled}
+                    currentPlan={sub.plan}
+                    currentSeats={sub.seats || 1}
+                    hasSubscription={Boolean(sub.has_subscription)}
+                    onUpdated={() => {
+                      void load();
+                    }}
+                  />
+                )
               )}
               {tab === "plans" && managedByTeam && (
                 <Notice tone="info">{customerMessages.billing.teamPlanManaged}</Notice>
@@ -412,7 +446,7 @@ export function Billing() {
               {!data.connected && (
                 <Notice tone="info">{customerMessages.billing.billingUnavailable}</Notice>
               )}
-              {data.connected && !data.checkoutEnabled && (
+              {data.connected && !enrollmentOpen && (
                 <Notice tone="info">
                   {managedByTeam
                     ? customerMessages.billing.enrollmentPausedTeamMember
@@ -578,8 +612,8 @@ export function Billing() {
           >
             <p>
               {confirm === "cancel"
-                ? `Your paid subscription will end on ${billingDate(sub?.current_period_end)}. This schedules cancellation at the end of the billing period and does not issue a refund.`
-                : "Your existing subscription will renew on its current schedule and price."}
+                ? `No charge is made today. Your paid subscription will end on ${billingDate(sub?.current_period_end)}. Cancellation is scheduled for the end of the billing period and no refund is issued.`
+                : `No charge is made today. Your existing subscription renews on its current schedule and price${sub?.current_period_end ? `, next on ${billingDate(sub.current_period_end)}` : ""}.`}
             </p>
             {error && (
               <p role="alert" className="billing-error">

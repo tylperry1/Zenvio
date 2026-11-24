@@ -5,7 +5,21 @@ import path from "node:path";
 import Module from "node:module";
 import ts from "typescript";
 
-function fixture({ invalid = false, throwProcessing = false, duplicate = false } = {}) {
+const stripeEnvironmentModule = (() => {
+  const filename = path.resolve("src/lib/stripe-environment.ts");
+  const m = new Module(filename);
+  m.filename = filename;
+  m.paths = Module._nodeModulePaths(path.dirname(filename));
+  m._compile(
+    ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText,
+    filename,
+  );
+  return m.exports;
+})();
+
+function fixture({ invalid = false, throwProcessing = false, duplicate = false, livemode = true } = {}) {
   let processed = 0;
   const filename = path.resolve("src/app/api/billing/webhook/route.ts");
   const m = new Module(filename);
@@ -21,11 +35,18 @@ function fixture({ invalid = false, throwProcessing = false, duplicate = false }
           webhooks: {
             constructEvent() {
               if (invalid) throw Error("bad signature");
-              return { id: "evt_test_fixture", type: "customer.subscription.updated", data: { object: { id: "sub_fixture" } } };
+              return {
+                id: "evt_test_fixture",
+                type: "customer.subscription.updated",
+                livemode,
+                data: { object: { id: "sub_fixture" } },
+              };
             },
           },
         }),
+        stripeEnvironment: async () => "live",
       };
+    if (id === "@/lib/stripe-environment") return stripeEnvironmentModule;
     if (id === "@/lib/stripe-webhook")
       return {
         processStripeEvent: async () => {
@@ -61,6 +82,13 @@ test("a verified delivery is processed once through the durable event log", asyn
   const response = await f.POST(request());
   assert.equal(response.status, 200);
   assert.equal(f.processed, 1);
+});
+
+test("a test-mode delivery on the live endpoint is rejected before processing", async () => {
+  const f = fixture({ livemode: false });
+  const response = await f.POST(request());
+  assert.equal(response.status, 400);
+  assert.equal(f.processed, 0);
 });
 
 test("duplicate deliveries are acknowledged without a second application", async () => {

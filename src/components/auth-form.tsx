@@ -305,8 +305,8 @@ export function AuthForm({
               <div>
                 <strong>Partner invite applied</strong>
                 <p>
-                  We’ll credit the business that invited you when you start a paid Individual or Teams
-                  plan. Creating this free workspace only records the invite.
+                  We’ll credit the business that invited you when you start a paid Zenvio plan.
+                  Creating this free workspace only records the invite.
                 </p>
               </div>
               <div className="auth-invite-code">

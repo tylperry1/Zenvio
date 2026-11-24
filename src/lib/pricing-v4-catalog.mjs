@@ -53,8 +53,6 @@ export function pricingV4StripeMetadata({
   return metadata;
 }
 export const pricingV4Flagship = "professional";
-/** Derived from the Professional monthly amount so public copy cannot drift from the catalog. */
-export const pricingV4Hero = `Everything Your Business Needs. Just $${(1999 / 100).toFixed(2)} a Month.`;
 
 /** USD minor units. Annual amounts are billed once per year (not monthly installments). */
 export const pricingV4Offers = Object.freeze([
@@ -86,6 +84,11 @@ export const pricingV4Offers = Object.freeze([
     custom: true,
   }),
 ]);
+
+/** Derived from the flagship monthly amount so public copy cannot drift from the catalog. */
+export const pricingV4Hero = `Everything Your Business Needs. Just $${(
+  (pricingV4Offers.find((offer) => offer.id === pricingV4Flagship)?.monthly ?? 0) / 100
+).toFixed(2)} a Month.`;
 
 export const pricingV4ExtraSeat = Object.freeze({
   id: "business_extra",

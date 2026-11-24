@@ -135,7 +135,7 @@
 .recipient-editor {
   display: flex;
   gap: 12px;
-  align-items: end;
+  align-items: flex-end;
   border: 1px solid #e6eaf2;
   border-radius: 12px;
   padding: 16px;

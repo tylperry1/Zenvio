@@ -18,27 +18,49 @@ export {
   hasTeamWorkspaceAccess,
   isTeamCapacityPlan,
 } from "./entitlement-policy";
+/**
+ * Catalog version that governs a workspace’s own entitlement.
+ *
+ * An active grant owns its catalog. A grant without a catalog version is the
+ * legacy catalog and must never borrow the catalog of a newer subscription, or
+ * a legacy Business grant would silently gain v4 Team limits and seats.
+ */
+export function effectiveCatalogVersion(
+  overridePlan?: string | null,
+  overrideCatalogVersion?: string | null,
+  subscriptionCatalogVersion?: string | null,
+): string | null {
+  if (overridePlan) return overrideCatalogVersion ?? null;
+  return subscriptionCatalogVersion ?? null;
+}
 export async function entitlementUsage(
   user: string,
   db: Pick<PoolClient, "query"> = getPool(),
 ) {
   const r = (
     await db.query(
-      `SELECT s.plan,s.status,s.seats,s.catalog_version,o.plan override_plan,private.effective_plan(u.id) effective_plan FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE u.id=$1`,
+      `SELECT s.plan,s.status,s.seats,s.catalog_version,o.plan override_plan,o.catalog_version override_catalog_version,private.effective_plan(u.id) effective_plan FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE u.id=$1`,
       [user],
     )
   ).rows[0];
   const roots = (
     await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])
   ).rows;
-  let catalogVersion = r?.catalog_version as string | null | undefined;
+  let catalogVersion = effectiveCatalogVersion(
+    r?.override_plan,
+    r?.override_catalog_version,
+    r?.catalog_version,
+  ) as string | null | undefined;
   const plan = (r?.effective_plan ||
     r?.override_plan ||
     (["active", "trialing"].includes(r?.status) ? r?.plan : "free")) as Plan;
   // Members inherit the owner's catalog with the inherited plan (v4 Team=business).
   // Personal subscription catalog alone would leave isTeamCapacityPlan false → 1 seat / wrong limits.
+  // Only inherited plans borrow the owner’s catalog; an explicit grant on this
+  // account stays authoritative.
   if (
     roots.length &&
+    !r?.override_plan &&
     ["team", "teams", "business"].includes(plan) &&
     !isTeamCapacityPlan(plan, catalogVersion)
   ) {

@@ -51,24 +51,32 @@ const signingPoints = [
   "Status tracking and an audit trail that stays with the document",
 ] as const;
 
-const faqs = [
-  [
-    "What’s included in each plan?",
-    "Individual and Teams both include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Teams adds shared scheduling, roles, and seat management. Monthly allowances keep usage predictable.",
-  ],
-  [
-    "How do monthly allowances work?",
-    "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Teams share a single pool across seats. Allowances reset monthly. See usage details on the pricing page.",
-  ],
-  [
-    "Can I change plans or add team members?",
-    "Yes. Owners can change packages and seats from billing. Additional Teams seats are billed monthly. Clients and document recipients never need a paid seat.",
-  ],
-  [
-    "Can I explore Zenvio first?",
-    "Yes. The interactive demo lets you explore the workspace with sample data in your browser. Demo bookings are not real appointments.",
-  ],
-] as const;
+function faqs(v4: boolean) {
+  return [
+    [
+      "What’s included in each plan?",
+      v4
+        ? "Starter, Professional, and Team all include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Team adds shared scheduling, roles, and member management. Monthly allowances keep usage predictable."
+        : "Individual and Teams both include scheduling, client records, messaging, reminders, PDF templates, and electronic signing. Teams adds shared scheduling, roles, and seat management. Monthly allowances keep usage predictable.",
+    ],
+    [
+      "How do monthly allowances work?",
+      v4
+        ? "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Team shares one pool across its included members. Annual plans are billed yearly but allowances reset monthly. See usage details on the pricing page."
+        : "Each plan includes transactional emails, AI credits, signing envelopes, video participant-minutes, and private storage. Teams share a single pool across seats. Allowances reset monthly. See usage details on the pricing page.",
+    ],
+    [
+      "Can I change plans or add team members?",
+      v4
+        ? "Yes. Owners can review package and billing-period changes from Plan & billing. Team includes three members, and additional members are billed monthly. Clients and document recipients never need a paid seat."
+        : "Yes. Owners can change packages and seats from billing. Additional Teams seats are billed monthly. Clients and document recipients never need a paid seat.",
+    ],
+    [
+      "Can I explore Zenvio first?",
+      "Yes. The interactive demo lets you explore the workspace with sample data in your browser. Demo bookings are not real appointments.",
+    ],
+  ] as const;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -481,7 +489,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="mk-faq-list">
-            {faqs.map(([q, a]) => (
+            {faqs(showV4).map(([q, a]) => (
               <details key={q}>
                 <summary>
                   {q}

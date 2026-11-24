@@ -141,8 +141,8 @@ export function ProviderEconomics() {
                 ))}
               </ul>
               <p className="ds-muted">
-                Teams includes three seats; each additional seat is $9.99. Usage is pooled and does not multiply with
-                seats.
+                Team plans include three seats; additional seats are billed at the published seat rate. Usage is pooled
+                and does not multiply with seats.
               </p>
               <a className="ds-btn" href="/pricing">
                 Review public pricing

@@ -8,6 +8,7 @@ import {
 import { NextRequest } from "next/server";
 import { stripeClient } from "@/lib/billing";
 import { pricing } from "@/lib/platform-settings";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import { getPool } from "@/lib/db";
 import { session, sameOrigin, body, ApiError, failure } from "@/lib/server";
 import { customerMessages } from "@/lib/customer-messages";
@@ -24,10 +25,18 @@ export async function GET(request: NextRequest) {
       [token],
     );
     // Expose only customer-safe flags — never readiness blockers, sandbox, or webhook state.
-    const { connected, checkoutEnabled } = await billingReadiness();
+    const [{ connected, checkoutEnabled }, surface] = await Promise.all([
+      billingReadiness(),
+      publicPricingSurface(),
+    ]);
     return Response.json(
       {
         catalog: await (await import("@/lib/billing-catalog")).currentCatalog(),
+        pricingSurface: {
+          family: surface.family,
+          previewOnly: surface.previewOnly,
+          enrollment: surface.enrollment,
+        },
         subscription: rows[0] || { plan: "free", status: "active" },
         plans: await pricing(),
         connected,

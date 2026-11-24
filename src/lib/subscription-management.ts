@@ -3,6 +3,8 @@ import type Stripe from "stripe";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { stripeClient } from "./billing";
+import { catalogVersion as v3CatalogVersion } from "./subscription-offers.mjs";
+import { pricingV4Version } from "./pricing-v4-catalog.mjs";
 import { rewardReferralOnPaidSubscription } from "./referrals";
 import { ApiError } from "./server";
 export async function saveSubscription(
@@ -20,8 +22,12 @@ export async function saveSubscription(
     "SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_prices WHERE stripe_price_id=ANY($1::text[]) UNION SELECT plan,period,stripe_price_id,catalog_version FROM private.subscription_price_history WHERE stripe_price_id=ANY($1::text[])",
     [items.map((item) => item.price.id)],
   )).rows;
+  // One catalog-version source of truth; release catalogs share the v4 prefix.
   const isV4Catalog = (catalogVersion: string | null | undefined) =>
-    Boolean(catalogVersion && (catalogVersion === "2026-11-v4" || catalogVersion.startsWith("2026-11-v4")));
+    Boolean(
+      catalogVersion &&
+        (catalogVersion === pricingV4Version || catalogVersion.startsWith(pricingV4Version)),
+    );
   /** v3 Individual/Teams plus v4 Starter/Professional/Business only — never legacy solo Business. */
   const isPackagedMapping = (m: { plan: string; catalog_version?: string | null }) => {
     if (["individual", "team"].includes(m.plan)) return true;
@@ -76,12 +82,9 @@ export async function saveSubscription(
     "enterprise",
   ];
   const plan = paid && paidPlans.includes(mappedPlan) ? mappedPlan : "free";
-  const v4Envelope =
-    version === "2026-11-v4" || version.startsWith("2026-11-v4")
-      ? null
-      : undefined;
+  const v4Envelope = isV4Catalog(version) ? null : undefined;
   await client.query(
-    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8='2026-11-v3' THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN $8='2026-11-v4' THEN CASE WHEN $2='business' THEN 50 WHEN $2='professional' THEN 20 WHEN $2='starter' THEN 5 ELSE 0 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team','starter','professional','business')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
+    "UPDATE private.subscriptions SET catalog_version=$8,promotion_ends_at=$9,monthly_amount_cents=$10,envelope_allowance=CASE WHEN $11::integer IS NOT NULL THEN $11 WHEN $8=$12 THEN CASE WHEN $2='team' THEN 30 ELSE 10 END WHEN $8=$13 THEN CASE WHEN $2='business' THEN 50 WHEN $2='professional' THEN 20 WHEN $2='starter' THEN 5 ELSE 0 END WHEN subscription_id IS DISTINCT FROM $1 OR (plan<>$2 AND $2 IN ('individual','team','starter','professional','business')) THEN 20 ELSE envelope_allowance END,subscription_id=$1,plan=$2,status=$3,current_period_end=$4,cancel_at_period_end=$5,seats=$7,updated_at=now() WHERE user_id=$6",
     [
       subscription.id,
       plan,
@@ -89,7 +92,7 @@ export async function saveSubscription(
       end ? new Date(end * 1000) : null,
       subscription.cancel_at_period_end,
       userId,
-      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? v4Envelope ?? null,
+      seats, version, promoEnd ? new Date(promoEnd*1000) : null, monthlyAmount, custom?.allowances?.[mappedPlan]?.envelopes ?? v4Envelope ?? null, v3CatalogVersion, pricingV4Version,
     ],
   );
   if (paid && ["individual", "team", "starter", "professional", "business"].includes(plan)) {

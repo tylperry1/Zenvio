@@ -22,6 +22,12 @@ export type StripeWebhookDeps = {
   ) => Promise<void>;
   settleAddon: (client: PoolClient, session: Stripe.Checkout.Session) => Promise<boolean>;
   refundAddon: (client: PoolClient, charge: Stripe.Charge) => Promise<boolean>;
+  failAddon?: (
+    client: PoolClient,
+    session: Stripe.Checkout.Session,
+    terminal: "failed" | "expired",
+  ) => Promise<boolean>;
+  failAddonPayment?: (client: PoolClient, paymentIntentId: string) => Promise<boolean>;
 };
 
 export type StripeEventOutcome = "processed" | "ignored";
@@ -48,6 +54,9 @@ const CHECKOUT_EVENTS = new Set([
 const RETRIEVABLE_EVENTS: Record<string, string> = {
   "checkout.session.completed": "checkout.session",
   "checkout.session.async_payment_succeeded": "checkout.session",
+  "checkout.session.expired": "checkout.session",
+  "checkout.session.async_payment_failed": "checkout.session",
+  "charge.failed": "charge",
   "customer.subscription.created": "subscription",
   "customer.subscription.updated": "subscription",
   "customer.subscription.deleted": "subscription",
@@ -182,6 +191,28 @@ async function handleEvent(
   client: PoolClient,
   deps: StripeWebhookDeps,
 ): Promise<StripeEventOutcome> {
+  if (
+    event.type === "checkout.session.expired" ||
+    event.type === "checkout.session.async_payment_failed"
+  ) {
+    const snapshot = event.data.object as Stripe.Checkout.Session;
+    if (snapshot.metadata?.zenvio_addon_order) {
+      await deps.failAddon?.(
+        client,
+        snapshot,
+        event.type === "checkout.session.expired" ? "expired" : "failed",
+      );
+      return "processed";
+    }
+    if (event.type === "checkout.session.async_payment_failed" && snapshot.mode === "subscription") {
+      const subscriptionId = idOf(snapshot.subscription);
+      return subscriptionId
+        ? syncVerifiedSubscription(subscriptionId, client, deps)
+        : "ignored";
+    }
+    return "ignored";
+  }
+
   if (CHECKOUT_EVENTS.has(event.type)) {
     const snapshot = event.data.object as Stripe.Checkout.Session;
     if (snapshot.metadata?.zenvio_addon_order) {
@@ -225,14 +256,34 @@ async function handleEvent(
       )
     ).rows[0] as { checkout_id?: string | null; state?: string } | undefined;
     // Idempotent: a paid order is already fulfilled, and fulfillment requires
-    // the exact stored Checkout Session that settleAddon verifies.
-    if (!order?.checkout_id || order.state !== "pending") return "ignored";
+    // the exact stored Checkout Session that settleAddon verifies. Failed and
+    // expired local states are still settled because the provider is the source
+    // of truth: an out-of-order expiry delivery must not strand a real payment.
+    if (!order?.checkout_id || !["pending", "failed", "expired"].includes(order.state ?? ""))
+      return "ignored";
     const checkout = await deps.stripe.checkout.sessions.retrieve(order.checkout_id);
     await deps.settleAddon(client, checkout);
     // A charge.refunded delivery can arrive before this settlement. Re-check the
     // provider charge after granting so a refunded payment cannot keep credits.
     await reconcileCheckoutRefund(client, checkout, deps);
     return "processed";
+  }
+
+  if (event.type === "charge.failed") {
+    const charge = await deps.stripe.charges.retrieve(
+      (event.data.object as Stripe.Charge).id,
+    );
+    const invoiceId = idOf(
+      (charge as Stripe.Charge & { invoice?: string | { id: string } | null }).invoice,
+    );
+    if (invoiceId) {
+      const invoice = await deps.stripe.invoices.retrieve(invoiceId);
+      const subscriptionId = invoiceSubscriptionId(invoice);
+      if (subscriptionId) return syncVerifiedSubscription(subscriptionId, client, deps);
+    }
+    const intentId = idOf(charge.payment_intent);
+    if (intentId && (await deps.failAddonPayment?.(client, intentId))) return "processed";
+    return "ignored";
   }
 
   if (event.type === "charge.refunded") {
