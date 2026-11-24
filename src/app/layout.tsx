@@ -91,7 +91,7 @@ export default async function RootLayout({
       {controls.bannerEnabled&&controls.banner&&<LaunchBanner text={controls.banner} date={controls.launchDate}/>}
       {children}
       <ServiceWorkerRegister />
-      <PublicChat />
+      <PublicChat signedIn={signedIn} />
     </>
   );
   return (

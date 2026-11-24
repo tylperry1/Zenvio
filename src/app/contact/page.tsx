@@ -3,6 +3,7 @@ import { Logo } from "@/components/icons";
 import { PlatformSocialLinks } from "@/components/platform-social-links";
 import { VisitorChat } from "@/components/visitor-support";
 import { platformSocialLinks } from "@/lib/platform-social";
+import { themeSessionActive } from "@/lib/theme-session";
 
 export const metadata = {
   title: "Contact Zenvio",
@@ -11,7 +12,7 @@ export const metadata = {
 };
 
 export default async function Page() {
-  const socialLinks = await platformSocialLinks();
+  const [socialLinks, signedIn] = await Promise.all([platformSocialLinks(), themeSessionActive()]);
   return (
     <div className="vc-page">
       <header className="vc-page-head">
@@ -31,7 +32,7 @@ export default async function Page() {
           account needed.
         </p>
         <section className="vc-card">
-          <VisitorChat />
+          <VisitorChat signedIn={signedIn} />
         </section>
         {socialLinks.length > 0 && (
           <section className="vc-social" aria-label="Follow Zenvio">

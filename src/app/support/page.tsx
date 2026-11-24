@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Logo } from "@/components/icons";
 import { VisitorChat } from "@/components/visitor-support";
+import { themeSessionActive } from "@/lib/theme-session";
 export const metadata = { title: "Contact Zenvio support", robots: { index: false, follow: true }, referrer: "no-referrer" as const };
 
-export default function Page() {
+export default async function Page() {
+  const signedIn = await themeSessionActive();
   return (
     <div className="vc-page">
       <header className="vc-page-head">
@@ -20,7 +22,7 @@ export default function Page() {
         <h1>Chat with the Zenvio team</h1>
         <p className="vc-lead">Questions about Zenvio, pricing or getting started? Send us a message — no account needed.</p>
         <section className="vc-card">
-          <VisitorChat />
+          <VisitorChat signedIn={signedIn} />
         </section>
       </main>
     </div>
