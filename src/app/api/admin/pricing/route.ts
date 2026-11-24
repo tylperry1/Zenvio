@@ -3,6 +3,7 @@ import { adminSession } from "@/lib/admin";
 import { billingReadiness } from "@/lib/billing-readiness";
 import { getPool } from "@/lib/db";
 import { planLimits } from "@/lib/entitlement-policy";
+import { pricingV4Version } from "@/lib/pricing-v4-catalog.mjs";
 import { pricing } from "@/lib/platform-settings";
 import { failure } from "@/lib/server";
 import { catalogVersion, monthlyAllowances, extraSeatOffer, individualOffer, includedFeatures, teamOffer } from "@/lib/subscription-offers.mjs";
@@ -56,6 +57,10 @@ export async function GET() {
         features: includedFeatures,
         earlyAccess: { offer: "50% off the base subscription for the first three monthly billing cycles", ...early.rows[0] },
         history: history.rows,
+        v4Mappings: mappings.rows
+          .filter((m) => m.catalog_version === pricingV4Version)
+          .map((m) => ({ plan: m.plan, period: m.period, priceId: m.stripe_price_id })),
+        v4CatalogVersion: pricingV4Version,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -151,18 +151,39 @@ export async function POST(request: NextRequest) {
         if (publicCatalog === "v4" && !previewEnabled) {
           throw new ApiError("Enable preview before publishing the v4 public catalog.");
         }
-        // Enrollment stays false until PRICING_V4_VALIDATED + Stripe catalog sync + owner approval.
+        // Enrollment is a separate control (set_pricing_v4_enrollment); this write must
+        // never silently disable an already-enabled, validated launch.
         await db.query(
           `INSERT INTO private.platform_settings(key,value)
            VALUES('pricing_v4',$1)
            ON CONFLICT(key) DO UPDATE SET value=private.platform_settings.value||$1::jsonb,updated_at=now()`,
           [
-            JSON.stringify({
-              previewEnabled,
-              enrollmentEnabled: false,
-              publicCatalog,
-            }),
+            JSON.stringify({ previewEnabled, publicCatalog }),
           ],
+        );
+      } else if (action === "set_pricing_v4_enrollment") {
+        const enabled = input.enabled === true;
+        if (enabled) {
+          if (input.confirm !== "ENABLE_PAID_V4_ENROLLMENT")
+            throw new ApiError("Type ENABLE_PAID_V4_ENROLLMENT to confirm.", 400);
+          if (process.env.PRICING_V4_VALIDATED !== "true")
+            throw new ApiError("Set PRICING_V4_VALIDATED=true after Stripe test-mode acceptance.", 409);
+          const { sandboxAccepted } = await import("@/lib/launch-controls");
+          if (!(await sandboxAccepted()))
+            throw new ApiError("Record Stripe sandbox lifecycle acceptance before enabling paid enrollment.", 409);
+          const { billingReadiness } = await import("@/lib/billing-readiness");
+          const readiness = await billingReadiness();
+          if (!readiness.v4CheckoutEnabled)
+            throw new ApiError(
+              "Checkout is not ready: " + readiness.v4Blockers.join("; "),
+              409,
+            );
+        }
+        await db.query(
+          `INSERT INTO private.platform_settings(key,value)
+           VALUES('pricing_v4',$1)
+           ON CONFLICT(key) DO UPDATE SET value=private.platform_settings.value||$1::jsonb,updated_at=now()`,
+          [JSON.stringify({ enrollmentEnabled: enabled })],
         );
       } else {
         throw new ApiError("Unsupported financial intelligence action.");

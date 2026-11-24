@@ -3,6 +3,7 @@ import { body, sameOrigin } from "@/lib/server";
 import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { billingDetails } from "@/lib/subscription-management";
+import { pricingV4Version } from "@/lib/pricing-v4-catalog.mjs";
 import { failure, integer, string, uuid, ApiError } from "@/lib/server";
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
@@ -25,8 +26,8 @@ export async function GET(request: NextRequest) {
       const where = `parent.owner_id IS NULL AND (u.name ILIKE $1 OR u.email ILIKE $1 OR EXISTS(SELECT 1 FROM private.organizations org JOIN private.memberships mem ON mem.organization_id=org.id JOIN public."user" child ON child.id=mem.user_id WHERE org.owner_id=u.id AND mem.active AND (child.name ILIKE $1 OR child.email ILIKE $1))) AND ($2='all' OR ($2='paid' AND s.plan<>'free' AND s.status IN ('active','trialing')) OR ($2='free' AND coalesce(s.plan,'free')='free') OR ($2='ending' AND s.cancel_at_period_end) OR ($2='attention' AND s.status IN ('past_due','unpaid','incomplete')) OR ($2='override' AND o.user_id IS NOT NULL))`,
         args = ["%" + search + "%", filter];
       const { rows } = await client.query(
-        `SELECT u.id AS user_id,u.name,u.email,coalesce(s.plan,'free') AS plan,private.effective_plan(u.id) AS effective_plan,EXISTS(SELECT 1 FROM private.platform_roles pr WHERE pr.user_id=u.id AND pr.enabled) AS platform_included,o.plan AS override_plan,o.expires_at AS override_expires,o.reason AS override_reason,coalesce(s.status,'active') AS status,s.current_period_end,coalesce(s.cancel_at_period_end,false) AS cancel_at_period_end,(s.subscription_id IS NOT NULL) AS has_subscription,(s.customer_id IS NOT NULL) AS has_customer FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE ${where} ORDER BY u."createdAt" DESC,u.id LIMIT 25 OFFSET $3`,
-        [...args, page * 25],
+        `SELECT u.id AS user_id,u.name,u.email,coalesce(s.plan,'free') AS plan,private.effective_plan(u.id) AS effective_plan,CASE WHEN o.plan IN ('starter','professional','business') THEN coalesce(o.catalog_version,$4) ELSE s.catalog_version END AS catalog_version,EXISTS(SELECT 1 FROM private.platform_roles pr WHERE pr.user_id=u.id AND pr.enabled) AS platform_included,o.plan AS override_plan,o.expires_at AS override_expires,o.reason AS override_reason,coalesce(s.status,'active') AS status,s.current_period_end,coalesce(s.cancel_at_period_end,false) AS cancel_at_period_end,(s.subscription_id IS NOT NULL) AS has_subscription,(s.customer_id IS NOT NULL) AS has_customer FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE ${where} ORDER BY u."createdAt" DESC,u.id LIMIT 25 OFFSET $3`,
+        [...args, page * 25, pricingV4Version],
       );
       const count = await client.query(
         `SELECT count(*)::int AS total FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() ${parentJoin} WHERE ${where}`,
@@ -73,13 +74,17 @@ export async function POST(request: NextRequest) {
       const exists = await db.query('SELECT 1 FROM public."user" WHERE id=$1', [userId]);
       if (!exists.rowCount) throw new ApiError("Account not found.", 404);
       if (v.action === "grant") {
-        if (!["free", "individual", "team"].includes(String(v.plan))) throw new ApiError("Choose Free, Individual or Teams.");
+        if (!["free", "individual", "team", "starter", "professional", "business"].includes(String(v.plan)))
+          throw new ApiError("Choose a current plan or Free.");
         const expires = new Date(String(v.expires));
         if (!Number.isFinite(+expires) || +expires <= Date.now() || +expires > Date.now() + 366 * 86400000)
           throw new ApiError("Choose an end date within the next year.");
+        const catalogVersion = ["starter", "professional", "business"].includes(String(v.plan))
+          ? pricingV4Version
+          : null;
         await db.query(
-          "INSERT INTO private.entitlement_overrides(user_id,plan,expires_at,actor_id,reason) VALUES($1,$2,$3,$4,$5) ON CONFLICT(user_id) DO UPDATE SET plan=$2,expires_at=$3,actor_id=$4,reason=$5",
-          [userId, v.plan, expires, token, reason],
+          "INSERT INTO private.entitlement_overrides(user_id,plan,expires_at,actor_id,reason,catalog_version) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id) DO UPDATE SET plan=$2,expires_at=$3,actor_id=$4,reason=$5,catalog_version=$6",
+          [userId, v.plan, expires, token, reason, catalogVersion],
         );
       } else if (v.action === "revoke") {
         const removed = await db.query("DELETE FROM private.entitlement_overrides WHERE user_id=$1", [userId]);

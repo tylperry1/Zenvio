@@ -61,11 +61,13 @@ test("financial intelligence migration and admin surfaces are wired", () => {
   assert.match(validate, /VALIDATE CONSTRAINT entitlement_overrides_plan_check/);
   assert.match(docs, /Gated v4 enrollment/);
   assert.match(docs, /live webhook acceptance/);
-  assert.match(docs, /enrollmentEnabled: false/);
+  assert.match(docs, /ENABLE_PAID_V4_ENROLLMENT/);
   assert.match(nav, /financial-intelligence/);
   assert.match(page, /requireAdminPage\(\)/);
   assert.match(route, /adminSession\(\)/);
-  assert.match(route, /enrollmentEnabled: false/);
+  // Preview writes never touch enrollment; the explicit control fails closed.
+  assert.doesNotMatch(route, /enrollmentEnabled: false/);
+  assert.match(route, /set_pricing_v4_enrollment/);
   assert.match(pricing, /PublicPricingV4/);
   assert.match(pricing, /publicPricingSurface/);
   assert.match(pricing, /surface\.family === "v4"/);

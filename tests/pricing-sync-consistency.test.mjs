@@ -71,7 +71,11 @@ test("v3 and v4 public surfaces stay consistent when preview flips", async () =>
   const display = load("src/lib/public-pricing-display.ts", {
     "./subscription-offers.mjs": offers,
   });
-  const make = (settings) =>
+  const make = (
+    settings,
+    readiness = { checkoutEnabled: true, v4CheckoutEnabled: true },
+    gates = { validated: false, addonValidated: false, checkoutEnabled: false },
+  ) =>
     load("src/lib/public-pricing-surface.ts", {
       "./billing-catalog": {
         currentCatalog: async () => ({
@@ -82,11 +86,11 @@ test("v3 and v4 public surfaces stay consistent when preview flips", async () =>
       },
       "./pricing-activation": {
         pricingV4Settings: async () => settings,
-        pricingV4EnvGates: () => ({ validated: false, addonValidated: false, checkoutEnabled: false }),
+        pricingV4EnvGates: () => gates,
       },
       "./pricing-v4-catalog.mjs": v4,
       "./subscription-offers.mjs": offers,
-      "./billing-readiness": { billingReadiness: async () => ({ checkoutEnabled: true }) },
+      "./billing-readiness": { billingReadiness: async () => readiness },
       "./public-pricing-display": display,
     });
 
@@ -111,6 +115,24 @@ test("v3 and v4 public surfaces stay consistent when preview flips", async () =>
   assert.equal(preview.enrollment.plans.length, 0);
   assert.ok(preview.display.offers.some((o) => o.id === "professional" && o.monthly === 1999));
   assert.equal(preview.liveCatalog.version, "2026-11-v3");
+
+  // v4 enrollment opens from v4 readiness, never from the legacy v3 flag/mappings.
+  const open = await make(
+    { previewEnabled: true, enrollmentEnabled: true, publicCatalog: "v4" },
+    { checkoutEnabled: false, v4CheckoutEnabled: true },
+    { validated: true, addonValidated: false, checkoutEnabled: true },
+  ).publicPricingSurface();
+  assert.equal(open.previewOnly, false);
+  assert.equal(open.enrollment.enabled, true);
+  assert.deepEqual(open.enrollment.plans, ["starter", "professional", "business"]);
+
+  const blocked = await make(
+    { previewEnabled: true, enrollmentEnabled: true, publicCatalog: "v4" },
+    { checkoutEnabled: true, v4CheckoutEnabled: false },
+    { validated: true, addonValidated: false, checkoutEnabled: true },
+  ).publicPricingSurface();
+  assert.equal(blocked.previewOnly, true);
+  assert.equal(blocked.enrollment.enabled, false);
 });
 
 test("catalog sync report flags missing live mappings and pending v4 rows", async () => {
@@ -174,11 +196,76 @@ test("billing readiness fails closed without a database and does not call getPoo
     "./platform-settings": {
       integrationValue: async () => "secret",
     },
+    "./stripe-environment": load("src/lib/stripe-environment.ts"),
   });
   const result = await readiness.billingReadiness();
   assert.equal(result.checkoutEnabled, false);
   assert.equal(result.pricesReady, false);
+  assert.equal(result.v4CheckoutEnabled, false);
+  assert.equal(result.v4PricesReady, false);
   assert.equal(poolCalls, 0);
+});
+
+test("v4 checkout readiness ignores legacy v3 mappings and the v3 flag", async () => {
+  const loadReadiness = (v4Flag) => {
+    process.env.PRICING_V3_VALIDATED = "false";
+    process.env.PRICING_V4_VALIDATED = v4Flag;
+    return load("src/lib/billing-readiness.ts", {
+      "./db": {
+        databaseConfigured: () => true,
+        getPool: () => ({
+          query: async (sql) =>
+            /period='monthly'/.test(sql)
+              ? { rows: [] }
+              : {
+                  rows: ["starter", "professional", "business", "business_extra"].flatMap(
+                    (plan) => [
+                      { plan, period: "monthly" },
+                      { plan, period: "annual" },
+                    ],
+                  ),
+                },
+        }),
+      },
+      "./billing-catalog": {
+        currentCatalog: async () => ({
+          version: "2026-11-v3",
+          offers: [offers.individualOffer, offers.teamOffer, offers.extraSeatOffer],
+          allowances: offers.monthlyAllowances,
+        }),
+      },
+      "./pricing-v4-catalog.mjs": v4,
+      "./launch-controls": {
+        launchControls: async () => ({ checkoutEnabled: true }),
+        sandboxAccepted: async () => true,
+      },
+      "./platform-settings": {
+        integrationValue: async (key) => (key === "STRIPE_SECRET_KEY" ? "sk_live_x" : "whsec_x"),
+      },
+      "./stripe-environment": {
+        stripeDeploymentEnvironment: () => "production",
+        stripeKeyMode: () => "live",
+        stripeKeyProblem: () => false,
+      },
+    });
+  };
+
+  try {
+    const ready = await loadReadiness("true").billingReadiness();
+    assert.equal(ready.v4PricesReady, true);
+    assert.equal(ready.v4CheckoutEnabled, true);
+    // The legacy path keeps its own gates; v4 readiness must not depend on them.
+    assert.equal(ready.checkoutEnabled, false);
+    assert.ok(ready.blockers.some((b) => /price mappings/.test(b)));
+
+    const unvalidated = await loadReadiness("false").billingReadiness();
+    assert.equal(unvalidated.v4PricesReady, true);
+    assert.equal(unvalidated.v4CheckoutEnabled, false);
+    assert.ok(unvalidated.v4Blockers.some((b) => /v4 pricing acceptance/.test(b)));
+  } finally {
+    delete process.env.PRICING_V3_VALIDATED;
+    delete process.env.PRICING_V4_VALIDATED;
+  }
 });
 
 test("team capacity helper keeps legacy business single-seat until v4 catalog", () => {

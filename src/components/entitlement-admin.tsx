@@ -187,7 +187,7 @@ export function EntitlementAdmin() {
         <Panel
           flush
           title="Stripe price mapping"
-          description="Current Individual and Teams prices are versioned in Billing & revenue. Legacy mappings below still apply to grandfathered checkouts."
+          description="Live v3 Individual and Teams prices are versioned in Billing & revenue. v4 plans are preview-only. Legacy mappings below still apply to grandfathered checkouts."
         >
           {!data ? (
             <div className="ent-pad">

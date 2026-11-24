@@ -3,8 +3,14 @@ import { useEffect, useState } from "react";
 import { Badge, EmptyState, Kpi, Notice, Panel, Skeleton, Timeline, formatDate, usd } from "./ds";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import {
+  pricingV4Allowances,
+  pricingV4ExtraSeat,
+  pricingV4Offers,
+} from "@/lib/pricing-v4-catalog.mjs";
 
 type Mapping = { period: string; priceId: string };
+type V4Mapping = Mapping & { plan: string };
 type Count = { active: number; past_due: number; seats: number };
 type Plan = { id: string; name: string; monthly: number; annual: number; seats: number; stripe: Mapping[]; subscribers: Count | null };
 type Data = {
@@ -17,6 +23,8 @@ type Data = {
   features: string[];
   earlyAccess: { offer: string; total: number; open: number };
   history: { id: string; created_at: string; actor: string | null; details: { plans?: { id: string; name: string; monthly: number; annual: number }[] } }[];
+  v4Mappings: V4Mapping[];
+  v4CatalogVersion: string;
 };
 type Draft = Record<string, { monthly: string; annual: string }>;
 
@@ -69,7 +77,7 @@ export function AdminPricing() {
   const r = data.readiness;
   const gates = [
     [r.connected, "Stripe secret key connected"],
-    [r.pricesReady, "Recurring prices mapped for Individual, Teams and extra seats"],
+    [r.pricesReady, "Recurring prices mapped for live Individual, Teams and extra seats"],
     [r.checkoutEnabled, "Launch flag BILLING_CHECKOUT_ENABLED turned on"],
   ] as const;
 
@@ -138,7 +146,7 @@ export function AdminPricing() {
       {error && <Notice tone="danger">{error}</Notice>}
 
       <div className="ds-kpis">
-        <Kpi label="Published packages" icon="layers" value={2} detail="Individual and Teams on /pricing" />
+        <Kpi label="Live checkout packages" icon="layers" value={2} detail="Individual and Teams (v3) today; v4 is preview-only" />
         <Kpi label="Current-package subscribers" icon="users" value={currentSubs} detail="Active or trialing" />
         <Kpi label="Grandfathered subscribers" icon="clock" value={legacySubs} detail="Keep their original price" />
         <Kpi
@@ -165,8 +173,8 @@ export function AdminPricing() {
       )}
 
       <div className="ap-section-title">
-        <h2>Current packages</h2>
-        <p>Approved rates come from the public catalog. Stripe mappings show the synchronized monthly prices.</p>
+        <h2>Live checkout packages</h2>
+        <p>Approved v3 rates power current enrollment. v4 plans are preview-only and their Stripe mappings appear under Billing &amp; revenue.</p>
       </div>
       <div className="ap-packages">
         {[individual, team].map((p) => (
@@ -213,6 +221,58 @@ export function AdminPricing() {
             )}
           </article>
         ))}
+      </div>
+
+      <div className="ap-section-title">
+        <h2>v4 launch catalog</h2>
+        <p>
+          The approved Starter, Professional, and Team catalog ({data.v4CatalogVersion}). Live price edits stay
+          release-gated until Stripe test-mode acceptance; use Billing &amp; revenue for sync and reconciliation.
+        </p>
+      </div>
+      <div className="ap-packages">
+        {pricingV4Offers
+          .filter((offer) => ["starter", "professional", "business"].includes(offer.id))
+          .map((offer) => {
+            const allowances = pricingV4Allowances[offer.id as keyof typeof pricingV4Allowances];
+            const mappings = data.v4Mappings
+              .filter((mapping) => mapping.plan === offer.id)
+              .map(({ period, priceId }) => ({ period, priceId }));
+            return (
+              <article key={offer.id} className={`ap-package ${offer.id === "business" ? "featured" : ""}`}>
+                <header>
+                  <div>
+                    <h3>{offer.name}</h3>
+                    <p>
+                      {offer.id === "business"
+                        ? "Shared scheduling for a team of three or more"
+                        : offer.id === "professional"
+                          ? "The full operating system for a growing business"
+                          : "The essentials to get booked, paid, and organized"}
+                    </p>
+                  </div>
+                  <Badge tone="info" dot>Approved</Badge>
+                </header>
+                <div className="ap-price">
+                  <strong>{usd(offer.monthly || 0)}</strong>
+                  <span>/ month</span>
+                </div>
+                <dl className="ds-dl">
+                  <div><dt>Annual</dt><dd>{usd(offer.annual || 0)} / year</dd></div>
+                  <div><dt>Included seats</dt><dd>{offer.seats}</dd></div>
+                  <div><dt>Envelopes</dt><dd>{allowances.envelopes ?? "Unlimited"} / month</dd></div>
+                  <div><dt>CRM contacts</dt><dd>{allowances.contacts ?? "Unlimited"}</dd></div>
+                  <div><dt>Stripe</dt><dd><StripeStatus mappings={mappings} requireAnnual /></dd></div>
+                </dl>
+                {offer.id === "business" && (
+                  <p className="ap-muted">
+                    Additional member: {usd(pricingV4ExtraSeat.monthly)}/month or{" "}
+                    {usd(pricingV4ExtraSeat.annual)}/year.
+                  </p>
+                )}
+              </article>
+            );
+          })}
       </div>
 
       <div className="ds-grid-2">
@@ -380,8 +440,18 @@ export function AdminPricing() {
   );
 }
 
-function StripeStatus({ mappings, compact }: { mappings: Mapping[]; compact?: boolean }) {
+function StripeStatus({
+  mappings,
+  compact,
+  requireAnnual = false,
+}: {
+  mappings: Mapping[];
+  compact?: boolean;
+  requireAnnual?: boolean;
+}) {
   if (!mappings.length) return <Badge tone="warning">Not mapped</Badge>;
+  if (requireAnnual && !mappings.some((mapping) => mapping.period === "annual"))
+    return <Badge tone="warning">Missing annual</Badge>;
   const id = mappings[0].priceId;
   return (
     <span className="ap-stripe" title={mappings.map((m) => `${m.period}: ${m.priceId}`).join("\n")}>

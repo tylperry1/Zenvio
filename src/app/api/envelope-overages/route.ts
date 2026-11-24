@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["entitlements:"+token]);
       const budget = await envelopeBudget(token, db);
       if (!budget.canManage) throw new ApiError("Only the billing owner can change envelope spending.",403);
-      if (input.enabled && !budget.eligible) throw new ApiError("An active Individual or Teams subscription is required.",409);
+      if (input.enabled && !budget.eligible) throw new ApiError("An active paid subscription is required.",409);
       if (input.enabled) {
         const stripe = await stripeClient();
         const unpaid = await stripe.invoices.list({customer:budget.customer,status:"open",limit:100});

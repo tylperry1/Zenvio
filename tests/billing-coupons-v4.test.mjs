@@ -10,6 +10,7 @@ import {
   pricingV4Addons,
   pricingV4Flagship,
   pricingV4SubscriptionTotal,
+  pricingV4Version,
 } from "../src/lib/pricing-v4-catalog.mjs";
 
 class ApiError extends Error {
@@ -59,6 +60,7 @@ const policy = load("src/lib/entitlement-policy.ts", {
   },
   "./pricing-v4-catalog.mjs": {
     pricingV4Allowances,
+    pricingV4Version,
   },
 });
 

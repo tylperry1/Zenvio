@@ -6,7 +6,9 @@ import type { BillingSection } from "@/lib/admin-views";
 import type { BillingCatalog } from "@/lib/billing-catalog";
 import type { CatalogSyncReport } from "@/lib/pricing-sync";
 import { money } from "@/lib/billing-types";
+import { pricingV4Version } from "@/lib/pricing-v4-catalog.mjs";
 import { formatAllowance } from "@/lib/allowance-display";
+import { planDisplayName } from "@/lib/plan-display";
 import {
   Badge,
   CurrencyField,
@@ -46,6 +48,7 @@ type Preview = {
   reason: string;
   userId: string;
   plan: string;
+  period?: "monthly" | "annual";
   seats: number;
   amountDue: number;
   currency: string;
@@ -80,7 +83,7 @@ type SyncRun = {
 type Meter = keyof BillingCatalog["allowances"]["individual"];
 
 const OFFER_COPY: Record<string, { title: string; blurb: string }> = {
-  individual: { title: "Professional plan", blurb: "Everything a single host needs" },
+  individual: { title: "Individual plan", blurb: "Everything a single host needs" },
   team: { title: "Teams plan", blurb: "Shared scheduling for 3 or more hosts" },
   team_extra: { title: "Additional team seat", blurb: "Per seat beyond the included three" },
 };
@@ -442,8 +445,8 @@ export function AdminBillingCenter({ section }: { section: BillingSection }) {
       {section === "packages" && (
         <div className="ds-stack">
           <Panel
-            title="Current published prices"
-            description="Values come from the live catalog. Editing below creates a draft only — publishing is a separate, gated step."
+            title="Live v3 checkout prices"
+            description="Values come from the live catalog used by current enrollment. v4 plans are preview-only and their sync status appears under Sync & audit. Editing below creates a draft only — publishing is a separate, gated step."
           >
             <div className="bc-packages">
               {data.catalog.offers.map((o) => {
@@ -1082,6 +1085,7 @@ export function AdminBillingCenter({ section }: { section: BillingSection }) {
                   action: "preview",
                   userId: f.get("userId"),
                   plan: f.get("plan"),
+                  period: f.get("period"),
                   seats: Number(f.get("seats")),
                   reason: f.get("reason"),
                 });
@@ -1098,12 +1102,21 @@ export function AdminBillingCenter({ section }: { section: BillingSection }) {
                   />
                 </Field>
                 <Field label="Plan" htmlFor="bc-plan">
-                  <select id="bc-plan" name="plan" className="bc-input" defaultValue="individual">
-                    <option value="individual">Individual</option>
-                    <option value="team">Teams</option>
+                  <select id="bc-plan" name="plan" className="bc-input" defaultValue="professional">
+                    <option value="starter">Starter (v4)</option>
+                    <option value="professional">Professional (v4)</option>
+                    <option value="business">Team (v4)</option>
+                    <option value="individual">Individual (v3)</option>
+                    <option value="team">Teams (v3)</option>
                   </select>
                 </Field>
-                <Field label="Total seats" htmlFor="bc-seats" hint="Teams require at least 3 seats.">
+                <Field label="Billing period" htmlFor="bc-period" hint="Annual is available for v4 plans only.">
+                  <select id="bc-period" name="period" className="bc-input" defaultValue="monthly">
+                    <option value="monthly">Monthly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </Field>
+                <Field label="Total seats" htmlFor="bc-seats" hint="Team/Teams require at least 3 seats. Other plans are one seat.">
                   <input id="bc-seats" name="seats" className="bc-input" type="number" min={1} max={1000} defaultValue={3} required />
                 </Field>
               </div>
@@ -1122,7 +1135,15 @@ export function AdminBillingCenter({ section }: { section: BillingSection }) {
             <Panel title="Review Stripe preview" description="Valid for five minutes. Any change to the subscription requires another preview.">
               <div className="bc-preview">
                 <p>
-                  <Badge tone="info">{preview.plan}</Badge> · {preview.seats} seats · Amount due:{" "}
+                  <Badge tone="info">
+                    {planDisplayName(
+                      preview.plan,
+                      ["starter", "professional", "business"].includes(preview.plan)
+                        ? pricingV4Version
+                        : undefined,
+                    )}
+                  </Badge>{" "}
+                  · {preview.period || "monthly"} · {preview.seats} seats · Amount due:{" "}
                   <b>
                     {money(preview.amountDue)} {preview.currency.toUpperCase()}
                   </b>

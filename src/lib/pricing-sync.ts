@@ -208,7 +208,7 @@ export async function catalogSyncReport(): Promise<CatalogSyncReport> {
 }
 
 export function stripeProductFamily(catalogVersion: string, plan: string): string {
-  if (catalogVersion === pricingV4Version || catalogVersion.startsWith("2026-11-v4")) {
+  if (catalogVersion === pricingV4Version || catalogVersion.startsWith(pricingV4Version)) {
     return v4ProductId(plan);
   }
   return v3ProductId(plan);

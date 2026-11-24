@@ -1,13 +1,29 @@
 import Link from "next/link";
 import { Icon, Logo } from "@/components/icons";
-import { currentCatalog } from "@/lib/billing-catalog";
-import { liveBillingHelpText } from "@/lib/public-pricing-display";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
+import { formatUsdCents, liveBillingHelpText } from "@/lib/public-pricing-display";
 
 export const metadata = { title: "Zenvio Help Center" };
 export const dynamic = "force-dynamic";
 
 export default async function Help({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const catalog = await currentCatalog();
+  const surface = await publicPricingSurface();
+  const v4Offers = surface.display.offers.filter((offer) =>
+    ["starter", "professional", "business"].includes(offer.id),
+  );
+  const billingText =
+    surface.family === "v4"
+      ? `${v4Offers
+          .map(
+            (offer) =>
+              `${offer.name} is ${formatUsdCents(offer.monthly)} monthly or ${formatUsdCents(offer.annual)} yearly${offer.id === "business" ? ` with ${offer.seats} included members` : ""}`,
+          )
+          .join(". ")}. Additional team members are ${formatUsdCents(surface.display.extraSeat?.monthly)} monthly. ${
+          surface.previewOnly
+            ? "These plans are shown for preview and are not open for paid enrollment yet."
+            : "Paid enrollment uses the synchronized Stripe catalog for these plans."
+        } Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.`
+      : liveBillingHelpText(surface.liveCatalog);
   const articles = [
     {
       title: "Publish a booking page",
@@ -23,7 +39,7 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
     },
     {
       title: "Billing and included usage",
-      text: liveBillingHelpText(catalog),
+      text: billingText,
     },
     {
       title: "Sign a document",

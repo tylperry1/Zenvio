@@ -173,7 +173,7 @@ export function AssistantAdmin() {
               </form>
             )}
           </Card>
-          <Card title="Account request limits" description="Daily request and monthly token limits are additional safeguards. Eligible Individual and Teams plans also use the workspace’s pooled AI credits.">
+          <Card title="Account request limits" description="Daily request and monthly token limits are additional safeguards. Eligible paid plans also use the workspace’s pooled AI credits.">
             <form
               className="ui-form"
               onSubmit={(e) => {

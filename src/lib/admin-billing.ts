@@ -4,6 +4,11 @@ import { stripeClient, stripeEnvironment } from "./billing";
 import { ApiError, integer, string, uuid } from "./server";
 import { sandboxAccepted } from "./launch-controls";
 import { validateCatalog, currentCatalog } from "./billing-catalog";
+import {
+  pricingV4ExtraSeat,
+  pricingV4Offer,
+  pricingV4Version,
+} from "./pricing-v4-catalog.mjs";
 import { saveSubscription } from "./subscription-management";
 import {
   couponDefinitionMatches,
@@ -418,9 +423,17 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           throw new ApiError("Resolve the subscription's current or scheduled billing state first.", 409);
         if (action === "preview") {
           const plan = String(input.plan);
-          if (!["individual", "team"].includes(plan))
-            throw new ApiError("Choose Individual or Teams.");
-          const seats = plan === "team" ? integer(input.seats, "seats", 3, 1000) : 1;
+          const v4 = ["starter", "professional", "business"].includes(plan);
+          if (!v4 && !["individual", "team"].includes(plan))
+            throw new ApiError("Choose a current subscription plan.");
+          const period =
+            v4 && input.period === "annual" ? ("annual" as const) : ("monthly" as const);
+          if (!v4 && input.period === "annual")
+            throw new ApiError("Annual billing is available for Starter, Professional, and Team.");
+          const seats =
+            plan === "team" || plan === "business"
+              ? integer(input.seats, "seats", 3, 1000)
+              : 1;
           const members = (
             await db.query(
               "SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active",
@@ -429,28 +442,43 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           ).rows[0].n;
           if (members > seats)
             throw new ApiError("Deactivate or reassign teammates before reducing seats.", 409);
-          const catalog = await currentCatalog(),
+          const catalog = v4 ? null : await currentCatalog(),
+            version = v4 ? pricingV4Version : catalog!.version,
+            extraPlan = v4 ? "business_extra" : "team_extra",
             lines: { price: string; quantity: number }[] = [];
           for (const [name, quantity] of [
             [plan, 1],
-            ...(plan === "team" && seats > 3 ? [["team_extra", seats - 3]] : []),
+            ...((plan === "team" || plan === "business") && seats > 3
+              ? [[extraPlan, seats - 3]]
+              : []),
           ] as [string, number][]) {
             const map = (
               await db.query(
-                "SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period='monthly'",
-                [name],
+                "SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period=$2",
+                [name, period],
               )
             ).rows[0];
-            const offer = catalog.offers.find((o) => o.id === name);
-            if (!map || map.catalog_version !== catalog.version || !offer)
+            const offer = v4
+              ? name === "business_extra"
+                ? pricingV4ExtraSeat
+                : pricingV4Offer(name)
+              : catalog!.offers.find((o) => o.id === name);
+            if (!map || map.catalog_version !== version || !offer)
               throw new ApiError("Published price mapping is unavailable.", 409);
+            const expectedAmount = Number(
+              period === "annual"
+                ? (offer as { annual?: number | null }).annual
+                : (offer as { monthly?: number | null }).monthly,
+            );
+            if (!Number.isSafeInteger(expectedAmount) || expectedAmount < 0)
+              throw new ApiError("Published price amount is unavailable.", 409);
             const price = await stripe.prices.retrieve(map.stripe_price_id);
             if (
-              price.product !== "zenvio_" + name + "_v3" ||
+              price.product !== `zenvio_${name}_${v4 ? "v4" : "v3"}` ||
               price.currency !== "usd" ||
               !price.active ||
-              price.unit_amount !== offer.monthly ||
-              price.recurring?.interval !== "month" ||
+              price.unit_amount !== expectedAmount ||
+              price.recurring?.interval !== (period === "annual" ? "year" : "month") ||
               price.recurring.interval_count !== 1
             )
               throw new ApiError("Price verification failed.", 409);
@@ -481,6 +509,8 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             items,
             seats,
             plan,
+            period,
+            catalogVersion: version,
             prorationDate,
             amountDue: preview.amount_due,
             currency: preview.currency,

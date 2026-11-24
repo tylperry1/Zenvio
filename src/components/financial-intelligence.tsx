@@ -925,6 +925,50 @@ export function FinancialIntelligence() {
                       Save pricing preview controls
                     </button>
                   </form>
+                  <form
+                    className="ui-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const f = new FormData(e.currentTarget);
+                      void post({
+                        action: "set_pricing_v4_enrollment",
+                        enabled: f.get("enabled") === "on",
+                        confirm: f.get("confirm"),
+                        reason: f.get("reason"),
+                      });
+                    }}
+                  >
+                    <strong>Paid v4 enrollment</strong>
+                    <p className="premium-note">
+                      Enabling requires PRICING_V4_VALIDATED, recorded Stripe sandbox acceptance and ready v4
+                      checkout. Add-on purchasing stays disabled until its own acceptance. This control never changes
+                      Stripe prices.
+                    </p>
+                    <label>
+                      <input
+                        type="checkbox"
+                        name="enabled"
+                        defaultChecked={data.pricingV4.settings.enrollmentEnabled}
+                        disabled={busy}
+                      />{" "}
+                      Allow customers to start a paid v4 subscription
+                    </label>
+                    <Field label="Type ENABLE_PAID_V4_ENROLLMENT to confirm">
+                      <input
+                        className="ui-input"
+                        name="confirm"
+                        autoComplete="off"
+                        maxLength={40}
+                        disabled={busy}
+                      />
+                    </Field>
+                    <Field label="Reason">
+                      <input className="ui-input" name="reason" required minLength={5} maxLength={500} disabled={busy} />
+                    </Field>
+                    <button className="ds-btn primary" disabled={busy}>
+                      Save enrollment setting
+                    </button>
+                  </form>
                 </Panel>
 
                 <Panel

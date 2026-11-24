@@ -134,7 +134,7 @@ test("public comparison and pricing copy come from the catalog, not hardcoded va
 });
 
 function webhookFixture(state = {}) {
-  const calls = { save: [], settle: 0, refund: 0 };
+  const calls = { save: [], settle: 0, refund: 0, failAddon: [], failAddonPayment: [] };
   const order = [];
   const client = {
     released: false,
@@ -200,6 +200,14 @@ function webhookFixture(state = {}) {
     },
     refundAddon: async () => {
       calls.refund += 1;
+      return true;
+    },
+    failAddon: async (_client, session, terminal) => {
+      calls.failAddon.push({ id: session.id, terminal });
+      return true;
+    },
+    failAddonPayment: async (_client, paymentIntentId) => {
+      calls.failAddonPayment.push(paymentIntentId);
       return true;
     },
   };
@@ -322,6 +330,92 @@ test("refunded payment intents cannot keep granted add-on credits", async () => 
   assert.equal(result.outcome, "processed");
   assert.equal(refunded.calls.settle, 1);
   assert.equal(refunded.calls.refund, 1);
+});
+
+test("expired add-on checkouts close the local order without granting credit", async () => {
+  const { deps, calls } = webhookFixture();
+  const result = await webhook.processStripeEvent(
+    {
+      id: "evt_checkout_expired",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          id: "cs_expired",
+          mode: "payment",
+          metadata: { zenvio_addon_order: "order_expired" },
+        },
+      },
+    },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.deepEqual(calls.failAddon, [{ id: "cs_expired", terminal: "expired" }]);
+  assert.equal(calls.settle, 0);
+});
+
+test("async add-on payment failure marks the order failed", async () => {
+  const { deps, calls } = webhookFixture();
+  const result = await webhook.processStripeEvent(
+    {
+      id: "evt_async_failed_addon",
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: {
+          id: "cs_async_failed",
+          mode: "payment",
+          metadata: { zenvio_addon_order: "order_async" },
+        },
+      },
+    },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.deepEqual(calls.failAddon, [{ id: "cs_async_failed", terminal: "failed" }]);
+});
+
+test("async subscription payment failure refreshes the incomplete subscription", async () => {
+  const { deps, calls } = webhookFixture({ owner: "owner", subscriptionStatus: "incomplete" });
+  const result = await webhook.processStripeEvent(
+    {
+      id: "evt_async_failed_subscription",
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: { id: "cs_sub_failed", mode: "subscription", subscription: "sub_1" },
+      },
+    },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.equal(calls.save.length, 1);
+  assert.equal(calls.save[0].status, "incomplete");
+});
+
+test("failed charge refreshes a subscription invoice before any add-on fallback", async () => {
+  const { deps, calls } = webhookFixture({
+    owner: "owner",
+    subscriptionStatus: "past_due",
+    charge: { id: "ch_failed", invoice: "in_failed", payment_intent: "pi_invoice" },
+    invoice: { id: "in_failed", subscription: "sub_1" },
+  });
+  const result = await webhook.processStripeEvent(
+    { id: "evt_charge_failed", type: "charge.failed", data: { object: { id: "ch_failed" } } },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.equal(calls.save[0].status, "past_due");
+  assert.deepEqual(calls.failAddonPayment, []);
+});
+
+test("failed add-on charge is recorded without blocking a later successful retry", async () => {
+  const { deps, calls } = webhookFixture({
+    charge: { id: "ch_addon_failed", payment_intent: "pi_addon_failed" },
+  });
+  const result = await webhook.processStripeEvent(
+    { id: "evt_addon_charge_failed", type: "charge.failed", data: { object: { id: "ch_addon_failed" } } },
+    deps,
+  );
+  assert.equal(result.outcome, "processed");
+  assert.deepEqual(calls.failAddonPayment, ["pi_addon_failed"]);
 });
 
 test("webhook events outside Zenvio billing are ignored without failing", async () => {

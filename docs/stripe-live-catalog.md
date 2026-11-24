@@ -3,6 +3,23 @@
 Created **2026-11-24** in **live mode** for Zenvio, LLC (`stripe_their-torsel`).
 Existing v3 products, prices, subscriptions, invoices, and coupons were not modified or deleted.
 
+## Plan identifier mapping
+
+Stripe product names are display labels only. The authoritative application, database, and
+linker keys are:
+
+| Stripe product | Display name | Authoritative key |
+|---|---|---|
+| `zenvio_starter_v4` | Starter | `starter` |
+| `zenvio_professional_v4` | Professional | `professional` |
+| `zenvio_business_v4` | Team | `business` |
+| `zenvio_business_extra_v4` | Additional Team Seat | `business_extra` |
+
+`team` and `team_extra` are **v3 legacy keys** and must not be used for v4 mappings.
+The v4 database rows are exactly `starter`, `professional`, `business`, and
+`business_extra`, each monthly and annual. The `business_extra` add-on row reuses the
+seat price, so the catalog has eight subscription mappings and nine add-on mappings.
+
 ## Subscription products and prices
 
 | Plan | Product ID | Period | Price ID | Amount |
@@ -43,11 +60,13 @@ marked available. The $0.03 segment price is catalog metadata only: it cannot be
 for a standalone one-time checkout below Stripe's minimum charge, and metered overage
 charging is still disabled pending verification.
 
-## Application database mapping (required before checkout uses these prices)
+## Application database mapping (applied and verified)
 
-The live objects exist, but the production database still needs the eight subscription
-mappings and nine add-on mappings. This chat had no production database binding, so the
-mapping could not be executed here.
+The production database now contains the eight subscription mappings and nine add-on
+mappings. The apply operation `240abe70-e119-434e-aee7-3d687659f0e3` (mode `link-apply`)
+succeeded, and the post-apply `billing:verify-live-catalog` check exited `0` with
+`differences: []`. The subscription baseline stayed unchanged at `legacy/free/inactive = 2`.
+Enrollment remains gated; applying mappings did not enable v4 checkout.
 
 Run the verification-first linker where `DATABASE_URL_UNPOOLED` (or `DATABASE_URL`) and
 the live Stripe key are available:
@@ -68,27 +87,50 @@ Requirements:
 - production `DATABASE_URL_UNPOOLED` or `DATABASE_URL`
 - live `STRIPE_SECRET_KEY`, or the encrypted Integration Vault key plus
   `INTEGRATION_ENCRYPTION_KEY`
-- migrations 094 and 095 already applied
+- migrations 094, 095, and 096 already applied (095/096 are live in production)
 
 If you prefer not to run the script, [`scripts/link-live-stripe-catalog.sql`](../scripts/link-live-stripe-catalog.sql)
 contains the same mappings for the Neon SQL editor. The script is safer because it checks
 the live Stripe objects first.
 
-Until applied, `/api/subscription-enroll` correctly refuses v4 checkout because the
-required `subscription_prices` rows for `2026-11-v4` are absent. The public pricing page
-still displays the catalog.
+`/api/subscription-enroll` still refuses v4 checkout while enrollment is gated, even
+though the `2026-11-v4` price rows are present. The public pricing page displays the
+preview catalog.
 
 ## Release state
 
-As of 2026-11-24, production `https://gozenvio.com/api/pricing` still reports
-`catalogVersion: 2026-11-v3`. The v4 application code and migrations 095/096 are in this
-branch but not deployed. Applying the database mappings alone does not deploy that code;
-the branch must be released separately. Applying mappings first is safe because v4
-enrollment remains gated.
+The v4 application code and migrations `095_billing_stripe_hardening.sql` and
+`096_public_pricing_v4_display.sql` are **deployed to production** from `main`
+(`c3aad7f877a0bcf60e0d9a4dafa363d184d31baf`, PR #111).
+
+- Production alias: https://gozenvio.com
+- Vercel deployment: `dpl_257YHmdwf1cBeFcAnFeUvB5YYmuF` (READY, promoted)
+- Migrations 095 and 096 were applied by the production build and recorded in
+  `private.schema_migrations`.
+- `https://gozenvio.com/api/pricing` reports `catalogVersion: "2026-11-v4"` and displays
+  the approved v4 amounts.
+- Paid v4 enrollment remains disabled (`enrollment.enabled: false`,
+  `previewOnly: true`), and `liveCheckoutCatalogVersion` remains `2026-11-v3`. The v4
+  database mappings are applied and verified; enrollment is gated by the validation and
+  enrollment switches, not by missing prices.
+- `PRICING_V4_VALIDATED` and `ADDON_BILLING_VALIDATED` remain unset/false, and
+  `pricing_v4.enrollmentEnabled` remains false.
+
+The mappings were applied while enrollment stayed gated and did not require another code
+deployment. Do not enable enrollment without completing the activation checklist.
+
+## Activation order (summary)
+
+1. `npm run billing:verify-live-catalog` — completed with exit 0 and no differences.
+2. Register the missing billing webhook events and complete test-mode acceptance.
+3. Only then enable `PRICING_V4_VALIDATED` and `pricing_v4.enrollmentEnabled`.
 
 ## Not done
 
 - No subscription, checkout, coupon, or charge was created.
 - No customer or existing subscription was modified.
-- The webhook endpoint still needs the added invoice/payment/refund/customer events.
-- `PRICING_V4_VALIDATED` and `ADDON_BILLING_VALIDATED` remain unset/false by design.
+- The v4 subscription and add-on mappings are written and verified. No subscription or
+  customer record was modified.
+- The live Stripe webhook endpoint still needs exactly three events added to its enabled list: `checkout.session.expired`, `checkout.session.async_payment_failed`, and `charge.failed`. The existing invoice/payment/refund/customer events are already registered. The deployed code handles the new handlers, but the dashboard event list has not been updated.
+- Paid v4 enrollment and checkout remain disabled; `PRICING_V4_VALIDATED` and
+  `ADDON_BILLING_VALIDATED` remain unset/false.

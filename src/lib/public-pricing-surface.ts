@@ -73,7 +73,7 @@ export async function publicPricingSurface(): Promise<PublicPricingSurface> {
   // Live enrollment stays on the published v3 catalog until v4 is validated AND
   // explicitly enabled. Financial Intelligence forces enrollmentEnabled false.
   const v4EnrollmentReady =
-    gates.validated && settings.enrollmentEnabled && readiness.checkoutEnabled;
+    gates.validated && settings.enrollmentEnabled && readiness.v4CheckoutEnabled;
 
   if (showV4) {
     const paidOffers = pricingV4Offers.filter((o) => o.id !== "free" && !("custom" in o && o.custom));

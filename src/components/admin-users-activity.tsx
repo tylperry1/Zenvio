@@ -20,6 +20,7 @@ import {
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { formatAllowance } from "@/lib/allowance-display";
+import { planDisplayName } from "@/lib/plan-display";
 
 type UserRow = {
   id: string;
@@ -29,6 +30,7 @@ type UserRow = {
   created_at: string;
   last_active: string | null;
   plan: string;
+  catalog_version?: string | null;
   subscription_status: string | null;
   master: boolean;
   staff: boolean;
@@ -37,7 +39,7 @@ type Summary = {
   kpis: { total: number; active: number; new_30d: number; new_prev_30d: number; paying: number; unverified: number };
   signups: { day: string; value: number }[];
   activity: { day: string; value: number }[];
-  plans: { plan: string; count: number }[];
+  plans: { plan: string; catalog_version?: string | null; count: number }[];
   users: UserRow[];
   total: number;
   page: number;
@@ -82,8 +84,8 @@ const planColors: Record<string, string> = {
   pro: "var(--ds-chart-4)",
   business: "#ef4444",
 };
-const planName = (p: string) =>
-  ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams (legacy)", pro: "Pro (legacy)", business: "Business (legacy)" })[p] || p;
+const planName = (p: string, catalogVersion?: string | null) =>
+  planDisplayName(p, catalogVersion);
 const label = (a: string) => a.replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase());
 const initials = (n: string) => n.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 // Days arrive as UTC midnight timestamps (or plain dates); format in UTC.
@@ -246,7 +248,7 @@ export function AdminUsersActivity() {
         </Panel>
         <Panel title="Plan distribution" description="Effective plan for every account, including complimentary access.">
           {data ? (
-            <Distribution items={data.plans.map((p) => ({ label: planName(p.plan), value: p.count, tone: planColors[p.plan] || "var(--ds-chart-5)" }))} />
+            <Distribution items={data.plans.map((p) => ({ label: planName(p.plan, p.catalog_version), value: p.count, tone: planColors[p.plan] || "var(--ds-chart-5)" }))} />
           ) : (
             <Skeleton height={160} />
           )}
@@ -331,7 +333,7 @@ export function AdminUsersActivity() {
                       <td>
                         <span className="ua-plan">
                           <i style={{ background: planColors[u.plan] || "var(--ds-chart-5)" }} />
-                          {planName(u.plan)}
+                          {planName(u.plan, u.catalog_version)}
                         </span>
                       </td>
                       <td>
@@ -386,7 +388,7 @@ export function AdminUsersActivity() {
                 {subscriptionBadge(detail.user.subscription_status)}
               </div>
               <dl className="ds-dl">
-                <div><dt>Plan</dt><dd>{planName(detail.user.plan)}{detail.user.seats && detail.user.seats > 1 ? ` · ${formatAllowance(detail.user.seats)} seats` : ""}</dd></div>
+                <div><dt>Plan</dt><dd>{planName(detail.user.plan, detail.user.catalog_version)}{detail.user.seats && detail.user.seats > 1 ? ` · ${formatAllowance(detail.user.seats)} seats` : ""}</dd></div>
                 <div><dt>Renews</dt><dd>{detail.user.current_period_end ? `${formatDate(detail.user.current_period_end)}${detail.user.cancel_at_period_end ? " (cancels)" : ""}` : "—"}</dd></div>
                 <div><dt>Signed up</dt><dd>{formatDate(detail.user.created_at)}</dd></div>
                 <div><dt>Last active</dt><dd>{relativeTime(detail.user.last_active)}</dd></div>
