@@ -82,3 +82,32 @@ Single coordination point for opening Zenvio to public signup and paid subscript
 6. Set `RESEND_API_KEY` and `AUTH_EMAIL_FROM`, send one test signup, and run `/api/jobs?probe=1` to confirm delivery and scheduler health.
 7. Register the three missing live webhook events and confirm one signed delivery.
 8. Smoke test with the first real customer: register → configure a business → publish a booking link → book → confirm email → subscribe → verify entitlement and invoice, then cancel/resume to prove the lifecycle.
+
+## 6. Deployment record — 2026-11-24
+
+Release commit `c90718858d1ec5c459d0f4a6d006be77fdaf6bb3` pushed to `main`; deployment `dpl_2JnUEJejJo9tHyWdnKLgSjDsZ6P9` built, reached **READY**, was promoted, and holds the `gozenvio.com` alias.
+
+Build evidence: TypeScript page-data collection passed, `Applied 106_billing_webhook_terminal_states.sql`, `Applied 107_entitlement_override_catalog_version.sql`, and `Published versioned catalog preserved; automatic v3 provisioning skipped.`
+
+Production verification after promotion:
+
+| Check | Result |
+|---|---|
+| `/api/health` | `200` `{"status":"ok","accounts":"configured"}` |
+| `/api/pricing` | `family: v4`, `catalogVersion: 2026-11-v4`, `previewOnly: true`, `enrollment.enabled: false`, `plans: []` |
+| `/pricing` and homepage | $9.99 / $19.99 / $34.99 and $95.88 / $191.88 / $335.88 all rendered |
+| `/sign-up`, `/sign-in` | `200`, signup form present |
+| `/terms`, `/privacy`, `/support`, `/contact`, `/robots.txt`, `/sitemap.xml` | `200` |
+| `/api/billing`, `/api/admin/financial-intelligence` | `401` unauthenticated |
+| `/api/billing/webhook` | `400 Invalid signature.` on a forged POST, `405` on GET |
+| `/api/subscription-preview` | `405` on GET (POST-only by design) |
+| `/api/jobs` and `?probe=1` | `401` unauthenticated |
+
+Still open, with exact blockers:
+
+- **Neon backup/PITR**: no Neon integration is connected, so the restore window could not be read from here. Confirm the branch and timestamp in the Neon console. Migrations 106/107 are additive and already applied; rollback is `postgres/rollback/106_*_down.sql` then `107_*_down.sql` per `BILLING_ROLLBACK_PROCEDURE.md`.
+- **Stripe test-mode acceptance**: no test key exists in this environment. The connected integration key is live and read-only.
+- **Live webhook events**: the billing endpoint `we_1Ua4tqQMz0wiUqo0tvGA5VqC` still lacks `checkout.session.expired`, `checkout.session.async_payment_failed` and `charge.failed`. The update was refused with `403 forbidden — API Key does not have permission`, so it needs a key with event-destination write scope or the Stripe Dashboard.
+- **Email delivery**: `RESEND_API_KEY` / `AUTH_EMAIL_FROM` are not available here; no send could be verified.
+- **v4 price mappings**: eight mappings must be confirmed with an admin session via `npm run billing:verify-live-catalog`.
+- **Paid enrollment**: off by design until the above pass and the owner approves.
