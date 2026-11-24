@@ -567,6 +567,46 @@ html[data-theme="dark"] .marketing-v3 .mk-qr .logo:not(.logo-light) img[src$="ze
 .marketing-v3 .subscription-offers-v4 .subscription-offer-card .button.primary{border-color:var(--mk-cobalt);background:var(--mk-cobalt);color:#fff;box-shadow:0 8px 20px -10px #365cff99}
 .marketing-v3 .subscription-offers-v4 .subscription-offer-card .button.primary:hover:not(:disabled){border-color:var(--mk-cobalt-deep);background:var(--mk-cobalt-deep)}
 
+/* Billing-period checkbox sits on the always-dark offer banner. The marketing
+   wrapper resolves color-scheme to light on that surface, which leaves the
+   native box with a near-white UA border, so draw the control from tokens and
+   pin its scheme to dark wherever it appears. */
+.marketing-v3 .sob-toggle input[type="checkbox"]{
+  appearance:none;
+  display:grid;
+  place-content:center;
+  width:16px;
+  height:16px;
+  min-height:0;
+  margin:0;
+  flex-shrink:0;
+  border:1px solid #ffffff66;
+  border-radius:4px;
+  background:#ffffff14;
+  color-scheme:dark;
+  cursor:pointer;
+  transition:background .15s ease,border-color .15s ease;
+}
+.marketing-v3 .sob-toggle input[type="checkbox"]::after{
+  content:"";
+  width:5px;
+  height:9px;
+  margin-top:-2px;
+  border:solid #fff;
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg) scale(0);
+  transition:transform .12s ease;
+}
+.marketing-v3 .sob-toggle input[type="checkbox"]:checked{
+  border-color:var(--mk-cobalt);
+  background:var(--mk-cobalt);
+}
+.marketing-v3 .sob-toggle input[type="checkbox"]:checked::after{transform:rotate(45deg) scale(1)}
+.marketing-v3 .sob-toggle input[type="checkbox"]:focus-visible{
+  outline:2px solid #9db4ff;
+  outline-offset:2px;
+}
+
 /* Pricing page — same editorial system as the homepage. Content and pricing
    logic are untouched: this layer only aligns type, rhythm and surfaces. */
 .pricing-page{
