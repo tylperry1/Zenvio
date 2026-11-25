@@ -213,6 +213,31 @@ The eight-step acceptance checklist in `docs/DIGITAL_IDENTITY.md` remains open. 
 
 Migrations 086–105 added across this window are additive; no earlier migration was rewritten.
 
+## November 22–25 release window: one pricing catalog, marketing restyle and public navigation
+
+Main moved from `fc489fa` through PR #111 and a run of direct merges to 2026-11-25. This window replaced the versioned pricing surfaces with a single catalog, rebuilt the public chrome, and recorded a launch audit in [ZENVIO_FINAL_LAUNCH_QA_REPORT.md](ZENVIO_FINAL_LAUNCH_QA_REPORT.md) (audit commit `31b394a`, production deployment `dpl_4hw5NmszaxvqxpQRy3mbyXYfFxN9` READY/PROMOTED).
+
+| Work | Status |
+| --- | --- |
+| One pricing catalog (`src/lib/pricing-catalog.mjs`) behind public pages, homepage, help, checkout, subscription changes, Stripe mappings, webhooks, entitlements, seats, customer billing, Master Admin, revenue reporting and financial intelligence; legacy v1–v4 modules, gates, endpoints and provisioning scripts removed | Implemented and deployed; the audit verified the approved amounts in production on `/pricing`, the homepage and `/api/pricing`. Checkout itself is still unaccepted |
+| Live Stripe catalog: eight v4 prices (Starter, Professional, Team and extra seat, monthly and annual) matching the catalog amounts and intervals | Verified read-only in live Stripe (`livemode`, `zenvio_catalog_version=2026-11-v4`); Stripe holds 0 subscriptions, 0 invoices and 0 charges |
+| Legacy v3 Stripe inventory archived after a zero-subscription check and explicit owner approval | Recorded in [LEGACY_PRICING_REMOVAL_REPORT.md](LEGACY_PRICING_REMOVAL_REPORT.md) and [docs/stripe-legacy-archive-manifest.md](docs/stripe-legacy-archive-manifest.md); financial history untouched. The audit snapshot taken that day still observed the v3 prices live, so the archive is recorded as a separate later action |
+| Paid enrollment | Closed by design and verified closed: `/api/pricing` returns `previewOnly` with `enrollment.enabled: false`, and `/api/billing` returns `checkoutEnabled: false`. No Stripe test-mode acceptance has ever been recorded and the live webhook lacks three terminal-state events, so the audit's verdict on taking money is NO |
+| Marketing restyle: rebuilt public surface, theme-aware chrome, shared footer, pricing aligned to the marketing layout, contrast fixes | Deployed and checked in production: 8 public pages × 5 widths (390–1920) with no horizontal overflow and an H1 on every page. This is not a signed-in screen review |
+| Customer navigation: one model in `src/lib/customer-nav.ts` for the desktop rail, mobile bottom bar, More sheet, breadcrumbs and palette; consolidated settings; unified public header; new `/features` and `/about`; `/help` added to the sitemap | Verified in a production build: 643 tests passed, typecheck and build passed, responsive browser checks done (`tests/customer-navigation.test.mjs`). Authenticated wide-viewport screenshots were not taken, so signed-in visual acceptance remains open; `/support` and `/demo` are still missing from the sitemap |
+| Admin console reorganisation and merged billing modules | Implemented, pending role-by-role QA: the audit had no master-admin session, so admin controls were not exercised |
+| Migrations 106 (webhook terminal states), 107 (entitlement override catalog version) and 110 (single billing catalog) | Additive. 106/107 are recorded as applied by the promoted build and pass the guarded rollback harness 8/8; 110 landed after the audit and has no recorded application evidence here. The billing work also added `095_billing_stripe_hardening.sql` and `096_public_pricing_v4_display.sql`, reusing prefixes already held by the support-ops migrations, so duplicates 034/037/095/096 remain and files apply in filename order |
+| Documentation consolidation: `PRICING_IMPLEMENTATION.md`, `docs/PRICING_V4_ACTIVATION.md` and `docs/SUBSCRIPTION_PACKAGES.md` removed; `docs/PRICING_AND_BILLING.md`, `docs/BILLING_LAUNCH_CHECKLIST.md`, `docs/BILLING_MIGRATION_AND_CLEANUP.md`, `docs/BILLING_ROLLBACK_PROCEDURE.md` and the Stripe catalog/archive references added | Documentation only; the checklist still states that paid checkout stays closed until every gate is cleared |
+| Revenue Center | Not implemented: no schema, code or migration 108. The audit classifies it as a scope gap, not a switch to activate |
+
+### Open items recorded by that audit
+
+- Transactional email and password-recovery delivery are blocked without provider or mailbox acceptance, and signup succeeds without proving email ownership.
+- Backup/PITR and a restore drill are blocked, and production schema was not directly inspected.
+- No application-level error monitoring; alerting is platform-only.
+- Signed-in 768/1440 customer and admin layouts were not viewed, and pricing at 1440 px was judged functional but not balanced (3+2 cards) with no follow-up visual acceptance.
+- The audit covers `31b394a`. Later commits in this window, including the product-mock contrast fix on 2026-11-25, and this documentation change itself were not audited.
+
 ## Commercial launch checklist
 
 | Work | Classification |
