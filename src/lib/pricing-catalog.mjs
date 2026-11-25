@@ -250,8 +250,7 @@ export const PLAN_FEATURES = frozen({
     "Campaigns, reviews, analytics and growth tools",
     "Zenvio AI Assistant and marketplace integrations",
     "Authenticated API access and webhooks",
-    "10,000 contacts, 2,000 marketing emails and 200 AI credits",
-    "20 e-sign envelopes and 5 GB of storage",
+    "10,000 contacts, 2,000 marketing emails, 200 AI credits, 20 e-sign envelopes and 5 GB",
   ]),
   business: frozen([
     "Everything in Professional",

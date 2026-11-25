@@ -311,9 +311,10 @@
 .mk-pricing{padding:92px 0 72px}
 .marketing-v3 .subscription-offers{margin-top:8px}
 .marketing-v3 .subscription-summary{margin:-4px 0 0;font-size:12.5px;line-height:1.5;letter-spacing:-.005em;color:var(--mk-muted)}
-/* Stack cards as flex columns so every plan CTA sits on the same baseline. */
+/* Cards size to their own content: a shared row height left the shorter plans
+   with a dead band between the last feature and their CTA. */
+.marketing-v3 .subscription-offers .subscription-offer-grid{align-items:start}
 .marketing-v3 .subscription-offer-card{display:flex;flex-direction:column}
-.marketing-v3 .subscription-offer-card .button{margin-top:auto}
 .marketing-v3 .subscription-offer-card .button:not(.primary){background:var(--mk-card);border-color:var(--mk-line-strong);color:var(--mk-ink);box-shadow:var(--mk-shadow-sm)}
 .marketing-v3 .subscription-offer-card .button:not(.primary):hover:not(:disabled){background:var(--mk-bg-soft);border-color:var(--mk-faint)}
 
