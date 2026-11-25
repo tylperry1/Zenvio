@@ -13,7 +13,8 @@
   --mk-ink:#0d1226;
   --mk-muted:#485270;
   --mk-faint:#6c7793;
-  /* Small pricing copy on tinted headers needs 4.5:1; --mk-faint lands at 4.21. */
+  /* Small copy (pricing notes, table heads, product-mock labels) needs 4.5:1;
+     --mk-faint lands at 4.21 on white. */
   --mk-faint-strong:#5f6a85;
   --mk-line:#e4e8f1;
   --mk-line-soft:#eef1f6;
@@ -108,8 +109,8 @@
 .mk-window-bar{display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border-bottom:1px solid var(--mk-line);background:#fbfcfe}
 .mk-window-dots{display:flex;gap:5px}
 .mk-window-dots i{width:8px;height:8px;border-radius:50%;background:#d7deea}
-.mk-window-url{font-family:var(--mk-mono);font-size:10.5px;color:var(--mk-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mk-window-tag{margin-left:auto;padding:4px 6px;border:1px solid var(--mk-line);border-radius:4px;background:#fff;font-family:var(--mk-mono);font-size:9.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-faint);white-space:nowrap}
+.mk-window-url{font-family:var(--mk-mono);font-size:10.5px;color:var(--mk-faint-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-window-tag{margin-left:auto;padding:4px 6px;border:1px solid var(--mk-line);border-radius:4px;background:#fff;font-family:var(--mk-mono);font-size:9.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-faint-strong);white-space:nowrap}
 
 /* Hero app preview */
 .mk-app{position:relative}
@@ -127,7 +128,7 @@
 .mk-rail-user small{display:block;font-size:10px;color:#8d99bb}
 .mk-app-main{display:flex;flex-direction:column;min-width:0;background:#fbfcfe}
 .mk-app-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--mk-line);background:#fff}
-.mk-app-title .mk-mono-label{font-size:9px}
+.mk-app-title .mk-mono-label{font-size:9px;color:var(--mk-faint-strong)}
 .mk-app-title strong{display:block;margin-top:3px;font-size:13.5px;font-weight:600;letter-spacing:-.02em;color:var(--mk-ink)}
 .mk-app-tools{display:flex;align-items:center;gap:8px}
 .mk-app-seg{display:inline-flex;padding:2px;border:1px solid var(--mk-line);border-radius:6px;background:#f6f8fc;font-size:10px;color:var(--mk-muted)}
@@ -136,40 +137,40 @@
 .mk-app-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:6px;background:var(--mk-cobalt);color:#fff;font-size:10.5px;font-weight:600}
 .mk-week{padding:10px 12px 0;flex:1}
 .mk-week-head{display:grid;grid-template-columns:38px repeat(5,minmax(0,1fr));align-items:end;padding-bottom:6px}
-.mk-week-head>span{display:flex;align-items:baseline;gap:4px;padding-left:6px;font-family:var(--mk-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--mk-faint)}
+.mk-week-head>span{display:flex;align-items:baseline;gap:4px;padding-left:6px;font-family:var(--mk-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--mk-faint-strong)}
 .mk-week-head b{font-size:10.5px;font-weight:600;color:var(--mk-ink)}
 .mk-week-body{display:grid;grid-template-columns:38px repeat(5,minmax(0,1fr));border-top:1px solid var(--mk-line-soft);border-left:1px solid var(--mk-line-soft);background:#fff}
-.mk-week-hours{display:grid;padding-top:4px;border-right:1px solid var(--mk-line-soft);font-family:var(--mk-mono);font-size:8px;color:#96a1b8}
+.mk-week-hours{display:grid;padding-top:4px;border-right:1px solid var(--mk-line-soft);font-family:var(--mk-mono);font-size:8px;color:var(--mk-faint-strong)}
 .mk-week-hours span{height:30px;padding-right:4px;text-align:right;transform:translateY(-4px)}
 .mk-day{min-height:146px;padding:4px;border-right:1px solid var(--mk-line-soft);background-image:repeating-linear-gradient(180deg,transparent 0 30px,var(--mk-line-soft) 30px 31px)}
 .mk-day:last-child{border-right:0}
 .mk-event{display:flex;flex-direction:column;gap:1px;padding:4px 5px;border-left:2px solid var(--mk-cobalt);border-radius:3px;background:#eef2ff;color:var(--mk-ink)}
-.mk-event small{font-family:var(--mk-mono);font-size:8px;color:var(--mk-cobalt);letter-spacing:.02em}
+.mk-event small{font-family:var(--mk-mono);font-size:8px;color:var(--mk-cobalt-deep);letter-spacing:.02em}
 .mk-event strong{font-size:9.5px;font-weight:600;line-height:1.25;letter-spacing:-.01em}
 .mk-event span{font-size:8.5px;color:#5a6480;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mk-event.muted{border-left-color:#9aa9c7;background:#f2f4f9}
-.mk-event.muted small{color:#6c7793}
+.mk-event.muted small{color:var(--mk-faint-strong)}
 .mk-event.deep{border-left-color:#1d2b57;background:#e8ebf4}
 .mk-event.deep small{color:#33406b}
 .mk-app-foot{display:grid;grid-template-columns:1.15fr .85fr;gap:10px;padding:10px 12px 12px;border-top:1px solid var(--mk-line);background:#fbfcfe}
 .mk-agenda header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
-.mk-agenda header .mk-mono-label{font-size:9px}
-.mk-agenda header>span:last-child{font-size:9.5px;color:var(--mk-faint)}
+.mk-agenda header .mk-mono-label{font-size:9px;color:var(--mk-faint-strong)}
+.mk-agenda header>span:last-child{font-size:9.5px;color:var(--mk-faint-strong)}
 .mk-agenda ul{list-style:none;margin:0;padding:0;display:grid}
 .mk-agenda li{display:grid;grid-template-columns:34px minmax(0,1fr) 6px;gap:6px;align-items:center;padding:5px 0;border-top:1px solid var(--mk-line-soft)}
-.mk-agenda time{font-family:var(--mk-mono);font-size:9px;color:var(--mk-faint)}
+.mk-agenda time{font-family:var(--mk-mono);font-size:9px;color:var(--mk-faint-strong)}
 .mk-agenda strong{display:block;font-size:10px;font-weight:600;color:var(--mk-ink)}
 .mk-agenda li div span{display:block;font-size:9px;color:var(--mk-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mk-dot{width:5px;height:5px;border-radius:50%;background:var(--mk-cobalt)}
 .mk-client{padding:9px 10px;border:1px solid var(--mk-line);border-radius:8px;background:#fff}
 .mk-client-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}
 .mk-client-head strong{display:block;font-size:10.5px;font-weight:600}
-.mk-client-head small{display:block;font-size:9px;color:var(--mk-faint)}
+.mk-client-head small{display:block;font-size:9px;color:var(--mk-faint-strong)}
 .mk-avatar{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#e9eeff;color:#2b46c0;font-size:9.5px;font-weight:700;flex-shrink:0}
 .mk-avatar-sm{width:22px;height:22px;font-size:8.5px;background:#243258;color:#cddaff}
 .mk-client dl{margin:0;display:grid;gap:4px}
 .mk-client dl>div{display:grid;gap:1px}
-.mk-client dt{font-family:var(--mk-mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8b96ad}
+.mk-client dt{font-family:var(--mk-mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-faint-strong)}
 .mk-client dd{margin:0;font-size:9.5px;color:var(--mk-ink)}
 .mk-client-link{display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:9px;font-weight:600;color:var(--mk-cobalt)}
 
@@ -456,6 +457,8 @@ html[data-theme="dark"] .mk-event.muted{background:#1e2946;border-left-color:#5a
 html[data-theme="dark"] .mk-event.deep{background:#26325a;border-left-color:#8aa3ff}
 html[data-theme="dark"] .mk-app-foot{background:#151e36}
 html[data-theme="dark"] .mk-client{background:#18213b;border-color:var(--mk-line)}
+/* Cobalt is 3.3:1 on the dark mock panel, so the record link uses the light-blue token. */
+html[data-theme="dark"] .mk-client-link{color:#9db4ff}
 html[data-theme="dark"] .mk-mono-label{color:var(--mk-faint)}
 html[data-theme="dark"] .mk-check-list li{border-color:var(--mk-line)}
 html[data-theme="dark"] .mk-booking,
