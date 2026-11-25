@@ -1,50 +1,48 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Badge, EmptyState, Kpi, Notice, Panel, Skeleton, Timeline, formatDate, usd } from "./ds";
+import { useEffect, useState, type ReactNode } from "react";
+import { Badge, EmptyState, Kpi, Notice, Panel, formatDate, usd } from "./ds";
 import { Icon } from "./icons";
-import { Modal } from "./modal";
 
-type Mapping = { period: string; priceId: string };
-type Count = { active: number; past_due: number; seats: number };
-type Plan = { id: string; name: string; monthly: number; annual: number; seats: number; stripe: Mapping[]; subscribers: Count | null };
-type Data = {
-  readiness: { connected: boolean; pricesReady: boolean; checkoutEnabled: boolean };
-  packages: Plan[];
-  legacy: Plan[];
-  limits: Record<string, { types: number; calendars: number; envelopes: number; workflows: number }>;
-  allowances: Record<"individual" | "team", { envelopes: number }>;
-  envelopes: { overageCents: number; capRangeCents: [number, number] };
-  features: string[];
-  earlyAccess: { offer: string; total: number; open: number };
-  history: { id: string; created_at: string; actor: string | null; details: { plans?: { id: string; name: string; monthly: number; annual: number }[] } }[];
+type Mapping = { period: "monthly" | "annual"; priceId: string | null; productId: string | null; ready: boolean };
+type Plan = {
+  id: string;
+  name: string;
+  monthly: number | null;
+  annual: number | null;
+  includedSeats: number;
+  team: boolean;
+  mappings: Mapping[];
+  features: readonly string[];
 };
-type Draft = Record<string, { monthly: string; annual: string }>;
+type Data = {
+  catalog: { plans: Plan[] };
+  distribution: { plan: string; name: string; active: number; pastDue: number; unpaid: number; seats: number }[];
+  subscribers: { active: number; failedPayments: number; pastDue: number; unpaid: number };
+  renewals: { next_7: number; next_30: number; canceling: number };
+  webhook: { total: number; last24h: number; failed24h: number; lastAt: string | null; configured: boolean };
+  mappingStatus: { ready: boolean; missing: string[] };
+  readiness: { connected: boolean; pricesReady: boolean; checkoutEnabled: boolean; blockers: string[] };
+  enrollment: { enabled: boolean; validated: boolean };
+};
 
-// Annual savings only when an annual price is actually configured below 12× monthly.
-function annualNote(monthly: number, annual: number) {
-  if (!monthly) return { text: "No charge", tone: "neutral" as const };
-  if (!annual) return { text: "Annual not offered", tone: "neutral" as const };
-  const full = monthly * 12;
-  if (annual >= full) return { text: "No annual discount", tone: "neutral" as const };
-  return { text: `Saves ${Math.round((1 - annual / full) * 100)}% annually`, tone: "success" as const };
-}
-const toCents = (v: string) => Math.round(Number(v) * 100);
-const validPrice = (v: string, max: number) => v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= max;
-
+/**
+ * Master Admin Billing & Pricing.
+ *
+ * One permanent catalog: four sellable items, their Stripe mappings, and the
+ * operational health of checkout and renewals. Prices are immutable code
+ * constants, so there are no rate editors or pricing-version controls here.
+ */
 export function AdminPricing() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [seats, setSeats] = useState(5);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
-    const r = await fetch("/api/admin/pricing", { cache: "no-store" });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Unable to load pricing.");
-    setData(d);
+    const response = await fetch("/api/admin/pricing", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Unable to load billing.");
+    setData(payload);
   }
   useEffect(() => {
     load().catch((e) => setError(e.message));
@@ -60,77 +58,40 @@ export function AdminPricing() {
       </div>
     );
 
-  const individual = data.packages.find((p) => p.id === "individual")!;
-  const team = data.packages.find((p) => p.id === "team")!;
-  const extra = data.packages.find((p) => p.id === "team_extra")!;
-  const teamTotal = team.monthly + Math.max(0, seats - 3) * extra.monthly;
-  const currentSubs = (individual.subscribers?.active || 0) + (team.subscribers?.active || 0);
-  const legacySubs = data.legacy.reduce((s, p) => s + (p.id === "free" ? 0 : p.subscribers?.active || 0), 0);
-  const r = data.readiness;
+  const readiness = data.readiness;
   const gates = [
-    [r.connected, "Stripe secret key connected"],
-    [r.pricesReady, "Recurring prices mapped for Individual, Teams and extra seats"],
-    [r.checkoutEnabled, "Launch flag BILLING_CHECKOUT_ENABLED turned on"],
+    [readiness.connected, "Stripe credentials connected"],
+    [readiness.pricesReady && data.mappingStatus.ready, "All eight canonical prices mapped"],
+    [data.enrollment.validated, "BILLING_VALIDATED accepted"],
+    [readiness.checkoutEnabled, "Checkout ready"],
   ] as const;
 
-  const changes = draft
-    ? data.legacy
-        .filter((p) => p.id !== "free")
-        .map((p) => ({ plan: p, monthly: toCents(draft[p.id].monthly), annual: toCents(draft[p.id].annual) }))
-        .filter((c) => c.monthly !== c.plan.monthly || c.annual !== c.plan.annual)
-    : [];
-  const draftValid =
-    !!draft &&
-    data.legacy.filter((p) => p.id !== "free").every((p) => validPrice(draft[p.id].monthly, 10000) && validPrice(draft[p.id].annual, 120000));
-
-  async function publish() {
-    if (!draft) return;
+  async function setEnrollment(form: HTMLFormElement) {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      const plans = data!.legacy.map((p) => ({
-        id: p.id,
-        monthly: p.id === "free" ? 0 : toCents(draft[p.id].monthly),
-        annual: p.id === "free" ? 0 : toCents(draft[p.id].annual),
-      }));
-      const res = await fetch("/api/admin/operations", {
+      const values = new FormData(form);
+      const response = await fetch("/api/admin/pricing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "pricing", plans }),
+        body: JSON.stringify({
+          action: "set_enrollment",
+          enabled: values.get("enabled") === "on",
+          confirm: values.get("confirm"),
+          reason: values.get("reason"),
+        }),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Unable to save pricing.");
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Unable to update enrollment.");
       await load();
-      setDraft(null);
-      setReview(false);
-      setNotice(`Legacy rates updated (${changes.length} plan${changes.length === 1 ? "" : "s"}). Existing subscriptions keep their current Stripe price.`);
+      setNotice("Paid enrollment updated. No price or existing subscription was changed.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to save pricing.");
+      setError(e instanceof Error ? e.message : "Unable to update enrollment.");
     } finally {
       setBusy(false);
     }
   }
-
-  // Each history entry shows what changed compared with the entry before it.
-  const history = data.history.map((h, i) => {
-    const prev = data.history[i + 1]?.details.plans || [];
-    const diffs = (h.details.plans || [])
-      .map((p) => {
-        const before = prev.find((q) => q.id === p.id);
-        if (!before) return null;
-        const parts = [];
-        if (before.monthly !== p.monthly) parts.push(`${usd(before.monthly)} → ${usd(p.monthly)}/mo`);
-        if (before.annual !== p.annual) parts.push(`${usd(before.annual)} → ${usd(p.annual)}/yr`);
-        return parts.length ? `${p.name}: ${parts.join(", ")}` : null;
-      })
-      .filter(Boolean);
-    return {
-      id: h.id,
-      title: diffs.length ? diffs.join(" · ") : i === data.history.length - 1 ? "Legacy rates saved" : "Saved with no rate changes",
-      meta: `${formatDate(h.created_at, { dateStyle: "medium", timeStyle: "short" })}${h.actor ? ` · ${h.actor}` : ""}`,
-      icon: "spark",
-    };
-  });
 
   return (
     <div className="ds-root ap">
@@ -138,274 +99,253 @@ export function AdminPricing() {
       {error && <Notice tone="danger">{error}</Notice>}
 
       <div className="ds-kpis">
-        <Kpi label="Published packages" icon="layers" value={2} detail="Individual and Teams on /pricing" />
-        <Kpi label="Current-package subscribers" icon="users" value={currentSubs} detail="Active or trialing" />
-        <Kpi label="Grandfathered subscribers" icon="clock" value={legacySubs} detail="Keep their original price" />
+        <Kpi label="Sellable items" icon="layers" value={data.catalog.plans.length} detail="Starter, Professional, Team, extra seat" />
+        <Kpi label="Active subscribers" icon="users" value={data.subscribers.active} detail="Active or trialing" />
+        <Kpi
+          label="Failed payments"
+          icon="card"
+          value={data.subscribers.failedPayments}
+          tone={data.subscribers.failedPayments ? "warning" : "success"}
+          detail={`${data.subscribers.pastDue} past due · ${data.subscribers.unpaid} unpaid`}
+        />
         <Kpi
           label="Checkout"
           icon="card"
-          value={r.checkoutEnabled ? "Live" : "Gated"}
-          tone={r.checkoutEnabled ? "success" : "warning"}
-          detail={r.checkoutEnabled ? "New customers can subscribe" : `${gates.filter(([ok]) => ok).length} of 3 launch gates met`}
+          value={readiness.checkoutEnabled && data.enrollment.enabled ? "Live" : "Gated"}
+          tone={readiness.checkoutEnabled && data.enrollment.enabled ? "success" : "warning"}
+          detail={`${gates.filter(([ok]) => ok).length} of 4 readiness gates met`}
         />
       </div>
 
-      {!r.checkoutEnabled && (
-        <Panel title="Launch readiness" description="Paid enrollment opens only when every gate passes. Visitors join early access until then.">
-          <ul className="ap-gates">
-            {gates.map(([ok, label]) => (
-              <li key={label} className={ok ? "ok" : ""}>
-                <span aria-hidden="true">{ok ? <Icon name="check" size={13} /> : null}</span>
-                {label}
-                <Badge tone={ok ? "success" : "warning"}>{ok ? "Ready" : "Pending"}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
+      <Panel title="Billing readiness" description="Paid enrollment opens only when every gate passes. The canonical prices never change here.">
+        <ul className="ap-gates">
+          {gates.map(([ok, label]) => (
+            <li key={label} className={ok ? "ok" : ""}>
+              <span aria-hidden="true">{ok ? <Icon name="check" size={13} /> : null}</span>
+              {label}
+              <Badge tone={ok ? "success" : "warning"}>{ok ? "Ready" : "Pending"}</Badge>
+            </li>
+          ))}
+        </ul>
+        {readiness.blockers.length > 0 && (
+          <p className="ap-muted">Open blockers: {readiness.blockers.join("; ")}.</p>
+        )}
+      </Panel>
 
       <div className="ap-section-title">
-        <h2>Current packages</h2>
-        <p>Approved rates come from the public catalog. Stripe mappings show the synchronized monthly prices.</p>
+        <h2>Canonical pricing</h2>
+        <p>
+          One approved catalog powers the public page, homepage, checkout, entitlements, billing and reporting.
+          Prices and annual totals are immutable; the Stripe mapping status below is the only per-item state.
+        </p>
       </div>
       <div className="ap-packages">
-        {[individual, team].map((p) => (
-          <article key={p.id} className={`ap-package ${p.id === "team" ? "featured" : ""}`}>
+        {data.catalog.plans.map((plan) => (
+          <article key={plan.id} className={`ap-package ${plan.id === "professional" ? "featured" : ""}`}>
             <header>
               <div>
-                <h3>{p.name}</h3>
-                <p>{p.id === "team" ? "Shared scheduling for 3 or more hosts" : "Everything a single host needs"}</p>
-              </div>
-              <Badge tone="info" dot>Published</Badge>
-            </header>
-            <div className="ap-price">
-              <strong>{usd(p.monthly)}</strong>
-              <span>/ month{p.id === "team" ? " · includes 3 seats" : ""}</span>
-            </div>
-            <dl className="ds-dl">
-              <div><dt>Billing</dt><dd>Monthly only</dd></div>
-              <div><dt>Subscribers</dt><dd>{p.subscribers?.active || 0}{p.subscribers?.past_due ? ` · ${p.subscribers.past_due} past due` : ""}</dd></div>
-              <div><dt>Envelopes</dt><dd>{data.allowances[p.id === "team" ? "team" : "individual"].envelopes}{p.id === "team" ? " pooled" : ""} / month</dd></div>
-              <div>
-                <dt>Stripe</dt>
-                <dd>
-                  <StripeStatus mappings={p.stripe} />
-                </dd>
-              </div>
-            </dl>
-            {p.id === "team" && (
-              <div className="ap-calculator">
-                <div className="ap-calc-head">
-                  <label htmlFor="ap-seats">Seat calculator</label>
-                  <span>
-                    Extra seats <b>{usd(extra.monthly)}</b> each · <StripeStatus mappings={extra.stripe} compact />
-                  </span>
-                </div>
-                <div className="ap-calc-row">
-                  <input id="ap-seats" type="range" min={3} max={50} value={seats} onChange={(e) => setSeats(Number(e.target.value))} />
-                  <output htmlFor="ap-seats">{seats} seats</output>
-                </div>
+                <h3>{plan.name}</h3>
                 <p>
-                  {usd(team.monthly)} base{seats > 3 ? ` + ${seats - 3} × ${usd(extra.monthly)}` : ""} = <b>{usd(teamTotal)} / month</b>
-                  <small> · {data.allowances.team.envelopes} pooled envelopes</small>
+                  {plan.id === "business"
+                    ? `Team workspace · includes ${plan.includedSeats} seats`
+                    : plan.id === "business_extra"
+                      ? "Billed per additional Team member"
+                      : "Single workspace"}
                 </p>
               </div>
+              <Badge tone={plan.mappings.every((m) => m.ready) ? "success" : "warning"} dot>
+                {plan.mappings.every((m) => m.ready) ? "Mapped" : "Mapping missing"}
+              </Badge>
+            </header>
+            <div className="ap-price">
+              <strong>{plan.monthly == null ? "Custom" : usd(plan.monthly)}</strong>
+              <span>{plan.id === "business_extra" ? "/ member / month" : "/ month"}</span>
+            </div>
+            <dl className="ds-dl">
+              <div>
+                <dt>Annual</dt>
+                <dd>{plan.annual == null ? "—" : `${usd(plan.annual)} / year`}</dd>
+              </div>
+              <div>
+                <dt>Monthly Stripe</dt>
+                <dd><StripeStatus mapping={plan.mappings.find((m) => m.period === "monthly")} /></dd>
+              </div>
+              <div>
+                <dt>Annual Stripe</dt>
+                <dd><StripeStatus mapping={plan.mappings.find((m) => m.period === "annual")} /></dd>
+              </div>
+            </dl>
+            {plan.id === "business" && (
+              <p className="ap-muted">
+                Additional members are {usd(data.catalog.plans.find((p) => p.id === "business_extra")?.monthly ?? 0)}
+                /month or {usd(data.catalog.plans.find((p) => p.id === "business_extra")?.annual ?? 0)}/year each.
+              </p>
             )}
           </article>
         ))}
       </div>
 
-      <div className="ds-grid-2">
-        <Panel title="Included in every package" description="Per host unless noted. Shown to customers on the public pricing page.">
-          <ul className="ap-features">
-            {data.features.map((f) => (
-              <li key={f}>
-                <Icon name="check" size={14} /> {f}
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel title="Signing envelopes & overages" description="Usage beyond the monthly allowance.">
-          <dl className="ds-dl ap-envelopes">
-            <div><dt>Included</dt><dd>{data.allowances.individual.envelopes} Individual · {data.allowances.team.envelopes} pooled Teams each UTC month</dd></div>
-            <div><dt>Overage price</dt><dd>{usd(data.envelopes.overageCents)} per envelope</dd></div>
-            <div><dt>Overages</dt><dd>Off by default</dd></div>
-            <div><dt>Spending cap</dt><dd>{usd(data.envelopes.capRangeCents[0])}–{usd(data.envelopes.capRangeCents[1])} set by billing owner</dd></div>
-          </dl>
-          <p className="ap-muted">Allowances never roll over. Overages are invoiced separately after month end and only for active paid subscriptions.</p>
-          <div className="ap-offer">
-            <Icon name="sparkles" size={15} />
-            <div>
-              <b>Early-access offer</b>
-              <p>
-                {data.earlyAccess.offer}. {data.earlyAccess.total} reservation{data.earlyAccess.total === 1 ? "" : "s"}, {data.earlyAccess.open} not yet claimed.
-              </p>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <Panel
-        flush
-        title="Legacy packages"
-        description="No longer sold. These reference rates apply to grandfathered subscribers; editing them never reprices an existing Stripe subscription."
-        actions={
-          draft ? (
-            <>
-              <button className="ds-btn sm ghost" onClick={() => setDraft(null)} disabled={busy}>
-                Discard
-              </button>
-              <button className="ds-btn sm primary" disabled={!changes.length || !draftValid || busy} onClick={() => setReview(true)}>
-                Review {changes.length || ""} change{changes.length === 1 ? "" : "s"}
-              </button>
-            </>
-          ) : (
-            <button
-              className="ds-btn sm"
-              onClick={() =>
-                setDraft(Object.fromEntries(data.legacy.map((p) => [p.id, { monthly: (p.monthly / 100).toFixed(2), annual: (p.annual / 100).toFixed(2) }])))
-              }
-            >
-              <Icon name="settings" size={14} /> Edit rates
-            </button>
-          )
-        }
-      >
+      <Panel title="Stripe mapping status" description="All eight canonical plan and period prices must resolve before checkout can open.">
         <div className="ds-table-wrap">
-          <table className="ds-table ap-legacy">
+          <table className="ds-table">
             <thead>
               <tr>
-                <th>Package</th>
+                <th>Item</th>
+                <th>Period</th>
+                <th>Price</th>
                 <th>Status</th>
-                <th className="num">Monthly</th>
-                <th className="num">Annual total</th>
-                <th>Annual savings</th>
-                <th className="num">Subscribers</th>
-                <th>Stripe</th>
               </tr>
             </thead>
             <tbody>
-              {data.legacy.map((p) => {
-                const editing = draft && p.id !== "free";
-                const monthly = editing ? toCents(draft[p.id].monthly) : p.monthly;
-                const annual = editing ? toCents(draft[p.id].annual) : p.annual;
-                const note = annualNote(monthly, annual);
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <b className="ap-plan-name">{p.name.replace(/ \(legacy\)$/i, "")}</b>
-                    </td>
-                    <td>{p.id === "free" ? <Badge>Free tier</Badge> : <Badge tone="warning">Retired</Badge>}</td>
-                    <td className="num">
-                      {editing ? (
-                        <MoneyInput label={`${p.name} monthly price`} value={draft[p.id].monthly} max={10000} onChange={(v) => setDraft({ ...draft, [p.id]: { ...draft[p.id], monthly: v } })} />
-                      ) : (
-                        usd(p.monthly)
-                      )}
-                    </td>
-                    <td className="num">
-                      {editing ? (
-                        <MoneyInput label={`${p.name} annual total`} value={draft[p.id].annual} max={120000} onChange={(v) => setDraft({ ...draft, [p.id]: { ...draft[p.id], annual: v } })} />
-                      ) : p.annual ? (
-                        usd(p.annual)
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      <Badge tone={note.tone}>{note.text}</Badge>
-                    </td>
-                    <td className="num">{p.subscribers?.active || 0}</td>
-                    <td>
-                      <StripeStatus mappings={p.stripe} compact />
-                    </td>
+              {data.catalog.plans.flatMap((plan) =>
+                plan.mappings.map((mapping) => (
+                  <tr key={`${plan.id}:${mapping.period}`}>
+                    <td>{plan.name}</td>
+                    <td>{mapping.period}</td>
+                    <td><code>{mapping.priceId || "—"}</code></td>
+                    <td><Badge tone={mapping.ready ? "success" : "warning"}>{mapping.ready ? "Ready" : "Missing"}</Badge></td>
                   </tr>
-                );
-              })}
+                )),
+              )}
             </tbody>
           </table>
         </div>
       </Panel>
 
-      <Panel title="Change history" description="Every saved rate change, from the operations audit log.">
-        {history.length ? (
-          <Timeline items={history} />
-        ) : (
-          <EmptyState icon="clock" title="No pricing changes yet">
-            Saved legacy rate changes will appear here with who made them.
-          </EmptyState>
-        )}
-      </Panel>
-
-      {review && draft && (
-        <Modal title="Publish legacy rate changes?" onClose={() => !busy && setReview(false)}>
-          <div className="ap-review">
+      <div className="ds-grid-2">
+        <Panel title="Subscription distribution" description="Existing subscriptions keep their original Stripe price and catalog reference.">
+          <div className="ds-table-wrap">
             <table className="ds-table">
               <thead>
                 <tr>
-                  <th>Package</th>
-                  <th className="num">Monthly</th>
-                  <th className="num">Annual</th>
+                  <th>Plan</th>
+                  <th className="num">Active</th>
+                  <th className="num">Past due</th>
+                  <th className="num">Seats</th>
                 </tr>
               </thead>
               <tbody>
-                {changes.map((c) => (
-                  <tr key={c.plan.id}>
-                    <td>{c.plan.name}</td>
-                    <td className="num">
-                      <Diff from={c.plan.monthly} to={c.monthly} />
-                    </td>
-                    <td className="num">
-                      <Diff from={c.plan.annual} to={c.annual} />
-                    </td>
+                {data.distribution.map((row) => (
+                  <tr key={row.plan}>
+                    <td>{row.name}</td>
+                    <td className="num">{row.active}</td>
+                    <td className="num">{row.pastDue}</td>
+                    <td className="num">{row.seats}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <Notice tone="info">
-              Existing subscribers stay on the Stripe price they signed up with. Legacy packages are not offered to new customers, so no checkout changes. The change is recorded in the audit log.
-            </Notice>
-            <div className="ap-review-actions">
-              <button className="ds-btn" onClick={() => setReview(false)} disabled={busy}>
-                Back to editing
-              </button>
-              <button className="ds-btn primary" onClick={() => void publish()} disabled={busy}>
-                {busy ? "Saving…" : "Publish changes"}
-              </button>
-            </div>
           </div>
-        </Modal>
+        </Panel>
+
+        <Panel title="Renewals & webhooks" description="Renewal and webhook health for the single billing path.">
+          <dl className="ds-dl">
+            <div><dt>Renewing in 7 days</dt><dd>{data.renewals.next_7}</dd></div>
+            <div><dt>Renewing in 30 days</dt><dd>{data.renewals.next_30}</dd></div>
+            <div><dt>Canceling at period end</dt><dd>{data.renewals.canceling}</dd></div>
+            <div><dt>Webhook secret</dt><dd><Badge tone={data.webhook.configured ? "success" : "warning"}>{data.webhook.configured ? "Configured" : "Missing"}</Badge></dd></div>
+            <div><dt>Deliveries (24h)</dt><dd>{data.webhook.last24h}</dd></div>
+            <div><dt>Failed (24h)</dt><dd><Badge tone={data.webhook.failed24h ? "warning" : "success"}>{data.webhook.failed24h}</Badge></dd></div>
+            <div><dt>Last delivery</dt><dd>{data.webhook.lastAt ? formatDate(data.webhook.lastAt, { dateStyle: "medium", timeStyle: "short" }) : "—"}</dd></div>
+          </dl>
+        </Panel>
+      </div>
+
+      <Panel title="Entitlement status" description="Limits and allowances are part of the same canonical catalog.">
+        <div className="ds-table-wrap">
+          <table className="ds-table">
+            <thead>
+              <tr>
+                <th>Plan</th>
+                <th>Included seats</th>
+                <th>Feature summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.catalog.plans.map((plan) => (
+                <tr key={plan.id}>
+                  <td>{plan.name}</td>
+                  <td>{plan.includedSeats}</td>
+                  <td>{plan.features.slice(0, 2).join(" · ") || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <Panel
+        title="Paid enrollment"
+        description="This is the only pricing-related write. It never changes a price, mapping or existing subscription."
+      >
+        <form
+          className="ui-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void setEnrollment(event.currentTarget);
+          }}
+        >
+          <p>
+            Current status:{" "}
+            <Badge tone={data.enrollment.enabled ? "success" : "warning"}>
+              {data.enrollment.enabled ? "Open" : "Closed"}
+            </Badge>
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={data.enrollment.enabled}
+              disabled={busy}
+            />{" "}
+            Allow customers to start a paid subscription
+          </label>
+          <Field label="Type ENABLE_PAID_ENROLLMENT to confirm opening enrollment">
+            <input
+              className="ui-input"
+              name="confirm"
+              autoComplete="off"
+              maxLength={40}
+              disabled={busy}
+            />
+          </Field>
+          <Field label="Reason">
+            <input className="ui-input" name="reason" required minLength={5} maxLength={500} disabled={busy} />
+          </Field>
+          <p className="premium-note">
+            Opening enrollment requires BILLING_VALIDATED, recorded Stripe sandbox acceptance and ready checkout.
+            Closing it stops new purchases only; existing subscriptions renew normally.
+          </p>
+          <button className="ds-btn primary" disabled={busy}>
+            {busy ? "Saving…" : "Save enrollment status"}
+          </button>
+        </form>
+      </Panel>
+
+      {!data.catalog.plans.length && (
+        <EmptyState title="No pricing items" icon="layers">
+          The canonical catalog did not load.
+        </EmptyState>
       )}
     </div>
   );
 }
 
-function StripeStatus({ mappings, compact }: { mappings: Mapping[]; compact?: boolean }) {
-  if (!mappings.length) return <Badge tone="warning">Not mapped</Badge>;
-  const id = mappings[0].priceId;
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="ap-stripe" title={mappings.map((m) => `${m.period}: ${m.priceId}`).join("\n")}>
-      <Badge tone="success" dot>
-        Synced
-      </Badge>
-      {!compact && <code>{id.length > 18 ? `${id.slice(0, 14)}…` : id}</code>}
-    </span>
+    <label className="ui-field">
+      <span>{label}</span>
+      {children}
+    </label>
   );
 }
-function MoneyInput({ value, onChange, label, max }: { value: string; onChange: (v: string) => void; label: string; max: number }) {
-  const invalid = !validPrice(value, max);
+
+function StripeStatus({ mapping }: { mapping?: Mapping }) {
+  if (!mapping?.priceId) return <Badge tone="warning">Not mapped</Badge>;
   return (
-    <span className={`ap-money ${invalid ? "invalid" : ""}`}>
-      <span aria-hidden="true">$</span>
-      <input inputMode="decimal" aria-label={label} aria-invalid={invalid} value={value} onChange={(e) => onChange(e.target.value)} />
-    </span>
-  );
-}
-function Diff({ from, to }: { from: number; to: number }) {
-  if (from === to) return <span className="ap-muted">{usd(from)}</span>;
-  return (
-    <span className="ap-diff">
-      <s>{usd(from)}</s> → <b>{usd(to)}</b>
+    <span className="ap-stripe" title={mapping.priceId}>
+      <Badge tone="success" dot>Synced</Badge>
+      <code>{mapping.priceId.length > 18 ? `${mapping.priceId.slice(0, 14)}…` : mapping.priceId}</code>
     </span>
   );
 }

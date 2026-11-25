@@ -3,189 +3,103 @@ import { LiveControls, SupportLauncher, WORKSPACE_LIVE_EVENT, useLive } from "./
 import { InstallPrompt } from "./pwa";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon, Logo } from "./icons";
 import { initials } from "@/lib/client";
 import { CommandPalette, type PaletteItem } from "./command-palette";
 import { AssistantLauncher } from "./assistant";
 import { ThemeControl, ThemeProvider } from "./theme-control";
 import { RouteLoading } from "./route-loading";
+import {
+  extraCrumbLabels,
+  mobileNavItems,
+  navGroupLabel,
+  navHref,
+  navItemLabel,
+  resolveActiveNavId,
+  visibleNavGroups,
+  type CustomerFeature,
+  type CustomerNavContext,
+  type CustomerNavItem,
+  type CustomerRole,
+} from "@/lib/customer-nav";
 
-type NavItem = {
-  id: string;
-  label: string;
-  icon: string;
-  href: string;
-  // Workspace views live on one route and are addressed by ?view=.
-  view?: string;
-  // The demo has no client records API, so it maps to its own view.
-  demoView?: string;
-  demo?: boolean;
-  // Shown only when the workspace uses a trade preset.
-  jobs?: boolean;
+type ShellAccess = {
+  demo: boolean;
+  trade: boolean;
+  marketplace: boolean;
+  role: CustomerRole | null;
+  features: Partial<Record<CustomerFeature, boolean>>;
+  admin: boolean;
 };
-type NavGroup = { label: string; items: NavItem[] };
 
-const groups: NavGroup[] = [
-  {
-    label: "",
-    items: [
-      { id: "overview", label: "Overview", icon: "home", href: "/app", view: "", demo: true },
-      { id: "assistant", label: "Assistant", icon: "sparkles", href: "/app/assistant" },
-      { id: "inbox", label: "Inbox", icon: "message", href: "/app/inbox" },
-    ],
-  },
-  {
-    label: "Scheduling",
-    items: [
-      { id: "calendar", label: "Calendar", icon: "calendar", href: "/app/calendar" },
-      { id: "event-types", label: "Services", icon: "link", href: "/app?view=event-types", view: "event-types", demo: true },
-      { id: "availability", label: "Availability", icon: "spark", href: "/app?view=availability", view: "availability", demo: true },
-    ],
-  },
-  {
-    label: "Clients",
-    items: [
-      { id: "clients", label: "Clients", icon: "users", href: "/app/clients", demoView: "contacts", demo: true },
-      { id: "jobs", label: "Jobs & estimates", icon: "briefcase", href: "/app/jobs", jobs: true },
-      { id: "documents", label: "Documents", icon: "file", href: "/app/documents" },
-      { id: "templates", label: "PDF templates", icon: "layers", href: "/app/templates" },
-    ],
-  },
-  {
-    label: "Business",
-    items: [
-      { id: "growth-suite", label: "Growth", icon: "spark", href: "/app/growth/overview" },
-      { id: "digital-identity", label: "Digital Identity", icon: "card", href: "/app/identity" },
-      { id: "referrals", label: "Referrals", icon: "users", href: "/app/referrals" },
-      { id: "business-profile", label: "Business Profile", icon: "grid", href: "/app/business-profile" },
-      { id: "bookings", label: "Appointments", icon: "clock", href: "/app?view=bookings", view: "bookings", demo: true },
-      { id: "payments", label: "Payments", icon: "card", href: "/app/payments" },
-      { id: "growth", label: "Offers & Classes", icon: "bag", href: "/app/growth" },
-      { id: "automation", label: "Automations", icon: "bell", href: "/app/automation" },
-      { id: "team", label: "Team", icon: "team", href: "/app/team" },
-      { id: "marketplace", label: "Marketplace", icon: "bag", href: "/marketplace" },
-      { id: "business-settings", label: "Business Settings", icon: "settings", href: "/app/business-profile?section=settings" },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
-      { id: "notifications", label: "Notifications", icon: "bell", href: "/app/notifications" },
-      { id: "settings", label: "Account settings", icon: "settings", href: "/app?view=settings", view: "settings", demo: true },
-      { id: "connections", label: "Calendar connections", icon: "plug", href: "/app/connections" },
-      { id: "billing", label: "Plan & billing", icon: "shield", href: "/app/billing" },
-      { id: "support", label: "Zenvio support", icon: "message", href: "/app/support" },
-    ],
-  },
-];
-
-const visible = (item: NavItem, demo: boolean, jobs: boolean) => (!demo || item.demo) && (!item.jobs || jobs);
-
-function hrefFor(item: NavItem, demo: boolean) {
-  if (!demo) return item.href;
-  const view = item.view ?? item.demoView;
-  return view ? `/demo?view=${view}` : "/demo";
+function navContext(access: ShellAccess): CustomerNavContext {
+  return {
+    demo: access.demo,
+    trade: access.trade,
+    marketplace: access.marketplace,
+    role: access.role,
+    features: access.features,
+  };
 }
 
-function activeItem(pathname: string, view: string | null, demo: boolean, section: string | null = null) {
-  const all = groups.flatMap((g) => g.items);
-  if (pathname === "/app" || (demo && pathname === "/demo"))
-    return (
-      all.find((i) => i.view === (view || "") || (demo && i.demoView === view)) ||
-      all[0]
-    );
-  if (pathname.startsWith("/app/identity")) return all.find(i => i.id === "digital-identity");
-  if (pathname.startsWith("/app/marketing") || pathname.startsWith("/app/smart-cards") || pathname.startsWith("/app/growth/overview")) return all.find(i => i.id === "growth-suite");
-  if (pathname.startsWith("/app/business-profile")) {
-    if (section === "settings") return all.find((i) => i.id === "business-settings");
-    // Growth Suite digital-card tab embeds Business Profile; keep Growth highlighted.
-    if (section === "digital-card") return all.find((i) => i.id === "growth-suite") || all.find((i) => i.id === "business-profile");
-    return all.find((i) => i.id === "business-profile");
-  }
-  if (pathname.startsWith("/app/notifications")) return all.find((i) => i.id === "notifications");
-  if (pathname.startsWith("/app/referrals")) return all.find((i) => i.id === "referrals");
-  if (pathname.startsWith("/marketplace"))
-    return all.find((i) => i.id === "marketplace");
-  return all
-    .filter((i) => !i.view && i.href !== "/app" && !i.href.includes("?"))
-    .find((i) => pathname === i.href || pathname.startsWith(i.href + "/"));
-}
-
-function paletteItems(demo: boolean, admin: boolean, jobs: boolean, marketplace: boolean): PaletteItem[] {
-  const base = demo ? "/demo" : "/app";
-  const actions: PaletteItem[] = [
-    { id: "new-link", label: "New service", icon: "plus", href: `${base}?view=event-types&new=link`, group: "Actions", keywords: "event type create booking link service" },
-    ...(demo
-      ? []
-      : [
-          { id: "new-appointment", label: "New appointment", icon: "plus", href: "/app?view=bookings&new=appointment", group: "Actions", keywords: "booking schedule create" },
-          { id: "new-client", label: "Add client", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create" },
-          { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
-          { id: "ask-assistant", label: "Ask Zenvio Assistant", icon: "sparkles", href: "/app/assistant", group: "Actions", keywords: "ai help chat" },
-          { id: "feedback", label: "Send feedback", icon: "feedback", href: "/app/feedback", group: "Actions", keywords: "bug idea suggestion" },
-        ]),
-  ];
-  const pages = groups.flatMap((g) =>
-    g.items
-      .filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace))
-      .map((i) => ({
-        id: "page-" + i.id,
-        label: i.label,
-        icon: i.icon,
-        href: hrefFor(i, demo),
-        group: "Pages",
-        keywords:
-          i.id === "referrals"
-            ? `${g.label} affiliate invite earn credits referral share link`
-            : g.label,
-      })),
+function navItem(item: CustomerNavItem, access: ShellAccess, current: string, onNavigate?: () => void) {
+  const active = current === item.id;
+  return (
+    <Link
+      key={item.id}
+      href={navHref(item, access.demo)}
+      className={active ? "active" : ""}
+      aria-current={active ? "page" : undefined}
+      title={item.label}
+      onClick={onNavigate}
+    >
+      <Icon name={item.icon} size={18} />
+      <span>{item.label}</span>
+    </Link>
   );
-  if (admin && !demo)
-    pages.push({ id: "page-admin", label: "Admin console", icon: "shield", href: "/admin", group: "Pages", keywords: "platform" });
-  return [...actions, ...pages];
-}
-
-function groupOf(item?: NavItem) {
-  return groups.find((g) => item && g.items.includes(item))?.label || "";
 }
 
 function Navigation({
-  demo,
-  jobs,
+  access,
   onNavigate,
-  marketplace,
 }: {
-  demo: boolean;
-  marketplace: boolean;
-  jobs: boolean;
+  access: ShellAccess;
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const current = activeItem(pathname, params.get("view"), demo, params.get("section"));
+  const current = resolveActiveNavId(pathname, params.get("view"), {
+    demo: access.demo,
+    section: params.get("section"),
+  });
   return (
     <>
-      {groups.map((group) => {
-        const items = group.items.filter((i) => visible(i, demo, jobs) && (i.id !== "marketplace" || marketplace));
-        if (!items.length) return null;
-        const links = items.map((item) => (
-          <Link
-            key={item.id}
-            href={hrefFor(item, demo)}
-            className={current?.id === item.id ? "active" : ""}
-            aria-current={current?.id === item.id ? "page" : undefined}
-            title={item.label}
-            onClick={onNavigate}
-          >
-            <Icon name={item.icon} size={18} />
-            <span>{item.label}</span>
-          </Link>
-        ));
-        if (!group.label) return <div className="shell-nav-group" key="home">{links}</div>;
+      {visibleNavGroups(navContext(access)).map((group) => {
+        const links = group.items.map((item) => navItem(item, access, current, onNavigate));
+        // Workspace and Account stay open: they are where customers start and
+        // finish. Business and Connected disclose on demand so the rail stays
+        // short instead of becoming a twenty-row list.
+        if (!group.collapsed) {
+          return (
+            <section className="shell-nav-group" data-group={group.label} key={group.id} aria-label={group.label}>
+              <p>{group.label}</p>
+              {links}
+            </section>
+          );
+        }
+        const containsCurrent = group.items.some((item) => item.id === current);
         return (
-          <details className="shell-nav-group" data-group={group.label} key={group.label} open={group.label === "Scheduling" || group.label === "Clients" || group.items.some(i => i.id === current?.id)}>
-            <summary>{group.label}<Icon name="chevron" size={12} /></summary>
+          <details
+            className="shell-nav-group shell-nav-disclosure"
+            data-group={group.label}
+            key={group.id}
+            open={containsCurrent || undefined}
+          >
+            <summary>
+              {group.label}
+              <Icon name="chevronDown" size={13} />
+            </summary>
             {links}
           </details>
         );
@@ -194,28 +108,30 @@ function Navigation({
   );
 }
 
-function Breadcrumb({ demo }: { demo: boolean }) {
+function Breadcrumb({ access }: { access: ShellAccess }) {
   const pathname = usePathname();
   const params = useSearchParams();
-  const current = activeItem(pathname, params.get("view"), demo, params.get("section"));
-  const group = groupOf(current);
-  const label =
-    pathname === "/marketplace/orders"
-      ? "Orders"
-      : pathname === "/app/feedback"
-        ? "Feedback"
-        : current?.label || "Overview";
+  const current = resolveActiveNavId(pathname, params.get("view"), {
+    demo: access.demo,
+    section: params.get("section"),
+  });
+  const group = navGroupLabel(current);
+  const label = extraCrumbLabels[pathname] || navItemLabel(current) || (pathname === "/app" ? "Overview" : "");
   return (
     <div className="shell-breadcrumb">
-      <span>{demo ? "Demo workspace" : "Workspace"}</span>
-      {group && group !== label && (
+      <span>{access.demo ? "Demo workspace" : "Workspace"}</span>
+      {group && group !== label && group !== "Workspace" && (
         <>
           <Icon name="chevron" size={13} />
           <span>{group}</span>
         </>
       )}
-      <Icon name="chevron" size={13} />
-      <b>{label}</b>
+      {label && (
+        <>
+          <Icon name="chevron" size={13} />
+          <b>{label}</b>
+        </>
+      )}
     </div>
   );
 }
@@ -238,12 +154,215 @@ function WorkspaceLive({ demo }: { demo: boolean }) {
   return <LiveControls state={live} onRefresh={() => { window.dispatchEvent(new Event(WORKSPACE_LIVE_EVENT)); }} />;
 }
 
+function MobileBar({
+  access,
+  moreOpen,
+  onMore,
+}: {
+  access: ShellAccess;
+  moreOpen: boolean;
+  onMore: () => void;
+}) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const current = resolveActiveNavId(pathname, params.get("view"), {
+    demo: access.demo,
+    section: params.get("section"),
+  });
+  // The demo has no calendar or inbox, so its bar only renders destinations
+  // that actually exist in /demo; the grid adapts to the remaining columns.
+  const items = access.demo ? mobileNavItems.filter((item) => item.demoHref) : mobileNavItems;
+  const moreActive = !items.some((item) => item.id === current);
+  return (
+    <nav
+      className="shell-bottom-nav"
+      aria-label="Primary navigation"
+      style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}
+    >
+      {items.map((item) => {
+        const active = current === item.id;
+        return (
+          <Link
+            key={item.id}
+            href={access.demo ? item.demoHref! : item.href}
+            className={active ? "active" : ""}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon name={item.icon} size={21} />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+      <button
+        type="button"
+        className={moreOpen || moreActive ? "active" : ""}
+        aria-expanded={moreOpen}
+        aria-controls="workspace-more-navigation"
+        onClick={onMore}
+      >
+        <Icon name="menu" size={21} />
+        <span>More</span>
+      </button>
+    </nav>
+  );
+}
+
+function MobileMore({
+  access,
+  open,
+  onClose,
+}: {
+  access: ShellAccess;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const current = resolveActiveNavId(pathname, params.get("view"), {
+    demo: access.demo,
+    section: params.get("section"),
+  });
+  // Only the destinations actually rendered in the bar are omitted from More.
+  const primary = access.demo ? mobileNavItems.filter((item) => item.demoHref) : mobileNavItems;
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="shell-more" role="dialog" aria-modal="true" aria-label="More navigation">
+      <button type="button" className="shell-more-scrim" aria-label="Close more navigation" tabIndex={-1} onClick={onClose} />
+      <div className="shell-more-sheet" id="workspace-more-navigation">
+        <header>
+          <div>
+            <b>More</b>
+            <small>{access.demo ? "Demo workspace" : "Everything else in Zenvio"}</small>
+          </div>
+          <button ref={closeRef} type="button" className="shell-more-close" aria-label="Close more navigation" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        <div className="shell-more-groups">
+          {visibleNavGroups(navContext(access))
+            // The four thumb destinations are already in the bottom bar; More
+            // holds everything else, never a second copy of the primary rail.
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) => !primary.some((thumb) => thumb.id === item.id)),
+            }))
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <section key={group.id} aria-label={group.label}>
+                <p>{group.label}</p>
+                {group.items.map((item) => navItem(item, access, current, onClose))}
+              </section>
+            ))}
+          <section aria-label="Help and account">
+            <p>Help</p>
+            {!access.demo && (
+              <>
+                <Link href="/app/assistant" onClick={onClose} aria-current={current === "assistant" ? "page" : undefined}>
+                  <Icon name="sparkles" size={18} />
+                  <span>Assistant</span>
+                </Link>
+                <Link href="/app/support" onClick={onClose}>
+                  <Icon name="message" size={18} />
+                  <span>Support</span>
+                </Link>
+                <Link href="/app/feedback" onClick={onClose}>
+                  <Icon name="feedback" size={18} />
+                  <span>Send feedback</span>
+                </Link>
+              </>
+            )}
+            <Link href="/help" onClick={onClose}>
+              <Icon name="file" size={18} />
+              <span>Help center</span>
+            </Link>
+            {access.admin && !access.demo && (
+              <Link href="/admin" onClick={onClose}>
+                <Icon name="shield" size={18} />
+                <span>Admin console</span>
+              </Link>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function paletteItems(access: ShellAccess): PaletteItem[] {
+  const base = access.demo ? "/demo" : "/app";
+  const actions: PaletteItem[] = [
+    {
+      id: "new-link",
+      label: "New service",
+      icon: "plus",
+      href: `${base}?view=event-types&new=link`,
+      group: "Actions",
+      keywords: "event type create booking link service",
+    },
+    ...(access.demo
+      ? []
+      : [
+          {
+            id: "new-appointment",
+            label: "New appointment",
+            icon: "plus",
+            href: "/app?view=bookings&new=appointment",
+            group: "Actions",
+            keywords: "booking schedule create",
+          },
+          { id: "new-client", label: "Add customer", icon: "plus", href: "/app/clients?new=1", group: "Actions", keywords: "contact create client" },
+          { id: "new-document", label: "New PDF document", icon: "plus", href: "/app/documents", group: "Actions", keywords: "envelope signature" },
+          { id: "ask-assistant", label: "Ask Zenvio Assistant", icon: "sparkles", href: "/app/assistant", group: "Actions", keywords: "ai help chat" },
+          { id: "feedback", label: "Send feedback", icon: "feedback", href: "/app/feedback", group: "Actions", keywords: "bug idea suggestion" },
+        ]),
+  ];
+  const pages = visibleNavGroups(navContext(access)).flatMap((group) =>
+    group.items.map((item) => ({
+      id: `page-${item.id}`,
+      label: item.label,
+      icon: item.icon,
+      href: navHref(item, access.demo),
+      group: "Pages",
+      keywords: group.label,
+    })),
+  );
+  if (!access.demo) {
+    pages.push(
+      { id: "page-assistant", label: "Assistant", icon: "sparkles", href: "/app/assistant", group: "Pages", keywords: "ai" },
+      { id: "page-support", label: "Support", icon: "message", href: "/app/support", group: "Pages", keywords: "help" },
+      { id: "page-feedback", label: "Send feedback", icon: "feedback", href: "/app/feedback", group: "Pages", keywords: "bug idea" },
+      { id: "page-templates", label: "PDF templates", icon: "layers", href: "/app/templates", group: "Pages", keywords: "documents" },
+      { id: "page-referrals", label: "Referrals", icon: "users", href: "/app/referrals", group: "Pages", keywords: "affiliate invite credits" },
+      { id: "page-orders", label: "Marketplace orders", icon: "bag", href: "/marketplace/orders", group: "Pages", keywords: "purchases" },
+    );
+  }
+  if (access.admin && !access.demo) {
+    pages.push({ id: "page-admin", label: "Admin console", icon: "shield", href: "/admin", group: "Pages", keywords: "platform" });
+  }
+  return [...actions, ...pages];
+}
+
 export function AppShell({
   user,
   admin = false,
   demo = false,
   jobs = false,
   marketplace = false,
+  role = null,
+  features = {},
   children,
 }: {
   user: { name: string; email: string } | null;
@@ -251,10 +370,16 @@ export function AppShell({
   demo?: boolean;
   jobs?: boolean;
   marketplace?: boolean;
+  role?: CustomerRole | null;
+  features?: Partial<Record<CustomerFeature, boolean>>;
   children: ReactNode;
 }) {
+  // Smart Cards owns the /app/identity/* digital-identity hub; the sidebar
+  // exposes it once, under Business, and the page's own tabs handle the rest.
+  const access: ShellAccess = { demo, trade: jobs, marketplace, role, features, admin };
   const routePath = usePathname();
   const [open, setOpen] = useState(false);
+  const [more, setMore] = useState(false);
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
   const [error, setError] = useState("");
@@ -273,6 +398,7 @@ export function AppShell({
   const sidebarRef = useRef<HTMLElement>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const name = user?.name || (demo ? "Jamie Davis" : "Your account");
+  const palette = useMemo(() => paletteItems(access), [demo, jobs, marketplace, admin, role, features.smartCards, features.growth, features.assistant]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: MouseEvent) => {
@@ -287,12 +413,15 @@ export function AppShell({
     };
   }, [menu]);
   useEffect(() => {
-    document.body.classList.toggle("shell-locked", open);
+    document.body.classList.toggle("shell-locked", open || more);
+  }, [open, more]);
+  useEffect(() => {
     if (!open) return;
     setMenu(false);
+    setMore(false);
     const sidebar = sidebarRef.current;
     const controls = () => Array.from(
-      sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)') || [],
+      sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), summary') || [],
     ).filter((element) => element.getClientRects().length > 0);
     sidebar?.querySelector<HTMLButtonElement>(".shell-close")?.focus();
     const keyboard = (event: KeyboardEvent) => {
@@ -317,12 +446,19 @@ export function AppShell({
     desktop.addEventListener("change", closeOnDesktop);
     document.addEventListener("keydown", keyboard);
     return () => {
-      document.body.classList.remove("shell-locked");
       document.removeEventListener("keydown", keyboard);
       desktop.removeEventListener("change", closeOnDesktop);
       navigationButtonRef.current?.focus();
     };
   }, [open]);
+  useEffect(() => {
+    if (!more) return;
+    // The More sheet is a phone-only surface; a wider viewport closes it.
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMore(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, [more]);
   async function signOut() {
     setError("");
     const r = await fetch("/api/auth", {
@@ -336,7 +472,7 @@ export function AppShell({
   // Demo uses the same shell chrome so reviewers can exercise theme without accounts.
   const themed = demo || !!user;
   const shell = (
-    <div className="shell" data-nav-open={open}>
+    <div className="shell" data-nav-open={open} data-more-open={more}>
       <aside ref={sidebarRef} id="workspace-navigation" className="shell-sidebar" aria-label="Main navigation">
         <div className="shell-sidebar-head">
           <Link href={demo ? "/demo" : "/app"} className="shell-logo">
@@ -352,7 +488,7 @@ export function AppShell({
         </div>
         <nav className="shell-nav">
           <Suspense fallback={<RouteLoading compact label="Loading navigation…" />}>
-            <Navigation marketplace={marketplace} demo={demo} jobs={jobs} onNavigate={() => setOpen(false)} />
+            <Navigation access={access} onNavigate={() => setOpen(false)} />
           </Suspense>
         </nav>
         <div className="shell-sidebar-foot">
@@ -383,7 +519,7 @@ export function AppShell({
           onClick={() => setOpen(false)}
         />
       )}
-      <div className="shell-main" inert={open || undefined}>
+      <div className="shell-main" inert={open || more || undefined}>
         <header className="shell-topbar">
           <button
             className="shell-icon-button shell-menu"
@@ -396,7 +532,7 @@ export function AppShell({
             <Icon name="menu" size={18} />
           </button>
           <Suspense fallback={<div className="shell-breadcrumb" />}>
-            <Breadcrumb demo={demo} />
+            <Breadcrumb access={access} />
           </Suspense>
           <button className="shell-search" onClick={() => setSearch(true)} aria-label="Search (Ctrl+K)">
             <Icon name="search" size={16} />
@@ -480,10 +616,20 @@ export function AppShell({
         <CommandPalette
           open={search}
           onClose={() => setSearch(false)}
-          items={paletteItems(demo, admin, jobs, marketplace)}
+          items={palette}
           searchClients={!demo && !!user}
         />
+        <Suspense fallback={null}>
+          <MobileBar
+            access={access}
+            moreOpen={more}
+            onMore={() => setMore((value) => !value)}
+          />
+        </Suspense>
       </div>
+      <Suspense fallback={null}>
+        <MobileMore access={access} open={more} onClose={() => setMore(false)} />
+      </Suspense>
     </div>
   );
   return themed ? <ThemeProvider>{shell}</ThemeProvider> : shell;

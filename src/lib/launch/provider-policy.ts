@@ -74,7 +74,7 @@ export async function reserveUsage(input: {
         const r = await db.query("insert into private.provider_usage_reservations(user_id,provider,model,reserved_micros) values($1,$2,$3,$4) returning id", [owner, input.provider, input.model || null, input.micros]);
         if(input.provider === "ai" || input.meter === "videoMinutes") {
             const {reserveSubscriptionUnits}=await import("../subscription-usage");
-            const {aiCreditsForCost}=await import("../subscription-offers.mjs");
+            const {aiCreditsForCost}=await import("../pricing-catalog.mjs");
             const usageId=await reserveSubscriptionUnits(db,input.userId,input.meter || "aiCredits",input.meter ? Number(input.quantity) : aiCreditsForCost(input.micros),r.rows[0].id);
             if(usageId)await db.query("update private.provider_usage_reservations set subscription_usage_id=$2 where id=$1",[r.rows[0].id,usageId]);
         }
@@ -102,7 +102,7 @@ export async function settleUsage(id: string, usage: {
       const row=(await db.query("select subscription_usage_id from private.provider_usage_reservations where id=$1 for update",[id])).rows[0];
       if(row?.subscription_usage_id){
         const {settleSubscriptionUnits}=await import("../subscription-usage");
-        const {aiCreditsForCost}=await import("../subscription-offers.mjs");
+        const {aiCreditsForCost}=await import("../pricing-catalog.mjs");
         await settleSubscriptionUnits(db,row.subscription_usage_id,aiCreditsForCost(usage.micros));
       }
       await db.query(`update private.provider_usage_reservations set state='settled',actual_micros=$2,input_tokens=$3,output_tokens=$4,units=$5,settled_at=now() where id=$1 and state in ('reserved','uncertain')`, [id, usage.micros, usage.input || 0, usage.output || 0, usage.units ?? null]);

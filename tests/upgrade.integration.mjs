@@ -808,6 +808,11 @@ try {
     ).status,
     403,
   );
+  // Checkout-disabled behaviour is only observable while the storefront is
+  // visible; migration 071 hides it by default, which returns 404 first.
+  await db.query(
+    "UPDATE private.platform_settings SET value=value||'{\"visible\":true}'::jsonb WHERE key='marketplace'",
+  );
   const demo = (
     await db.query(
       "SELECT id FROM private.marketplace_products WHERE is_demo LIMIT 1",

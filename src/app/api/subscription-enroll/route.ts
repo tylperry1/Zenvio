@@ -1,40 +1,21 @@
 import { NextRequest } from "next/server";
-import { session, sameOrigin, body, failure, integer, ApiError } from "@/lib/server";
+import { session, sameOrigin, body, failure, ApiError } from "@/lib/server";
 import { getPool } from "@/lib/db";
 import { stripeClient } from "@/lib/billing";
 import { saveSubscription } from "@/lib/subscription-management";
 import { billingReadiness } from "@/lib/billing-readiness";
 import {
-  subscriptionLines,
-  catalogVersion,
-  launchCouponId,
-  validLaunchCoupon,
-} from "@/lib/subscription-offers.mjs";
-import {
-  pricingV4ExtraSeat,
-  pricingV4Offer,
-  pricingV4SubscriptionTotal,
-  pricingV4Version,
-} from "@/lib/pricing-v4-catalog.mjs";
-import { pricingV4EnvGates, pricingV4Settings } from "@/lib/pricing-activation";
+  authorizePreview,
+  previewChange,
+  resolveChangeRequest,
+  verifyChangePrices,
+} from "@/lib/subscription-preview";
+import { CATALOG_ID } from "@/lib/pricing-catalog.mjs";
+import { billingEnvGates, billingSettings } from "@/lib/pricing-activation";
 import { appOrigin } from "@/lib/lifecycle";
 import { customerMessages } from "@/lib/customer-messages";
 
 export const dynamic = "force-dynamic";
-
-const V3_PLANS = ["individual", "team"] as const;
-const V4_PAID_PLANS = ["starter", "professional", "business"] as const;
-
-function v4Lines(plan: string, seats: number, period: "monthly" | "annual") {
-  pricingV4SubscriptionTotal(plan, seats);
-  const lines: { plan: string; quantity: number }[] = [{ plan, quantity: 1 }];
-  if (plan === "business" && seats > 3) {
-    lines.push({ plan: pricingV4ExtraSeat.id, quantity: seats - 3 });
-  }
-  // period is applied when resolving Stripe price rows.
-  void period;
-  return lines;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,102 +24,29 @@ export async function POST(req: NextRequest) {
       v = await body(req);
     if (v.confirm !== true) throw new ApiError("Confirm the subscription before continuing.");
 
-    const settings = await pricingV4Settings();
-    const gates = pricingV4EnvGates();
-    const v4Enrollment =
-      gates.validated && settings.enrollmentEnabled === true;
-
-    const plan = String(v.plan);
-    const period =
-      v.period === "annual" ? ("annual" as const) : ("monthly" as const);
-
-    let family: "v3" | "v4" = "v3";
-    let seats = 1;
-    let requested: { plan: string; quantity: number }[] = [];
-    let productSuffix = "_v3";
-    let expectedVersion = catalogVersion;
-
-    if (v4Enrollment && (V4_PAID_PLANS as readonly string[]).includes(plan)) {
-      family = "v4";
-      productSuffix = "_v4";
-      expectedVersion = pricingV4Version;
-      seats = plan === "business" ? integer(v.seats, "seats", 3, 1000) : 1;
-      if (plan === "free") throw new ApiError("The Free plan does not require checkout.");
-      const offer = pricingV4Offer(plan);
-      if (!offer || ("custom" in offer && offer.custom) || offer.monthly == null) {
-        throw new ApiError("Choose a published subscription plan.");
-      }
-      const annualTotal = offer.annual ?? 0;
-      if (period === "annual" && !(annualTotal > 0)) {
-        throw new ApiError("Annual billing is unavailable for this plan.");
-      }
-      requested = v4Lines(plan, seats, period);
-    } else if ((V3_PLANS as readonly string[]).includes(plan)) {
-      if (period !== "monthly") throw new ApiError("These packages use monthly billing.");
-      seats = plan === "team" ? integer(v.seats, "seats", 3, 1000) : 1;
-      requested = subscriptionLines(plan, seats);
-      // Ignore accidental v4 plan ids when v4 enrollment is off.
-    } else {
-      throw new ApiError(
-        v4Enrollment
-          ? "Choose and confirm a Starter, Professional, or Team subscription."
-          : "Choose and confirm an Individual or Teams subscription.",
-      );
-    }
-
-    const readiness = await billingReadiness();
-    if (family === "v3" && !readiness.checkoutEnabled) {
+    const settings = await billingSettings();
+    const gates = billingEnvGates();
+    if (!(gates.validated && settings.enrollmentEnabled === true))
       throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-    }
-    if (family === "v4") {
-      // Check the launch checkout switch directly — do not reuse v3 price-mapping readiness.
-      const { launchControls } = await import("@/lib/launch-controls");
-      if (!(await launchControls()).checkoutEnabled) {
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
-      if (!readiness.connected) {
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
-      if (readiness.blockers.some((b) => /credential|webhook|sandbox/i.test(b))) {
-        // Internal blockers stay server-side; customers only see enrollment status.
-        throw new ApiError(customerMessages.billing.enrollPreparing, 503);
-      }
-      if (process.env.PRICING_V4_VALIDATED !== "true") {
-        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
-      }
-      // v4 price readiness is independent of v3 individual/team/team_extra mappings.
-      const maps = await getPool().query(
-        "SELECT plan, period FROM private.subscription_prices WHERE catalog_version=$1 AND plan = ANY($2::text[])",
-        [pricingV4Version, ["starter", "professional", "business", "business_extra"]],
-      );
-      const need = [
-        ["starter", "monthly"],
-        ["starter", "annual"],
-        ["professional", "monthly"],
-        ["professional", "annual"],
-        ["business", "monthly"],
-        ["business", "annual"],
-        ["business_extra", "monthly"],
-        ["business_extra", "annual"],
-      ];
-      const ready = need.every(([plan, per]) =>
-        maps.rows.some((r) => r.plan === plan && r.period === per),
-      );
-      if (!ready) {
-        throw new ApiError(customerMessages.billing.enrollPricingUnavailable, 503);
-      }
-    }
 
-    const catalog =
-      family === "v3"
-        ? await (await import("@/lib/billing-catalog")).currentCatalog()
-        : {
-            version: pricingV4Version,
-            offers: [
-              ...["starter", "professional", "business"].map((id) => pricingV4Offer(id)!),
-              pricingV4ExtraSeat,
-            ],
-          };
+    // One resolver is shared with the preview endpoint, so the submitted change is
+    // always the change the customer reviewed.
+    const { plan, period, seats, requested } = resolveChangeRequest({
+      plan: v.plan,
+      period: v.period,
+      seats: v.seats,
+    });
+
+    // One readiness check covers credentials, webhook, provider acceptance,
+    // validation and every price mapping. No second mapping query is needed.
+    const readiness = await billingReadiness();
+    if (!readiness.checkoutEnabled)
+      throw new ApiError(
+        readiness.pricesReady
+          ? customerMessages.billing.enrollPreparing
+          : customerMessages.billing.enrollPricingUnavailable,
+        503,
+      );
 
     const db = await getPool().connect(),
       stripe = await stripeClient();
@@ -160,39 +68,8 @@ export async function POST(req: NextRequest) {
         ])
       ).rows[0];
 
-      const lines: { price: string; quantity: number }[] = [];
-      for (const line of requested) {
-        const map = (
-          await db.query(
-            "SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period=$2",
-            [line.plan, period],
-          )
-        ).rows[0];
-        if (!map || map.catalog_version !== catalog.version) {
-          throw new ApiError("This package is temporarily unavailable.", 503);
-        }
-        const price = await stripe.prices.retrieve(map.stripe_price_id);
-        const offer = catalog.offers.find((p) => p.id === line.plan)!;
-        const expectedAmount =
-          period === "annual"
-            ? Number((offer as { annual?: number }).annual || 0)
-            : Number(offer.monthly);
-        const expectedInterval = period === "annual" ? "year" : "month";
-        if (
-          price.product !== `zenvio_${offer.id}${productSuffix}` ||
-          !price.active ||
-          price.currency !== "usd" ||
-          price.unit_amount !== expectedAmount ||
-          price.recurring?.interval !== expectedInterval ||
-          price.recurring.interval_count !== 1
-        ) {
-          throw new ApiError(
-            "The recurring price could not be verified. No payment has been taken.",
-            503,
-          );
-        }
-        lines.push({ price: price.id, quantity: line.quantity });
-      }
+      const verified = await verifyChangePrices({ db, stripe, requested, period });
+      const lines = verified.lines;
 
       if (local?.subscription_id) {
         await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
@@ -220,15 +97,8 @@ export async function POST(req: NextRequest) {
               "Resolve your scheduled subscription change before updating this package.",
               409,
             );
-          // Interval changes (monthly ↔ annual) require a new checkout; item swaps stay same-interval.
-          const currentInterval = current.items.data[0]?.price?.recurring?.interval;
-          const nextInterval = period === "annual" ? "year" : "month";
-          if (currentInterval && currentInterval !== nextInterval) {
-            throw new ApiError(
-              "Switching between monthly and annual billing requires a new checkout from Plan & billing.",
-              409,
-            );
-          }
+          // Same-plan interval swaps (monthly ↔ annual) are ordinary Stripe item
+          // replacements; always_invoice below produces the prorated charge or credit.
           await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
             "entitlements:" + token,
           ]);
@@ -243,6 +113,21 @@ export async function POST(req: NextRequest) {
               "Remove or reassign staff before reducing your seat count.",
               409,
             );
+          // v4 changes carry a signed quote. Recompute it at the confirmed
+          // proration date and refuse to submit unless every number still matches.
+          const confirmed = await authorizePreview({
+            token: v.previewToken,
+            compute: (prorationDate) =>
+              previewChange({
+                stripe,
+                subscription: current,
+                items: lines,
+                recurringCents: verified.recurringCents,
+                currency: verified.currency,
+                interval: verified.interval,
+                prorationDate,
+              }),
+          });
           const items = [
             ...current.items.data
               .filter((item) => !lines.some((line) => line.price === item.price.id))
@@ -260,8 +145,28 @@ export async function POST(req: NextRequest) {
             items,
             payment_behavior: "pending_if_incomplete",
             proration_behavior: "always_invoice",
+            // Quote and invoice exactly the same proration.
+            ...(confirmed ? { proration_date: confirmed.prorationDate } : {}),
           });
           await saveSubscription(db, updated, token);
+          // Audit the confirmed change with the amounts the customer approved.
+          await db.query(
+            "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)",
+            [
+              token,
+              "subscription_change_confirmed",
+              JSON.stringify({
+                plan,
+                period,
+                seats,
+                amount_due_cents: confirmed?.amountDueCents ?? null,
+                proration_cents: confirmed?.prorationCents ?? null,
+                credit_cents: confirmed?.creditCents ?? null,
+                recurring_cents: verified.recurringCents,
+                proration_date: confirmed?.prorationDate ?? null,
+              }),
+            ],
+          );
           await db.query("COMMIT");
           return Response.json({
             ok: true,
@@ -306,60 +211,23 @@ export async function POST(req: NextRequest) {
       ))
         await stripe.checkout.sessions.expire(checkout.id);
 
-      let launchDiscount = false;
-      if (family === "v3") {
-        const reservation = (
-          await db.query(
-            "SELECT id,claimed_user_id FROM private.early_access_signups WHERE email=$1 AND offer_version='launch50_3months_v1' FOR UPDATE",
-            [user.email.toLowerCase()],
-          )
-        ).rows[0];
-        const promotion = (
-          await db.query(
-            "SELECT value FROM private.platform_settings WHERE key='pricing_v3_launch_promotion'",
-          )
-        ).rows[0]?.value;
-        if (
-          promotion?.enabled === true &&
-          reservation &&
-          (!reservation.claimed_user_id || reservation.claimed_user_id === token) &&
-          existing.data.length === 0
-        ) {
-          const coupon = await stripe.coupons.retrieve(launchCouponId, {
-            expand: ["applies_to"],
-          });
-          if (!validLaunchCoupon(coupon))
-            throw new ApiError(
-              "Your reserved early-adopter offer needs billing review. No payment has been taken.",
-              503,
-            );
-          launchDiscount = true;
-          await db.query(
-            "UPDATE private.early_access_signups SET claimed_user_id=$2 WHERE id=$1 AND (claimed_user_id IS NULL OR claimed_user_id=$2)",
-            [reservation.id, token],
-          );
-        }
-      }
-
       const checkout = await stripe.checkout.sessions.create({
         customer: local.customer_id,
         mode: "subscription",
-        ...(launchDiscount
-          ? { discounts: [{ coupon: launchCouponId }] }
-          : { allow_promotion_codes: true }),
+        allow_promotion_codes: true,
         client_reference_id: token,
         metadata: {
           user_id: token,
           plan,
           period,
-          catalog_version: expectedVersion,
+          catalog_version: CATALOG_ID,
         },
         subscription_data: {
           metadata: {
             user_id: token,
             plan,
             period,
-            catalog_version: expectedVersion,
+            catalog_version: CATALOG_ID,
           },
         },
         line_items: lines,

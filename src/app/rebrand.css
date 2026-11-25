@@ -17,18 +17,18 @@ body :is(input[type=checkbox],input[type=radio]) { width: 17px; height: 17px; ac
 body :is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 body :is(.button.primary,.ui-btn-primary,.ds-btn.primary,.shell-button.primary,.billing-primary) { background: linear-gradient(135deg,var(--action-primary),#174aff); border: 1px solid color-mix(in srgb, var(--action-primary) 80%, #000); color: var(--text-on-accent); box-shadow: 0 3px 7px color-mix(in srgb, var(--action-primary) 20%, transparent), inset 0 1px 0 #ffffff33; font-weight: 600; }
 body :is(.button.secondary,.ui-btn-secondary,.ui-btn-ghost,.ds-btn,.shell-button) { border-radius: 9px; }
-body :is(.ui-card,.ds-panel,.av-panel,.av-stat,.subscription-card,.envelope-card,.portal-panel) { border-color: var(--border); border-radius: 15px; background: var(--surface-card); box-shadow: var(--shadow); color: var(--text-primary); }
-body :is(.ds-panel-header,.ui-card-head,.av-panel-heading) { padding: 20px 22px; gap: 16px; }
-body :is(.ds-panel-header h2,.ui-card-head h2,.av-panel-heading h2) { font-size: 17px; font-weight: 700; letter-spacing: -.025em; color: var(--text-primary); }
+body :is(.ui-card,.ds-panel,.av-panel,.subscription-card,.envelope-card,.portal-panel){ border-color: var(--border); border-radius: 15px; background: var(--surface-card); box-shadow: var(--shadow); color: var(--text-primary); }
+body :is(.ds-panel-header,.ui-card-head){ padding: 20px 22px; gap: 16px; }
+body :is(.ds-panel-header h2,.ui-card-head h2){ font-size: 17px; font-weight: 700; letter-spacing: -.025em; color: var(--text-primary); }
 body :is(.ds-panel-header p,.ui-card-head p) { line-height: 1.55; color: var(--text-muted); }
-body :is(.ds-kpi,.ui-stat,.av-stat) { border-radius: 15px; padding: 22px; background: var(--surface-card); border: 1px solid var(--border); position: relative; overflow: hidden; color: var(--text-primary); }
-body :is(.ds-kpi,.ui-stat,.av-stat)::after { content:""; position:absolute; width:80px; height:80px; border-radius:50%; right:-34px; bottom:-34px; background: color-mix(in srgb, var(--action-primary) 8%, transparent); pointer-events:none; }
-body :is(.ds-kpi,.ui-stat,.av-stat) strong { font-size: 30px; letter-spacing: -.04em; color: var(--text-primary); }
+body :is(.ds-kpi,.ui-stat){ border-radius: 15px; padding: 22px; background: var(--surface-card); border: 1px solid var(--border); position: relative; overflow: hidden; color: var(--text-primary); }
+body :is(.ds-kpi,.ui-stat)::after{ content:""; position:absolute; width:80px; height:80px; border-radius:50%; right:-34px; bottom:-34px; background: color-mix(in srgb, var(--action-primary) 8%, transparent); pointer-events:none; }
+body :is(.ds-kpi,.ui-stat) strong{ font-size: 30px; letter-spacing: -.04em; color: var(--text-primary); }
 body :is(.ds-badge,.ui-badge) { font-weight: 600; border-radius: 7px; }
-body :is(.ui-table,.ds-table,.av-table) { border-collapse: separate; border-spacing: 0; }
-body :is(.ui-table,.ds-table,.av-table) th { background: var(--ds-surface-muted); color: var(--text-muted); font-size: 11px; letter-spacing: .045em; padding-top: 14px; padding-bottom: 14px; }
-body :is(.ui-table,.ds-table,.av-table) td { padding-top: 17px; padding-bottom: 17px; border-bottom-color: var(--ds-line-soft); color: var(--text-primary); }
-body :is(.ui-table,.ds-table,.av-table) tbody tr:hover { background: var(--surface-hover); }
+body :is(.ui-table,.ds-table){ border-collapse: separate; border-spacing: 0; }
+body :is(.ui-table,.ds-table) th{ background: var(--ds-surface-muted); color: var(--text-muted); font-size: 11px; letter-spacing: .045em; padding-top: 14px; padding-bottom: 14px; }
+body :is(.ui-table,.ds-table) td{ padding-top: 17px; padding-bottom: 17px; border-bottom-color: var(--ds-line-soft); color: var(--text-primary); }
+body :is(.ui-table,.ds-table) tbody tr:hover{ background: var(--surface-hover); }
 body :is(.ui-modal,.ds-drawer,.modal-card,.shell-account-menu,.cmd-panel,.shell-theme-menu) { border-color: var(--border); border-radius: 16px; background: var(--surface-elevated); box-shadow: var(--ds-elev-2); color: var(--text-primary); }
 body :is(.ui-tabs,.ds-segmented,.envelope-tabs,.document-tabs) { gap: 5px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-inset); }
 body :is(.ui-tabs,.ds-segmented,.envelope-tabs,.document-tabs) button { border-radius: 8px; white-space: nowrap; color: var(--text-secondary); }
@@ -130,9 +130,9 @@ body main.legal-page { color:var(--text-primary); }
   body .shell-content { padding:20px 14px 88px; }
   body .shell :is(.page-header h1,.ds-page-header h1), body .admin-v3 :is(.av-page-heading h1,.ds-page-header h1) { font-size:24px; }
   body .shell .platform-page section { padding:16px; }
-  body :is(.ds-panel-header,.ui-card-head,.av-panel-heading) { padding:17px; }
-  body :is(.ds-kpi,.ui-stat,.av-stat) { padding:17px; }
-  body :is(.ds-kpi,.ui-stat,.av-stat) strong { font-size:26px; }
+  body :is(.ds-panel-header,.ui-card-head){ padding:17px; }
+  body :is(.ds-kpi,.ui-stat){ padding:17px; }
+  body :is(.ds-kpi,.ui-stat) strong{ font-size:26px; }
   body .admin-v3 :is(.av-content,.av-frame-content) { padding:20px 14px 80px; }
   body :is(.cal-toolbar,.cal-filters) { padding:12px; gap:10px; flex-wrap:wrap; }
   body .cal-nav { flex-wrap:wrap; }

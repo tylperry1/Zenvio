@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { formatAllowance, isUnlimitedQuantity, progressMax, progressValue } from "@/lib/allowance-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 export function UsagePanel() {
   const [data, setData] = useState<any>(null),
     [error, setError] = useState("");
@@ -22,7 +23,7 @@ export function UsagePanel() {
       {data && (
         <>
           <p>
-            {data.plan === "team" ? "Teams" : data.plan === "individual" ? "Individual" : data.plan} ·{" "}
+            {planDisplayName(data.plan)} ·{" "}
             {unlimitedSeats ? "Unlimited hosts" : `${data.seats} host${data.seats === 1 ? "" : "s"}`}
           </p>
           {data.envelope && (

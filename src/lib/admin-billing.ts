@@ -1,19 +1,24 @@
 import { createHash } from "node:crypto";
 import { getPool } from "./db";
-import { stripeClient } from "./billing";
+import { stripeClient, stripeEnvironment } from "./billing";
 import { ApiError, integer, string, uuid } from "./server";
 import { sandboxAccepted } from "./launch-controls";
-import { validateCatalog, currentCatalog } from "./billing-catalog";
+import {
+  EXTRA_SEAT,
+  SELLABLE_PLANS,
+  planById,
+  CATALOG_ID,
+  stripeProductFor,
+} from "./pricing-catalog.mjs";
 import { saveSubscription } from "./subscription-management";
 import {
   couponDefinitionMatches,
   insertLocalCoupon,
   listBillingCoupons,
   parseCouponInput,
-  productsForTargets,
+  couponProducts,
   setPromotionActive,
   syncCouponToStripe,
-  type CatalogTarget,
 } from "./billing-coupons";
 import {
   listBillingAddons,
@@ -67,21 +72,19 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       return prior.result;
     }
     let result: any = { ok: true };
-    if (action === "draft") {
-      const catalog = validateCatalog(input.catalog);
-      result.id = (
-        await db.query(
-          "INSERT INTO private.billing_catalog_versions(state,catalog,created_by) VALUES('draft',$1,$2) RETURNING id",
-          [JSON.stringify(catalog), actor],
-        )
-      ).rows[0].id;
-    } else if (action === "list-coupons") {
+    if (action === "list-coupons") {
       result = { ok: true, coupons: await listBillingCoupons(db) };
     } else if (action === "list-addons") {
       result = { ok: true, addons: await listBillingAddons(db) };
     } else if (action === "addon-update") {
       // Local catalog edit only — does not call Stripe or enable purchase flags.
       result = { ok: true, addon: await updateBillingAddon(db, actor, input) };
+    } else if (action === "stripe-reconcile") {
+      // Read-only comparison: safe without a catalog mutation gate.
+      const stripe = await stripeClient();
+      const environment = typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
+      const { reconcileStripeCatalog } = await import("./billing-reconcile");
+      result = { ok: true, reconciliation: await reconcileStripeCatalog(stripe, environment, actor) };
     } else {
       if (!(await sandboxAccepted()))
         throw new ApiError(
@@ -91,8 +94,10 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
       const stripe = await stripeClient();
       if (action === "addon-sync") {
         const addonId = string(input.addonId || input.id, "add-on id", 64, 1);
+        const environment =
+          typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
         try {
-          const synced = await syncAddonToStripe(db, stripe, addonId, actor);
+          const synced = await syncAddonToStripe(db, stripe, addonId, actor, environment);
           if (synced.sync_status !== "synced" || !synced.stripe_price_id) {
             throw new ApiError(
               "Stripe add-on price was not created. Retry sync after fixing the provider error.",
@@ -134,60 +139,13 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             400,
           );
         }
-        const results = await syncAllAddonsToStripe(db, stripe, actor);
+        const environment =
+          typeof stripeEnvironment === "function" ? await stripeEnvironment() : "unknown";
+        const results = await syncAllAddonsToStripe(db, stripe, actor, environment);
         result = {
           ok: true,
           results,
           message: "Add-on Stripe sync finished. Purchase remains gated until ADDON_BILLING_VALIDATED.",
-        };
-      } else if (action === "publish") {
-        if (input.confirmLiveStripe !== true)
-          throw new ApiError(
-            "Confirm publishing to create new Stripe prices for new enrollments. Existing subscriber prices are never rewritten.",
-            400,
-          );
-        await db.query("SELECT pg_advisory_xact_lock(hashtextextended('subscription-catalog-v1',0))");
-        const id = uuid(input.draftId),
-          draft = (
-            await db.query(
-              "SELECT * FROM private.billing_catalog_versions WHERE id=$1 FOR UPDATE",
-              [id],
-            )
-          ).rows[0];
-        if (!draft || draft.state !== "draft") throw new ApiError("Choose an unpublished draft.", 409);
-        const catalog = validateCatalog(draft.catalog),
-          version = "release-" + id;
-        for (const offer of catalog.offers) {
-          const price = await stripe.prices.create(
-            {
-              product: "zenvio_" + offer.id + "_v3",
-              currency: "usd",
-              unit_amount: offer.monthly,
-              recurring: { interval: "month" },
-              metadata: { zenvio_offer: offer.id, catalog_version: version },
-            },
-            { idempotencyKey: "catalog-" + id + "-" + offer.id },
-          );
-          await db.query(
-            "INSERT INTO private.subscription_prices(plan,period,stripe_price_id,catalog_version) VALUES($1,'monthly',$2,$3) ON CONFLICT(plan,period) DO UPDATE SET stripe_price_id=$2,catalog_version=$3",
-            [offer.id, price.id, version],
-          );
-          await db.query(
-            "INSERT INTO private.subscription_price_history(stripe_price_id,plan,period,catalog_version) VALUES($1,$2,'monthly',$3) ON CONFLICT DO NOTHING",
-            [price.id, offer.id, version],
-          );
-        }
-        await db.query(
-          "UPDATE private.billing_catalog_versions SET state='superseded' WHERE state='published'",
-        );
-        await db.query(
-          "UPDATE private.billing_catalog_versions SET state='published',published_at=now() WHERE id=$1",
-          [id],
-        );
-        result = {
-          ok: true,
-          version,
-          message: "Published for new enrollments. Existing subscriptions are unchanged.",
         };
       } else if (action === "coupon" || action === "coupon-retry") {
         // Persist local coupon even when Stripe sync fails so admins can retry.
@@ -205,11 +163,10 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
                   discountType: "percent",
                   duration: "repeating",
                   durationInMonths: input.months ?? input.durationInMonths,
-                  catalogTargets: (input.catalogTargets as CatalogTarget[]) || ["v3"],
                 }
               : input,
           );
-          const products = productsForTargets(parsed.catalogTargets || ["v3"]);
+          const products = couponProducts();
           // Reuse coupon from a prior failed attempt of this operation, or an existing code row
           // whose normalized definition matches (targets/duration/eligibility). Else 409.
           // Same-op reuse (failed or pending durable associate) keeps couponId on the operation.
@@ -408,9 +365,13 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           throw new ApiError("Resolve the subscription's current or scheduled billing state first.", 409);
         if (action === "preview") {
           const plan = String(input.plan);
-          if (!["individual", "team"].includes(plan))
-            throw new ApiError("Choose Individual or Teams.");
-          const seats = plan === "team" ? integer(input.seats, "seats", 3, 1000) : 1;
+          if (!SELLABLE_PLANS.some((offer) => offer.id === plan && offer.id !== EXTRA_SEAT.id))
+            throw new ApiError("Choose a current subscription plan.");
+          const period = input.period === "annual" ? ("annual" as const) : ("monthly" as const);
+          const seats =
+            plan === "business"
+              ? integer(input.seats, "seats", 3, 1000)
+              : 1;
           const members = (
             await db.query(
               "SELECT count(DISTINCT m.user_id)::int n FROM private.memberships m JOIN private.organizations o ON o.id=m.organization_id WHERE o.owner_id=$1 AND m.active",
@@ -419,28 +380,36 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
           ).rows[0].n;
           if (members > seats)
             throw new ApiError("Deactivate or reassign teammates before reducing seats.", 409);
-          const catalog = await currentCatalog(),
-            lines: { price: string; quantity: number }[] = [];
+          const lines: { price: string; quantity: number }[] = [];
           for (const [name, quantity] of [
             [plan, 1],
-            ...(plan === "team" && seats > 3 ? [["team_extra", seats - 3]] : []),
+            ...(plan === "business" && seats > 3
+              ? [[EXTRA_SEAT.id, seats - 3] as [string, number]]
+              : []),
           ] as [string, number][]) {
             const map = (
               await db.query(
-                "SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period='monthly'",
-                [name],
+                "SELECT stripe_price_id,catalog_version FROM private.subscription_prices WHERE plan=$1 AND period=$2",
+                [name, period],
               )
             ).rows[0];
-            const offer = catalog.offers.find((o) => o.id === name);
-            if (!map || map.catalog_version !== catalog.version || !offer)
+            const offer = name === EXTRA_SEAT.id ? EXTRA_SEAT : planById(name);
+            if (!map || map.catalog_version !== CATALOG_ID || !offer)
               throw new ApiError("Published price mapping is unavailable.", 409);
+            const expectedAmount = Number(
+              period === "annual"
+                ? (offer as { annual?: number | null }).annual
+                : (offer as { monthly?: number | null }).monthly,
+            );
+            if (!Number.isSafeInteger(expectedAmount) || expectedAmount < 0)
+              throw new ApiError("Published price amount is unavailable.", 409);
             const price = await stripe.prices.retrieve(map.stripe_price_id);
             if (
-              price.product !== "zenvio_" + name + "_v3" ||
+              price.product !== stripeProductFor(name) ||
               price.currency !== "usd" ||
               !price.active ||
-              price.unit_amount !== offer.monthly ||
-              price.recurring?.interval !== "month" ||
+              price.unit_amount !== expectedAmount ||
+              price.recurring?.interval !== (period === "annual" ? "year" : "month") ||
               price.recurring.interval_count !== 1
             )
               throw new ApiError("Price verification failed.", 409);
@@ -471,6 +440,8 @@ export async function adminBilling(actor: string, input: Record<string, unknown>
             items,
             seats,
             plan,
+            period,
+            catalogVersion: CATALOG_ID,
             prorationDate,
             amountDue: preview.amount_due,
             currency: preview.currency,

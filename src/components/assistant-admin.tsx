@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { AiProviderConfig, AiProviderId } from "@/lib/launch/contracts";
+import { AdminPageHeader } from "./admin-page-header";
 import { Alert, Badge, Card, EmptyState, Field, Skeleton, Toggle, formatDateTime, useToast } from "./ui";
 
 type Data = {
@@ -91,13 +92,17 @@ export function AssistantAdmin() {
   const month = data?.usage.filter((u) => u.day.slice(0, 7) === new Date().toISOString().slice(0, 7));
   return (
     <main className="ea-admin premium-admin ai-operations">
-      <header className="page-header">
-        <div>
-          <span className="premium-eyebrow">AI operations</span><h1>AI assistant</h1>
-          <p>Turn the assistant on or off, set usage limits, and review every action members approved.</p>
-        </div>
-        {data && <Badge tone={data.configured && data.policy.enabled ? "success" : "warning"}>{data.configured && data.policy.enabled ? "Assistant ready" : "Setup required"}</Badge>}
-      </header>
+      <AdminPageHeader
+        title="AI assistant"
+        description="Turn the assistant on or off, set usage limits, and review every action members approved."
+        actions={
+          data ? (
+            <Badge tone={data.configured && data.policy.enabled ? "success" : "warning"}>
+              {data.configured && data.policy.enabled ? "Assistant ready" : "Setup required"}
+            </Badge>
+          ) : undefined
+        }
+      />
       {error && <Alert tone="danger">{error}</Alert>}
       {!data && !error && <Skeleton rows={6} />}
       {data && policy && (
@@ -168,7 +173,7 @@ export function AssistantAdmin() {
               </form>
             )}
           </Card>
-          <Card title="Account request limits" description="Daily request and monthly token limits are additional safeguards. Eligible Individual and Teams plans also use the workspace’s pooled AI credits.">
+          <Card title="Account request limits" description="Daily request and monthly token limits are additional safeguards. Eligible paid plans also use the workspace’s pooled AI credits.">
             <form
               className="ui-form"
               onSubmit={(e) => {

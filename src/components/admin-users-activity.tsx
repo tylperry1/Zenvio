@@ -20,6 +20,7 @@ import {
 import { Icon } from "./icons";
 import { Modal } from "./modal";
 import { formatAllowance } from "@/lib/allowance-display";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 type UserRow = {
   id: string;
@@ -29,6 +30,7 @@ type UserRow = {
   created_at: string;
   last_active: string | null;
   plan: string;
+  catalog_version?: string | null;
   subscription_status: string | null;
   master: boolean;
   staff: boolean;
@@ -37,7 +39,7 @@ type Summary = {
   kpis: { total: number; active: number; new_30d: number; new_prev_30d: number; paying: number; unverified: number };
   signups: { day: string; value: number }[];
   activity: { day: string; value: number }[];
-  plans: { plan: string; count: number }[];
+  plans: { plan: string; catalog_version?: string | null; count: number }[];
   users: UserRow[];
   total: number;
   page: number;
@@ -82,8 +84,7 @@ const planColors: Record<string, string> = {
   pro: "var(--ds-chart-4)",
   business: "#ef4444",
 };
-const planName = (p: string) =>
-  ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams (legacy)", pro: "Pro (legacy)", business: "Business (legacy)" })[p] || p;
+const planName = (p: string) => planDisplayName(p);
 const label = (a: string) => a.replaceAll("_", " ").replace(/^\w/, (c) => c.toUpperCase());
 const initials = (n: string) => n.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 // Days arrive as UTC midnight timestamps (or plain dates); format in UTC.

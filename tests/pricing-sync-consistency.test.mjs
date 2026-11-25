@@ -25,136 +25,115 @@ function load(file, deps = {}) {
   return m.exports;
 }
 
-const v4 = load("src/lib/pricing-v4-catalog.mjs");
-const offers = load("src/lib/subscription-offers.mjs");
+const catalog = load("src/lib/pricing-catalog.mjs");
 
 test("public add-ons never advertise SMS for sale or as coming soon", () => {
   const display = load("src/lib/public-pricing-display.ts", {
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
   });
-  const publicAddons = display.publicAddonsForDisplay(offers.addonOffers);
+  const publicAddons = display.publicAddonsForDisplay(catalog.ADDONS);
   assert.ok(publicAddons.every((a) => a.unit !== "smsSegments"));
   assert.ok(!publicAddons.some((a) => /sms/i.test(a.id) || /sms/i.test(a.name)));
-  const v4Public = display.publicAddonsForDisplay(v4.pricingV4Addons);
-  assert.ok(v4Public.every((a) => a.available === false));
+  assert.ok(publicAddons.every((a) => a.available === false));
 });
 
-test("live help text is derived from published catalog amounts", () => {
+test("live help text is derived from the canonical catalog amounts", () => {
   const display = load("src/lib/public-pricing-display.ts", {
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
   });
   const text = display.liveBillingHelpText({
-    version: "2026-11-v3",
-    offers: [
-      { id: "individual", name: "Individual", monthly: 2999, annual: 0, seats: 1 },
-      { id: "team", name: "Teams", monthly: 4999, annual: 0, seats: 3 },
-      { id: "team_extra", name: "Additional team seat", monthly: 999, annual: 0, seats: 1 },
-    ],
-    allowances: offers.monthlyAllowances,
+    offers: [...catalog.PLANS, catalog.EXTRA_SEAT],
+    allowances: catalog.PLAN_ALLOWANCES,
   });
-  assert.match(text, /\$29\.99/);
-  assert.match(text, /\$49\.99/);
   assert.match(text, /\$9\.99/);
-  assert.doesNotMatch(text, /\$19\.99/);
+  assert.match(text, /\$19\.99/);
+  assert.match(text, /\$34\.99/);
+  assert.match(text, /\$5\.00/);
 });
 
-test("client pricing components import display helpers, not the server surface", () => {
-  const v4Src = fs.readFileSync("src/components/public-pricing-v4.tsx", "utf8");
-  const allowances = fs.readFileSync("src/components/pricing-allowances.tsx", "utf8");
-  assert.match(v4Src, /public-pricing-display/);
-  assert.doesNotMatch(v4Src, /public-pricing-surface/);
-  assert.match(allowances, /public-pricing-display/);
-  assert.doesNotMatch(allowances, /public-pricing-surface/);
+test("client pricing component imports display helpers, not the server surface", () => {
+  const src = fs.readFileSync("src/components/public-pricing.tsx", "utf8");
+  assert.match(src, /public-pricing-display/);
+  assert.doesNotMatch(src, /public-pricing-surface/);
 });
 
-test("v3 and v4 public surfaces stay consistent when preview flips", async () => {
+test("one public surface opens and closes enrollment on settings, validation and readiness", async () => {
   const display = load("src/lib/public-pricing-display.ts", {
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
   });
-  const make = (settings) =>
+  const make = (
+    settings,
+    readiness = { checkoutEnabled: true },
+    gates = { validated: false, addonValidated: false, checkoutEnabled: false },
+  ) =>
     load("src/lib/public-pricing-surface.ts", {
-      "./billing-catalog": {
-        currentCatalog: async () => ({
-          version: "2026-11-v3",
-          offers: [offers.individualOffer, offers.teamOffer, offers.extraSeatOffer],
-          allowances: offers.monthlyAllowances,
-        }),
-      },
       "./pricing-activation": {
-        pricingV4Settings: async () => settings,
-        pricingV4EnvGates: () => ({ validated: false, addonValidated: false, checkoutEnabled: false }),
+        billingSettings: async () => settings,
+        billingEnvGates: () => gates,
       },
-      "./pricing-v4-catalog.mjs": v4,
-      "./subscription-offers.mjs": offers,
-      "./billing-readiness": { billingReadiness: async () => ({ checkoutEnabled: true }) },
+      "./pricing-catalog.mjs": catalog,
+      "./billing-readiness": { billingReadiness: async () => readiness },
       "./public-pricing-display": display,
     });
 
-  const v3 = await make({
-    previewEnabled: false,
-    enrollmentEnabled: false,
-    publicCatalog: "v3",
-  }).publicPricingSurface();
-  assert.equal(v3.family, "v3");
-  assert.equal(v3.previewOnly, false);
-  assert.ok(v3.display.offers.some((o) => o.id === "individual" && o.monthly === 2999));
-  assert.ok(!v3.display.addons.some((a) => /sms/i.test(a.id)));
-
-  const preview = await make({
-    previewEnabled: true,
-    enrollmentEnabled: false,
-    publicCatalog: "v4",
-  }).publicPricingSurface();
-  assert.equal(preview.family, "v4");
+  const preview = await make({ enrollmentEnabled: false }).publicPricingSurface();
+  assert.equal(preview.family, "plans");
   assert.equal(preview.previewOnly, true);
   assert.equal(preview.enrollment.enabled, false);
   assert.equal(preview.enrollment.plans.length, 0);
   assert.ok(preview.display.offers.some((o) => o.id === "professional" && o.monthly === 1999));
-  assert.equal(preview.liveCatalog.version, "2026-11-v3");
+  assert.ok(!("version" in preview.display));
+  assert.ok(!("version" in preview.liveCatalog));
+
+  const open = await make(
+    { enrollmentEnabled: true },
+    { checkoutEnabled: true },
+    { validated: true, addonValidated: false, checkoutEnabled: true },
+  ).publicPricingSurface();
+  assert.equal(open.previewOnly, false);
+  assert.equal(open.enrollment.enabled, true);
+  assert.deepEqual(open.enrollment.plans, ["starter", "professional", "business"]);
+
+  const blocked = await make(
+    { enrollmentEnabled: true },
+    { checkoutEnabled: false },
+    { validated: true, addonValidated: false, checkoutEnabled: true },
+  ).publicPricingSurface();
+  assert.equal(blocked.previewOnly, true);
+  assert.equal(blocked.enrollment.enabled, false);
 });
 
-test("catalog sync report flags missing live mappings and pending v4 rows", async () => {
+test("catalog sync reports missing and mismatched canonical mappings", async () => {
+  const rows = [
+    ["starter", "monthly", "price_s_m"],
+    ["starter", "annual", "price_s_a"],
+    ["professional", "monthly", "price_p_m"],
+    ["professional", "annual", "price_p_a"],
+    ["business", "monthly", "price_b_m"],
+    ["business", "annual", "price_b_a"],
+  ].map(([plan, period, price]) => ({
+    plan,
+    period,
+    stripe_price_id: price,
+    catalog_version: catalog.CATALOG_ID,
+  }));
   const sync = load("src/lib/pricing-sync.ts", {
     "./db": {
       databaseConfigured: () => true,
-      getPool: () => ({
-        query: async () => ({
-          rows: [
-            {
-              plan: "individual",
-              period: "monthly",
-              stripe_price_id: "price_ind",
-              catalog_version: "2026-11-v3",
-            },
-            {
-              plan: "team",
-              period: "monthly",
-              stripe_price_id: "price_team",
-              catalog_version: "2026-11-v3",
-            },
-          ],
-        }),
-      }),
+      getPool: () => ({ query: async () => ({ rows }) }),
     },
-    "./billing-catalog": {
-      currentCatalog: async () => ({
-        version: "2026-11-v3",
-        offers: [offers.individualOffer, offers.teamOffer, offers.extraSeatOffer],
-        allowances: offers.monthlyAllowances,
-      }),
-    },
-    "./pricing-v4-catalog.mjs": v4,
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
   });
   const report = await sync.catalogSyncReport();
-  assert.equal(report.summary.liveSynchronized, 2);
-  assert.equal(report.summary.liveMissing, 1);
-  assert.ok(report.summary.v4Pending > 0);
-  assert.ok(report.proposedV4.every((r) => r.status !== "synchronized" || r.mappedCatalogVersion === v4.pricingV4Version));
-  const freeRows = report.proposedV4.filter((r) => r.plan === "free");
-  assert.ok(freeRows.length >= 1);
-  assert.ok(freeRows.every((r) => r.status === "not_applicable"));
-  assert.ok(!freeRows.some((r) => r.status === "pending_provision"));
+  assert.equal(report.rows.length, 8);
+  assert.equal(report.summary.synchronized, 6);
+  assert.equal(report.summary.missing, 2);
+  assert.equal(report.summary.mismatched, 0);
+  assert.ok(report.rows.every((r) => r.status !== "synchronized" || r.mappedCatalogVersion === catalog.CATALOG_ID));
+  assert.deepEqual(
+    report.rows.filter((r) => r.status === "missing").map((r) => `${r.plan}:${r.period}`),
+    ["business_extra:monthly", "business_extra:annual"],
+  );
 });
 
 test("billing readiness fails closed without a database and does not call getPool", async () => {
@@ -171,9 +150,9 @@ test("billing readiness fails closed without a database and does not call getPoo
       launchControls: async () => ({ checkoutEnabled: true }),
       sandboxAccepted: async () => true,
     },
-    "./platform-settings": {
-      integrationValue: async () => "secret",
-    },
+    "./platform-settings": { integrationValue: async () => "secret" },
+    "./stripe-environment": load("src/lib/stripe-environment.ts"),
+    "./pricing-catalog.mjs": catalog,
   });
   const result = await readiness.billingReadiness();
   assert.equal(result.checkoutEnabled, false);
@@ -181,20 +160,59 @@ test("billing readiness fails closed without a database and does not call getPoo
   assert.equal(poolCalls, 0);
 });
 
-test("team capacity helper keeps legacy business single-seat until v4 catalog", () => {
-  const policy = load("src/lib/entitlement-policy.ts", {
-    "./subscription-offers.mjs": {
-      monthlyAllowances: {
-        individual: { envelopes: 10 },
-        team: { envelopes: 30 },
+test("checkout readiness is one gate on the single validation flag", async () => {
+  const loadReadiness = (flag) => {
+    process.env.BILLING_VALIDATED = flag;
+    return load("src/lib/billing-readiness.ts", {
+      "./db": {
+        databaseConfigured: () => true,
+        getPool: () => ({
+          query: async () => ({
+            rows: ["starter", "professional", "business", "business_extra"].flatMap((plan) => [
+              { plan, period: "monthly" },
+              { plan, period: "annual" },
+            ]),
+          }),
+        }),
       },
-    },
-    "./pricing-v4-catalog.mjs": v4,
+      "./pricing-catalog.mjs": catalog,
+      "./launch-controls": {
+        launchControls: async () => ({ checkoutEnabled: true }),
+        sandboxAccepted: async () => true,
+      },
+      "./platform-settings": {
+        integrationValue: async (key) => (key === "STRIPE_SECRET_KEY" ? "sk_live_x" : "whsec_x"),
+      },
+      "./stripe-environment": {
+        stripeDeploymentEnvironment: () => "production",
+        stripeKeyMode: () => "live",
+        stripeKeyProblem: () => false,
+      },
+    });
+  };
+
+  try {
+    const ready = await loadReadiness("true").billingReadiness();
+    assert.equal(ready.pricesReady, true);
+    assert.equal(ready.checkoutEnabled, true);
+
+    const unvalidated = await loadReadiness("false").billingReadiness();
+    assert.equal(unvalidated.pricesReady, true);
+    assert.equal(unvalidated.checkoutEnabled, false);
+    assert.ok(unvalidated.blockers.some((b) => /acceptance/.test(b)));
+  } finally {
+    delete process.env.BILLING_VALIDATED;
+  }
+});
+
+test("team capacity helper is plan-based", () => {
+  const policy = load("src/lib/entitlement-policy.ts", {
+    "./pricing-catalog.mjs": catalog,
   });
   assert.equal(policy.isTeamCapacityPlan("team"), true);
-  assert.equal(policy.isTeamCapacityPlan("business"), false);
-  assert.equal(policy.isTeamCapacityPlan("business", "legacy"), false);
-  assert.equal(policy.isTeamCapacityPlan("business", "2026-11-v4"), true);
+  assert.equal(policy.isTeamCapacityPlan("business"), true);
+  assert.equal(policy.isTeamCapacityPlan("business"), true);
+  assert.equal(policy.isTeamCapacityPlan("starter"), false);
 });
 
 test("dead legacy Pro checkout path is removed from billing route", () => {
@@ -209,21 +227,7 @@ test("homepage and pricing page share the public pricing surface", () => {
   const pricing = fs.readFileSync("src/app/pricing/page.tsx", "utf8");
   const api = fs.readFileSync("src/app/api/pricing/route.ts", "utf8");
   assert.match(home, /publicPricingSurface/);
-  assert.match(home, /PublicPricingV4/);
+  assert.match(home, /PublicPricing/);
   assert.match(pricing, /publicPricingSurface/);
   assert.match(api, /publicPricingSurface/);
-});
-
-test("v4 provision script refuses live Stripe keys", () => {
-  const src = fs.readFileSync("scripts/provision-pricing-v4.mjs", "utf8");
-  assert.match(src, /evaluateStripeTestModeKey/);
-  assert.match(src, /PRICING_V4_STRIPE_SYNC/);
-  assert.match(src, /PRICING_V4_LIVE_SYNC_APPROVED/);
-  assert.match(src, /zenvio_\$\{offer\.id\}_v4/);
-  const guard = load("src/lib/stripe-test-mode.mjs");
-  assert.equal(guard.evaluateStripeTestModeKey("sk_live_synthetic").proceed, false);
-  assert.equal(guard.evaluateStripeTestModeKey("sk_live_synthetic").exitCode, 1);
-  assert.equal(guard.evaluateStripeTestModeKey("sk_test_synthetic").proceed, true);
-  assert.equal(guard.evaluateStripeTestModeKey("").proceed, false);
-  assert.equal(guard.evaluateStripeTestModeKey("").exitCode, 0);
 });

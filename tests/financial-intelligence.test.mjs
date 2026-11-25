@@ -25,8 +25,7 @@ function load(file, deps = {}) {
   return m.exports;
 }
 
-const catalog = load("src/lib/pricing-v4-catalog.mjs");
-const offers = load("src/lib/subscription-offers.mjs");
+const catalog = load("src/lib/pricing-catalog.mjs");
 
 test("financial period helpers resolve UTC ranges", () => {
   const { resolveFinancialPeriod } = load("src/lib/financial-period.ts");
@@ -201,7 +200,7 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
                   plan: "mystery",
                   period: "monthly",
                   stripe_price_id: "price_mystery",
-                  catalog_version: "2026-11-v3",
+                  catalog_version: "2026-11-v4",
                 },
               ],
             };
@@ -236,8 +235,7 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
         coverage: "fixture coverage",
       }),
     },
-    "./pricing-v4-catalog.mjs": catalog,
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
     "./financial-period": load("src/lib/financial-period.ts"),
     "./financial-sync": {
       latestFinancialSyncRuns: async () => [],
@@ -256,11 +254,10 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
   assert.equal(overview.kpis.collected.valueCents, null);
   assert.equal(overview.kpis.collected.classification, "unavailable");
   assert.notEqual(overview.kpis.collected.valueCents, 0);
-  // Catalog-aware: v3 individual + v3 team(5) + v4 business(4)
-  const expectedPlanning =
-    850 + (1600 + 2 * 350) + (catalog.pricingV4PlanningCostCents.business + catalog.pricingV4PlanningCostCents.business_extra);
+  // One canonical cost table across the active plan mix.
+  const expectedPlanning = 350 + (1100 + 2 * 180) + 1280;
   assert.equal(overview.planning.costCents, expectedPlanning);
-  assert.match(overview.planning.source, /v3 \+ v4/);
+  assert.match(overview.planning.source, /canonical/i);
   assert.equal(overview.kpis.mrr.missingActiveSnapshots, 1);
   assert.ok(overview.kpis.estimatedContribution.valueCents != null);
   assert.ok(queries.some((q) => q.sql.includes("status = 'active' AND subscription_id IS NOT NULL")));
@@ -279,7 +276,7 @@ test("overview keeps partial MRR, never zeros unknown cash or costs", async () =
   const team = overview.tenants.find((t) => t.userId === "u2");
   assert.equal(team.subscriptionRevenueCents, 4997);
   assert.equal(team.classification.revenue, "verified");
-  assert.equal(team.estimatedOperatingCostCents, 1600 + 2 * 350);
+  assert.equal(team.estimatedOperatingCostCents, 1100 + 2 * 180);
   const business = overview.tenants.find((t) => t.userId === "u3");
   assert.equal(business.subscriptionRevenueCents, 3499 + 500);
   assert.equal(business.classification.revenue, "estimated");
@@ -357,8 +354,7 @@ test("addon refunds stay visible when no paid orders remain", async () => {
         coverage: "fixture",
       }),
     },
-    "./pricing-v4-catalog.mjs": catalog,
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
     "./financial-period": load("src/lib/financial-period.ts"),
     "./financial-sync": {
       latestFinancialSyncRuns: async () => [],
@@ -451,8 +447,7 @@ test("cash stays partial without complete invoice coverage and ignores non-USD",
         coverage: "fixture",
       }),
     },
-    "./pricing-v4-catalog.mjs": catalog,
-    "./subscription-offers.mjs": offers,
+    "./pricing-catalog.mjs": catalog,
     "./financial-period": load("src/lib/financial-period.ts"),
     "./financial-sync": {
       latestFinancialSyncRuns: async () => [],

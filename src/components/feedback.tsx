@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { Badge as DsBadge, EmptyState as DsEmpty, Notice, PageHeader, Panel } from "./ds";
 import { Alert, Badge, Card, EmptyState, Field, Skeleton, Tabs, formatDateTime, useToast } from "./ui";
+import { AdminPageHeader } from "./admin-page-header";
 
 type Item = {
   id: string;
@@ -204,7 +205,7 @@ export function FeedbackAdmin() {
   const open = (data?.counts.new || 0) + (data?.counts.reviewing || 0) + (data?.counts.planned || 0);
   return (
     <main className="ea-admin ds-root">
-      <PageHeader
+      <AdminPageHeader
         title="Feedback"
         description="Bug reports and suggestions from workspace members. Status changes are visible to the person who sent them."
         actions={

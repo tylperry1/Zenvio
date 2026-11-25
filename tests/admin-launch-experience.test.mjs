@@ -23,17 +23,20 @@ test("activity SQL never aliases a cast as a bare keyword", () => {
   assert.doesNotMatch(activity, /::date day/);
 });
 
-test("pricing overview is read-only, permission gated, and exposes no secrets", () => {
+test("pricing overview is permission gated and exposes no secrets", () => {
   assert.match(pricing, /adminSession\("pricing"\)/);
   assert.doesNotMatch(pricing, /integration_secrets|ciphertext|STRIPE_SECRET_KEY/);
-  assert.doesNotMatch(pricing, /export async function POST/);
 });
 
-test("annual savings are only claimed for a configured, discounted annual price", async () => {
-  const fn = pricingUi.match(/function annualNote[\s\S]*?\n}/)[0].replace(/: number/g, "").replace(/ as const/g, "");
-  const annualNote = new Function(`${fn}; return annualNote;`)();
-  assert.equal(annualNote(2999, 0).text, "Annual not offered");
-  assert.equal(annualNote(500, 6000).text, "No annual discount");
-  assert.equal(annualNote(500, 4800).text, "Saves 20% annually");
-  assert.equal(annualNote(0, 0).text, "No charge");
+test("the only pricing write is a master-admin enrollment switch", () => {
+  assert.match(pricing, /access\.role !== "master_admin"/);
+  assert.match(pricing, /action !== "set_enrollment"/);
+  assert.match(pricing, /ENABLE_PAID_ENROLLMENT/);
+  assert.doesNotMatch(pricing, /UPDATE private\.platform_settings SET value=\$1[^\n]*key='pricing'/);
+});
+
+test("pricing UI shows the four canonical items and no rate editor", () => {
+  assert.match(pricingUi, /CANONICAL|data\.catalog\.plans/);
+  assert.match(pricingUi, /Stripe mapping status/);
+  assert.doesNotMatch(pricingUi, /Edit rates|Legacy rates|annualNote/);
 });

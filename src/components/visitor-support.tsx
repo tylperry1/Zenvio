@@ -96,9 +96,8 @@ function StartForm({ onStarted, compact }: { onStarted: () => void; compact?: bo
 }
 
 /** Chat for website visitors who aren't signed in. */
-export function VisitorChat({ compact = false }: { compact?: boolean }) {
+export function VisitorChat({ compact = false, signedIn = false }: { compact?: boolean; signedIn?: boolean }) {
   const [data, setData] = useState<VisitorData | null>(null);
-  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const draft = useDraft();
@@ -110,6 +109,7 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
     setData(d);
   }, []);
   useEffect(() => {
+    if (signedIn) return;
     (async () => {
       // A reply-email link carries the conversation token in the URL fragment.
       const token = window.location.hash.slice(1);
@@ -117,11 +117,9 @@ export function VisitorChat({ compact = false }: { compact?: boolean }) {
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         await post({ action: "resume", token }).catch((e) => setError(e.message));
       }
-      const me = await fetch("/api/support", { cache: "no-store" }).catch(() => null);
-      setSignedIn(!!me?.ok);
       await load();
     })();
-  }, [load]);
+  }, [load, signedIn]);
   const live = useLive(data?.ticket ? "/api/support/visitor/stream" : null, () => void load());
   const pollRef = useRef(load);
   pollRef.current = load;

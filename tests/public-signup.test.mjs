@@ -33,7 +33,7 @@ test("signup form is the Better Auth workspace flow with confirmation and partne
   assert.match(form, /You’ve been invited to Zenvio/);
   assert.match(form, /auth-layout-invite/);
   assert.match(form, /auth-invite-banner/);
-  assert.match(form, /start a paid Individual or Teams/);
+  assert.match(form, /start a paid Zenvio plan/);
   assert.doesNotMatch(form, /credit the business that invited you when this account is created/);
   assert.match(form, /referralLocked/);
   assert.match(form, /Change code/);
@@ -49,7 +49,7 @@ test("pricing CTAs follow public registration instead of the waitlist", () => {
   const page = read("src/app/pricing/page.tsx");
   const waitlist = read("src/components/early-access-form.tsx");
   assert.match(pricing, /signupOpen/);
-  assert.match(pricing, /\/sign-up\?plan=individual/);
+  assert.match(pricing, /const href = signupOpen \? "\/sign-up" : joinHref/);
   assert.doesNotMatch(pricing, /Reserve before launch/);
   assert.match(home, /signupOpen=\{publicRegistrationOpen\(controls\)\}/);
   assert.match(page, /signupOpen=\{signupOpen\}/);

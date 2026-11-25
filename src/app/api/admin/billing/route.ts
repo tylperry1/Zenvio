@@ -3,11 +3,11 @@ import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { body, sameOrigin, failure } from "@/lib/server";
 import { adminBilling } from "@/lib/admin-billing";
-import { currentCatalog } from "@/lib/billing-catalog";
 import { catalogSyncReport } from "@/lib/pricing-sync";
 import { publicPricingSurface } from "@/lib/public-pricing-surface";
 import { listBillingCoupons } from "@/lib/billing-coupons";
 import { listBillingAddons } from "@/lib/billing-addons";
+import { listStripeWebhookEvents } from "@/lib/stripe-webhook";
 
 export const maxDuration = 120;
 
@@ -15,30 +15,32 @@ export async function GET() {
   try {
     await adminSession();
     const db = getPool();
-    const [catalog, versions, operations, sync, publicSurface, coupons, addons] = await Promise.all([
-      currentCatalog(),
-      db.query("SELECT * FROM private.billing_catalog_versions ORDER BY created_at DESC LIMIT 20"),
-      db.query(
-        "SELECT id,action,state,result,error,updated_at FROM private.billing_admin_operations ORDER BY updated_at DESC LIMIT 30",
-      ),
-      catalogSyncReport(),
-      publicPricingSurface(),
-      listBillingCoupons(db),
-      listBillingAddons(db),
-    ]);
+    const [operations, sync, publicSurface, coupons, addons, webhookEvents, syncRuns] =
+      await Promise.all([
+        db.query(
+          "SELECT id,action,state,result,error,updated_at FROM private.billing_admin_operations ORDER BY updated_at DESC LIMIT 30",
+        ),
+        catalogSyncReport(),
+        publicPricingSurface(),
+        listBillingCoupons(db),
+        listBillingAddons(db),
+        listStripeWebhookEvents(db, 30),
+        db.query(
+          "SELECT id,environment,catalog_version,mode,status,summary,error,started_at,finished_at FROM private.billing_sync_runs ORDER BY started_at DESC LIMIT 10",
+        ),
+      ]);
     return Response.json(
       {
-        catalog,
-        versions: versions.rows,
         operations: operations.rows,
         coupons,
         addons,
         sync,
+        webhookEvents,
+        syncRuns: syncRuns.rows,
         publicSurface: {
           family: publicSurface.family,
           previewOnly: publicSurface.previewOnly,
           enrollment: publicSurface.enrollment,
-          displayVersion: publicSurface.display.version,
         },
       },
       { headers: { "Cache-Control": "no-store" } },

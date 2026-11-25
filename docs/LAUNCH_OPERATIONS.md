@@ -4,7 +4,7 @@ Production baseline inspected through Vercel: READY deployment `dpl_FDxA5r1XiNEV
 
 ## Commercial release gates
 
-Approved prices remain Individual $29.99/month, Teams $49.99/month including three seats and $9.99/additional seat. Each seat includes 20 envelopes. Existing grandfathered prices and owner-approved $1 overages are preserved. **No annual price is currently approved** (`annual: 0` in subscription-offers.mjs). Annual enrollment must remain unavailable until approved mappings exist. No price is invented by this workstream.
+Approved prices are Starter $9.99/$95.88, Professional $19.99/$191.88, Team $34.99/$335.88 including three seats, and an additional Team seat at $5.00/$48.00. They are defined only in `src/lib/pricing-catalog.mjs`. Existing grandfathered prices are preserved. Paid enrollment remains gated by `BILLING_VALIDATED`, the owner-controlled enrollment switch and Stripe readiness.
 
 `BILLING_CHECKOUT_ENABLED` and `APPOINTMENT_PAYMENTS_ENABLED` are unchanged. Their presence is not evidence that test-mode lifecycles or real merchant capabilities passed. Release validation must cover trial/active/past_due/cancelled, existing subscriptions, team proration, portal ownership, signed reconciliation, refunds, early-adopter coupon, signing quotas and overages. Use isolated Stripe test keys and synthetic customers only. Production acceptance is read-only until authorized commercial activation.
 

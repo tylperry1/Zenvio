@@ -10,7 +10,7 @@ Production baseline observed for this execution is main 6881844228eb8b9e12a3d98f
 |---|---|---|
 | Public production health/pricing | Verified working in production at prior release | Prior release smoke and current Vercel SHA. Repeat after this release. |
 | Core booking, document signing, CRM, Teams, tenant isolation | Implemented, requires final verification | Run final-revision isolated API and browser suites. Real Google/Microsoft authorization and external delivery require provider acceptance. |
-| Monthly subscription catalog | Implemented, requires final verification | subscription-offers.mjs fixes 2999/4999/999 cents, no annual public offers. Existing provider prices preserved. |
+| Monthly subscription catalog | Implemented, requires final verification | `src/lib/pricing-catalog.mjs` defines the approved four items and annual prices. Existing provider prices are preserved. |
 | Stripe billing and Connect | Blocked by credentials or approval | Confirm vault signing secret, sandbox account, catalog, complete acceptance and actual Connect charge fee liability. Validation flags must remain off. |
 | Native support | Implemented, requires final verification | Migration 066, owner-scoped /api/support and delegated support permission for /api/admin/support. Durable replies and internal notes. Authorized image attachments are re-encoded, capped at 2 MB each, 10 per ticket and 20 MB per account. Advanced assignment and PDF attachment scanning remain incomplete. |
 | Support email notifications | Implemented, requires final verification | Existing encrypted delivery queue and protected operational reserve. Real Resend acceptance remains open. |

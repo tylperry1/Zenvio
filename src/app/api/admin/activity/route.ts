@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { adminSession, canAccess } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { ApiError, failure, integer, string, uuid } from "@/lib/server";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 export const dynamic = "force-dynamic";
 const PAGE = 25;
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       const user = (
         await db.query(
           `SELECT u.id,u.name,u.email,u."emailVerified" verified,u."createdAt" created_at,p.slug,p.timezone,
-                  ${lastActive} last_active,private.effective_plan(u.id) plan,
+                  ${lastActive} last_active,private.effective_plan(u.id) plan,s.catalog_version,
                   s.plan subscription_plan,s.status subscription_status,s.current_period_end,s.cancel_at_period_end,s.seats,
                   (SELECT count(*)::int FROM public.session x WHERE x."userId"=u.id AND x."expiresAt">now()) open_sessions,
                   (SELECT count(*)::int FROM public.bookings b WHERE b.user_id=u.id) bookings,
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     const search = string(q.get("search") || "", "search", 100, 0).toLowerCase();
     const where = `WHERE ${filters[status]} AND ($1='' OR position($1 in lower(u.name||' '||u.email))>0)`;
     const select = `SELECT u.id,u.name,u.email,u."emailVerified" verified,u."createdAt" created_at,${lastActive} last_active,
-                           private.effective_plan(u.id) plan,s.status subscription_status,
+                           private.effective_plan(u.id) plan,s.catalog_version,s.status subscription_status,
                            EXISTS(SELECT 1 FROM private.platform_roles r WHERE r.user_id=u.id) master,
                            EXISTS(SELECT 1 FROM private.staff_members m WHERE m.user_id=u.id) staff
                       FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id ${where}
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
       const { rows } = await db.query(`${select} LIMIT 5000`, [search]);
       const header = ["Name", "Email", "Verified", "Plan", "Subscription status", "Signed up", "Last active", "Role"];
       const lines = rows.map((r) =>
-        [r.name, r.email, r.verified ? "yes" : "no", r.plan, r.subscription_status || "", r.created_at?.toISOString(), r.last_active?.toISOString() || "", r.master ? "master admin" : r.staff ? "staff" : "member"]
+        [r.name, r.email, r.verified ? "yes" : "no", planDisplayName(r.plan), r.subscription_status || "", r.created_at?.toISOString(), r.last_active?.toISOString() || "", r.master ? "master admin" : r.staff ? "staff" : "member"]
           .map(csvCell)
           .join(","),
       );
@@ -144,7 +145,10 @@ export async function GET(request: NextRequest) {
                   WHERE (s."createdAt">=d AND s."createdAt"<d+interval '1 day') OR (s."updatedAt">=d AND s."updatedAt"<d+interval '1 day')) value
            FROM generate_series(date_trunc('day',now() AT TIME ZONE 'UTC')-interval '29 days',date_trunc('day',now() AT TIME ZONE 'UTC'),interval '1 day') d`,
       ),
-      db.query(`SELECT private.effective_plan(u.id) plan,count(*)::int count FROM public."user" u GROUP BY 1 ORDER BY 2 DESC`),
+      db.query(`SELECT p.plan,p.catalog_version,count(*)::int count FROM (
+                  SELECT private.effective_plan(u.id) plan,s.catalog_version
+                    FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id
+                ) p GROUP BY 1,2 ORDER BY 3 DESC`),
     ]);
     return Response.json(
       {

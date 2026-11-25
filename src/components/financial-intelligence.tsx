@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AdminPageHeader } from "./admin-page-header";
 import {
   Badge,
   BarChart,
@@ -119,15 +120,6 @@ type Data = {
     providers: ProviderRow[];
     costByCategory: { label: string; value: number }[];
     tenants: TenantRow[];
-    pricing: {
-      discrepancies: {
-        plan: string;
-        period: string;
-        catalogVersion: string;
-        stripePriceId: string;
-        issue: string;
-      }[];
-    };
     alerts: AlertRow[];
     sync: {
       lastRun: {
@@ -149,26 +141,6 @@ type Data = {
         failed: number;
       }[];
     };
-    proposedPlans: {
-      id: string;
-      name: string;
-      monthly: number | null;
-      annual: number | null;
-      recommended?: boolean;
-    }[];
-  };
-  pricingV4: {
-    version: string;
-    tagline: string;
-    hero: string;
-    settings: { previewEnabled: boolean; enrollmentEnabled: boolean; publicCatalog: string };
-    offers: {
-      id: string;
-      name: string;
-      monthly: number | null;
-      annual: number | null;
-      recommended?: boolean;
-    }[];
   };
 };
 
@@ -215,7 +187,7 @@ export function FinancialIntelligence() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"overview" | "providers" | "tenants" | "pricing" | "alerts">("overview");
+  const [tab, setTab] = useState<"overview" | "providers" | "tenants" | "alerts">("overview");
   const [period, setPeriod] = useState<(typeof PERIODS)[number][0]>("this_month");
   const [tenantQuery, setTenantQuery] = useState("");
   const [tenantPlan, setTenantPlan] = useState("all");
@@ -323,8 +295,7 @@ export function FinancialIntelligence() {
   return (
     <div className="ds-root platform-page billing-page financial-intelligence">
       <main className="premium-admin fi-shell">
-        <PageHeader
-          eyebrow="Master admin"
+        <AdminPageHeader
           title="Financial Intelligence"
           description="Authoritative operational finance for Zenvio — Stripe-reconciled revenue, provider costs, and tenant contribution. Missing data stays Unknown or Unavailable; it is never shown as $0.00."
           actions={
@@ -497,7 +468,6 @@ export function FinancialIntelligence() {
                 ["overview", "Overview"],
                 ["providers", "Provider costs"],
                 ["tenants", "Tenant profitability"],
-                ["pricing", "Pricing"],
                 ["alerts", `Alerts (${o.alerts.length})`],
               ]}
               onChange={setTab}
@@ -610,8 +580,10 @@ export function FinancialIntelligence() {
                   <p className="fi-note">{o.methodology.contribution}</p>
                   <p className="fi-note">{o.coverage}</p>
                   <div className="fi-links">
-                    <Link href="/admin/economics">Pricing &amp; provider economics →</Link>
-                    <Link href="/admin/billing">Billing &amp; revenue →</Link>
+                    <Link href="/admin/financial-intelligence?tab=provider-costs">
+                      Provider costs →
+                    </Link>
+                    <Link href="/admin/billing">Billing &amp; catalog →</Link>
                     <Link href="/admin/entitlements">Plans &amp; entitlements →</Link>
                   </div>
                 </Panel>
@@ -808,7 +780,6 @@ export function FinancialIntelligence() {
                         <th>Account</th>
                         <th>Plan</th>
                         <th>Status</th>
-                        <th>Catalog</th>
                         <th>Revenue</th>
                         <th>Est. cost</th>
                         <th>Est. contribution</th>
@@ -823,7 +794,6 @@ export function FinancialIntelligence() {
                           </th>
                           <td>{t.plan}</td>
                           <td>{t.status}</td>
-                          <td>{t.catalogVersion || "—"}</td>
                           <td>
                             {cents(t.subscriptionRevenueCents)}
                             <div className="premium-note">{labelFor(t.classification.revenue)}</div>
@@ -847,107 +817,6 @@ export function FinancialIntelligence() {
                   </EmptyState>
                 ) : null}
               </Panel>
-            )}
-
-            {tab === "pricing" && (
-              <div className="fi-grid">
-                <Panel
-                  title={`Proposed catalog ${data.pricingV4.version}`}
-                  description={`${data.pricingV4.tagline} — ${data.pricingV4.hero}`}
-                >
-                  <p>
-                    Preview{" "}
-                    <Badge tone={data.pricingV4.settings.previewEnabled ? "success" : "warning"}>
-                      {data.pricingV4.settings.previewEnabled ? "enabled" : "disabled"}
-                    </Badge>{" "}
-                    · Public catalog <Badge tone="info">{data.pricingV4.settings.publicCatalog}</Badge> · Enrollment{" "}
-                    <Badge tone="warning">
-                      {data.pricingV4.settings.enrollmentEnabled ? "enabled" : "blocked until validation"}
-                    </Badge>
-                  </p>
-                  <ul className="fi-offer-list">
-                    {data.pricingV4.offers.map((offer) => (
-                      <li key={offer.id}>
-                        <strong>
-                          {offer.name}
-                          {offer.recommended ? " · Recommended" : ""}
-                        </strong>
-                        :{" "}
-                        {offer.monthly == null
-                          ? "Custom"
-                          : `${money(offer.monthly)}/mo` + (offer.annual ? ` · ${money(offer.annual)}/yr` : "")}
-                      </li>
-                    ))}
-                  </ul>
-                  <form
-                    className="ui-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget);
-                      void post({
-                        action: "set_pricing_v4_preview",
-                        previewEnabled: f.get("previewEnabled") === "on",
-                        publicCatalog: f.get("publicCatalog"),
-                        reason: f.get("reason"),
-                      });
-                    }}
-                  >
-                    <label>
-                      <input
-                        type="checkbox"
-                        name="previewEnabled"
-                        defaultChecked={data.pricingV4.settings.previewEnabled}
-                        disabled={busy}
-                      />{" "}
-                      Enable master-admin / gated public preview of v4
-                    </label>
-                    <Field label="Public catalog">
-                      <select
-                        className="ui-input"
-                        name="publicCatalog"
-                        defaultValue={data.pricingV4.settings.publicCatalog}
-                        disabled={busy}
-                      >
-                        <option value="v3">Keep live v3 (Individual / Teams)</option>
-                        <option value="v4">Show proposed v4 (requires preview)</option>
-                      </select>
-                    </Field>
-                    <Field label="Reason">
-                      <input className="ui-input" name="reason" required minLength={5} maxLength={500} disabled={busy} />
-                    </Field>
-                    <p className="premium-note">
-                      Enrollment and Stripe catalog sync stay off until `PRICING_V4_VALIDATED=true`, test-mode acceptance, and
-                      explicit owner approval. This screen does not mutate live Stripe prices.
-                    </p>
-                    <button className="ds-btn primary" disabled={busy}>
-                      Save pricing preview controls
-                    </button>
-                  </form>
-                </Panel>
-
-                <Panel
-                  title="Pricing discrepancies"
-                  description="Flags mapped Stripe prices that do not match a published catalog offer. Review only — no automatic Stripe changes."
-                >
-                  {o.pricing.discrepancies.length ? (
-                    <ul className="fi-alert-list">
-                      {o.pricing.discrepancies.map((d) => (
-                        <li key={d.stripePriceId}>
-                          <strong>
-                            {d.plan} · {d.catalogVersion} · {d.period}
-                          </strong>
-                          <p>{d.issue}</p>
-                          <small>{d.stripePriceId}</small>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <EmptyState title="No mapping discrepancies" icon="check">
-                      All mapped Stripe prices match a published catalog offer key.
-                    </EmptyState>
-                  )}
-                </Panel>
-              </div>
             )}
 
             {tab === "alerts" && (

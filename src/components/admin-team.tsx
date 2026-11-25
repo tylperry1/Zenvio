@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { Modal } from "./modal";
+import { AdminPageHeader } from "./admin-page-header";
 
 type Permission = string;
 type Member = {
@@ -104,21 +105,21 @@ export function AdminTeam() {
 
   return (
     <div className="tm">
-      <div className="tm-heading">
-        <div>
-          <h1>Team &amp; access</h1>
-          <p>Add Zenvio employees, choose what they can manage in this console, and give them product features.</p>
-        </div>
-        <button
-          className="tm-primary"
-          disabled={!data}
-          onClick={() =>
-            setDraft({ name: "", email: "", title: "", permissions: ["accounts", "feedback"], workspacePlan: "team" })
-          }
-        >
-          <Icon name="plus" size={16} /> Add employee
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Team & access"
+        description="Add Zenvio employees, choose what they can manage in this console, and give them product features."
+        actions={
+          <button
+            className="ds-btn primary"
+            disabled={!data}
+            onClick={() =>
+              setDraft({ name: "", email: "", title: "", permissions: ["accounts", "feedback"], workspacePlan: "team" })
+            }
+          >
+            <Icon name="plus" size={16} /> Add employee
+          </button>
+        }
+      />
 
       {notice && <p className="tm-notice" role="status"><Icon name="check" size={15} /> {notice}</p>}
       {error && <p className="tm-notice error" role="alert">{error}</p>}

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Badge, Kpi, Notice, PageHeader, Panel, Skeleton } from "./ds";
+import { Badge, Kpi, Notice, Panel, Skeleton } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 
 type AdminNfc = {
   enabled: boolean;
@@ -48,7 +49,7 @@ export function AdminNfc() {
 
   return (
     <div className="ds-root">
-      <PageHeader
+      <AdminPageHeader
         title="NFC Studio"
         description="Platform capability overview and operation monitoring. Tag payload contents are not exposed here."
       />

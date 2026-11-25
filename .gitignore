@@ -11,3 +11,6 @@ coverage/
 /public/pdf-assets/
 
 test-results/
+
+# Scratch screenshots and preview captures
+artifacts/

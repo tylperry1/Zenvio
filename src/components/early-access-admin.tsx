@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Badge, EmptyState, Kpi, Notice, PageHeader, Pagination, Panel, Skeleton, formatDate, relativeTime, type Tone } from "./ds";
+import { Badge, EmptyState, Kpi, Notice, Pagination, Panel, Skeleton, formatDate, relativeTime, type Tone } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 
 type Signup = { id: string; name: string; email: string; plan: string; seats: number; created_at: string; confirmation_status: string | null };
 type Stats = { total: number; individual: number; team: number; team_seats: number; claimed: number; last_7d: number; sent: number; failed: number };
@@ -33,7 +34,7 @@ export function EarlyAccessAdmin() {
   const s = data?.stats;
   return (
     <div className="ds-root ea">
-      <PageHeader
+      <AdminPageHeader
         title="Early-access signups"
         description="Reservations for 50% off the first three monthly payments at launch. No payment is collected; each new reservation gets a confirmation email. Launch announcements are sent separately."
       />

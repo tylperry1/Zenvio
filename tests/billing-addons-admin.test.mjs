@@ -78,19 +78,20 @@ test("migration 094 seeds the approved add-on catalog behind available=false", (
 
 test("admin billing center exposes an Add-ons section", () => {
   const ui = fs.readFileSync("src/components/admin-billing-center.tsx", "utf8");
-  assert.match(ui, /\["addons", "Add-ons"\]/);
+  const views = fs.readFileSync("src/lib/admin-views.ts", "utf8");
+  // Add-ons is a top-level tab of the billing page, not an in-page section.
+  assert.match(views, /id: "addons",[\s\S]{0,60}label: "Add-ons"/);
+  assert.match(ui, /section === "addons"/);
   assert.match(ui, /action: "addon-sync-all"/);
   assert.match(ui, /action: "addon-update"/);
   assert.match(ui, /ADDON_BILLING_VALIDATED/);
   assert.match(ui, /if \(!result\) return/);
 });
 
-test("provision script locks add-ons and refuses unreadable live price overwrite", () => {
-  const script = fs.readFileSync("scripts/provision-pricing-v4.mjs", "utf8");
+test("the Stripe sync script locks add-ons and refuses unreadable live price overwrite", () => {
+  const script = fs.readFileSync("scripts/sync-stripe-catalog.mjs", "utf8");
   assert.match(script, /FROM private\.billing_addons ORDER BY id FOR UPDATE/);
   assert.match(script, /Refusing to overwrite/);
   assert.match(script, /resource_missing/);
-  const docs = fs.readFileSync("docs/PRICING_V4_ACTIVATION.md", "utf8");
-  assert.match(docs, /disposable test database/);
-  assert.match(docs, /no live v4/);
+  assert.doesNotMatch(script, /PRICING_V4|provision-pricing-v4/);
 });

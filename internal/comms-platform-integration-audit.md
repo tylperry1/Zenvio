@@ -19,7 +19,7 @@
 
 | Integration | Code | Gating | Live acceptance this pass | Classification |
 | --- | --- | --- | --- | --- |
-| **Stripe Billing** | `/api/billing*`, webhooks, enrollment | `checkoutEnabled`, `PRICING_V3_VALIDATED`, sandbox acceptance log, price mappings | NOT RUN | Gated off / Acceptance pending |
+| **Stripe Billing** | `/api/billing*`, webhooks, enrollment | `checkoutEnabled`, `BILLING_VALIDATED`, sandbox acceptance log, canonical price mappings | NOT RUN | Gated off / Acceptance pending |
 | **Stripe Connect** (appointment payments) | `/api/appointment-payments*` | readiness helpers | NOT RUN | Configuration + acceptance pending |
 | **Stripe Growth / Marketplace** | growth + marketplace webhooks | marketplace visibility + readiness | Marketplace **gated closed** in prod | Gated off |
 | **Resend** | lifecycle queue, messaging webhooks, admin email-preview | vault + email meters | NOT RUN | Operational (code) / Acceptance pending |

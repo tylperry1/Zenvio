@@ -23,6 +23,7 @@ import {
   type Tone,
 } from "./ds";
 import { Icon } from "./icons";
+import { planDisplayName } from "@/lib/pricing-catalog.mjs";
 
 type Account = Subscription & {
   effective_plan?: string;
@@ -38,8 +39,7 @@ type Account = Subscription & {
 
 type Filter = "all" | "paid" | "free" | "ending" | "attention" | "override";
 
-const planName = (plan: string) =>
-  ({ free: "Free", individual: "Individual", team: "Teams", teams: "Teams", pro: "Pro", business: "Business" })[plan] || plan;
+const planName = (plan: string) => planDisplayName(plan);
 
 const subscriptionEnded = (account: Subscription) => ["canceled", "incomplete_expired"].includes(account.status);
 
@@ -605,8 +605,11 @@ function PlanAccess({
       <div className="as-access-grid">
         <Field label="Plan">
           <select value={plan} onChange={(e) => setPlan(e.target.value)}>
-            <option value="individual">Individual</option>
-            <option value="team">Teams</option>
+            <option value="starter">Starter</option>
+            <option value="professional">Professional</option>
+            <option value="business">Team</option>
+            <option value="individual">Individual (v3)</option>
+            <option value="team">Teams (v3)</option>
             <option value="free">Free (limit to Free)</option>
           </select>
         </Field>

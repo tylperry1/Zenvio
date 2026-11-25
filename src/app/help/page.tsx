@@ -1,13 +1,27 @@
 import Link from "next/link";
-import { Icon, Logo } from "@/components/icons";
-import { currentCatalog } from "@/lib/billing-catalog";
-import { liveBillingHelpText } from "@/lib/public-pricing-display";
+import { Icon } from "@/components/icons";
+import { PublicSiteHeader } from "@/components/public-site-header";
+import { publicPricingSurface } from "@/lib/public-pricing-surface";
+import { formatUsdCents } from "@/lib/public-pricing-display";
 
 export const metadata = { title: "Zenvio Help Center" };
 export const dynamic = "force-dynamic";
 
 export default async function Help({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const catalog = await currentCatalog();
+  const surface = await publicPricingSurface();
+  const canonicalOffers = surface.display.offers.filter((offer) =>
+    ["starter", "professional", "business"].includes(offer.id),
+  );
+  const billingText = `${canonicalOffers
+          .map(
+            (offer) =>
+              `${offer.name} is ${formatUsdCents(offer.monthly)} monthly or ${formatUsdCents(offer.annual)} yearly${offer.id === "business" ? ` with ${offer.seats} included members` : ""}`,
+          )
+          .join(". ")}. Additional team members are ${formatUsdCents(surface.display.extraSeat?.monthly)} monthly. ${
+          surface.previewOnly
+            ? "These plans are shown for preview and are not open for paid enrollment yet."
+            : "Paid enrollment uses the synchronized Stripe catalog for these plans."
+        } Open Usage & Billing to see your plan and allowances. Add-ons and paid checkout appear in Plan & billing when they’re turned on for your account.`;
   const articles = [
     {
       title: "Publish a booking page",
@@ -23,7 +37,7 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
     },
     {
       title: "Billing and included usage",
-      text: liveBillingHelpText(catalog),
+      text: billingText,
     },
     {
       title: "Sign a document",
@@ -44,11 +58,10 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
     (article.title + " " + article.text).toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <main className="ds-root hc-page">
+    <>
+      <PublicSiteHeader />
+      <main className="ds-root hc-page">
       <header className="hc-header">
-        <Link href="/" aria-label="Zenvio home">
-          <Logo />
-        </Link>
         <h1>How can we help?</h1>
         <p>Clear answers for your next step with Zenvio.</p>
       </header>
@@ -80,6 +93,7 @@ export default async function Help({ searchParams }: { searchParams: Promise<{ q
           </article>
         ))}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

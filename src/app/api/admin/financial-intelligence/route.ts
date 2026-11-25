@@ -3,16 +3,6 @@ import { adminSession } from "@/lib/admin";
 import { getPool } from "@/lib/db";
 import { financialIntelligenceOverview } from "@/lib/financial-intelligence";
 import { runFinancialSync } from "@/lib/financial-sync";
-import { pricingV4Settings } from "@/lib/pricing-activation";
-import {
-  pricingV4Addons,
-  pricingV4Allowances,
-  pricingV4ExtraSeat,
-  pricingV4Hero,
-  pricingV4Offers,
-  pricingV4Tagline,
-  pricingV4Version,
-} from "@/lib/pricing-v4-catalog.mjs";
 import { ApiError, body, failure, sameOrigin, string, integer } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -25,27 +15,12 @@ export async function GET(request: NextRequest) {
     const start = url.searchParams.get("start");
     const end = url.searchParams.get("end");
     const format = url.searchParams.get("format");
-    const [overview, v4] = await Promise.all([
-      financialIntelligenceOverview({
-        periodId: period,
-        customStart: start,
-        customEnd: end,
-      }),
-      pricingV4Settings(),
-    ]);
-    const payload = {
-      overview,
-      pricingV4: {
-        version: pricingV4Version,
-        tagline: pricingV4Tagline,
-        hero: pricingV4Hero,
-        offers: pricingV4Offers,
-        extraSeat: pricingV4ExtraSeat,
-        allowances: pricingV4Allowances,
-        addons: pricingV4Addons,
-        settings: v4,
-      },
-    };
+    const overview = await financialIntelligenceOverview({
+      periodId: period,
+      customStart: start,
+      customEnd: end,
+    });
+    const payload = { overview };
     if (format === "csv") {
       const lines = [
         "section,metric,value_cents,classification,source",
@@ -144,25 +119,6 @@ export async function POST(request: NextRequest) {
            (provider,category,description,amount_cents,period_start,period_end,created_by)
            VALUES($1,$2,$3,$4,$5,$6,$7)`,
           [provider, category, description, amountCents, periodStart, periodEnd, token],
-        );
-      } else if (action === "set_pricing_v4_preview") {
-        const previewEnabled = input.previewEnabled === true;
-        const publicCatalog = input.publicCatalog === "v4" ? "v4" : "v3";
-        if (publicCatalog === "v4" && !previewEnabled) {
-          throw new ApiError("Enable preview before publishing the v4 public catalog.");
-        }
-        // Enrollment stays false until PRICING_V4_VALIDATED + Stripe catalog sync + owner approval.
-        await db.query(
-          `INSERT INTO private.platform_settings(key,value)
-           VALUES('pricing_v4',$1)
-           ON CONFLICT(key) DO UPDATE SET value=private.platform_settings.value||$1::jsonb,updated_at=now()`,
-          [
-            JSON.stringify({
-              previewEnabled,
-              enrollmentEnabled: false,
-              publicCatalog,
-            }),
-          ],
         );
       } else {
         throw new ApiError("Unsupported financial intelligence action.");

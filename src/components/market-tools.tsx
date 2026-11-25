@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SuiteShell } from "./suite-shell";
+import { AdminPageHeader } from "./admin-page-header";
 import type { ProductOption } from "@/lib/personalization";
 export function MarketTools() {
   const [data, setData] = useState<any>(null),
@@ -33,10 +33,11 @@ export function MarketTools() {
     }
   }
   return (
-    <SuiteShell
-      title="Marketplace personalization & fulfillment"
-      description="Configure customer options and coordinate real supplier fulfillment manually."
-    >
+    <div className="suite-page">
+      <AdminPageHeader
+        title="Marketplace personalization & fulfillment"
+        description="Configure customer options and coordinate real supplier fulfillment manually."
+      />
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       <section>
@@ -176,6 +177,7 @@ export function MarketTools() {
                 ))}
                 <button
                   type="button"
+                  className="ds-btn sm"
                   onClick={() =>
                     setOptions(
                       options.map((o, j) =>
@@ -200,7 +202,7 @@ export function MarketTools() {
                 </button>
                 <button
                   type="button"
-                  className="billing-secondary"
+                  className="ds-btn sm"
                   onClick={() => setOptions(options.filter((_, j) => i !== j))}
                 >
                   Remove option
@@ -209,6 +211,7 @@ export function MarketTools() {
             ))}
             <button
               type="button"
+              className="ds-btn sm"
               disabled={options.length >= 6}
               onClick={() =>
                 setOptions([
@@ -225,7 +228,7 @@ export function MarketTools() {
             >
               Add product option
             </button>
-            <button>Save personalization</button>
+            <button className="ds-btn primary">Save personalization</button>
           </form>
         )}
       </section>
@@ -282,7 +285,7 @@ export function MarketTools() {
             Fulfillment note
             <textarea name="note" maxLength={2000} />
           </label>
-          <button>Record fulfillment action</button>
+          <button className="ds-btn primary">Record fulfillment action</button>
         </form>
         {data?.submissions.map((s: any) => (
           <p key={s.id}>
@@ -290,6 +293,6 @@ export function MarketTools() {
           </p>
         ))}
       </section>
-    </SuiteShell>
+    </div>
   );
 }

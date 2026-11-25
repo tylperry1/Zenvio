@@ -1,39 +1,39 @@
 import { databaseConfigured, getPool } from "./db";
 
-export type PricingPublicCatalog = "v3" | "v4";
-
-export type PricingV4Settings = {
-  previewEnabled: boolean;
+/**
+ * Billing activation settings.
+ *
+ * There is one catalog and one activation path. `enrollmentEnabled` is the
+ * single paid-enrollment switch; the environment supplies the validation flag.
+ * The settings row is keyed `billing`; nothing branches on a catalog version.
+ */
+export type BillingSettings = {
   enrollmentEnabled: boolean;
-  publicCatalog: PricingPublicCatalog;
 };
 
-const defaults: PricingV4Settings = {
-  previewEnabled: false,
+const defaults: BillingSettings = {
   enrollmentEnabled: false,
-  publicCatalog: "v3",
 };
 
-export async function pricingV4Settings(): Promise<PricingV4Settings> {
+export async function billingSettings(): Promise<BillingSettings> {
   if (!databaseConfigured()) return defaults;
   try {
     const value = (
-      await getPool().query("SELECT value FROM private.platform_settings WHERE key='pricing_v4'")
+      await getPool().query("SELECT value FROM private.platform_settings WHERE key='billing'")
     ).rows[0]?.value;
-    return {
-      previewEnabled: value?.previewEnabled === true,
-      enrollmentEnabled: value?.enrollmentEnabled === true,
-      publicCatalog: value?.publicCatalog === "v4" ? "v4" : "v3",
-    };
+    return { enrollmentEnabled: value?.enrollmentEnabled === true };
   } catch {
     return defaults;
   }
 }
 
-/** Live Stripe enrollment still requires existing v3 readiness flags until v4 is validated. */
-export function pricingV4EnvGates() {
+/**
+ * One validation flag for the single catalog, plus the operator's checkout
+ * switch and the separate add-on acceptance.
+ */
+export function billingEnvGates() {
   return {
-    validated: process.env.PRICING_V4_VALIDATED === "true",
+    validated: process.env.BILLING_VALIDATED === "true",
     addonValidated: process.env.ADDON_BILLING_VALIDATED === "true",
     checkoutEnabled: process.env.BILLING_CHECKOUT_ENABLED === "true",
   };

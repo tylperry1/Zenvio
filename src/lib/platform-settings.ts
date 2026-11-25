@@ -1,4 +1,3 @@
-import { individualOffer, teamOffer, extraSeatOffer } from "./subscription-offers.mjs";
 import {
   createCipheriv,
   createDecipheriv,
@@ -117,11 +116,4 @@ export async function saveIntegration(
   } finally {
     client.release();
   }
-}
-export async function pricing() {
-  const catalog=await (await import("./billing-catalog")).currentCatalog();
-  const { rows } = await getPool().query(
-    "SELECT value FROM private.platform_settings WHERE key='pricing'",
-  );
-  return [...(rows[0]?.value || []).filter((p: {id:string}) => !["individual", "team", "team_extra"].includes(p.id)), ...catalog.offers];
 }

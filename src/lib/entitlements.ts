@@ -6,7 +6,6 @@ import {
   contactAllowance,
   hasTeamWorkspaceAccess,
   isTeamCapacityPlan,
-  isV4CatalogVersion,
   planLimits,
   planLimitsFor,
   type Plan,
@@ -24,35 +23,21 @@ export async function entitlementUsage(
 ) {
   const r = (
     await db.query(
-      `SELECT s.plan,s.status,s.seats,s.catalog_version,o.plan override_plan,private.effective_plan(u.id) effective_plan FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE u.id=$1`,
+      `SELECT s.plan,s.status,s.seats,s.catalog_version,o.plan override_plan,o.catalog_version override_catalog_version,private.effective_plan(u.id) effective_plan FROM public."user" u LEFT JOIN private.subscriptions s ON s.user_id=u.id LEFT JOIN private.entitlement_overrides o ON o.user_id=u.id AND o.expires_at>now() WHERE u.id=$1`,
       [user],
     )
   ).rows[0];
   const roots = (
     await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])
   ).rows;
-  let catalogVersion = r?.catalog_version as string | null | undefined;
+  const catalogVersion = r?.override_plan
+    ? r?.override_catalog_version ?? null
+    : r?.catalog_version ?? null;
   const plan = (r?.effective_plan ||
     r?.override_plan ||
     (["active", "trialing"].includes(r?.status) ? r?.plan : "free")) as Plan;
-  // Members inherit the owner's catalog with the inherited plan (v4 Team=business).
-  // Personal subscription catalog alone would leave isTeamCapacityPlan false → 1 seat / wrong limits.
-  if (
-    roots.length &&
-    ["team", "teams", "business"].includes(plan) &&
-    !isTeamCapacityPlan(plan, catalogVersion)
-  ) {
-    const root =
-      roots.find((row) => row.owner_id === user && row.catalog_version) ||
-      roots.find((row) => isTeamCapacityPlan(plan, row.catalog_version)) ||
-      roots.find((row) => row.catalog_version) ||
-      roots[0];
-    if (root?.catalog_version) catalogVersion = root.catalog_version;
-  }
   const effective: Plan =
-    (Object.hasOwn(planLimits, plan) ||
-      (isV4CatalogVersion(catalogVersion) &&
-        ["starter", "professional", "business", "enterprise", "free"].includes(plan))) &&
+    Object.hasOwn(planLimits, plan) &&
     !(
       ["teams", "team"].includes(plan) &&
       !r?.effective_plan &&
@@ -61,16 +46,14 @@ export async function entitlementUsage(
     )
       ? plan
       : "free";
-  let seats = isTeamCapacityPlan(effective, catalogVersion)
-    ? Math.max(3, r?.seats || 3)
-    : 1;
+  let seats = isTeamCapacityPlan(effective) ? Math.max(3, r?.seats || 3) : 1;
   const u = (
     await db.query(
       `SELECT (SELECT count(*)::int FROM public.event_types e WHERE user_id=$1 AND active AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM private.team_event_staff s WHERE s.personal_event_id=e.id)) types,(SELECT count(*)::int FROM private.google_calendar_connections WHERE user_id=$1) calendars,(SELECT count(*)::int FROM private.signature_envelopes WHERE user_id=$1 AND created_at>=date_trunc('month',now()))+(SELECT count(*)::int FROM private.signing_documents WHERE user_id=$1 AND created_at>=date_trunc('month',now())) envelopes,(SELECT count(*)::int FROM private.workflow_rules WHERE user_id=$1 AND enabled) workflows,(SELECT count(*)::int FROM public.contacts WHERE user_id=$1) contacts`,
       [user],
     )
   ).rows[0];
-  if (isTeamCapacityPlan(effective, catalogVersion) && roots.length)
+  if (isTeamCapacityPlan(effective) && roots.length)
     seats = roots.find((r) => r.owner_id === user)?.seats || roots[0].seats;
   const unlimitedSeats = roots.length > 0 && Boolean((await db.query(
     "SELECT 1 FROM private.platform_roles WHERE user_id=ANY($1::uuid[]) AND enabled LIMIT 1",
@@ -95,9 +78,9 @@ export async function entitlementUsage(
   const { customer: _customer, subscription: _subscription, ...envelope } = await envelopeBudget(user, db);
   u.envelopes = envelope.sent;
   const limits = {
-    ...planLimitsFor(effective, catalogVersion),
+    ...planLimitsFor(effective),
     envelopes: envelope.included,
-    contacts: contactAllowance(effective, catalogVersion),
+    contacts: contactAllowance(effective),
   };
   return {
     envelope,
@@ -153,7 +136,7 @@ export async function requireCapacity(
   return state;
 }
 
-/** Server-side CRM contact capacity for v4 catalogs. Legacy accounts are skipped. */
+/** Server-side CRM contact capacity for the resolved plan. */
 export async function requireContactCapacity(db: PoolClient, user: string, additional = 1) {
   const roots = (
     await db.query("SELECT * FROM private.team_entitlement_roots($1)", [user])

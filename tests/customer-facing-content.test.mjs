@@ -6,7 +6,6 @@ import test from "node:test";
 /** Customer-facing UI and product API surfaces that must not leak ops jargon. */
 const SURFACES = [
   "src/components/billing.tsx",
-  "src/components/enrollment.tsx",
   "src/components/billing-addons.tsx",
   "src/components/notifications-center.tsx",
   "src/components/assistant.tsx",
@@ -16,7 +15,6 @@ const SURFACES = [
   "src/components/commerce/storefront.tsx",
   "src/components/video-meetings.tsx",
   "src/components/payment-center.tsx",
-  "src/components/pricing-allowances.tsx",
   "src/components/google-calendar-connection.tsx",
   "src/lib/customer-messages.ts",
   "src/app/api/billing/route.ts",

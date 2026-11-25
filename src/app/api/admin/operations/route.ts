@@ -1,4 +1,3 @@
-import { individualOffer, teamOffer, extraSeatOffer } from "@/lib/subscription-offers.mjs";
 import {
   ResendDeliveryError,
   emailDiagnostics,
@@ -11,7 +10,6 @@ import { getPool } from "@/lib/db";
 import {
   integrationFields,
   saveIntegration,
-  pricing,
   type IntegrationKey,
 } from "@/lib/platform-settings";
 import {
@@ -91,7 +89,6 @@ export async function GET(request: NextRequest) {
           lastEmailSent: queue[0]?.last_sent,
         },
         integrations: ops ? integrations : [],
-        pricing: can("pricing") ? await pricing() : [],
         subscriptions: can("subscriptions") ? subscriptions : [],
         activity: can("accounts") ? activity : [],
         users: can("accounts") ? users : [],
@@ -114,7 +111,6 @@ export async function POST(request: NextRequest) {
       "subscription-cancel": "subscriptions",
       "subscription-resume": "subscriptions",
       integration: "integrations",
-      pricing: "pricing",
     };
     if (typeof input.action !== "string" || !Object.hasOwn(needed, input.action))
       throw new ApiError("Unknown action.");
@@ -187,58 +183,6 @@ export async function POST(request: NextRequest) {
         string(input.value, "value", 4096, 1),
         token,
       );
-    } else if (input.action === "pricing") {
-      if (!Array.isArray(input.plans) || ![4,7].includes(input.plans.length))
-        throw new ApiError("Supply all four legacy plans and, optionally, the three approved package rates.");
-      if (input.plans.length === 7) {
-        for (const offer of [individualOffer,teamOffer,extraSeatOffer]) {
-          const matches = input.plans.filter((p: any) => p?.id === offer.id);
-          if (matches.length !== 1 || matches[0].monthly !== offer.monthly || matches[0].annual !== offer.annual || matches[0].seats !== offer.seats)
-            throw new ApiError("Approved Individual and Teams package rates cannot be changed through legacy pricing controls.",409);
-        }
-      }
-      const legacy = input.plans.filter((p: any) => ["free","pro","business","teams"].includes(p?.id));
-      if (legacy.length !== 4) throw new ApiError("Supply all four legacy plans.");
-      const plans = legacy.map((p: any, i: number) => {
-        if (
-          !p ||
-          typeof p !== "object" ||
-          p.id !== ["free", "pro", "business", "teams"][i] ||
-          !Number.isInteger(p.monthly) ||
-          !Number.isInteger(p.annual) ||
-          p.monthly < 0 ||
-          p.monthly > 1000000 ||
-          p.annual < 0 ||
-          p.annual > 12000000 ||
-          (i === 0 && (p.monthly || p.annual))
-        )
-          throw new ApiError("Invalid pricing. Prices use USD cents.");
-        return {
-          id: p.id,
-          name: ["Free", "Pro", "Business", "Teams"][i],
-          monthly: p.monthly,
-          annual: p.annual,
-          seats: i === 3 ? 3 : 1,
-        };
-      });
-      const client = await getPool().connect();
-      try {
-        await client.query("BEGIN");
-        await client.query(
-          "UPDATE private.platform_settings SET value=$1,updated_at=now() WHERE key='pricing'",
-          [JSON.stringify(plans)],
-        );
-        await client.query(
-          "INSERT INTO private.operation_log(actor_id,action,details) VALUES($1,$2,$3)",
-          [token, "pricing_updated", JSON.stringify({ plans })],
-        );
-        await client.query("COMMIT");
-      } catch (e) {
-        await client.query("ROLLBACK");
-        throw e;
-      } finally {
-        client.release();
-      }
     } else throw new ApiError("Unknown action.");
     return Response.json({ ok: true });
   } catch (e) {

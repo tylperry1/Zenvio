@@ -12,11 +12,37 @@ export async function settleAddon(db:PoolClient,checkout:Stripe.Checkout.Session
  const intent=typeof checkout.payment_intent==='string'?checkout.payment_intent:checkout.payment_intent?.id;
  if(!intent)throw new ApiError("Add-on transaction reference is missing.",409);
  await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))",["subscription-usage:"+order.billing_owner]);
- if(order.state==='pending'){
+ // A failed card attempt may be retried in the same Checkout Session; allow a
+ // later verified success to grant. An order can also be marked expired before
+ // its paid session delivery arrives, so an expired order still settles when the
+ // retrieved Checkout Session proves a paid, complete payment. Refunded orders
+ // never grant, and the unique credit reference keeps every grant idempotent.
+ if(order.state==='pending'||order.state==='failed'||order.state==='expired'){
   await db.query("insert into private.subscription_credit_entries(billing_owner,meter,quantity,reference,stripe_transaction_id,reason) values($1,$2,$3,$4,$5,'Paid Stripe credit pack') on conflict(reference) do nothing",[order.billing_owner,order.meter,order.quantity,'addon:'+order.id,intent]);
   await db.query("update private.subscription_addon_orders set state='paid',payment_intent_id=$2,paid_at=now() where id=$1",[order.id,intent]);
  }
  return true;
+}
+/** Mark an unpaid add-on checkout as failed/expired. Paid orders are never downgraded. */
+export async function failAddon(
+ db:PoolClient,
+ checkout:Stripe.Checkout.Session,
+ terminal:"failed"|"expired",
+){
+ const orderId=checkout.metadata?.zenvio_addon_order;
+ if(!orderId)return false;
+ const order=(await db.query("select * from private.subscription_addon_orders where id=$1 for update",[orderId])).rows[0];
+ if(!order)throw new ApiError("Unknown add-on order.",409);
+ const customer=typeof checkout.customer==='string'?checkout.customer:checkout.customer?.id;
+ if(checkout.id!==order.checkout_id||customer!==order.customer_id||checkout.client_reference_id!==order.billing_owner||checkout.amount_total!==order.amount_cents)throw new ApiError("Add-on checkout ownership could not be verified.",409);
+ if(order.state==='paid'||order.state==='partially_refunded'||order.state==='refunded')return false;
+ await db.query("update private.subscription_addon_orders set state=$2 where id=$1 and state in ('pending','failed','expired')",[order.id,terminal]);
+ return true;
+}
+/** Record a failed card attempt without preventing a later retry from granting. */
+export async function failAddonPayment(db:PoolClient,paymentIntentId:string){
+ const result=await db.query("update private.subscription_addon_orders set state='failed' where payment_intent_id=$1 and state='pending'",[paymentIntentId]);
+ return Boolean(result.rowCount);
 }
 export async function refundAddon(db:PoolClient,charge:Stripe.Charge){
  const intent=typeof charge.payment_intent==='string'?charge.payment_intent:charge.payment_intent?.id;

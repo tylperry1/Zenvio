@@ -1,8 +1,8 @@
 # Zenvio — Route & platform inventory
 
-**Date:** 2026-11-16 (America/New_York)  
-**Repository:** tylperry1/Zenvio @ `cursor/full-platform-launch-audit-f122` (branched from `main` after #80)  
-**Production:** https://gozenvio.com  
+**Date:** 2026-11-16 (America/New_York)
+**Repository:** tylperry1/Zenvio @ `cursor/full-platform-launch-audit-f122` (branched from `main` after #80)
+**Production:** https://gozenvio.com
 
 Companion docs: `comms-platform-final-launch-qa.md`, `comms-platform-functional-test-matrix.md`, `comms-platform-visual-audit.md`, `comms-platform-integration-audit.md`.
 
@@ -119,7 +119,6 @@ Source: `/agent/repos/Zenvio` (Next.js App Router). Auth: Better Auth session vi
 | `/api/billing/webhook` | POST | Stripe live subscription webhook |
 | `/api/billing/sandbox-webhook` | POST | Stripe sandbox acceptance webhook |
 | `/api/subscription-enroll` | POST | Paid enrollment (requires checkout readiness) |
-| `/api/catalog` | GET | Current billing catalog |
 | `/api/pricing` | GET | Public pricing payload |
 | `/api/envelope-overages` | POST | Envelope overage billing |
 | `/api/referrals` | GET, POST | Referral codes / claims |
@@ -372,7 +371,7 @@ Almost **no classic `TODO` / `FIXME` / `not implemented` stubs** in application 
 | Signal | Location | Meaning |
 | --- | --- | --- |
 | Add-on purchasing “Coming soon” | `src/components/pricing-allowances.tsx` | Addon catalog shown; purchase disabled |
-| `addonOffers[].available: false` | `src/lib/subscription-offers.mjs` | All capacity addons marked unavailable |
+| `addonOffers[].available: false` | `src/lib/pricing-catalog.mjs` | All capacity addons marked unavailable |
 | `paidEnrollmentEnabled: false` | `src/lib/entitlements.ts` | Hard-coded flag in entitlement usage payload |
 | SMS TEMPORARY unavailable | `src/lib/sms.ts` | Default transport refuses send; Telnyx gated by `TELNYX_MESSAGING_ENABLED` |
 | SMS not advertised | `src/lib/public-pricing-display.ts` | Public pricing never shows SMS |
@@ -381,7 +380,7 @@ Almost **no classic `TODO` / `FIXME` / `not implemented` stubs** in application 
 | Password reset email | `src/app/api/auth/route.ts` | Can 503 “not available yet” without mail config |
 | Product photo placeholder | `src/components/shop/product-detail.tsx` | UI “coming soon” when no image |
 | Marketplace demo / non-purchasable | `src/components/marketplace.tsx`, Brand Studio | Preview-only / supplier not purchasable |
-| v4 pricing preview | `src/lib/public-pricing-surface.ts`, `pricing-v4-catalog.mjs` | Proposed catalog; not purchasable until validated |
+| Paid enrollment gate | `src/lib/public-pricing-surface.ts`, `src/lib/pricing-catalog.mjs` | Canonical catalog; paid enrollment until readiness and owner activation |
 | Video may be unavailable | `src/lib/video.ts`, `video-meetings.tsx` | Daily gated by env |
 
 Input `placeholder=` props are UI chrome only (not incompleteness).
@@ -390,7 +389,7 @@ Input `placeholder=` props are UI chrome only (not incompleteness).
 
 ## 6. Launch controls / signup gating
 
-**Source:** `src/lib/launch-controls.ts`  
+**Source:** `src/lib/launch-controls.ts`
 Stored in `private.platform_settings` key `launch_controls`; defaults:
 
 ```
@@ -426,8 +425,8 @@ Related: `src/lib/billing-readiness.ts`, `src/lib/pricing-activation.ts`, `src/c
 ## 7. Entitlements overview
 
 ### Plan ceilings — `src/lib/entitlement-policy.ts`
-Plans: `individual`, `team`, `free`, `pro`, `business`, `teams`, plus proposed v4 `starter` / `professional` / `enterprise`.  
-Limits: `types`, `calendars`, `envelopes`, `workflows`.  
+Plans: `individual`, `team`, `free`, `pro`, `business`, `teams`, plus proposed v4 `starter` / `professional` / `enterprise`.
+Limits: `types`, `calendars`, `envelopes`, `workflows`.
 Team capacity: `isTeamCapacityPlan()` — v3 `team`/`teams`; v4 `business` when `catalog_version` starts with `2026-11-v4`.
 
 ### Usage enforcement — `src/lib/entitlements.ts`
@@ -436,16 +435,17 @@ Team capacity: `isTeamCapacityPlan()` — v3 `team`/`teams`; v4 `business` when 
 - Platform roles / entitlement overrides can exempt or expand
 
 ### Metered subscription usage — `src/lib/subscription-usage.ts`
-Meters: `aiCredits`, `videoMinutes`, `emails`, `smsSegments`, `storageBytes`, `envelopes`.  
-Allowances from `src/lib/subscription-offers.mjs` (live **v3** catalog `2026-11-v3`):
+Meters: `aiCredits`, `videoMinutes`, `emails`, `smsSegments`, `storageBytes`, `envelopes`.
+Allowances from `src/lib/pricing-catalog.mjs` (`PLAN_ALLOWANCES`):
 
 | Plan | emails | AI | envelopes | video min | storage |
 | --- | --- | --- | --- | --- | --- |
-| individual | 500 | 150 | 10 | 120 | 2 GB |
-| team | 1500 | 450 | 30 | 360 | 10 GB |
+| starter | 500 | 150 | 10 | 120 | 2 GB |
+| professional | 1000 | 300 | 20 | 240 | 5 GB |
+| business (Team) | 1500 | 450 | 30 | 360 | 10 GB |
 
-`reserveSubscriptionUnits` / `settleSubscriptionUnits` enforce only when catalog version matches and status is active/trialing (legacy unenforced).  
-v4 allowances live in `src/lib/pricing-v4-catalog.mjs` (preview until activation).  
+`reserveSubscriptionUnits` / `settleSubscriptionUnits` enforce only when catalog version matches and status is active/trialing (legacy unenforced).
+Allowances are the single `PLAN_ALLOWANCES` table in the canonical module.
 Admin overrides: `/admin/entitlements` + `src/components/entitlement-admin.tsx`.
 
 ---

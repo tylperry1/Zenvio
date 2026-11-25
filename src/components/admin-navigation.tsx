@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   adminNavGroups,
+  navItemAllowed,
   resolveAdminNavId,
   type AdminNavItem,
 } from "@/lib/admin-console-nav";
@@ -82,8 +83,8 @@ function AdminNavigationInner({
       ...g,
       items: g.items.filter(
         (i) =>
-          (!access || can(i.permission)) &&
-          (!q || `${i.label} ${g.label} ${i.hint || ""}`.toLowerCase().includes(q)),
+          (!access || navItemAllowed(i, can)) &&
+          (!q || `${i.label} ${g.label} ${i.note} ${i.hint || ""}`.toLowerCase().includes(q)),
       ),
     }))
     .filter((g) => g.items.length);
@@ -104,7 +105,7 @@ function AdminNavigationInner({
           <Icon name={item.icon} size={16} />
         </span>
         <span className="acx-label">{item.label}</span>
-        {(item.id === "support" || item.id === "support-ops") && supportWaiting > 0 && (
+        {item.id === "support-ops" && supportWaiting > 0 && (
           <span className="acx-count" aria-label={`${supportWaiting} waiting for a reply`}>
             {supportWaiting > 99 ? "99+" : supportWaiting}
           </span>
@@ -122,6 +123,7 @@ function AdminNavigationInner({
         <button
           key={item.id}
           className={active ? "active" : ""}
+          title={item.note}
           aria-current={active ? "page" : undefined}
           onClick={() => {
             onNavigate(item.id);
@@ -138,6 +140,7 @@ function AdminNavigationInner({
         href={item.href}
         onClick={() => setOpen(false)}
         className={active ? "active" : ""}
+        title={item.note}
         aria-current={active ? "page" : undefined}
       >
         {content}

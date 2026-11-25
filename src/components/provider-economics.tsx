@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EconomicsControls } from "./economics-controls";
+import { AdminPageHeader } from "./admin-page-header";
 import {
   Badge,
   EmptyState,
@@ -89,9 +90,8 @@ export function ProviderEconomics() {
 
   return (
     <div className="ds-root">
-      <PageHeader
-        eyebrow="Costs & Analytics"
-        title="Pricing & provider economics"
+      <AdminPageHeader
+        title="Provider costs"
         description="Approved subscription terms, provider cost coverage, and launch promotion controls. Estimates only — never invent revenue."
       />
       {error && <Notice tone="danger">{error}</Notice>}
@@ -102,9 +102,9 @@ export function ProviderEconomics() {
         <>
           <div className="ds-kpis">
             <Kpi
-              label="Catalog"
-              value={data.catalog.version}
-              detail={`${data.catalog.plans.length} published packages`}
+              label="Sellable items"
+              value={String(data.catalog.plans.length)}
+              detail="Monthly and annual"
             />
             <Kpi
               label="Planning cost"
@@ -141,8 +141,8 @@ export function ProviderEconomics() {
                 ))}
               </ul>
               <p className="ds-muted">
-                Teams includes three seats; each additional seat is $9.99. Usage is pooled and does not multiply with
-                seats.
+                Team plans include three seats; additional seats are billed at the published seat rate. Usage is pooled
+                and does not multiply with seats.
               </p>
               <a className="ds-btn" href="/pricing">
                 Review public pricing

@@ -5,13 +5,14 @@ import test from "node:test";
 const read = (f) => fs.readFileSync(f, "utf8");
 
 test("v4 public pricing does not deep-link unenrollable plan ids while preview-only", () => {
-  const v4 = read("src/components/public-pricing-v4.tsx");
+  const v4 = read("src/components/public-pricing.tsx");
   const home = read("src/app/page.tsx");
   const pricing = read("src/app/pricing/page.tsx");
   assert.match(v4, /previewOnly/);
   assert.match(v4, /enrollmentReady/);
   assert.match(v4, /These plans aren’t open for paid signup yet/);
-  assert.match(v4, /Annual amounts are for planning only/);
+  assert.match(v4, /Annual totals are shown for planning/);
+  assert.match(v4, /monthly allowances are still granted each month/i);
   assert.match(v4, /const href = signupOpen \? "\/sign-up" : joinHref/);
   assert.doesNotMatch(v4, /`\/sign-up\?plan=\$\{offer\.id\}`/);
   assert.doesNotMatch(v4, /\?plan=\$\{offer\.id\}/);
@@ -22,7 +23,13 @@ test("v4 public pricing does not deep-link unenrollable plan ids while preview-o
 test("billing overview uses customer-safe paused-enrollment copy without Stripe readiness internals", () => {
   const billing = read("src/components/billing.tsx");
   const messages = read("src/lib/customer-messages.ts");
-  assert.match(billing, /data\.connected && !data\.checkoutEnabled/);
+  // The paused notice follows the same enrollment gate the plans tab uses: v4
+  // reads the public surface, legacy reads the checkout flag.
+  assert.match(billing, /data\.connected && !enrollmentOpen/);
+  assert.match(
+    billing,
+    /const enrollmentOpen = \(d: Data\) =>\s*d\.pricingSurface\?\.enrollment\.enabled \?\? d\.checkoutEnabled/,
+  );
   assert.match(billing, /customerMessages\.billing\.enrollmentPaused/);
   assert.match(billing, /customerMessages\.billing\.enrollmentPausedWithBillingAccount/);
   assert.match(billing, /customerMessages\.billing\.enrollmentPausedTeamMember/);

@@ -9,7 +9,6 @@ const permissionFor: Record<string, StaffPermission> = {
   marketplace: "marketplace",
   users: "accounts",
   integrations: "integrations",
-  pricing: "pricing",
   health: "health",
 };
 export default async function Page({
@@ -17,8 +16,11 @@ export default async function Page({
 }: {
   searchParams: Promise<{ section?: string }>;
 }) {
-  const { access } = await requireAdminPage(Object.values(permissionFor));
   const { section } = await searchParams;
+  // Checkout pricing is the delegated tab of Billing now; keep old deep links alive.
+  // This runs before the permission gate so pricing-only staff still land on it.
+  if (section === "pricing") redirect("/admin/billing?tab=pricing");
+  const { access } = await requireAdminPage(Object.values(permissionFor));
   const requested = section && Object.hasOwn(permissionFor, section) ? section : "subscriptions";
   if (!canAccess(access, permissionFor[requested])) {
     const first = Object.keys(permissionFor).find((s) => canAccess(access, permissionFor[s]));

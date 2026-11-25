@@ -116,8 +116,8 @@ export function ReferralsCenter() {
               <p className="referrals-kicker">Share &amp; earn</p>
               <h2 id="referrals-hero-title">Send one link. Grow together.</h2>
               <p>
-                You earn {rewardCopy || "workspace credits"} when the business you invite starts a paid Individual or
-                Teams plan. Credits land on the billing owner’s account.
+                You earn {rewardCopy || "workspace credits"} when the business you invite starts a paid Zenvio plan.
+                Credits land on the billing owner’s account.
               </p>
             </div>
             <div className="referrals-hero-share">

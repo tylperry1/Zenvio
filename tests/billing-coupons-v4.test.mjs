@@ -5,12 +5,13 @@ import path from "node:path";
 import Module from "node:module";
 import ts from "typescript";
 import {
-  pricingV4Offers,
-  pricingV4Allowances,
-  pricingV4Addons,
-  pricingV4Flagship,
-  pricingV4SubscriptionTotal,
-} from "../src/lib/pricing-v4-catalog.mjs";
+  PLANS,
+  PLAN_ALLOWANCES,
+  ADDONS,
+  FLAGSHIP_PLAN,
+  subscriptionTotal,
+  CATALOG_ID,
+} from "../src/lib/pricing-catalog.mjs";
 
 class ApiError extends Error {
   constructor(message, status = 400) {
@@ -51,20 +52,27 @@ const coupons = load("src/lib/billing-coupons.ts", {
 });
 
 const policy = load("src/lib/entitlement-policy.ts", {
-  "./subscription-offers.mjs": {
-    monthlyAllowances: {
-      individual: { envelopes: 10 },
-      team: { envelopes: 30 },
+  "./pricing-catalog.mjs": {
+    PLAN_ALLOWANCES,
+    CATALOG_ID,
+    PLAN_LIMITS: {
+      free: { types: 1, calendars: 1, envelopes: 3, workflows: 1 },
+      starter: { types: 10, calendars: 3, envelopes: 10, workflows: 5 },
+      professional: { types: 50, calendars: 10, envelopes: 20, workflows: 20 },
+      business: { types: 100, calendars: 30, envelopes: 50, workflows: 50 },
+      enterprise: { types: 1000, calendars: 100, envelopes: 1000, workflows: 1000 },
     },
-  },
-  "./pricing-v4-catalog.mjs": {
-    pricingV4Allowances,
+    contactAllowance: () => 1000,
+    isPaidPlan: (plan) => !["free"].includes(plan),
+    isTeamPlan: (plan) => plan === "team" || plan === "business" || plan === "teams",
+    planId: (plan) =>
+      ({ individual: "starter", team: "business", teams: "business", pro: "starter" })[plan] || plan,
   },
 });
 
 test("approved v4 catalog amounts and Professional flagship", () => {
-  assert.equal(pricingV4Flagship, "professional");
-  const byId = Object.fromEntries(pricingV4Offers.map((o) => [o.id, o]));
+  assert.equal(FLAGSHIP_PLAN, "professional");
+  const byId = Object.fromEntries(PLANS.map((o) => [o.id, o]));
   assert.equal(byId.free.monthly, 0);
   assert.equal(byId.starter.monthly, 999);
   assert.equal(byId.starter.annual, 9588);
@@ -74,39 +82,39 @@ test("approved v4 catalog amounts and Professional flagship", () => {
   assert.equal(byId.business.name, "Team");
   assert.equal(byId.business.monthly, 3499);
   assert.equal(byId.business.annual, 33588);
-  assert.equal(pricingV4SubscriptionTotal("business", 5), 3499 + 2 * 500);
+  assert.equal(subscriptionTotal("business", 5), 3499 + 2 * 500);
 });
 
 test("v4 allowances match approved contact/storage/marketing/automation/AI/envelope table", () => {
-  assert.equal(pricingV4Allowances.free.contacts, 100);
-  assert.equal(pricingV4Allowances.free.storageBytes, 100 * 1024 * 1024);
-  assert.equal(pricingV4Allowances.free.marketingEmails, 0);
-  assert.equal(pricingV4Allowances.free.automationExecutions, 0);
-  assert.equal(pricingV4Allowances.free.aiCredits, 0);
-  assert.equal(pricingV4Allowances.free.envelopes, 0);
-  assert.equal(pricingV4Allowances.free.appointments, 30);
+  assert.equal(PLAN_ALLOWANCES.free.contacts, 100);
+  assert.equal(PLAN_ALLOWANCES.free.storageBytes, 100 * 1024 * 1024);
+  assert.equal(PLAN_ALLOWANCES.free.marketingEmails, 0);
+  assert.equal(PLAN_ALLOWANCES.free.automationExecutions, 0);
+  assert.equal(PLAN_ALLOWANCES.free.aiCredits, 0);
+  assert.equal(PLAN_ALLOWANCES.free.envelopes, 0);
+  assert.equal(PLAN_ALLOWANCES.free.appointments, 30);
 
-  assert.equal(pricingV4Allowances.starter.contacts, 1000);
-  assert.equal(pricingV4Allowances.starter.storageBytes, 1 * 1024 * 1024 * 1024);
-  assert.equal(pricingV4Allowances.starter.marketingEmails, 250);
-  assert.equal(pricingV4Allowances.starter.automationExecutions, 100);
-  assert.equal(pricingV4Allowances.starter.aiCredits, 25);
-  assert.equal(pricingV4Allowances.starter.envelopes, 5);
-  assert.equal(pricingV4Allowances.starter.appointments, null);
+  assert.equal(PLAN_ALLOWANCES.starter.contacts, 1000);
+  assert.equal(PLAN_ALLOWANCES.starter.storageBytes, 1 * 1024 * 1024 * 1024);
+  assert.equal(PLAN_ALLOWANCES.starter.marketingEmails, 250);
+  assert.equal(PLAN_ALLOWANCES.starter.automationExecutions, 100);
+  assert.equal(PLAN_ALLOWANCES.starter.aiCredits, 25);
+  assert.equal(PLAN_ALLOWANCES.starter.envelopes, 5);
+  assert.equal(PLAN_ALLOWANCES.starter.appointments, null);
 
-  assert.equal(pricingV4Allowances.professional.contacts, 10000);
-  assert.equal(pricingV4Allowances.professional.marketingEmails, 2000);
-  assert.equal(pricingV4Allowances.professional.aiCredits, 200);
-  assert.equal(pricingV4Allowances.professional.envelopes, 20);
+  assert.equal(PLAN_ALLOWANCES.professional.contacts, 10000);
+  assert.equal(PLAN_ALLOWANCES.professional.marketingEmails, 2000);
+  assert.equal(PLAN_ALLOWANCES.professional.aiCredits, 200);
+  assert.equal(PLAN_ALLOWANCES.professional.envelopes, 20);
 
-  assert.equal(pricingV4Allowances.business.contacts, 30000);
-  assert.equal(pricingV4Allowances.business.marketingEmails, 5000);
-  assert.equal(pricingV4Allowances.business.aiCredits, 500);
-  assert.equal(pricingV4Allowances.business.envelopes, 50);
+  assert.equal(PLAN_ALLOWANCES.business.contacts, 30000);
+  assert.equal(PLAN_ALLOWANCES.business.marketingEmails, 5000);
+  assert.equal(PLAN_ALLOWANCES.business.aiCredits, 500);
+  assert.equal(PLAN_ALLOWANCES.business.envelopes, 50);
 });
 
 test("approved add-on prices are unpublished until fulfillment gates", () => {
-  const byId = Object.fromEntries(pricingV4Addons.map((a) => [a.id, a]));
+  const byId = Object.fromEntries(ADDONS.map((a) => [a.id, a]));
   assert.equal(byId.ai_100.amount, 299);
   assert.equal(byId.ai_500.amount, 999);
   assert.equal(byId.envelopes_10.amount, 999);
@@ -115,7 +123,7 @@ test("approved add-on prices are unpublished until fulfillment gates", () => {
   assert.equal(byId.storage_10gb.amount, 299);
   assert.equal(byId.sms_starter.amount, 1499);
   assert.equal(byId.sms_segment.amount, 3);
-  assert.ok(pricingV4Addons.every((a) => a.available === false));
+  assert.ok(ADDONS.every((a) => a.available === false));
 });
 
 test("coupon parser accepts percent/amount and rejects bad shapes", () => {
@@ -126,15 +134,14 @@ test("coupon parser accepts percent/amount and rejects bad shapes", () => {
     duration: "repeating",
     durationInMonths: 3,
     maxRedemptions: 100,
-    catalogTargets: ["v3", "v4"],
   });
   assert.equal(percent.percentOff, 50);
-  assert.deepEqual(percent.catalogTargets, ["v3", "v4"]);
-  assert.deepEqual(coupons.productsForTargets(["v3"]), [
-    "zenvio_individual_v3",
-    "zenvio_team_v3",
+  assert.equal("catalogTargets" in percent, false);
+  assert.deepEqual(coupons.couponProducts(), [
+    "zenvio_starter_v4",
+    "zenvio_professional_v4",
+    "zenvio_business_v4",
   ]);
-  assert.ok(coupons.productsForTargets(["v4"]).includes("zenvio_professional_v4"));
 
   const amount = coupons.parseCouponInput({
     code: "TENOFF",
@@ -188,17 +195,12 @@ test("coupon parser accepts percent/amount and rejects bad shapes", () => {
   );
 });
 
-test("v4 Team plan limits override legacy solo business ceilings", () => {
-  const legacy = policy.planLimitsFor("business", "legacy");
-  const v4 = policy.planLimitsFor("business", "2026-11-v4");
-  assert.equal(legacy.envelopes, 100);
-  assert.equal(v4.envelopes, 50);
-  assert.equal(policy.isTeamCapacityPlan("business", "legacy"), false);
-  assert.equal(policy.isTeamCapacityPlan("business", "2026-11-v4"), true);
-  assert.equal(policy.hasTeamWorkspaceAccess("business", "2026-11-v4"), true);
-  assert.equal(policy.hasTeamWorkspaceAccess("business", "legacy"), false);
-  assert.equal(policy.contactAllowance("starter", "2026-11-v4"), 1000);
-  assert.equal(policy.contactAllowance("starter", "2026-11-v3"), null);
+test("Team plan limits are plan-based", () => {
+  assert.equal(policy.planLimitsFor("business").envelopes, 50);
+  assert.equal(policy.planLimitsFor("individual").envelopes, 10);
+  assert.equal(policy.isTeamCapacityPlan("business"), true);
+  assert.equal(policy.hasTeamWorkspaceAccess("business"), true);
+  assert.equal(policy.contactAllowance("starter"), 1000);
 });
 
 test("storage guard migration keeps release overlays and custom allowances", () => {

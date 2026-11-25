@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FormActions, Notice, PageHeader, Panel, Segmented } from "./ds";
+import { FormActions, Notice, Panel, Segmented } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 
 type Preview = {
   html: string;
@@ -34,7 +35,7 @@ export function EmailPreview() {
 
   return (
     <div className="ds-root">
-      <PageHeader
+      <AdminPageHeader
         title="Transactional email preview"
         description="Preview the shared account and notification layout. Test sends go to your administrator email."
         actions={

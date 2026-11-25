@@ -129,7 +129,7 @@ test("admin nav includes Support Operations and Suggestions badges wiring", () =
   assert.match(nav, /href: "\/admin\/support-ops"/);
   assert.match(ui, /AdminAlertBell/);
   assert.match(ui, /item\.id === "feedback"\) && feedbackOpen/);
-  assert.match(ui, /item\.id === "support" \|\| item\.id === "support-ops"/);
+  assert.match(ui, /item\.id === "support-ops" && supportWaiting > 0/);
   assert.match(ui, /supportWaiting/);
 });
 

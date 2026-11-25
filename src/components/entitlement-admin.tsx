@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Badge, EmptyState, Notice, PageHeader, Panel, Skeleton, formatDate } from "./ds";
+import { Badge, EmptyState, Notice, Panel, Skeleton, formatDate } from "./ds";
+import { AdminPageHeader } from "./admin-page-header";
 import { Icon } from "./icons";
 
 type Limits = { types: number; calendars: number; envelopes: number; workflows: number };
@@ -121,7 +122,7 @@ export function EntitlementAdmin() {
 
   return (
     <div className="ds-root ent">
-      <PageHeader
+      <AdminPageHeader
         title="Plans & entitlements"
         description="What each plan includes, which Stripe prices bill for it, and time-limited plan overrides for individual accounts."
         actions={
@@ -129,8 +130,8 @@ export function EntitlementAdmin() {
             <a className="ds-btn sm" href="/admin/financial-intelligence">
               Financial Intelligence
             </a>
-            <a className="ds-btn sm" href="/admin/economics">
-              Pricing &amp; provider economics
+            <a className="ds-btn sm" href="/admin/financial-intelligence?tab=provider-costs">
+              Provider costs
             </a>
           </>
         }
@@ -186,7 +187,7 @@ export function EntitlementAdmin() {
         <Panel
           flush
           title="Stripe price mapping"
-          description="Current Individual and Teams prices are versioned in Billing & revenue. Legacy mappings below still apply to grandfathered checkouts."
+          description="Live v3 Individual and Teams prices are versioned in Billing & revenue. v4 plans are preview-only. Legacy mappings below still apply to grandfathered checkouts."
         >
           {!data ? (
             <div className="ent-pad">
