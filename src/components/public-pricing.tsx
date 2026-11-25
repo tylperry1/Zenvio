@@ -7,6 +7,7 @@ import {
   annualMonthlyEquivalentOf,
   EXTRA_SEAT,
   PLAN_FEATURES,
+  PLAN_SUMMARIES,
   FLAGSHIP_PLAN,
   PRICING_HERO,
   PLANS,
@@ -14,6 +15,14 @@ import {
 } from "@/lib/pricing-catalog.mjs";
 import { money } from "@/lib/billing-types";
 import { publicAddonsForDisplay } from "@/lib/public-pricing-display";
+
+const ADDON_UNITS: Record<string, string> = {
+  aiCredits: "AI credits",
+  envelopes: "E-signatures",
+  videoMinutes: "Video",
+  storageBytes: "Storage",
+  seats: "Team",
+};
 
 const COMPARISON_PLANS = ["free", "starter", "professional", "business"] as const;
 const COMPARISON_ROWS: {
@@ -115,6 +124,9 @@ export function PublicPricing({
             >
               {featured && <span className="subscription-kicker">Recommended</span>}
               <h3>{offer.name}</h3>
+              <p className="subscription-summary">
+                {PLAN_SUMMARIES[offer.id as keyof typeof PLAN_SUMMARIES]}
+              </p>
               <p className="subscription-price">
                 {price === 0 ? (
                   <>
@@ -128,13 +140,13 @@ export function PublicPricing({
                   </>
                 )}
               </p>
-              {annual && offer.annual != null ? (
+              {annual && offer.annual != null && price !== 0 ? (
                 <p className="premium-note">
-                  Billed once yearly · equals {money(annualMonthlyEquivalentOf(offer) || 0)}/mo
+                  Billed annually — {money(annualMonthlyEquivalentOf(offer) || 0)} a month equivalent
                 </p>
               ) : null}
               {!isFree && !canEnroll ? (
-                <p className="premium-note">These plans aren’t open for paid signup yet. Current enrollments use today’s published pricing.</p>
+                <p className="premium-note">These plans aren’t open for paid signup yet. Today’s published rates apply to existing enrollments.</p>
               ) : null}
               <ul>
                 {PLAN_FEATURES[offer.id as keyof typeof PLAN_FEATURES].map((line) => (
@@ -150,6 +162,7 @@ export function PublicPricing({
 
         <article className="subscription-offer-card">
           <h3>Enterprise</h3>
+          <p className="subscription-summary">{PLAN_SUMMARIES.enterprise}</p>
           <p className="subscription-price">
             <strong>Custom</strong>
           </p>
@@ -262,14 +275,28 @@ export function PublicPricing({
               exhausted. Optional add-ons are sold separately once billing for them is live.
             </p>
           </section>
-          <section className="subscription-invoices">
-            <h2>Optional add-ons</h2>
-            <ul>
+          <section className="subscription-invoices subscription-addons">
+            <div className="subscription-addons-head">
+              <h2>Optional add-ons</h2>
+              <span className="subscription-addons-flag">
+                {addons.some((addon) => addon.available)
+                  ? "Available in Plan & billing"
+                  : "Purchasing opens soon"}
+              </span>
+            </div>
+            <p className="subscription-addons-lede">
+              Top up a plan in a busy month. Add-ons are billed separately from your plan and appear
+              in Plan &amp; billing once purchasing is live.
+            </p>
+            <ul className="subscription-addon-grid">
               {addons.map((addon) => (
-                <li key={addon.id}>
-                  {addon.name} · {money(addon.amount)}
-                  {addon.recurring ? "/month" : ""} ·{" "}
-                  {addon.available ? "Available in Plan & billing" : "Planning only — not for purchase yet"}
+                <li key={addon.id} className="subscription-addon-card">
+                  <span className="subscription-addon-unit">{ADDON_UNITS[addon.unit] || "Add-on"}</span>
+                  <h3 className="subscription-addon-name">{addon.name}</h3>
+                  <p className="subscription-addon-price">
+                    <strong>{money(addon.amount)}</strong>
+                    <span>{addon.recurring ? "/month" : "one-time"}</span>
+                  </p>
                 </li>
               ))}
             </ul>
