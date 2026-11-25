@@ -117,6 +117,17 @@ export function PublicPricing({
             : signupOpen
               ? "Create free account"
               : joinLabel;
+          // One note per card: the billing period and enrollment status read as
+          // a single paragraph instead of two stacked small-print blocks.
+          const annualNote =
+            annual && offer.annual != null && price !== 0
+              ? `Billed annually — ${money(annualMonthlyEquivalentOf(offer) || 0)} a month equivalent.`
+              : "";
+          const enrollmentNote =
+            !isFree && !canEnroll
+              ? "These plans aren’t open for paid signup yet. Today’s published rates apply to existing enrollments."
+              : "";
+          const cardNote = [annualNote, enrollmentNote].filter(Boolean).join(" ");
           return (
             <article
               key={offer.id}
@@ -140,14 +151,7 @@ export function PublicPricing({
                   </>
                 )}
               </p>
-              {annual && offer.annual != null && price !== 0 ? (
-                <p className="premium-note">
-                  Billed annually — {money(annualMonthlyEquivalentOf(offer) || 0)} a month equivalent
-                </p>
-              ) : null}
-              {!isFree && !canEnroll ? (
-                <p className="premium-note">These plans aren’t open for paid signup yet. Today’s published rates apply to existing enrollments.</p>
-              ) : null}
+              {cardNote ? <p className="premium-note">{cardNote}</p> : null}
               <ul>
                 {PLAN_FEATURES[offer.id as keyof typeof PLAN_FEATURES].map((line) => (
                   <li key={line}>{line}</li>
@@ -295,7 +299,7 @@ export function PublicPricing({
                   <h3 className="subscription-addon-name">{addon.name}</h3>
                   <p className="subscription-addon-price">
                     <strong>{money(addon.amount)}</strong>
-                    <span>{addon.recurring ? "/month" : "one-time"}</span>
+                    <span>{addon.recurring ? "/month" : "\u00A0one-time"}</span>
                   </p>
                 </li>
               ))}
