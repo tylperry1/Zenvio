@@ -117,17 +117,21 @@ export function PublicPricing({
             : signupOpen
               ? "Create free account"
               : joinLabel;
-          // One note per card: the billing period and enrollment status read as
-          // a single paragraph instead of two stacked small-print blocks.
+          // One sentence per card: the billing period and enrollment status share a
+          // single clause instead of stacking two small-print statements.
           const annualNote =
             annual && offer.annual != null && price !== 0
-              ? `Billed annually — ${money(annualMonthlyEquivalentOf(offer) || 0)} a month equivalent.`
+              ? `Billed annually at ${money(annualMonthlyEquivalentOf(offer) || 0)} a month equivalent`
               : "";
-          const enrollmentNote =
-            !isFree && !canEnroll
-              ? "These plans aren’t open for paid signup yet. Today’s published rates apply to existing enrollments."
-              : "";
-          const cardNote = [annualNote, enrollmentNote].filter(Boolean).join(" ");
+          const enrollmentGap = !isFree && !canEnroll;
+          const cardNote =
+            annualNote && enrollmentGap
+              ? `${annualNote} — paid signup isn’t open yet, and existing enrollments keep today’s rates.`
+              : annualNote
+                ? `${annualNote}.`
+                : enrollmentGap
+                  ? "Paid signup isn’t open yet — today’s published rates apply to existing enrollments."
+                  : "";
           return (
             <article
               key={offer.id}

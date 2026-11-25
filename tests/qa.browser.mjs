@@ -33,7 +33,7 @@ try {
         if(route==="/pricing") {
           // The public page shows the proposed v4 catalog while paid enrollment stays gated.
           assert.equal(await page.getByText("Upcoming plans", {exact:true}).count(), 1);
-          assert.equal(await page.getByText(/These plans aren’t open for paid signup yet/).count(), 3);
+          assert.equal(await page.getByText(/Paid signup isn’t open yet/).count(), 3);
           assert.ok(await page.getByText("$9.99", {exact:true}).count() >= 1);
           assert.ok(await page.getByText("$19.99", {exact:true}).count() >= 1);
           assert.ok(await page.getByText("$34.99", {exact:true}).count() >= 1);

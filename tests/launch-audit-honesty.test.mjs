@@ -10,7 +10,7 @@ test("v4 public pricing does not deep-link unenrollable plan ids while preview-o
   const pricing = read("src/app/pricing/page.tsx");
   assert.match(v4, /previewOnly/);
   assert.match(v4, /enrollmentReady/);
-  assert.match(v4, /These plans aren’t open for paid signup yet/);
+  assert.match(v4, /Paid signup isn’t open yet/);
   assert.match(v4, /Annual totals are shown for planning/);
   assert.match(v4, /monthly allowances are still granted each month/i);
   assert.match(v4, /const href = signupOpen \? "\/sign-up" : joinHref/);
