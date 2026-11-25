@@ -310,6 +310,29 @@
 /* Pricing */
 .mk-pricing{padding:92px 0 72px}
 .marketing-v3 .subscription-offers{margin-top:8px}
+.marketing-v3 .subscription-summary{margin:-4px 0 0;font-size:12.5px;line-height:1.5;letter-spacing:-.005em;color:var(--mk-muted)}
+/* Stack cards as flex columns so every plan CTA sits on the same baseline. */
+.marketing-v3 .subscription-offer-card{display:flex;flex-direction:column}
+.marketing-v3 .subscription-offer-card .button{margin-top:auto}
+.marketing-v3 .subscription-offer-card .button:not(.primary){background:var(--mk-card);border-color:var(--mk-line-strong);color:var(--mk-ink);box-shadow:var(--mk-shadow-sm)}
+.marketing-v3 .subscription-offer-card .button:not(.primary):hover:not(:disabled){background:var(--mk-bg-soft);border-color:var(--mk-faint)}
+
+/* Optional add-ons — compact purchase cards shared by the homepage and /pricing. */
+.marketing-v3 .subscription-addons-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px}
+.marketing-v3 .subscription-addons h2{margin:0;font-size:20px;line-height:1.2;letter-spacing:-.03em;font-weight:640;color:var(--mk-ink)}
+.marketing-v3 .subscription-addons-flag{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--mk-line);border-radius:999px;background:var(--mk-bg-soft);font-family:var(--mk-mono);font-size:9.5px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--mk-faint-strong);white-space:nowrap}
+.marketing-v3 .subscription-addons-flag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5}
+.marketing-v3 .subscription-addons .subscription-addons-lede{max-width:64ch;margin:8px 0 18px;font-size:13px;line-height:1.6;color:var(--mk-muted)}
+.marketing-v3 .subscription-invoices ul.subscription-addon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:0;padding:0;border:0;list-style:none}
+@media(min-width:1000px){.marketing-v3 .subscription-invoices ul.subscription-addon-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.marketing-v3 .subscription-invoices ul.subscription-addon-grid>li{display:flex;flex-direction:column;gap:5px;padding:15px 16px 14px;border:1px solid var(--mk-line);border-radius:9px;background:var(--mk-card);transition:border-color .16s ease,box-shadow .16s ease}
+.marketing-v3 .subscription-invoices ul.subscription-addon-grid>li:hover{border-color:var(--mk-line-strong);box-shadow:var(--mk-shadow-sm)}
+.marketing-v3 .subscription-addon-unit{font-family:var(--mk-mono);font-size:9.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--mk-cobalt)}
+.marketing-v3 .subscription-addon-name{margin:0;font-size:14px;line-height:1.4;letter-spacing:-.015em;font-weight:600;color:var(--mk-ink)}
+.marketing-v3 .subscription-addon-price{display:flex;align-items:baseline;gap:5px;margin:auto 0 0;padding-top:10px;font-size:11.5px;color:var(--mk-faint-strong)}
+/* Cobalt on the dark card surface is only 2.8:1 at 9.5px. */
+html[data-theme="dark"] .marketing-v3 .subscription-addon-unit{color:#9db4ff}
+.marketing-v3 .subscription-addon-price strong{font-size:18px;font-weight:640;letter-spacing:-.03em;color:var(--mk-ink);font-variant-numeric:tabular-nums}
 
 /* FAQ */
 .mk-faq-band{padding:0}
@@ -593,6 +616,7 @@ html[data-theme="dark"] .marketing-v3.pricing-page{
 }
 
 @media(max-width:700px){
+  .marketing-v3 .subscription-invoices ul.subscription-addon-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pricing-page main{padding:40px 0 56px}
   .pricing-page .subscription-pricing-intro{margin-bottom:32px}
   .pricing-page .subscription-pricing-intro h1{font-size:clamp(28px,7.6vw,36px)}
