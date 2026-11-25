@@ -199,16 +199,19 @@ The eight-step acceptance checklist in `docs/DIGITAL_IDENTITY.md` remains open. 
 
 | Area | PRs | Status |
 | --- | --- | --- |
-| Smarty autocomplete, typed booking addresses, E.164 phones and team location policy (migrations 097–098) | #91 | Implemented, awaiting Smarty vault credentials and activation; no live provider acceptance recorded |
+| Smarty autocomplete, typed booking addresses, E.164 phones and team location policy (migrations 097–098) | #87, #91 | Implemented, awaiting Smarty vault credentials and activation; no live provider acceptance recorded |
 | Inbox messaging repair and three-panel workspace (migrations 099–100) | #92, #98, #99 | Implemented, pending release QA; `tests/messaging-inbox-auth.test.mjs` covers the ACL and read-cursor fixes |
 | Host appointment editing, move/duration handling and inbox acceptance (migrations 101–102) | #95, #96, #97 | Implemented, pending release QA |
 | Support Operations Center, alerts and popout layout | #86, #89 | Implemented, pending release QA |
-| Design-system migration of admin billing, subscriptions, clients and payments | #76, #90 | Implemented, pending page-level visual acceptance |
-| Pricing v4, Stripe sync, Financial Intelligence, coupons and add-ons (migrations 086–094) | #74, #79, #80, #81, #83, #84, #85 | Implemented behind gates; activation still needs owner approval and Stripe sandbox acceptance (see [docs/PRICING_V4_ACTIVATION.md](docs/PRICING_V4_ACTIVATION.md)) |
+| Design-system migration and admin console IA: billing, subscriptions, clients, payments, navigation | #76, #84, #85, #90 | Implemented, pending page-level visual acceptance |
+| Pricing v4, Stripe sync, Financial Intelligence, coupons and add-ons (migrations 086–087, 089, 091–094) | #74, #79, #80, #81, #83 | Implemented behind gates in this window; current catalog and activation gates are in [docs/PRICING_AND_BILLING.md](docs/PRICING_AND_BILLING.md) and [docs/BILLING_LAUNCH_CHECKLIST.md](docs/BILLING_LAUNCH_CHECKLIST.md) |
+| Unified notification orchestration and provider sync degraded states (migrations 088, 090) | #78, #82 | Implemented, pending release QA |
 | Blank `/p` profiles, blank card/navigation screens, public profile layout and CTA sizing | #100, #102 | Fixed; render and navigation regression tests added |
 | Customer-facing copy honesty pass | #94 | Fixed; covered by `tests/customer-facing-content.test.mjs` |
 | Platform polish and calendar copy | #88 | Implemented, pending release QA |
 | Production deploy retries after Vercel rate limiting | #93 | Deployment operation only; no product change |
+
+Migrations 086–105 added across this window are additive; no earlier migration was rewritten.
 
 ## Commercial launch checklist
 

@@ -68,6 +68,13 @@ Each route requires its own workflow evidence. Source presence is recorded separ
 - `/app/documents` — `src/app/app/documents/page.tsx`
 - `/app/feedback` — `src/app/app/feedback/page.tsx`
 - `/app/growth` — `src/app/app/growth/page.tsx`
+- `/app/identity` — `src/app/app/identity/page.tsx`
+- `/app/identity/analytics` — `src/app/app/identity/analytics/page.tsx`
+- `/app/identity/cards` — `src/app/app/identity/cards/page.tsx`
+- `/app/identity/contacts` — `src/app/app/identity/contacts/page.tsx`
+- `/app/identity/design` — `src/app/app/identity/design/page.tsx`
+- `/app/identity/nfc` — `src/app/app/identity/nfc/page.tsx`
+- `/app/identity/qr` — `src/app/app/identity/qr/page.tsx`
 - `/app/inbox` — `src/app/app/inbox/page.tsx`
 - `/app/jobs` — `src/app/app/jobs/page.tsx`
 - `/app/marketing` — `src/app/app/marketing/page.tsx`
@@ -245,6 +252,7 @@ Each route requires its own workflow evidence. Source presence is recorded separ
 - `/api/workspace` — GET, POST — `src/app/api/workspace/route.ts`
 - `/c/[token]` — GET — `src/app/c/[token]/route.ts`
 - `/p/[slug]/booking` — GET — `src/app/p/[slug]/booking/route.ts`
+- `/p/[slug]/click` — POST — `src/app/p/[slug]/click/route.ts`
 - `/p/[slug]/lead` — POST — `src/app/p/[slug]/lead/route.ts`
 - `/p/[slug]/qr` — GET — `src/app/p/[slug]/qr/route.ts`
 - `/p/[slug]/vcard` — GET — `src/app/p/[slug]/vcard/route.ts`
