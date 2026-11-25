@@ -177,6 +177,39 @@ Builds on the native support tickets from migration 066; the API contract, idemp
 | Website visitor chat (migration 068) | Built and verified locally: "Chat with us" on the home, pricing and help pages and at `/support`; no account needed; private token in an HttpOnly cookie, reply emails carry a private link; CAPTCHA when configured, rate limits and a honeypot; images are account-only |
 | Employee alerts (migration 068) | Built and verified locally: chime and desktop notifications in the inbox, waiting count in the tab title and console navigation, email to away employees for new chats and replies to their assigned conversations (on/off per employee). Emails send once Resend is configured |
 
+## November 17–21 release window: Digital Identity and public profile redesign
+
+This section fills the gap between the 2026-11-12 checkpoint and `fc489fa` (2026-11-21), covering the PRs merged between 2026-11-17 and 2026-11-21 (#91–#110 plus the surrounding Nov 17 merges). The largest workstream was Digital Identity: PR #103 made the existing Smart Profile record the single identity layer behind Smart Cards, NFC Studio, QR codes, booking, contact exchange and analytics, with `/p/{slug}` as the canonical public URL and `/c/{token}` as the stable physical-card redirect. Content edits update the live profile without reprogramming printed cards or tags, and prior slugs keep resolving. Migrations 104–105 add the identity tables and slug guard and are additive; no earlier migration was rewritten.
+
+Model, routes and entitlements are documented in [docs/DIGITAL_IDENTITY.md](docs/DIGITAL_IDENTITY.md); tag programming and device limits in [docs/NFC_STUDIO.md](docs/NFC_STUDIO.md).
+
+| Work | Status |
+| --- | --- |
+| Digital Identity record, canonical `/p/{slug}`, `/c/{token}` redirects, slug redirect history (migrations 104–105) | Implemented, pending release QA; `tests/digital-identity.test.mjs` runs in the existing `npm test` job. No live acceptance claimed |
+| Identity Management Center at `/app/identity` (profiles, cards, NFC, QR, contact exchange, analytics, design & branding) | Implemented, pending release QA; legacy Business Profile and Growth entry points deep-link into it |
+| Profile analytics by link/card/QR/NFC, plus booking conversion from `booking_sources` | Implemented; conversions count only verified bookings, asserted in isolated tests |
+| Contact exchange: vCard, privacy toggles, optional consented lead capture | Implemented, pending release QA |
+| NFC Studio write/read and `/c/{token}?src=nfc` programming (PR #101, migration 103) | Implemented, pending device acceptance: the required iPhone (Capacitor) and Android physical-tag matrix has no recorded results |
+| Entitlements: `features.smartCards` flag, 5 profiles / 50 cards / 100 NFC tags | Unchanged and not re-priced; ceiling copy points to Plan & billing |
+| Public profile premium redesign (PRs #104, #107, #108, #109, #110) | Implemented, including layout and compact-card repairs and solid primary CTAs for contrast; page-by-page visual signoff on real devices is pending |
+
+The eight-step acceptance checklist in `docs/DIGITAL_IDENTITY.md` remains open. Nothing in this window activates a provider flag, changes a Stripe price, raises a plan ceiling or makes a live charge.
+
+### Other work merged in the same window
+
+| Area | PRs | Status |
+| --- | --- | --- |
+| Smarty autocomplete, typed booking addresses, E.164 phones and team location policy (migrations 097–098) | #91 | Implemented, awaiting Smarty vault credentials and activation; no live provider acceptance recorded |
+| Inbox messaging repair and three-panel workspace (migrations 099–100) | #92, #98, #99 | Implemented, pending release QA; `tests/messaging-inbox-auth.test.mjs` covers the ACL and read-cursor fixes |
+| Host appointment editing, move/duration handling and inbox acceptance (migrations 101–102) | #95, #96, #97 | Implemented, pending release QA |
+| Support Operations Center, alerts and popout layout | #86, #89 | Implemented, pending release QA |
+| Design-system migration of admin billing, subscriptions, clients and payments | #76, #90 | Implemented, pending page-level visual acceptance |
+| Pricing v4, Stripe sync, Financial Intelligence, coupons and add-ons (migrations 086–094) | #74, #79, #80, #81, #83, #84, #85 | Implemented behind gates; activation still needs owner approval and Stripe sandbox acceptance (see [docs/PRICING_V4_ACTIVATION.md](docs/PRICING_V4_ACTIVATION.md)) |
+| Blank `/p` profiles, blank card/navigation screens, public profile layout and CTA sizing | #100, #102 | Fixed; render and navigation regression tests added |
+| Customer-facing copy honesty pass | #94 | Fixed; covered by `tests/customer-facing-content.test.mjs` |
+| Platform polish and calendar copy | #88 | Implemented, pending release QA |
+| Production deploy retries after Vercel rate limiting | #93 | Deployment operation only; no product change |
+
 ## Commercial launch checklist
 
 | Work | Classification |
